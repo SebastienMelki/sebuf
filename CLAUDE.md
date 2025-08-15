@@ -4,23 +4,23 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is `sebuf`, a Go protobuf code generator plugin that creates helper functions for protobuf messages with oneof fields. The main binary is `protoc_gen_go_helpers`, which generates convenience constructors for oneof field assignments.
+This is `sebuf`, a Go protobuf code generator plugin that creates helper functions for protobuf messages with oneof fields. The main binary is `protoc-gen-go-oneof-helper`, which generates convenience constructors for oneof field assignments.
 
 ## Architecture
 
 The project follows a clean Go protoc plugin architecture with separated concerns:
 
-- **cmd/protoc_gen_go_helpers/main.go**: Minimal plugin entry point (protoc interface only)
-- **internal/generator/**: Core generation logic and utilities  
-- **internal/**: Comprehensive test suite with golden file testing
+- **cmd/protoc-gen-go-oneof-helper/main.go**: Minimal plugin entry point (protoc interface only)
+- **internal/oneofhelper/**: Core generation logic and utilities  
+- **internal/oneofhelper/**: Comprehensive test suite with golden file testing
 - **scripts/**: Test automation scripts
 
 ### Core Components
 
-1. **Plugin Entry Point** (`main()` in cmd/protoc_gen_go_helpers/main.go:14): Minimal orchestration - reads protobuf CodeGeneratorRequest from stdin, delegates to generator package, writes response to stdout
-2. **Code Generation** (`GenerateHelpers()` at internal/generator/generator.go:12): Iterates through protobuf files and generates helper functions for messages with oneofs
-3. **Helper Generation** (`GenerateOneofHelper()` at generator.go:35): Creates constructor functions for oneof fields, handling complex parameter mapping from nested message fields
-4. **Type System** (`GetFieldType()` at generator.go:76): Comprehensive protobuf-to-Go type mapping including maps, arrays, optionals, and message types
+1. **Plugin Entry Point** (`main()` in cmd/protoc-gen-go-oneof-helper/main.go:14): Minimal orchestration - reads protobuf CodeGeneratorRequest from stdin, delegates to oneofhelper package, writes response to stdout
+2. **Code Generation** (`GenerateHelpers()` at internal/oneofhelper/generator.go:13): Iterates through protobuf files and generates helper functions for messages with oneofs
+3. **Helper Generation** (`GenerateMessageHelpers()` at generator.go:30): Creates constructor functions for oneof fields, handling complex parameter mapping from nested message fields
+4. **Type System** (`getFieldType()` at generator.go:118): Comprehensive protobuf-to-Go type mapping including maps, arrays, optionals, and message types
 
 ### Generated Output Pattern
 
@@ -63,7 +63,7 @@ go test -v -run TestExhaustiveGoldenFiles   # Golden file tests
 ### Building
 ```bash
 # Build the plugin binary
-go build -o protoc_gen_go_helpers ./cmd/protoc_gen_go_helpers
+go build -o protoc-gen-go-oneof-helper ./cmd/protoc-gen-go-oneof-helper
 
 # Format code
 go fmt ./...
@@ -72,10 +72,10 @@ go fmt ./...
 ### Manual Testing
 ```bash
 # Test plugin with sample proto file
-protoc --plugin=protoc_gen_go_helpers=./protoc_gen_go_helpers \
+protoc --plugin=protoc-gen-go-oneof-helper=./protoc-gen-go-oneof-helper \
        --go-helpers_out=. \
-       --proto_path=internal/testdata/proto \
-       internal/testdata/proto/simple_oneof.proto
+       --proto_path=internal/oneofhelper/testdata/proto \
+       internal/oneofhelper/testdata/proto/simple_oneof.proto
 ```
 
 ## Testing Strategy
@@ -85,17 +85,17 @@ The project uses a comprehensive two-tier testing approach:
 ### Golden File Tests (Primary)
 - **Exhaustive regression detection**: Catches ANY change in generated output down to single characters
 - **Real protoc execution**: Tests actual plugin behavior, not mocked components
-- **File locations**: internal/exhaustive_golden_test.go, internal/golden_test.go
-- **Test data**: internal/testdata/proto/*.proto → internal/testdata/golden/*_helpers.pb.go
+- **File locations**: internal/oneofhelper/exhaustive_golden_test.go, internal/oneofhelper/golden_test.go
+- **Test data**: internal/oneofhelper/testdata/proto/*.proto → internal/oneofhelper/testdata/golden/*_helpers.pb.go
 
 ### Unit Tests (Secondary)
 - **Function-level testing**: Tests individual functions like `lowerFirst()`, `getFieldType()`
 - **Mocked components**: Uses protogen mocks for isolated testing
-- **File locations**: internal/simple_test.go, internal/comprehensive_test.go
+- **File locations**: internal/oneofhelper/simple_test.go, internal/oneofhelper/comprehensive_test.go
 
 ## Type System
 
-The plugin handles comprehensive protobuf-to-Go type mapping in `getFieldType()` (main.go:132):
+The plugin handles comprehensive protobuf-to-Go type mapping in `getFieldType()` (generator.go:118):
 
 - **Scalar types**: string, bool, int32/64, uint32/64, float32/64, bytes
 - **Complex types**: repeated fields (slices), map fields, optional fields (pointers)
@@ -106,7 +106,7 @@ The plugin handles comprehensive protobuf-to-Go type mapping in `getFieldType()`
 
 ### Oneof Detection Logic
 - Only generates helpers for oneof fields that contain message types (not scalar types)
-- Recursively processes nested messages to find all oneofs (internal/generator/generator.go:25)
+- Recursively processes nested messages to find all oneofs (internal/oneofhelper/generator.go:26)
 - Uses protogen reflection to inspect field properties
 
 ### Parameter Generation  
@@ -121,8 +121,6 @@ The plugin handles comprehensive protobuf-to-Go type mapping in `getFieldType()`
 ## Project Structure
 
 The repository contains:
-- **cmd/protoc_gen_go_helpers/**: Minimal plugin entry point (47 lines)
-- **internal/generator/**: Core generation logic (all business logic moved here)
-- **internal/**: Comprehensive test suite with golden file testing
+- **cmd/protoc-gen-go-oneof-helper/**: Minimal plugin entry point (47 lines)
+- **internal/oneofhelper/**: Core generation logic and comprehensive test suite
 - **scripts/run_tests.sh**: Advanced test runner with coverage analysis and reporting
-- **testdata/**: Proto files and expected generated output for testing
