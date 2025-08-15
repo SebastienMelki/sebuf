@@ -5,10 +5,11 @@ import (
 	"io"
 	"os"
 
-	"github.com/SebastienMelki/sebuf/internal/oneofhelper"
 	"google.golang.org/protobuf/compiler/protogen"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/pluginpb"
+
+	"github.com/SebastienMelki/sebuf/internal/oneofhelper"
 )
 
 func main() {
@@ -25,6 +26,7 @@ func main() {
 
 	// Process with protogen helper
 	opts := protogen.Options{}
+
 	plugin, err := opts.New(&req)
 	if err != nil {
 		panic(err)
@@ -34,14 +36,17 @@ func main() {
 		if !file.Generate {
 			continue
 		}
+
 		oneofhelper.GenerateHelpers(plugin, file)
 	}
 
 	// Write response to stdout
 	resp := plugin.Response()
+
 	output, err := proto.Marshal(resp)
 	if err != nil {
 		panic(err)
 	}
+
 	os.Stdout.Write(output)
 }

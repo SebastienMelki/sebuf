@@ -3,13 +3,13 @@ package oneofhelper
 
 import (
 	"fmt"
-	"google.golang.org/protobuf/reflect/protoreflect"
 	"strings"
 
 	"google.golang.org/protobuf/compiler/protogen"
+	"google.golang.org/protobuf/reflect/protoreflect"
 )
 
-// GenerateHelpers generates helper functions for all messages with oneofs in the given file
+// GenerateHelpers generates helper functions for all messages with oneofs in the given file.
 func GenerateHelpers(plugin *protogen.Plugin, file *protogen.File) {
 	filename := file.GeneratedFilenamePrefix + "_helpers.pb.go"
 	g := plugin.NewGeneratedFile(filename, file.GoImportPath)
@@ -27,7 +27,7 @@ func GenerateHelpers(plugin *protogen.Plugin, file *protogen.File) {
 	}
 }
 
-// GenerateMessageHelpers generates helper functions for a single message and its nested messages
+// GenerateMessageHelpers generates helper functions for a single message and its nested messages.
 func GenerateMessageHelpers(g *protogen.GeneratedFile, message *protogen.Message) {
 	// Look for oneofs
 	for _, oneof := range message.Oneofs {
@@ -43,10 +43,10 @@ func GenerateMessageHelpers(g *protogen.GeneratedFile, message *protogen.Message
 	}
 }
 
-// GenerateOneofHelper generates a helper function for a specific oneof field
+// GenerateOneofHelper generates a helper function for a specific oneof field.
 func GenerateOneofHelper(g *protogen.GeneratedFile, message *protogen.Message,
-	oneof *protogen.Oneof, field *protogen.Field) {
-
+	oneof *protogen.Oneof, field *protogen.Field,
+) {
 	// Generate helper function name
 	helperName := fmt.Sprintf("New%s%s", message.GoIdent.GoName, field.GoName)
 
@@ -57,6 +57,7 @@ func GenerateOneofHelper(g *protogen.GeneratedFile, message *protogen.Message,
 	if field.Message != nil {
 		// Build parameter list from the nested message fields
 		var params []string
+
 		var paramAssignments []string
 
 		for _, nestedField := range field.Message.Fields {
@@ -75,9 +76,11 @@ func GenerateOneofHelper(g *protogen.GeneratedFile, message *protogen.Message,
 		g.P("\treturn &", message.GoIdent.GoName, "{")
 		g.P("\t\t", oneof.GoName, ": &", wrapperType, "{")
 		g.P("\t\t\t", field.GoName, ": &", g.QualifiedGoIdent(field.Message.GoIdent), "{")
+
 		for _, assignment := range paramAssignments {
 			g.P(assignment)
 		}
+
 		g.P("\t\t\t},")
 		g.P("\t\t},")
 		g.P("\t}")
@@ -87,20 +90,21 @@ func GenerateOneofHelper(g *protogen.GeneratedFile, message *protogen.Message,
 }
 
 // LowerFirst converts the first character of a string to lowercase
-// This function is exported for testing purposes
+// This function is exported for testing purposes.
 func LowerFirst(s string) string {
 	return lowerFirst(s)
 }
 
-// lowerFirst is the internal implementation
+// lowerFirst is the internal implementation.
 func lowerFirst(s string) string {
 	if s == "" {
 		return ""
 	}
+
 	return strings.ToLower(s[:1]) + s[1:]
 }
 
-// GetFieldType determines the Go type for a protobuf field
+// GetFieldType determines the Go type for a protobuf field.
 func GetFieldType(g *protogen.GeneratedFile, field *protogen.Field) string {
 	// Handle repeated fields
 	if field.Desc.IsList() {
@@ -114,6 +118,7 @@ func GetFieldType(g *protogen.GeneratedFile, field *protogen.Field) string {
 
 		// For map values, create a temporary field to get the type
 		var valueType string
+
 		switch field.Desc.MapValue().Kind() {
 		case protoreflect.MessageKind:
 			// Find the actual message type for the map value
@@ -122,10 +127,12 @@ func GetFieldType(g *protogen.GeneratedFile, field *protogen.Field) string {
 				for _, f := range field.Message.Fields {
 					if f.Desc.Number() == 2 { // value field is always number 2
 						valueType = getSingleFieldType(g, f)
+
 						break
 					}
 				}
 			}
+
 			if valueType == "" {
 				valueType = "interface{}"
 			}
@@ -228,6 +235,7 @@ func getSingleFieldType(g *protogen.GeneratedFile, field *protogen.Field) string
 		if field.Enum != nil {
 			return g.QualifiedGoIdent(field.Enum.GoIdent)
 		}
+
 		return "int32" // fallback for enums
 
 	// Message type
@@ -235,6 +243,7 @@ func getSingleFieldType(g *protogen.GeneratedFile, field *protogen.Field) string
 		if field.Message != nil {
 			return "*" + g.QualifiedGoIdent(field.Message.GoIdent)
 		}
+
 		return "*interface{}" // fallback
 
 	// Group type (deprecated but still supported)
@@ -242,6 +251,7 @@ func getSingleFieldType(g *protogen.GeneratedFile, field *protogen.Field) string
 		if field.Message != nil {
 			return "*" + g.QualifiedGoIdent(field.Message.GoIdent)
 		}
+
 		return "*interface{}"
 
 	default:
