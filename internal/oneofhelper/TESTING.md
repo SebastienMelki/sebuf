@@ -183,22 +183,22 @@ Run with `go test -short` to skip longer regression tests during development.
 ### Regenerating All Golden Files:
 ```bash
 # Build plugin
-go build -o protoc_gen_go_helpers .
+go build -o protoc-gen-go-oneof-helper .
 
 # Generate all golden files  
 for proto in testdata/proto/*.proto; do
-    protoc --plugin=protoc_gen_go_helpers=./protoc_gen_go_helpers \
+    protoc --plugin=protoc-gen-go-oneof-helper=./protoc-gen-go-oneof-helper \
            --go-helpers_out=testdata/golden \
            --proto_path=testdata/proto \
            "$proto"
 done
 
 # Move files to flat structure
-mv testdata/golden/github.com/anghami/anghamak-go/cmd/protoc_gen_go_helpers/testdata/* testdata/golden/
+mv testdata/golden/github.com/anghami/anghamak-go/cmd/protoc-gen-go-oneof-helper/testdata/* testdata/golden/
 rm -rf testdata/golden/github.com
 
 # Clean up
-rm protoc_gen_go_helpers
+rm protoc-gen-go-oneof-helper
 ```
 
 This test suite ensures that any refactoring of the plugin will maintain 100% output compatibility! 🎯

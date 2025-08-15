@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package testdata;
 
-option go_package = "github.com/anghami/anghamak-go/cmd/protoc_gen_go_helpers/testdata";
+option go_package = "github.com/anghami/anghamak-go/cmd/protoc-gen-go-oneof-helper/testdata";
 
 message SimpleMessage {
   message EmailAuth {
