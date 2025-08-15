@@ -1,5 +1,5 @@
 // internal/protoc-gen-go-oneof-helper/protoc-gen-go-oneof-helper.go
-package protoc_gen_go_helpers
+package oneofhelper
 
 import (
 	"fmt"

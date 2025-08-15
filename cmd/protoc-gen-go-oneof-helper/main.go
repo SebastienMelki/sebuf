@@ -1,11 +1,11 @@
-// cmd/protoc_gen_go_helpers/main.go
+// cmd/protoc-gen-go-oneof-helper/main.go
 package main
 
 import (
 	"io"
 	"os"
 
-	"github.com/SebastienMelki/sebuf/internal/protoc_gen_go_helpers"
+	"github.com/SebastienMelki/sebuf/internal/oneofhelper"
 	"google.golang.org/protobuf/compiler/protogen"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/pluginpb"
@@ -34,7 +34,7 @@ func main() {
 		if !file.Generate {
 			continue
 		}
-		protoc_gen_go_helpers.GenerateHelpers(plugin, file)
+		oneofhelper.GenerateHelpers(plugin, file)
 	}
 
 	// Write response to stdout
