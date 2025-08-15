@@ -1,4 +1,4 @@
-// internal/protoc-gen-go-oneof-helper/protoc-gen-go-oneof-helper.go
+// Package oneofhelper provides helper functions for protobuf messages with oneof fields.
 package oneofhelper
 
 import (
@@ -7,6 +7,20 @@ import (
 
 	"google.golang.org/protobuf/compiler/protogen"
 	"google.golang.org/protobuf/reflect/protoreflect"
+)
+
+const (
+	goString            = "string"
+	goInt32             = "int32"
+	goInt64             = "int64"
+	goUint32            = "uint32"
+	goUint64            = "uint64"
+	goBool              = "bool"
+	goFloat32           = "float32"
+	goFloat64           = "float64"
+	goBytes             = "[]byte"
+	goInterface         = "interface{}"
+	mapValueFieldNumber = 2
 )
 
 // GenerateHelpers generates helper functions for all messages with oneofs in the given file.
@@ -113,38 +127,7 @@ func GetFieldType(g *protogen.GeneratedFile, field *protogen.Field) string {
 
 	// Handle map fields
 	if field.Desc.IsMap() {
-		// For map keys, we need to handle the key type specially
-		keyType := getMapKeyType(field.Desc.MapKey())
-
-		// For map values, create a temporary field to get the type
-		var valueType string
-
-		switch field.Desc.MapValue().Kind() {
-		case protoreflect.MessageKind:
-			// Find the actual message type for the map value
-			if field.Message != nil && field.Message.Fields != nil && len(field.Message.Fields) > 1 {
-				// Map entry messages have exactly 2 fields: key and value
-				for _, f := range field.Message.Fields {
-					if f.Desc.Number() == 2 { // value field is always number 2
-						valueType = getSingleFieldType(g, f)
-
-						break
-					}
-				}
-			}
-
-			if valueType == "" {
-				valueType = "interface{}"
-			}
-		default:
-			// For non-message types, use a temporary field
-			tempField := &protogen.Field{
-				Desc: field.Desc.MapValue(),
-			}
-			valueType = getSingleFieldType(g, tempField)
-		}
-
-		return "map[" + keyType + "]" + valueType
+		return getMapType(g, field)
 	}
 
 	// Handle optional fields (proto3 optional)
@@ -155,34 +138,89 @@ func GetFieldType(g *protogen.GeneratedFile, field *protogen.Field) string {
 	return getSingleFieldType(g, field)
 }
 
+func getMapType(g *protogen.GeneratedFile, field *protogen.Field) string {
+	// For map keys, we need to handle the key type specially
+	keyType := getMapKeyType(field.Desc.MapKey())
+	valueType := getMapValueType(g, field)
+
+	return "map[" + keyType + "]" + valueType
+}
+
+func getMapValueType(g *protogen.GeneratedFile, field *protogen.Field) string {
+	switch field.Desc.MapValue().Kind() {
+	case protoreflect.BoolKind:
+		return goBool
+	case protoreflect.EnumKind:
+		return goInt32
+	case protoreflect.Int32Kind, protoreflect.Sint32Kind, protoreflect.Sfixed32Kind:
+		return goInt32
+	case protoreflect.Uint32Kind, protoreflect.Fixed32Kind:
+		return goUint32
+	case protoreflect.Int64Kind, protoreflect.Sint64Kind, protoreflect.Sfixed64Kind:
+		return goInt64
+	case protoreflect.Uint64Kind, protoreflect.Fixed64Kind:
+		return goUint64
+	case protoreflect.FloatKind:
+		return goFloat32
+	case protoreflect.DoubleKind:
+		return goFloat64
+	case protoreflect.StringKind:
+		return goString
+	case protoreflect.BytesKind:
+		return goBytes
+	case protoreflect.GroupKind, protoreflect.MessageKind:
+		return getMapMessageValueType(g, field)
+	default:
+		// For non-message types, use a temporary field
+		tempField := &protogen.Field{
+			Desc: field.Desc.MapValue(),
+		}
+		return getSingleFieldType(g, tempField)
+	}
+}
+
+func getMapMessageValueType(g *protogen.GeneratedFile, field *protogen.Field) string {
+	// Find the actual message type for the map value
+	if field.Message != nil && field.Message.Fields != nil && len(field.Message.Fields) > 1 {
+		// Map entry messages have exactly 2 fields: key and value
+		for _, f := range field.Message.Fields {
+			if f.Desc.Number() == mapValueFieldNumber { // value field is always number 2
+				return getSingleFieldType(g, f)
+			}
+		}
+	}
+
+	return goInterface
+}
+
 func getMapKeyType(desc protoreflect.FieldDescriptor) string {
 	switch desc.Kind() {
 	case protoreflect.StringKind:
-		return "string"
-	case protoreflect.Int32Kind:
-		return "int32"
-	case protoreflect.Int64Kind:
-		return "int64"
-	case protoreflect.Uint32Kind:
-		return "uint32"
-	case protoreflect.Uint64Kind:
-		return "uint64"
-	case protoreflect.Sint32Kind:
-		return "int32"
-	case protoreflect.Sint64Kind:
-		return "int64"
-	case protoreflect.Fixed32Kind:
-		return "uint32"
-	case protoreflect.Fixed64Kind:
-		return "uint64"
-	case protoreflect.Sfixed32Kind:
-		return "int32"
-	case protoreflect.Sfixed64Kind:
-		return "int64"
+		return goString
+	case protoreflect.Int32Kind, protoreflect.Sint32Kind, protoreflect.Sfixed32Kind:
+		return goInt32
+	case protoreflect.Int64Kind, protoreflect.Sint64Kind, protoreflect.Sfixed64Kind:
+		return goInt64
+	case protoreflect.Uint32Kind, protoreflect.Fixed32Kind:
+		return goUint32
+	case protoreflect.Uint64Kind, protoreflect.Fixed64Kind:
+		return goUint64
 	case protoreflect.BoolKind:
-		return "bool"
+		return goBool
+	case protoreflect.EnumKind:
+		return goInt32
+	case protoreflect.FloatKind:
+		return goFloat32
+	case protoreflect.DoubleKind:
+		return goFloat64
+	case protoreflect.BytesKind:
+		return goBytes
+	case protoreflect.MessageKind:
+		return goInterface
+	case protoreflect.GroupKind:
+		return goInterface
 	default:
-		return "string"
+		return goString
 	}
 }
 
@@ -190,45 +228,45 @@ func getSingleFieldType(g *protogen.GeneratedFile, field *protogen.Field) string
 	switch field.Desc.Kind() {
 	// String types
 	case protoreflect.StringKind:
-		return "string"
+		return goString
 
 	// Boolean type
 	case protoreflect.BoolKind:
-		return "bool"
+		return goBool
 
 	// Integer types
 	case protoreflect.Int32Kind:
-		return "int32"
+		return goInt32
 	case protoreflect.Int64Kind:
-		return "int64"
+		return goInt64
 	case protoreflect.Sint32Kind:
-		return "int32"
+		return goInt32
 	case protoreflect.Sint64Kind:
-		return "int64"
+		return goInt64
 	case protoreflect.Sfixed32Kind:
-		return "int32"
+		return goInt32
 	case protoreflect.Sfixed64Kind:
-		return "int64"
+		return goInt64
 
 	// Unsigned integer types
 	case protoreflect.Uint32Kind:
-		return "uint32"
+		return goUint32
 	case protoreflect.Uint64Kind:
-		return "uint64"
+		return goUint64
 	case protoreflect.Fixed32Kind:
-		return "uint32"
+		return goUint32
 	case protoreflect.Fixed64Kind:
-		return "uint64"
+		return goUint64
 
 	// Floating point types
 	case protoreflect.FloatKind:
-		return "float32"
+		return goFloat32
 	case protoreflect.DoubleKind:
-		return "float64"
+		return goFloat64
 
 	// Bytes type
 	case protoreflect.BytesKind:
-		return "[]byte"
+		return goBytes
 
 	// Enum type
 	case protoreflect.EnumKind:
@@ -236,7 +274,7 @@ func getSingleFieldType(g *protogen.GeneratedFile, field *protogen.Field) string
 			return g.QualifiedGoIdent(field.Enum.GoIdent)
 		}
 
-		return "int32" // fallback for enums
+		return goInt32 // fallback for enums
 
 	// Message type
 	case protoreflect.MessageKind:
@@ -255,6 +293,6 @@ func getSingleFieldType(g *protogen.GeneratedFile, field *protogen.Field) string
 		return "*interface{}"
 
 	default:
-		return "interface{}"
+		return goInterface
 	}
 }

@@ -20,8 +20,8 @@ func main() {
 	}
 
 	var req pluginpb.CodeGeneratorRequest
-	if err := proto.Unmarshal(input, &req); err != nil {
-		panic(err)
+	if unmarshalErr := proto.Unmarshal(input, &req); unmarshalErr != nil {
+		panic(unmarshalErr)
 	}
 
 	// Process with protogen helper
@@ -48,5 +48,7 @@ func main() {
 		panic(err)
 	}
 
-	os.Stdout.Write(output)
+	if _, writeErr := os.Stdout.Write(output); writeErr != nil {
+		panic(writeErr)
+	}
 }
