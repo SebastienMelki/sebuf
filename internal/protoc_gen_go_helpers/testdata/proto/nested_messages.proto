@@ -1,0 +1,37 @@
+syntax = "proto3";
+
+package testdata;
+
+option go_package = "github.com/anghami/anghamak-go/cmd/protoc_gen_go_helpers/testdata";
+
+message OuterMessage {
+  message InnerMessage {
+    message DeepConfig {
+      string value = 1;
+      int32 count = 2;
+    }
+
+    message SimpleConfig {
+      string name = 1;
+    }
+
+    oneof config_type {
+      DeepConfig deep = 1;
+      SimpleConfig simple = 2;
+    }
+  }
+
+  InnerMessage inner = 1;
+
+  message AnotherInner {
+    message Setting {
+      bool enabled = 1;
+    }
+
+    oneof option {
+      Setting setting = 1;
+    }
+  }
+
+  AnotherInner another = 2;
+}

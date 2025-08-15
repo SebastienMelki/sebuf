@@ -1,0 +1,21 @@
+syntax = "proto3";
+
+package testdata;
+
+option go_package = "github.com/anghami/anghamak-go/cmd/protoc_gen_go_helpers/testdata";
+
+message SimpleMessage {
+  message EmailAuth {
+    string email = 1;
+    string password = 2;
+  }
+
+  message TokenAuth {
+    string token = 1;
+  }
+
+  oneof auth_method {
+    EmailAuth email = 1;
+    TokenAuth token = 2;
+  }
+}

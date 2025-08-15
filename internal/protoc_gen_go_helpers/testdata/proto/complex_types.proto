@@ -1,0 +1,39 @@
+syntax = "proto3";
+
+package testdata;
+
+option go_package = "github.com/anghami/anghamak-go/cmd/protoc_gen_go_helpers/testdata";
+
+enum Status {
+  STATUS_UNKNOWN = 0;
+  STATUS_ACTIVE = 1;
+  STATUS_INACTIVE = 2;
+}
+
+message ComplexMessage {
+  message DatabaseConfig {
+    string host = 1;
+    int32 port = 2;
+    repeated string databases = 3;
+    map<string, string> options = 4;
+    bool ssl_enabled = 5;
+    Status status = 6;
+  }
+
+  message RedisConfig {
+    string address = 1;
+    int32 database = 2;
+    string password = 3;
+  }
+
+  message FileConfig {
+    string path = 1;
+    repeated string allowed_extensions = 2;
+  }
+
+  oneof storage_config {
+    DatabaseConfig database = 1;
+    RedisConfig redis = 2;
+    FileConfig file = 3;
+  }
+}
