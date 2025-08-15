@@ -1,0 +1,534 @@
+# golangci-lint v2 configuration file for hexago project
+# This configuration provides comprehensive code quality checks for Go projects
+
+version: "2"
+
+# Run configuration
+run:
+  timeout: 10m
+  go: '1.24'
+  tests: true
+  modules-download-mode: readonly
+
+# Formatters configuration
+formatters:
+  enable:
+    - gofmt           # Standard Go formatter
+    - goimports       # Go imports formatter
+    - gci             # Gci controls golang imports order and makes them always deterministic
+    - gofumpt         # Stricter gofmt with more rules
+  
+  settings:
+    gci:
+      # Define import sections order
+      sections:
+        - standard                        # Standard Go packages
+        - default                         # Third-party packages
+        - prefix(github.com/anghami)      # Company packages
+        - prefix(github.com/anghami/hexago) # Current project
+      # Custom import separators
+      custom-order: true
+    
+    gofumpt:
+      # Choose whether to use the extra rules
+      extra-rules: true
+      # Choose whether to use the module path
+      module-path: github.com/anghami/hexago
+
+# Linters configuration
+linters:
+  # Start with default linters disabled and enable specific ones
+  default: none
+  enable:
+    # Basic essential linters
+    - errcheck
+    - govet
+    - staticcheck
+    - unused
+    
+    # Code Quality & Style linters
+    - revive          # Comprehensive Go style checker
+    - gocritic        # Comprehensive Go analysis with many rules
+    - asciicheck      # Checks for non-ASCII identifiers
+    - misspell        # Finds common misspellings
+    - unconvert       # Removes unnecessary type conversions
+    - varnamelen      # Checks variable name lengths
+    - whitespace      # Checks for trailing whitespace
+    - nlreturn        # Checks for new lines in return statements
+    - wsl             # Enforces empty lines at the right places
+    
+    # Bug Detection & Safety linters
+    - nilnil          # Checks for simultaneous return of nil error and invalid value
+    - nilerr          # Finds code that returns nil even if it checks error is not nil
+    - nilnesserr      # Reports constructs with different nil value error
+    - forcetypeassert # Finds forced type assertions
+    - makezero        # Finds slice declarations that could potentially be preallocated
+    - reassign        # Checks that package variables are not reassigned
+    - contextcheck    # Check whether function uses a non-inherited context
+    - durationcheck   # Check for two durations multiplied together
+    - gochecksumtype  # Run exhaustiveness checks on Go "sum types"
+    - exhaustive      # Check exhaustiveness of enum switch statements
+    - musttag         # Enforce field tags in (un)marshaled structs
+    
+    # Performance & Efficiency linters
+    - prealloc        # Finds slice declarations that could potentially be pre-allocated
+    - bodyclose       # Checks whether HTTP response body is closed successfully
+    - goconst         # Finds repeated strings that could be replaced by a constant
+    - perfsprint      # Checks that fmt.Sprintf can be replaced with faster alternatives
+    - noctx           # Finds sending http request without context.Context
+    - fatcontext      # Detects nested contexts in loops and function literals
+    - sqlclosecheck   # Checks that sql.Rows, sql.Stmt are closed
+    - wastedassign    # Finds wasted assignment statements
+    - ineffassign     # Detects when assignments to existing variables are not used
+    
+    # Error Handling linters
+    - errorlint       # Errorlint finds code that will cause problems with Go 1.13 error wrapping
+    - wrapcheck       # Checks that errors returned from external packages are wrapped
+    - err113          # Go linter to check the errors handling expressions
+    - errname         # Checks that sentinel errors are prefixed with Err and error types suffixed with Error
+    - errchkjson      # Checks types passed to json encoding functions
+    
+    # Security linters
+    - gosec           # Inspects source code for security problems
+    - rowserrcheck    # Checks whether Rows.Err of rows is checked successfully
+    - spancheck       # Checks for mistakes with OpenTelemetry/Census spans
+    - gochecknoglobals # Check that no global variables exist
+    - gochecknoinits  # Checks that no init functions are present
+    - bidichk         # Checks for dangerous unicode character sequences
+    
+    # Code Complexity linters
+    - gocyclo         # Computes and checks the cyclomatic complexity of functions
+    - cyclop          # Checks function and package cyclomatic complexity
+    - gocognit        # Computes and checks the cognitive complexity of functions
+    - funlen          # Checks for long functions
+    - nestif          # Reports deeply nested if statements
+    - maintidx        # Maintidx measures the maintainability index of each function
+    
+    # Dead Code & Unused detection linters (unused, ineffassign already enabled)
+    - unparam         # Reports unused function parameters
+    
+    # Import Management linters (gci, goimports already in formatters)
+    - importas        # Enforces consistent import aliases
+    - gomodguard      # Allow and block list linter for direct Go module dependencies
+    - gomoddirectives # Manage the use of replace, retract, excludes directives in go.mod
+    - depguard        # Go linter that checks if package imports are in a list of acceptable packages
+    
+    # Documentation linters
+    - godot           # Check if comments end in a period
+    - godox           # Detects usage of FIXME, TODO and other keywords inside comments
+    - goheader        # Checks if file header matches to pattern
+    
+    # Testing Quality linters  
+    - testpackage     # Linter that makes you use a separate _test package
+    - testifylint     # Checks usage of github.com/stretchr/testify
+    - tparallel       # Detects inappropriate usage of t.Parallel() method
+    - paralleltest    # Detects missing usage of t.Parallel() method
+    - thelper         # Detects test helpers which don't start with t.Helper() method
+    
+    # Concurrency linters (govet, staticcheck already cover many race conditions)
+    - copyloopvar     # A linter detects places where loop variables are copied
+    - recvcheck       # Checks for receiver type consistency
+    - gosmopolitan    # Report certain i18n/l10n anti-patterns
+
+  # Exclusions for linters
+  exclusions:
+    # Exclude certain linters from test files
+    rules:
+      - path: '(.+)_test\.go'
+        linters:
+          - wsl           # Test files can be less strict about whitespace
+          - nlreturn      # Test files can be less strict about blank lines
+          - varnamelen    # Test files often have short variable names
+          - paralleltest  # Don't enforce t.Parallel() in all tests
+          - testpackage   # Allow tests in same package for better access to private members
+      - path: 'internal/config/'
+        linters:
+          - err113        # Config parsing may use dynamic errors for validation
+      - path: 'internal/platform/database/connection.go'
+        linters:
+          - wrapcheck       # We are wrapping the sql driver for instrumentation
+      - path: 'internal/platform/database/in_memory_connection.go'
+        linters:
+          - contextcheck    # In-memory database uses custom context types
+          - gocognit        # Complex schema loading logic is acceptable for database setup
+          - gocyclo         # Complex schema loading logic is acceptable for database setup
+          - cyclop          # Complex schema loading logic is acceptable for database setup
+          - funlen          # Complex schema loading logic is acceptable for database setup
+      - path: 'internal/logging/'
+        linters:
+          - gochecknoglobals # Logging package may need global variables for context keys
+          - gochecknoinits   # Logging package may need init function for default setup
+      # Allow err variable shadowing (common Go pattern)
+      - text: 'shadow: declaration of "err" shadows declaration at'
+        linters:
+          - govet
+
+    # Use default exclusion patterns for common false positives
+    presets:
+      - comments         # Exclude comment-related false positives
+      - common-false-positives  # Exclude common false positives across linters
+      - legacy          # Exclude legacy Go version compatibility issues
+      - std-error-handling     # Exclude standard error handling patterns
+    
+    # Generated files exclusion
+    generated: strict
+    
+    # Additional path-based exclusions
+    paths:
+      - vendor/         # Exclude vendor directory
+      - third_party/    # Exclude third party code
+      - ".*\\.pb\\.go$" # Exclude protobuf generated files
+      - ".*\\.gen\\.go$" # Exclude other generated files
+
+  # Basic linter settings
+  settings:
+    # Style and quality linter settings
+    revive:
+      # Use default rules but with some customization
+      rules:
+        - name: blank-imports
+        - name: context-as-argument
+        - name: context-keys-type
+        - name: dot-imports
+        - name: error-return
+        - name: error-strings
+        - name: error-naming
+        - name: exported
+        - name: if-return
+        - name: increment-decrement
+        - name: var-naming
+        - name: var-declaration
+        - name: package-comments
+        - name: range-val-in-closure
+        - name: range-val-address
+        - name: time-naming
+        - name: unexported-return
+        - name: indent-error-flow
+        - name: errorf
+        - name: empty-block
+        - name: superfluous-else
+        - name: unused-parameter
+        - name: unreachable-code
+        - name: redefines-builtin-id
+
+    gocritic:
+      # Enable all gocritic checks
+      enabled-tags:
+        - diagnostic
+        - style
+        - performance
+        - experimental
+        - opinionated
+      disabled-checks:
+        - ifElseChain      # Can be too noisy
+        - singleCaseSwitch # Sometimes single case switch is clearer
+        - octalLiteral     # Octal literals are sometimes needed
+      settings:
+        hugeParam:
+          # Increase threshold to 1.5KB (1536 bytes) for heavy parameters
+          sizeThreshold: 1536
+
+
+    varnamelen:
+      # Minimum length of variable names
+      min-name-length: 1
+      # Ignore certain common short names
+      ignore-names:
+        - err
+        - ok
+        - i
+        - j
+        - k
+        - v
+        - id
+        - db
+        - tx
+        - ctx
+        - wg
+        - mu
+      # Ignore variables used in type switches
+      ignore-type-assert-ok: true
+      # Ignore variables used in map access
+      ignore-map-index-ok: true
+      # Ignore variables used in channel operations
+      ignore-chan-recv-ok: true
+      # Ignore variables in function declarations
+      ignore-decls:
+        - c echo.Context
+        - t testing.T
+        - f *testing.F
+        - m *testing.M
+        - b *testing.B
+      
+    errcheck:
+      # Check type assertions by default
+      check-type-assertions: true
+      # Check blank assignments
+      check-blank: true
+      # Exclude common safe functions
+      exclude-functions:
+        - io.Copy(os.Stdout)
+        - io.Copy(os.Stderr)
+        - (*os.File).Close
+        - (*database/sql.Rows).Close
+        - (*database/sql.Stmt).Close
+        - (*net/http.Response.Body).Close
+
+    govet:
+      # Enable all govet checks
+      enable-all: true
+      # Disable specific checks that might be too noisy
+      disable:
+        - fieldalignment  # Can be too pedantic about struct field ordering
+
+    staticcheck:
+      # Enable all staticcheck rules
+      checks:
+        - all
+
+    # Bug Detection & Safety linter settings
+    exhaustive:
+      # Indicates that switch statements should ignore missing enum values
+      ignore-enum-members: "Example.+"
+      # Check switch statements that are missing a default case
+      default-signifies-exhaustive: true
+
+    makezero:
+      # Allow always-zero initialization
+      always: false
+
+
+    # Performance & Efficiency linter settings
+    prealloc:
+      # Report pre-allocation suggestions only on simple loops that have no returns/breaks/continues/gotos in them
+      simple: true
+      # Report pre-allocation suggestions for range loops  
+      range-loops: true
+      # Report pre-allocation suggestions for loops that append to a slice passed as a parameter
+      for-loops: false
+
+    goconst:
+      # Minimal length of string constant
+      min-len: 3
+      # Minimum occurrences count to trigger
+      min-occurrences: 3
+      # Look for existing constants to match against
+      match-constant: true
+      # Search also for numbers
+      numbers: false
+      # Minimum value, only works with goconst.numbers
+      min: 3
+      # Maximum value, only works with goconst.numbers  
+      max: 3
+      # Ignore when constant is not used as function argument
+      ignore-calls: true
+
+    # Error Handling linter settings
+    errorlint:
+      # Check whether fmt.Errorf uses the %w verb for formatting errors
+      errorf: true
+      # Check for plain type assertions and type switches
+      asserts: true
+      # Check for plain error comparisons
+      comparison: true
+
+
+    # Security linter settings
+    gosec:
+      # Includes rules
+      includes:
+        - G101 # Look for hard coded credentials
+        - G102 # Bind to all interfaces
+        - G103 # Audit the use of unsafe block
+        - G104 # Audit errors not checked
+        - G106 # Audit the use of ssh.InsecureIgnoreHostKey
+        - G107 # Url provided to HTTP request as taint input
+        - G108 # Profiling endpoint automatically exposed on /debug/pprof
+        - G109 # Potential Integer overflow made by strconv.Atoi result conversion to int16/32
+        - G110 # Potential DoS vulnerability via decompression bomb
+        - G201 # SQL query construction using format string
+        - G202 # SQL query construction using string concatenation
+        - G203 # Use of unescaped data in HTML templates
+        - G204 # Audit use of command execution
+        - G301 # Poor file permissions used when creating a directory
+        - G302 # Poor file permissions used with chmod
+        - G303 # Creating tempfile using a predictable path
+        - G304 # File path provided as taint input
+        - G305 # File traversal when extracting zip/tar archive
+        - G306 # Poor file permissions used when writing to a new file
+        - G307 # Deferring a method which returns an error
+        - G401 # Detect the usage of DES, RC4, MD5 or SHA1
+        - G402 # Look for bad TLS connection settings
+        - G403 # Ensure minimum RSA key length of 2048 bits
+        - G404 # Insecure random number source (rand)
+        - G501 # Import blocklist: crypto/md5
+        - G502 # Import blocklist: crypto/des
+        - G503 # Import blocklist: crypto/rc4
+        - G504 # Import blocklist: net/http/cgi
+        - G505 # Import blocklist: crypto/sha1
+        - G601 # Implicit memory aliasing of items from a range statement
+      # Excludes rules
+      excludes:
+        - G307 # Deferring a method which returns an error (can be overly strict)
+      # Additional settings
+      severity: "medium"
+      confidence: "medium"
+
+    # Code Complexity linter settings
+    gocyclo:
+      # Minimal cyclomatic complexity to trigger warning
+      min-complexity: 15
+
+    cyclop:
+      # Maximum cyclomatic complexity of a function
+      max-complexity: 15
+      # Maximum cyclomatic complexity of a package
+      package-average: 10.0
+
+    gocognit:
+      # Minimal cognitive complexity to trigger warning
+      min-complexity: 20
+
+    funlen:
+      # Checks the number of lines in a function
+      lines: 80
+      # Checks the number of statements in a function
+      statements: 40
+      # Ignore comments when calculating function length
+      ignore-comments: true
+
+    nestif:
+      # Minimal complexity of if statements to trigger warning
+      min-complexity: 5
+
+    maintidx:
+      # Show functions with maintainability index lower than N
+      under: 20
+
+    # Import Management linter settings
+    importas:
+      # Using `servingv1` alias for `knative.dev/serving/pkg/apis/serving/v1` package
+      alias:
+        - pkg: knative.dev/serving/pkg/apis/serving/v1
+          alias: servingv1
+        - pkg: github.com/prometheus/client_golang/prometheus
+          alias: prometheus
+
+    depguard:
+      # Rules to apply to the files
+      rules:
+        # Name of a rule
+        main:
+          # Packages to check
+          files:
+            - "**/*.go"
+          # List of allowed packages
+          allow:
+            - $gostd
+            - github.com/anghami
+            - github.com/joho/godotenv
+            - github.com/go-chi/chi/v5
+            - github.com/google/uuid
+            - google.golang.org/protobuf
+            - github.com/go-sql-driver/mysql
+            - github.com/dolthub/go-mysql-server
+            - github.com/sirupsen/logrus
+            - github.com/grpc-ecosystem/grpc-gateway/v2
+            - buf.build/go/protovalidate
+            - golang.org/x/term
+            - github.com/aws
+            - github.com/golang-migrate/migrate/v4
+          # Packages that are not allowed
+          deny:
+            - pkg: "github.com/pkg/errors"
+              desc: "use standard library errors or fmt.Errorf with %w"
+
+    gomodguard:
+      allowed:
+        # List of allowed modules
+        modules:
+          - github.com/joho/godotenv
+          - github.com/go-chi/chi/v5
+          - github.com/google/uuid
+          - google.golang.org/protobuf
+          - github.com/go-sql-driver/mysql
+          - github.com/dolthub/go-mysql-server
+          - github.com/sirupsen/logrus
+          - buf.build/go/protovalidate
+          - github.com/grpc-ecosystem/grpc-gateway/v2
+          - golang.org/x/term
+          - github.com/aws/aws-sdk-go-v2/aws
+          - github.com/aws/aws-sdk-go-v2/config
+          - github.com/aws/aws-sdk-go-v2/feature/rds/auth
+          - github.com/golang-migrate/migrate/v4
+        # List of allowed module domains
+        domains:
+          - github.com/anghami
+          - golang.org
+          - github.com/aws
+      blocked:
+        # List of blocked modules
+        modules:
+          - github.com/uudashr/go-module:                             # Blocked module
+              recommendations:                                        # Recommended modules that should be used instead (Optional)
+                - golang.org/x/mod
+              reason: "`mod` is the official go.mod parser library."  # Reason why the recommended module should be used (Optional)
+
+    # Documentation linter settings
+    godot:
+      # Comments to be checked: `declarations`, `toplevel`, or `all`
+      scope: declarations
+      # List of regexps for excluding particular comment lines from check
+      exclude:
+        - "^fixme:"
+        - "^todo:"
+      # Check that each sentence ends with a period
+      period: true
+      # Check that each sentence starts with a capital letter
+      capital: false
+
+    godox:
+      # Report any comments starting with keywords, this is useful for TODO or FIXME comments that
+      # might be left in the code accidentally and should be resolved before merging
+      keywords:
+        - NOTE
+        - OPTIMIZE # marks code that should be optimized before merging
+        - HACK # marks hack-around that should be removed before merging
+        - TODO
+        - BUG
+        - FIXME
+
+# Issues configuration
+issues:
+  # Maximum issues count per one linter (0 = unlimited)
+  max-issues-per-linter: 0
+  # Maximum count of issues with the same text (0 = unlimited)
+  max-same-issues: 0
+  # Show only new issues if it's a non-default branch
+  new-from-rev: ""
+  # Fix found issues (if it's supported by the linter)
+  fix: false
+  # Show issues from whole project, not only diff with the main branch
+  whole-files: false
+  # Show issues in files that were modified only 
+  new: false
+
+# Output configuration
+output:
+  # Multiple output formats
+  formats:
+    # Colored text output to stdout
+    text:
+      path: stdout
+      colors: true
+    # Optional: JSON output for CI/tooling integration
+    # json:
+    #   path: golangci-lint-report.json
+    # Optional: JUnit XML for CI integration
+    # junit-xml:
+    #   path: golangci-lint-report.xml
+  
+  # Print the path relative to the working directory
+  path-prefix: ""
+  # Show statistics per linter
+  show-stats: false
