@@ -1,4 +1,4 @@
-package protoc_gen_go_helpers
+package oneofhelper
 
 import (
 	"io/ioutil"
