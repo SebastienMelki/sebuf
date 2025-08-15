@@ -15,8 +15,8 @@ import (
 // between generated output and golden files
 func TestExhaustiveGoldenFiles(t *testing.T) {
 	// Build the plugin binary for testing
-	pluginPath := "./protoc_gen_go_helpers-golden-test"
-	buildCmd := exec.Command("go", "build", "-o", pluginPath, "../../cmd/protoc_gen_go_helpers")
+	pluginPath := "./protoc-gen-go-oneof-helper-golden-test"
+	buildCmd := exec.Command("go", "build", "-o", pluginPath, "../../cmd/protoc-gen-go-oneof-helper")
 	if err := buildCmd.Run(); err != nil {
 		t.Fatalf("Failed to build plugin: %v", err)
 	}
@@ -60,7 +60,7 @@ func TestExhaustiveGoldenFiles(t *testing.T) {
 
 			// Run protoc to generate new output
 			cmd := exec.Command("protoc",
-				"--plugin=protoc_gen_go_helpers="+pluginPath,
+				"--plugin=protoc-gen-go-oneof-helper="+pluginPath,
 				"--go-helpers_out="+tempDir,
 				"--proto_path=testdata/proto",
 				tc.protoFile,
@@ -78,7 +78,7 @@ func TestExhaustiveGoldenFiles(t *testing.T) {
 			// Find the generated file
 			baseName := strings.TrimSuffix(filepath.Base(tc.protoFile), ".proto")
 			generatedFile := filepath.Join(tempDir, "github.com", "anghami", "anghamak-go",
-				"cmd", "protoc_gen_go_helpers", "testdata", baseName+"_helpers.pb.go")
+				"cmd", "protoc-gen-go-oneof-helper", "testdata", baseName+"_helpers.pb.go")
 
 			// Read generated content
 			generatedContent, err := ioutil.ReadFile(generatedFile)
@@ -185,8 +185,8 @@ func TestExhaustiveRegression(t *testing.T) {
 	}
 
 	// Build the plugin
-	pluginPath := "./protoc_gen_go_helpers-regression-test"
-	buildCmd := exec.Command("go", "build", "-o", pluginPath, "../../cmd/protoc_gen_go_helpers")
+	pluginPath := "./protoc-gen-go-oneof-helper-regression-test"
+	buildCmd := exec.Command("go", "build", "-o", pluginPath, "../../cmd/protoc-gen-go-oneof-helper")
 	if err := buildCmd.Run(); err != nil {
 		t.Fatalf("Failed to build plugin: %v", err)
 	}
@@ -221,7 +221,7 @@ func TestExhaustiveRegression(t *testing.T) {
 			defer os.RemoveAll(tempDir)
 
 			cmd := exec.Command("protoc",
-				"--plugin=protoc_gen_go_helpers="+pluginPath,
+				"--plugin=protoc-gen-go-oneof-helper="+pluginPath,
 				"--go-helpers_out="+tempDir,
 				"--proto_path=testdata/proto",
 				protoFile,
@@ -233,7 +233,7 @@ func TestExhaustiveRegression(t *testing.T) {
 
 			// Find generated file
 			generatedFile := filepath.Join(tempDir, "github.com", "anghami", "anghamak-go",
-				"cmd", "protoc_gen_go_helpers", "testdata", baseName+"_helpers.pb.go")
+				"cmd", "protoc-gen-go-oneof-helper", "testdata", baseName+"_helpers.pb.go")
 
 			// Compare with golden file
 			generatedContent, err := ioutil.ReadFile(generatedFile)
