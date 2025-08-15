@@ -1,7 +1,9 @@
-package oneofhelper
+package oneofhelper_test
 
 import (
 	"testing"
+
+	"github.com/SebastienMelki/sebuf/internal/oneofhelper"
 )
 
 func TestLowerFirstSimple(t *testing.T) {
@@ -49,7 +51,7 @@ func TestLowerFirstSimple(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := LowerFirst(tt.input)
+			result := oneofhelper.LowerFirst(tt.input)
 			if result != tt.expected {
 				t.Errorf("lowerFirst(%q) = %q, want %q", tt.input, result, tt.expected)
 			}

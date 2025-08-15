@@ -1,8 +1,7 @@
-package oneofhelper
+package oneofhelper_test
 
 import (
 	"bytes"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -49,11 +48,7 @@ func TestFileBasedIntegration(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			// Create temporary output directory
-			tempDir, err := ioutil.TempDir("", "protoc-gen-go-oneof-helper-test-*")
-			if err != nil {
-				t.Fatalf("Failed to create temp dir: %v", err)
-			}
-			defer os.RemoveAll(tempDir)
+			tempDir := t.TempDir()
 
 			// Run protoc with our plugin
 			protoPath := filepath.Join("testdata", "proto", tc.protoFile)
@@ -68,9 +63,9 @@ func TestFileBasedIntegration(t *testing.T) {
 			cmd.Stdout = &stdout
 			cmd.Stderr = &stderr
 
-			if err := cmd.Run(); err != nil {
+			if runErr := cmd.Run(); runErr != nil {
 				t.Fatalf("protoc failed: %v\nStdout: %s\nStderr: %s",
-					err, stdout.String(), stderr.String())
+					runErr, stdout.String(), stderr.String())
 			}
 
 			// Find the generated file
@@ -79,12 +74,12 @@ func TestFileBasedIntegration(t *testing.T) {
 				"cmd", "protoc-gen-go-oneof-helper", "testdata", baseName+"_helpers.pb.go")
 
 			// Check if file was generated
-			if _, err := os.Stat(expectedFile); err != nil {
+			if _, statErr := os.Stat(expectedFile); statErr != nil {
 				t.Fatalf("Generated file not found: %s", expectedFile)
 			}
 
 			// Read the generated content
-			content, err := ioutil.ReadFile(expectedFile)
+			content, err := os.ReadFile(expectedFile)
 			if err != nil {
 				t.Fatalf("Failed to read generated file: %v", err)
 			}
@@ -107,11 +102,9 @@ func TestFileBasedIntegration(t *testing.T) {
 				if len(lines) > 4 {
 					t.Errorf("Expected minimal output for %s, but got %d lines", tc.name, len(lines))
 				}
-			} else {
+			} else if !strings.Contains(contentStr, "func New") {
 				// Should have at least one helper function
-				if !strings.Contains(contentStr, "func New") {
-					t.Errorf("Expected helper functions for %s, but found none", tc.name)
-				}
+				t.Errorf("Expected helper functions for %s, but found none", tc.name)
 			}
 		})
 	}
@@ -132,11 +125,7 @@ func TestFileConsistency(t *testing.T) {
 	// Generate output twice
 	var outputs []string
 	for i := range 2 {
-		tempDir, err := ioutil.TempDir("", "protoc-consistency-test-*")
-		if err != nil {
-			t.Fatalf("Failed to create temp dir: %v", err)
-		}
-		defer os.RemoveAll(tempDir)
+		tempDir := t.TempDir()
 
 		cmd := exec.Command("protoc",
 			"--plugin=protoc-gen-go-oneof-helper="+pluginPath,
@@ -145,15 +134,15 @@ func TestFileConsistency(t *testing.T) {
 			protoFile,
 		)
 
-		if err := cmd.Run(); err != nil {
-			t.Fatalf("protoc failed on run %d: %v", i+1, err)
+		if runErr := cmd.Run(); runErr != nil {
+			t.Fatalf("protoc failed on run %d: %v", i+1, runErr)
 		}
 
 		// Find and read the generated file
 		generatedFile := filepath.Join(tempDir, "github.com", "anghami", "anghamak-go",
 			"cmd", "protoc-gen-go-oneof-helper", "testdata", "simple_oneof_helpers.pb.go")
 
-		content, err := ioutil.ReadFile(generatedFile)
+		content, err := os.ReadFile(generatedFile)
 		if err != nil {
 			t.Fatalf("Failed to read generated file on run %d: %v", i+1, err)
 		}

@@ -1,4 +1,4 @@
-package oneofhelper
+package oneofhelper_test
 
 import (
 	"strings"
@@ -8,6 +8,8 @@ import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/descriptorpb"
 	"google.golang.org/protobuf/types/pluginpb"
+
+	"github.com/SebastienMelki/sebuf/internal/oneofhelper"
 )
 
 func TestMainFunctionalities(t *testing.T) {
@@ -24,7 +26,7 @@ func TestMainFunctionalities(t *testing.T) {
 		}
 
 		for _, tt := range tests {
-			result := LowerFirst(tt.input)
+			result := oneofhelper.LowerFirst(tt.input)
 			if result != tt.expected {
 				t.Errorf("lowerFirst(%q) = %q, want %q", tt.input, result, tt.expected)
 			}
@@ -101,7 +103,7 @@ func TestMainFunctionalities(t *testing.T) {
 		}
 
 		// Generate helpers
-		GenerateHelpers(plugin, file)
+		oneofhelper.GenerateHelpers(plugin, file)
 
 		// Get the response
 		resp := plugin.Response()
@@ -157,7 +159,7 @@ func TestMainFunctionalities(t *testing.T) {
 		file := plugin.Files[0]
 		file.Generate = true
 
-		GenerateHelpers(plugin, file)
+		oneofhelper.GenerateHelpers(plugin, file)
 
 		resp := plugin.Response()
 		if len(resp.GetFile()) == 0 {
@@ -255,7 +257,7 @@ func TestEndToEndWorkflow(t *testing.T) {
 	file := plugin.Files[0]
 	file.Generate = true
 
-	GenerateHelpers(plugin, file)
+	oneofhelper.GenerateHelpers(plugin, file)
 
 	resp := plugin.Response()
 	if len(resp.GetFile()) == 0 {
