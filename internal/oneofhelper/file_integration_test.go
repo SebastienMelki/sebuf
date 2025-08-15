@@ -117,7 +117,7 @@ func TestFileBasedIntegration(t *testing.T) {
 	}
 }
 
-// TestFileConsistency ensures that running the plugin multiple times produces identical output
+// TestFileConsistency ensures that running the plugin multiple times produces identical output.
 func TestFileConsistency(t *testing.T) {
 	// Build the plugin binary
 	pluginPath := "./protoc-gen-go-oneof-helper-test"
@@ -131,7 +131,7 @@ func TestFileConsistency(t *testing.T) {
 
 	// Generate output twice
 	var outputs []string
-	for i := 0; i < 2; i++ {
+	for i := range 2 {
 		tempDir, err := ioutil.TempDir("", "protoc-consistency-test-*")
 		if err != nil {
 			t.Fatalf("Failed to create temp dir: %v", err)

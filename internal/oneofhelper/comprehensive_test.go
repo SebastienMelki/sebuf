@@ -105,11 +105,11 @@ func TestMainFunctionalities(t *testing.T) {
 
 		// Get the response
 		resp := plugin.Response()
-		if len(resp.File) == 0 {
+		if len(resp.GetFile()) == 0 {
 			t.Fatal("No files generated")
 		}
 
-		generatedFile := resp.File[0]
+		generatedFile := resp.GetFile()[0]
 		content := generatedFile.GetContent()
 
 		// Verify basic structure
@@ -160,11 +160,11 @@ func TestMainFunctionalities(t *testing.T) {
 		GenerateHelpers(plugin, file)
 
 		resp := plugin.Response()
-		if len(resp.File) == 0 {
+		if len(resp.GetFile()) == 0 {
 			t.Fatal("No files generated")
 		}
 
-		generatedFile := resp.File[0]
+		generatedFile := resp.GetFile()[0]
 		fileName := generatedFile.GetName()
 
 		// Should generate a file with _helpers.pb.go suffix
@@ -258,11 +258,11 @@ func TestEndToEndWorkflow(t *testing.T) {
 	GenerateHelpers(plugin, file)
 
 	resp := plugin.Response()
-	if len(resp.File) == 0 {
+	if len(resp.GetFile()) == 0 {
 		t.Fatal("No files generated")
 	}
 
-	generatedFile := resp.File[0]
+	generatedFile := resp.GetFile()[0]
 	content := generatedFile.GetContent()
 
 	// Verify multiple helper functions are generated

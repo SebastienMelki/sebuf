@@ -8,7 +8,7 @@ import (
 	"testing"
 )
 
-// readProtoFile reads a proto file and returns its content for creating FileDescriptorProto
+// readProtoFile reads a proto file and returns its content for creating FileDescriptorProto.
 func readProtoFile(path string) (string, error) {
 	content, err := ioutil.ReadFile(path)
 	if err != nil {
@@ -20,7 +20,7 @@ func readProtoFile(path string) (string, error) {
 // parseSimpleProto creates a basic FileDescriptorProto for testing
 // This is a simplified parser for our test proto files
 // Note: For full testing, we would need to parse the proto file completely
-// For now, we'll use the protoc-generated output as a baseline
+// For now, we'll use the protoc-generated output as a baseline.
 func parseSimpleProto(filename, content string) string {
 	// Extract package name for basic validation
 	packageName := "testdata"
@@ -79,7 +79,7 @@ func TestGoldenFiles(t *testing.T) {
 					maxLines = len(generatedLines)
 				}
 
-				for i := 0; i < maxLines; i++ {
+				for i := range maxLines {
 					var expectedLine, generatedLine string
 					if i < len(expectedLines) {
 						expectedLine = expectedLines[i]
@@ -98,7 +98,7 @@ func TestGoldenFiles(t *testing.T) {
 
 				// Optionally write the generated output to a file for manual inspection
 				if os.Getenv("UPDATE_GOLDEN") == "1" {
-					if err := ioutil.WriteFile(tc.goldenFile, []byte(generated), 0644); err != nil {
+					if err := ioutil.WriteFile(tc.goldenFile, []byte(generated), 0o644); err != nil {
 						t.Logf("Failed to update golden file: %v", err)
 					} else {
 						t.Logf("Updated golden file: %s", tc.goldenFile)
@@ -111,7 +111,7 @@ func TestGoldenFiles(t *testing.T) {
 	}
 }
 
-// generateFromProtoFile generates helper code from a proto file using our current implementation
+// generateFromProtoFile generates helper code from a proto file using our current implementation.
 func generateFromProtoFile(protoFile string) (string, error) {
 	// Read the proto file
 	content, err := readProtoFile(protoFile)
@@ -132,7 +132,7 @@ func generateFromProtoFile(protoFile string) (string, error) {
 	return readExistingGoldenFile(baseName)
 }
 
-// readExistingGoldenFile reads the golden file that was pre-generated
+// readExistingGoldenFile reads the golden file that was pre-generated.
 func readExistingGoldenFile(baseName string) (string, error) {
 	goldenPath := filepath.Join("testdata", "golden", baseName+"_helpers.pb.go")
 	content, err := ioutil.ReadFile(goldenPath)
@@ -142,7 +142,7 @@ func readExistingGoldenFile(baseName string) (string, error) {
 	return string(content), nil
 }
 
-// TestGoldenFileStructure tests that golden files have the expected structure
+// TestGoldenFileStructure tests that golden files have the expected structure.
 func TestGoldenFileStructure(t *testing.T) {
 	goldenFiles := []string{
 		"testdata/golden/simple_oneof_helpers.pb.go",
@@ -187,7 +187,7 @@ func TestGoldenFileStructure(t *testing.T) {
 	}
 }
 
-// TestSpecificGoldenFileContents tests specific expected content in golden files
+// TestSpecificGoldenFileContents tests specific expected content in golden files.
 func TestSpecificGoldenFileContents(t *testing.T) {
 	t.Run("simple_oneof", func(t *testing.T) {
 		content, err := ioutil.ReadFile("testdata/golden/simple_oneof_helpers.pb.go")

@@ -12,7 +12,7 @@ import (
 )
 
 // TestExhaustiveGoldenFiles performs exhaustive byte-for-byte comparison
-// between generated output and golden files
+// between generated output and golden files.
 func TestExhaustiveGoldenFiles(t *testing.T) {
 	// Build the plugin binary for testing
 	pluginPath := "./protoc-gen-go-oneof-helper-golden-test"
@@ -20,7 +20,7 @@ func TestExhaustiveGoldenFiles(t *testing.T) {
 	if err := buildCmd.Run(); err != nil {
 		t.Fatalf("Failed to build plugin: %v", err)
 	}
-	//defer os.Remove(pluginPath)
+	// defer os.Remove(pluginPath)
 
 	testCases := []struct {
 		name       string
@@ -109,7 +109,7 @@ func TestExhaustiveGoldenFiles(t *testing.T) {
 				}
 
 				firstDiff := -1
-				for i := 0; i < minLen; i++ {
+				for i := range minLen {
 					if generated[i] != golden[i] {
 						firstDiff = i
 						break
@@ -155,7 +155,7 @@ func TestExhaustiveGoldenFiles(t *testing.T) {
 
 				// Option to update golden files
 				if os.Getenv("UPDATE_GOLDEN") == "1" {
-					if err := ioutil.WriteFile(tc.goldenFile, generatedContent, 0644); err != nil {
+					if err := ioutil.WriteFile(tc.goldenFile, generatedContent, 0o644); err != nil {
 						t.Logf("Failed to update golden file: %v", err)
 					} else {
 						t.Logf("Updated golden file: %s", tc.goldenFile)
@@ -166,7 +166,7 @@ func TestExhaustiveGoldenFiles(t *testing.T) {
 
 				// Write generated content to a temporary file for manual inspection
 				tempGenFile := tc.goldenFile + ".generated"
-				if err := ioutil.WriteFile(tempGenFile, generatedContent, 0644); err == nil {
+				if err := ioutil.WriteFile(tempGenFile, generatedContent, 0o644); err == nil {
 					t.Logf("Generated content written to: %s", tempGenFile)
 					t.Logf("Compare with: diff %s %s", tc.goldenFile, tempGenFile)
 				}
@@ -178,7 +178,7 @@ func TestExhaustiveGoldenFiles(t *testing.T) {
 }
 
 // TestExhaustiveRegression tests that any change to the implementation
-// is detected by comparing against multiple golden files
+// is detected by comparing against multiple golden files.
 func TestExhaustiveRegression(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping exhaustive regression test in short mode")
@@ -259,7 +259,7 @@ func TestExhaustiveRegression(t *testing.T) {
 	}
 }
 
-// TestGoldenFileValidity ensures all golden files are valid Go code
+// TestGoldenFileValidity ensures all golden files are valid Go code.
 func TestGoldenFileValidity(t *testing.T) {
 	goldenFiles, err := filepath.Glob("testdata/golden/*.go")
 	if err != nil {
@@ -313,7 +313,7 @@ func TestGoldenFileValidity(t *testing.T) {
 	}
 }
 
-// BenchmarkExhaustiveComparison benchmarks the golden file comparison process
+// BenchmarkExhaustiveComparison benchmarks the golden file comparison process.
 func BenchmarkExhaustiveComparison(b *testing.B) {
 	// Read a sample golden file
 	goldenFile := "testdata/golden/simple_oneof_helpers.pb.go"
@@ -327,7 +327,7 @@ func BenchmarkExhaustiveComparison(b *testing.B) {
 	copy(generatedContent, goldenContent)
 
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		_ = bytes.Equal(generatedContent, goldenContent)
 	}
 }
