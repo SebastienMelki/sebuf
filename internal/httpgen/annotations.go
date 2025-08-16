@@ -1,6 +1,7 @@
 package httpgen
 
 import (
+	"github.com/SebastienMelki/sebuf/http"
 	"google.golang.org/protobuf/compiler/protogen"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/descriptorpb"
@@ -36,12 +37,12 @@ func getMethodHTTPConfig(method *protogen.Method) *HTTPConfig {
 	}
 
 	// Extract our custom extension using the generated code
-	ext := proto.GetExtension(methodOptions, E_Config)
+	ext := proto.GetExtension(methodOptions, http.E_Config)
 	if ext == nil {
 		return nil
 	}
 
-	httpConfig, ok := ext.(*HttpConfig)
+	httpConfig, ok := ext.(*http.HttpConfig)
 	if !ok || httpConfig == nil {
 		return nil
 	}
@@ -65,12 +66,12 @@ func getServiceHTTPConfig(service *protogen.Service) *ServiceConfigImpl {
 	}
 
 	// Extract our custom extension using the generated code
-	ext := proto.GetExtension(serviceOptions, E_ServiceConfig)
+	ext := proto.GetExtension(serviceOptions, http.E_ServiceConfig)
 	if ext == nil {
 		return nil
 	}
 
-	serviceConfig, ok := ext.(*ServiceConfig)
+	serviceConfig, ok := ext.(*http.ServiceConfig)
 	if !ok || serviceConfig == nil {
 		return nil
 	}

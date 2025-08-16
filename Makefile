@@ -100,7 +100,7 @@ install-binaries:
 proto:
 	@echo "Generating Go code from proto files..."
 	@protoc --go_out=. --go_opt=module=github.com/SebastienMelki/sebuf \
-		--go_opt=Msebuf/http/annotations.proto=github.com/SebastienMelki/sebuf/internal/httpgen \
+		--go_opt=Msebuf/http/annotations.proto=github.com/SebastienMelki/sebuf/http \
 		--proto_path=. \
 		proto/sebuf/http/annotations.proto
 
