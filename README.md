@@ -23,6 +23,7 @@ This starts a working HTTP API with JSON endpoints, OpenAPI docs, and helper fun
 ## What you get
 
 - **HTTP handlers** from protobuf services (JSON + binary support)
+- **Automatic request validation** using protovalidate with sebuf.validate annotations
 - **OpenAPI v3.1 docs** that stay in sync with your code  
 - **Helper functions** that eliminate protobuf boilerplate
 - **Zero runtime dependencies** - works with any Go HTTP framework
@@ -36,23 +37,30 @@ service UserService {
 }
 
 message CreateUserRequest {
+  // Automatic validation with sebuf.validate
+  string name = 1 [(sebuf.validate.field).string = {
+    min_len: 2, max_len: 100
+  }];
+  string email = 2 [(sebuf.validate.field).string.email = true];
+  
   oneof auth_method {
-    EmailAuth email = 1;
-    TokenAuth token = 2;
+    EmailAuth email = 3;
+    TokenAuth token = 4;
   }
 }
 ```
 
 sebuf generates:
 ```go
-// HTTP handlers
+// HTTP handlers with automatic validation
 api.RegisterUserServiceServer(userService, api.WithMux(mux))
 
 // Helper functions  
 req := api.NewCreateUserRequestEmail("user@example.com", "secret")
 req := api.NewCreateUserRequestToken("auth-token")
 
-// OpenAPI docs (api.yaml) - automatically generated
+// Validation happens automatically - returns HTTP 400 for invalid requests
+// OpenAPI docs (api.yaml) - automatically generated with validation rules
 ```
 
 ## Quick setup
@@ -79,6 +87,18 @@ cd examples/simple-api && make demo
 - **API documentation** - OpenAPI specs that never get out of sync
 - **Type-safe development** - Leverage protobuf's type system for HTTP APIs
 - **Client generation** - Generate clients for any language from your API spec
+
+## Built on Great Tools
+
+sebuf stands on the shoulders of giants, integrating with an incredible ecosystem:
+
+- **[Protocol Buffers](https://protobuf.dev/)** by Google - The foundation for everything
+- **[protovalidate](https://github.com/bufbuild/protovalidate)** by Buf - Powers our automatic validation  
+- **[Buf CLI](https://buf.build/)** - Modern protobuf tooling and dependency management
+- **[OpenAPI 3.1](https://spec.openapis.org/oas/v3.1.0)** - Industry standard API documentation
+- **[Common Expression Language (CEL)](https://github.com/google/cel-go)** by Google - Flexible validation rules
+
+We're grateful to all maintainers of these projects that make sebuf possible.
 
 ## Contributing
 
