@@ -1,4 +1,14 @@
-.PHONY: install generate run clean test
+.PHONY: demo install generate run clean test
+
+# Complete demo workflow - installs tools, generates code, runs server
+demo:
+	@echo "🚀 Running sebuf demo..."
+	@$(MAKE) install
+	@$(MAKE) generate  
+	@echo ""
+	@echo "✅ Demo ready! Starting server..."
+	@echo ""
+	@$(MAKE) run
 
 # Install required tools
 install:
