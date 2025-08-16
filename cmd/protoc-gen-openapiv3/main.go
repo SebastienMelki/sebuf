@@ -27,7 +27,7 @@ func main() {
 	// Parse parameters for output format
 	format := openapiv3.FormatYAML // default to YAML
 	if req.Parameter != nil {
-		params := parseParameters(*req.Parameter)
+		params := parseParameters(req.GetParameter())
 		if f, ok := params["format"]; ok {
 			switch f {
 			case "json":
@@ -68,7 +68,9 @@ func main() {
 
 	// Write to generated file
 	generatedFile := plugin.NewGeneratedFile(filename, "")
-	generatedFile.Write(output)
+	if _, writeErr := generatedFile.Write(output); writeErr != nil {
+		panic(writeErr)
+	}
 
 	// Write response to stdout
 	resp := plugin.Response()
@@ -82,7 +84,7 @@ func main() {
 	}
 }
 
-// parseParameters parses protoc plugin parameters in the format "key=value,key2=value2"
+// parseParameters parses protoc plugin parameters in the format "key=value,key2=value2".
 func parseParameters(parameter string) map[string]string {
 	params := make(map[string]string)
 	if parameter == "" {
@@ -91,7 +93,8 @@ func parseParameters(parameter string) map[string]string {
 
 	pairs := strings.Split(parameter, ",")
 	for _, pair := range pairs {
-		if kv := strings.SplitN(pair, "=", 2); len(kv) == 2 {
+		const splitLimit = 2
+		if kv := strings.SplitN(pair, "=", splitLimit); len(kv) == splitLimit {
 			params[strings.TrimSpace(kv[0])] = strings.TrimSpace(kv[1])
 		}
 	}

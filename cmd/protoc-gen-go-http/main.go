@@ -2,8 +2,10 @@ package main
 
 import (
 	"flag"
-	"github.com/SebastienMelki/sebuf/internal/httpgen"
+
 	"google.golang.org/protobuf/compiler/protogen"
+
+	"github.com/SebastienMelki/sebuf/internal/httpgen"
 )
 
 func main() {
