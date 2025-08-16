@@ -1,0 +1,89 @@
+syntax = "proto3";
+
+package example.v1;
+
+import "sebuf/http/annotations.proto";
+
+option go_package = "github.com/SebastienMelki/sebuf/examples/simple-api/api";
+
+// UserService manages users in the system
+service UserService {
+  option (sebuf.http.service_config) = { 
+    base_path: "/api/v1" 
+  };
+  
+  // Create a new user
+  rpc CreateUser(CreateUserRequest) returns (User) {
+    option (sebuf.http.config) = { 
+      path: "/users" 
+    };
+  }
+  
+  // Get a user by ID
+  rpc GetUser(GetUserRequest) returns (User) {
+    option (sebuf.http.config) = { 
+      path: "/users/get" 
+    };
+  }
+  
+  // Login with different authentication methods
+  rpc Login(LoginRequest) returns (LoginResponse) {
+    option (sebuf.http.config) = { 
+      path: "/auth/login" 
+    };
+  }
+}
+
+// User represents a system user
+message User {
+  string id = 1;
+  string name = 2;
+  string email = 3;
+  int64 created_at = 4;
+}
+
+// Request to create a new user
+message CreateUserRequest {
+  string name = 1;
+  string email = 2;
+}
+
+// Request to get a user by ID
+message GetUserRequest {
+  string id = 1;
+}
+
+// Login request supporting multiple authentication methods
+message LoginRequest {
+  // Different ways to authenticate
+  oneof auth_method {
+    EmailAuth email = 1;
+    TokenAuth token = 2;
+    SocialAuth social = 3;
+  }
+}
+
+// Email and password authentication
+message EmailAuth {
+  string email = 1;
+  string password = 2;
+}
+
+// Token-based authentication
+message TokenAuth {
+  string token = 1;
+}
+
+// Social media authentication
+message SocialAuth {
+  string provider = 1;  // "google", "github", etc.
+  string access_token = 2;
+}
+
+// Login response with access token
+message LoginResponse {
+  string access_token = 1;
+  string refresh_token = 2;
+  int64 expires_in = 3;
+  User user = 4;
+}

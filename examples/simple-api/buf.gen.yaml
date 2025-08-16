@@ -1,0 +1,18 @@
+version: v2
+managed:
+  enabled: true
+plugins:
+  - remote: buf.build/protocolbuffers/go
+    out: api
+    opt: 
+      - paths=source_relative
+  - local: protoc-gen-go-oneof-helper
+    out: api
+    opt: 
+      - paths=source_relative
+  - local: protoc-gen-go-http
+    out: api
+    opt: 
+      - paths=source_relative
+  - local: protoc-gen-openapiv3
+    out: .
