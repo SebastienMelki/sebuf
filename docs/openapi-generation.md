@@ -930,7 +930,7 @@ curl -X POST https://api.getpostman.com/import \
 
 ### Getting Help
 
-- **Examples**: Check the [examples directory](../examples/)
+- **Demo**: Try the [simple tutorial](../examples/)
 - **Test cases**: Review `internal/openapiv3/` test files
 - **Issues**: File a GitHub issue with your proto definition and expected output
 - **Community**: Join GitHub Discussions for questions and tips
@@ -1002,4 +1002,4 @@ npx redoc-cli bundle docs/api.yaml --output docs/index.html
 **See also:**
 - [HTTP Generation](./http-generation.md) - Generate HTTP handlers that match your OpenAPI spec
 - [Oneof Helpers](./oneof-helpers.md) - Simplify complex protobuf message construction
-- [Examples](./examples/) - Complete working examples
+- [Simple Demo](./examples/) - Quick tutorial to get started

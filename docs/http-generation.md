@@ -745,7 +745,7 @@ option (sebuf.http.config) = { path: "/users/" };  // Conflicts
 
 ### Getting Help
 
-- **Examples**: Check the [examples directory](../examples/)
+- **Demo**: Try the [simple tutorial](../examples/)
 - **Test Cases**: Review tests in `internal/httpgen/`
 - **Issues**: File a GitHub issue with your proto definition
 - **Discussions**: Join GitHub Discussions for questions
@@ -791,4 +791,4 @@ The OpenAPI spec will automatically reflect your HTTP annotations and routing.
 **See also:**
 - [Getting Started Guide](./getting-started.md)
 - [Oneof Helpers](./oneof-helpers.md)
-- [Examples](./examples/)
+- [Simple Demo](./examples/)

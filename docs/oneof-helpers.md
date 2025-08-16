@@ -483,7 +483,7 @@ make generate  # or your protoc command
 
 If you encounter issues:
 
-1. **Check the examples** in the [examples directory](../examples/)
+1. **Try the simple demo** in the [examples guide](../examples/)
 2. **Review the test cases** in `internal/oneofhelper/testdata/`
 3. **File an issue** with your proto definition and generated code
 4. **Join the discussion** in GitHub Discussions
@@ -569,5 +569,5 @@ func TestUserAuthentication(t *testing.T) {
 
 **See also:**
 - [Getting Started Guide](./getting-started.md)
-- [Examples](./examples/)
+- [Simple Demo](./examples/)
 - [Architecture Overview](./architecture.md)

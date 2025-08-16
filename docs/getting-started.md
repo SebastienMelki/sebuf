@@ -427,7 +427,12 @@ message ListTasksResponse {
 
 ```bash
 # Generate protobuf code, HTTP handlers, oneof helpers, and OpenAPI spec
-make generate
+protoc --go_out=. --go_opt=module=github.com/yourorg/taskapi \
+       --go-oneof-helper_out=. \
+       --go-http_out=. \
+       --openapiv3_out=./docs \
+       --proto_path=. \
+       api/tasks/tasks.proto api/auth/auth.proto
 ```
 
 This creates:
@@ -841,10 +846,10 @@ func (s *TaskService) ListTasks(ctx context.Context, req *tasks.ListTasksRequest
 
 ```bash
 # Build the server
-make build
+go build -o taskapi ./cmd/server
 
 # Run the server
-make run
+./taskapi
 ```
 
 ### 2. Test Authentication
@@ -1332,7 +1337,6 @@ func healthCheckHandler(w http.ResponseWriter, r *http.Request) {
 - ✅ Production-ready structure
 
 **Next Steps:**
-- Explore [Framework Integration Examples](./examples/frameworks/)
-- Learn [Advanced Patterns](./examples/patterns/)
-- Check out [Deployment Guides](./examples/deployment/)
+- Try the [Simple API Tutorial](./examples/) 
+- Read the [Architecture Documentation](./architecture.md)
 - Join the [Community Discussions](https://github.com/SebastienMelki/sebuf/discussions)

@@ -1,0 +1,49 @@
+{
+  "packages": [
+    {
+      "file": "github.com/SebastienMelki/sebuf/internal/oneofhelper/generator.go:27:",
+      "coverage": 100.0
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/internal/oneofhelper/generator.go:45:",
+      "coverage": 100.0
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/internal/oneofhelper/generator.go:61:",
+      "coverage": 100.0
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/internal/oneofhelper/generator.go:108:",
+      "coverage": 100.0
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/internal/oneofhelper/generator.go:113:",
+      "coverage": 100.0
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/internal/oneofhelper/generator.go:122:",
+      "coverage": 57.1
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/internal/oneofhelper/generator.go:141:",
+      "coverage": 0.0
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/internal/oneofhelper/generator.go:149:",
+      "coverage": 0.0
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/internal/oneofhelper/generator.go:182:",
+      "coverage": 0.0
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/internal/oneofhelper/generator.go:196:",
+      "coverage": 0.0
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/internal/oneofhelper/generator.go:227:",
+      "coverage": 7.7
+    }
+  ],
+  "total_coverage": 41.7
+}
