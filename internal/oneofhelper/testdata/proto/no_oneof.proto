@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package testdata;
 
-option go_package = "github.com/anghami/anghamak-go/cmd/protoc-gen-go-oneof-helper/testdata";
+option go_package = "github.com/SebastienMelki/sebuf/internal/oneofhelper/testdata";
 
 message MessageWithoutOneof {
   string name = 1;
