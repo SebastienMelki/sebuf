@@ -164,8 +164,8 @@ func TestExhaustiveGoldenFiles(t *testing.T) {
 
 			// Find the generated file
 			baseName := strings.TrimSuffix(filepath.Base(tc.protoFile), ".proto")
-			generatedFile := filepath.Join(tempDir, "github.com", "anghami", "anghamak-go",
-				"cmd", "protoc-gen-go-oneof-helper", "testdata", baseName+"_helpers.pb.go")
+			generatedFile := filepath.Join(tempDir, "github.com", "SebastienMelki", "sebuf",
+				"internal", "oneofhelper", "testdata", baseName+"_helpers.pb.go")
 
 			// Read generated content
 			generatedContent, err := os.ReadFile(generatedFile)
@@ -240,8 +240,8 @@ func TestExhaustiveRegression(t *testing.T) {
 			}
 
 			// Find generated file
-			generatedFile := filepath.Join(tempDir, "github.com", "anghami", "anghamak-go",
-				"cmd", "protoc-gen-go-oneof-helper", "testdata", baseName+"_helpers.pb.go")
+			generatedFile := filepath.Join(tempDir, "github.com", "SebastienMelki", "sebuf",
+				"internal", "oneofhelper", "testdata", baseName+"_helpers.pb.go")
 
 			// Compare with golden file
 			generatedContent, genErr := os.ReadFile(generatedFile)

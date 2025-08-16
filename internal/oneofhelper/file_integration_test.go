@@ -70,8 +70,8 @@ func TestFileBasedIntegration(t *testing.T) {
 
 			// Find the generated file
 			baseName := strings.TrimSuffix(tc.protoFile, ".proto")
-			expectedFile := filepath.Join(tempDir, "github.com", "anghami", "anghamak-go",
-				"cmd", "protoc-gen-go-oneof-helper", "testdata", baseName+"_helpers.pb.go")
+			expectedFile := filepath.Join(tempDir, "github.com", "SebastienMelki", "sebuf",
+				"internal", "oneofhelper", "testdata", baseName+"_helpers.pb.go")
 
 			// Check if file was generated
 			if _, statErr := os.Stat(expectedFile); statErr != nil {
@@ -139,8 +139,8 @@ func TestFileConsistency(t *testing.T) {
 		}
 
 		// Find and read the generated file
-		generatedFile := filepath.Join(tempDir, "github.com", "anghami", "anghamak-go",
-			"cmd", "protoc-gen-go-oneof-helper", "testdata", "simple_oneof_helpers.pb.go")
+		generatedFile := filepath.Join(tempDir, "github.com", "SebastienMelki", "sebuf",
+			"internal", "oneofhelper", "testdata", "simple_oneof_helpers.pb.go")
 
 		content, err := os.ReadFile(generatedFile)
 		if err != nil {
