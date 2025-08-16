@@ -12,7 +12,7 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// OutputFormat represents the output format for the OpenAPI document
+// OutputFormat represents the output format for the OpenAPI document.
 type OutputFormat string
 
 const (
@@ -20,14 +20,14 @@ const (
 	FormatJSON OutputFormat = "json"
 )
 
-// Generator generates OpenAPI v3.1 documents from Protocol Buffer definitions
+// Generator generates OpenAPI v3.1 documents from Protocol Buffer definitions.
 type Generator struct {
 	doc     *v3.Document
 	schemas *orderedmap.Map[string, *base.SchemaProxy]
 	format  OutputFormat
 }
 
-// NewGenerator creates a new OpenAPI generator with the specified output format
+// NewGenerator creates a new OpenAPI generator with the specified output format.
 func NewGenerator(format OutputFormat) *Generator {
 	schemas := orderedmap.New[string, *base.SchemaProxy]()
 
@@ -50,7 +50,7 @@ func NewGenerator(format OutputFormat) *Generator {
 	}
 }
 
-// ProcessFile processes a single proto file and adds its definitions to the OpenAPI document
+// ProcessFile processes a single proto file and adds its definitions to the OpenAPI document.
 func (g *Generator) ProcessFile(file *protogen.File) {
 	// Update document info from the first file processed
 	if g.doc.Info.Title == "Generated API" && file.Desc.Package() != "" {
@@ -68,7 +68,7 @@ func (g *Generator) ProcessFile(file *protogen.File) {
 	}
 }
 
-// processMessage converts a protobuf message to an OpenAPI schema
+// processMessage converts a protobuf message to an OpenAPI schema.
 func (g *Generator) processMessage(message *protogen.Message) {
 	schema := g.buildObjectSchema(message)
 	schemaName := string(message.Desc.Name())
@@ -80,7 +80,7 @@ func (g *Generator) processMessage(message *protogen.Message) {
 	}
 }
 
-// buildObjectSchema creates an OpenAPI object schema from a protobuf message
+// buildObjectSchema creates an OpenAPI object schema from a protobuf message.
 func (g *Generator) buildObjectSchema(message *protogen.Message) *base.SchemaProxy {
 	properties := orderedmap.New[string, *base.SchemaProxy]()
 	var required []string
@@ -111,14 +111,14 @@ func (g *Generator) buildObjectSchema(message *protogen.Message) *base.SchemaPro
 	return base.CreateSchemaProxy(schema)
 }
 
-// processService converts a protobuf service to OpenAPI paths
+// processService converts a protobuf service to OpenAPI paths.
 func (g *Generator) processService(service *protogen.Service) {
 	for _, method := range service.Methods {
 		g.processMethod(service, method)
 	}
 }
 
-// processMethod converts a protobuf RPC method to an OpenAPI operation
+// processMethod converts a protobuf RPC method to an OpenAPI operation.
 func (g *Generator) processMethod(service *protogen.Service, method *protogen.Method) {
 	// Create gRPC-style path
 	path := fmt.Sprintf("/%s/%s", service.Desc.Name(), method.Desc.Name())
@@ -148,7 +148,7 @@ func (g *Generator) processMethod(service *protogen.Service, method *protogen.Me
 	// Add response for the output message
 	outputSchemaRef := fmt.Sprintf("#/components/schemas/%s", method.Output.Desc.Name())
 	responses := orderedmap.New[string, *v3.Response]()
-	
+
 	successResponse := &v3.Response{
 		Description: "Successful response",
 		Content:     orderedmap.New[string, *v3.MediaType](),
@@ -194,12 +194,14 @@ func (g *Generator) processMethod(service *protogen.Service, method *protogen.Me
 	g.doc.Paths.PathItems.Set(path, pathItem)
 }
 
-// Render outputs the OpenAPI document in the specified format
+// Render outputs the OpenAPI document in the specified format.
 func (g *Generator) Render() ([]byte, error) {
 	switch g.format {
 	case FormatJSON:
 		return json.MarshalIndent(g.doc, "", "  ")
-	default: // YAML is default
+	case FormatYAML:
+		return yaml.Marshal(g.doc)
+	default:
 		return yaml.Marshal(g.doc)
 	}
 }

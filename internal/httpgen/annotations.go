@@ -1,29 +1,24 @@
 package httpgen
 
 import (
-	"github.com/SebastienMelki/sebuf/http"
 	"google.golang.org/protobuf/compiler/protogen"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/descriptorpb"
+
+	"github.com/SebastienMelki/sebuf/http"
 )
 
-// HTTPConfig represents the HTTP configuration for a method
+// HTTPConfig represents the HTTP configuration for a method.
 type HTTPConfig struct {
 	Path string
 }
 
-// ServiceConfigImpl represents the HTTP configuration for a service
+// ServiceConfigImpl represents the HTTP configuration for a service.
 type ServiceConfigImpl struct {
 	BasePath string
 }
 
-// These constants should match the extension numbers in annotations.proto
-const (
-	httpConfigExtension    = 50003
-	serviceConfigExtension = 50004
-)
-
-// getMethodHTTPConfig extracts HTTP configuration from method options
+// getMethodHTTPConfig extracts HTTP configuration from method options.
 func getMethodHTTPConfig(method *protogen.Method) *HTTPConfig {
 	options := method.Desc.Options()
 	if options == nil {
@@ -48,11 +43,11 @@ func getMethodHTTPConfig(method *protogen.Method) *HTTPConfig {
 	}
 
 	return &HTTPConfig{
-		Path: httpConfig.Path,
+		Path: httpConfig.GetPath(),
 	}
 }
 
-// getServiceHTTPConfig extracts HTTP configuration from service options
+// getServiceHTTPConfig extracts HTTP configuration from service options.
 func getServiceHTTPConfig(service *protogen.Service) *ServiceConfigImpl {
 	options := service.Desc.Options()
 	if options == nil {
@@ -77,12 +72,12 @@ func getServiceHTTPConfig(service *protogen.Service) *ServiceConfigImpl {
 	}
 
 	return &ServiceConfigImpl{
-		BasePath: serviceConfig.BasePath,
+		BasePath: serviceConfig.GetBasePath(),
 	}
 }
 
-// For now, let's add a helper to parse paths from the existing authv1 proto format
-func parseExistingAnnotation(method *protogen.Method) string {
+// For now, let's add a helper to parse paths from the existing authv1 proto format.
+func parseExistingAnnotation(_ *protogen.Method) string {
 	// This is a temporary parser for the existing sebuf.http.config format
 	// that's used in authv1/service.proto
 

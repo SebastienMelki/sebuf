@@ -10,7 +10,7 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// convertField converts a protobuf field to an OpenAPI schema
+// convertField converts a protobuf field to an OpenAPI schema.
 func (g *Generator) convertField(field *protogen.Field) *base.SchemaProxy {
 	// Handle repeated fields (arrays)
 	if field.Desc.IsList() {
@@ -39,7 +39,7 @@ func (g *Generator) convertField(field *protogen.Field) *base.SchemaProxy {
 	return schema
 }
 
-// convertScalarField handles scalar field types and message references
+// convertScalarField handles scalar field types and message references.
 func (g *Generator) convertScalarField(field *protogen.Field) *base.SchemaProxy {
 	schema := &base.Schema{}
 
@@ -109,7 +109,7 @@ func (g *Generator) convertScalarField(field *protogen.Field) *base.SchemaProxy 
 	return base.CreateSchemaProxy(schema)
 }
 
-// convertEnumField converts a protobuf enum field to an OpenAPI schema
+// convertEnumField converts a protobuf enum field to an OpenAPI schema.
 func (g *Generator) convertEnumField(field *protogen.Field) *base.SchemaProxy {
 	if field.Enum == nil {
 		// Fallback if enum is not available
@@ -139,7 +139,7 @@ func (g *Generator) convertEnumField(field *protogen.Field) *base.SchemaProxy {
 	return base.CreateSchemaProxy(schema)
 }
 
-// convertMapField converts a protobuf map field to an OpenAPI schema
+// convertMapField converts a protobuf map field to an OpenAPI schema.
 func (g *Generator) convertMapField(field *protogen.Field) *base.SchemaProxy {
 	schema := &base.Schema{
 		Type: []string{"object"},
@@ -149,8 +149,9 @@ func (g *Generator) convertMapField(field *protogen.Field) *base.SchemaProxy {
 	if field.Message != nil && len(field.Message.Fields) >= 2 {
 		// Map entry messages have exactly 2 fields: key (field 1) and value (field 2)
 		var valueField *protogen.Field
+		const mapValueFieldNumber = 2 // value field is always number 2 in protobuf map entries
 		for _, f := range field.Message.Fields {
-			if f.Desc.Number() == 2 { // value field is always number 2
+			if f.Desc.Number() == mapValueFieldNumber {
 				valueField = f
 				break
 			}

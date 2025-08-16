@@ -7,19 +7,19 @@ import (
 	"google.golang.org/protobuf/compiler/protogen"
 )
 
-// Generator handles HTTP code generation for protobuf services
+// Generator handles HTTP code generation for protobuf services.
 type Generator struct {
 	plugin *protogen.Plugin
 }
 
-// New creates a new HTTP generator
+// New creates a new HTTP generator.
 func New(plugin *protogen.Plugin) *Generator {
 	return &Generator{
 		plugin: plugin,
 	}
 }
 
-// Generate processes all files and generates HTTP handlers
+// Generate processes all files and generates HTTP handlers.
 func (g *Generator) Generate() error {
 	for _, file := range g.plugin.Files {
 		if !file.Generate {
@@ -88,7 +88,13 @@ func (g *Generator) generateService(gf *protogen.GeneratedFile, file *protogen.F
 	gf.P()
 
 	// Generate registration function
-	gf.P("// Register", serviceName, "Server registers the HTTP handlers for service ", serviceName, " to the given mux.")
+	gf.P(
+		"// Register",
+		serviceName,
+		"Server registers the HTTP handlers for service ",
+		serviceName,
+		" to the given mux.",
+	)
 	gf.P("func Register", serviceName, "Server(server ", serviceName, "Server, opts ...ServerOption) error {")
 	gf.P("config := getConfiguration(opts...)")
 	gf.P()
@@ -115,6 +121,7 @@ func (g *Generator) generateService(gf *protogen.GeneratedFile, file *protogen.F
 	return nil
 }
 
+//nolint:funlen // This function generates a lot of boilerplate code
 func (g *Generator) generateBindingFile(file *protogen.File) error {
 	filename := file.GeneratedFilenamePrefix + "_http_binding.pb.go"
 	gf := g.plugin.NewGeneratedFile(filename, file.GoImportPath)
@@ -368,7 +375,7 @@ func (g *Generator) writeHeader(gf *protogen.GeneratedFile, file *protogen.File)
 	gf.P()
 }
 
-// getMethodPath determines the HTTP path for a method
+// getMethodPath determines the HTTP path for a method.
 func (g *Generator) getMethodPath(method *protogen.Method, basePath string, packageName protogen.GoPackageName) string {
 	// Try to get custom path from options
 	customPath := g.getCustomPath(method)
@@ -396,7 +403,7 @@ func (g *Generator) getMethodPath(method *protogen.Method, basePath string, pack
 	return fmt.Sprintf("/%s/%s", packageName, camelToSnake(method.GoName))
 }
 
-// getCustomPath extracts custom HTTP path from method options
+// getCustomPath extracts custom HTTP path from method options.
 func (g *Generator) getCustomPath(method *protogen.Method) string {
 	config := getMethodHTTPConfig(method)
 	if config != nil && config.Path != "" {
@@ -407,7 +414,7 @@ func (g *Generator) getCustomPath(method *protogen.Method) string {
 	return parseExistingAnnotation(method)
 }
 
-// getServiceBasePath extracts base path from service options
+// getServiceBasePath extracts base path from service options.
 func (g *Generator) getServiceBasePath(service *protogen.Service) string {
 	config := getServiceHTTPConfig(service)
 	if config != nil && config.BasePath != "" {
@@ -416,7 +423,7 @@ func (g *Generator) getServiceBasePath(service *protogen.Service) string {
 	return ""
 }
 
-// Helper functions
+// Helper functions.
 func lowerFirst(s string) string {
 	if s == "" {
 		return ""
