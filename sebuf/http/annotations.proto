@@ -10,12 +10,6 @@ option go_package = "github.com/SebastienMelki/sebuf/sebuf/http;http";
 message HttpConfig {
   // The HTTP path for this method
   string path = 1;
-  
-  // Custom response headers to add
-  map<string, string> response_headers = 2;
-  
-  // Timeout in seconds for this endpoint
-  int32 timeout_seconds = 3;
 }
 
 // Extension for method options
@@ -27,9 +21,6 @@ extend google.protobuf.MethodOptions {
 message ServiceConfig {
   // Base path prefix for all methods in this service
   string base_path = 1;
-  
-  // Common response headers for all methods
-  map<string, string> common_headers = 2;
 }
 
 // Extension for service options

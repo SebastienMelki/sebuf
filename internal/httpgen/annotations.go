@@ -1,21 +1,20 @@
 package httpgen
 
 import (
+	"github.com/SebastienMelki/sebuf/sebuf/http"
 	"google.golang.org/protobuf/compiler/protogen"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/descriptorpb"
 )
 
 // HTTPConfig represents the HTTP configuration for a method
 type HTTPConfig struct {
-	Path             string
-	ResponseHeaders  map[string]string
-	TimeoutSeconds   int32
+	Path string
 }
 
 // ServiceConfig represents the HTTP configuration for a service
 type ServiceConfig struct {
-	BasePath       string
-	CommonHeaders  map[string]string
+	BasePath string
 }
 
 // These constants should match the extension numbers in annotations.proto
@@ -32,23 +31,25 @@ func getMethodHTTPConfig(method *protogen.Method) *HTTPConfig {
 	}
 
 	// Get the raw options
-	_, ok := options.(*descriptorpb.MethodOptions)
+	methodOptions, ok := options.(*descriptorpb.MethodOptions)
 	if !ok {
 		return nil
 	}
 
-	// Try to extract our custom extension
-	// Note: In a real implementation, you'd import the generated Go code
-	// from annotations.proto and use it directly. For now, we'll parse manually.
-	
-	// For simplicity, we'll check if the method has a comment with the path
-	// This is a temporary solution until we have the annotations proto compiled
-	if len(method.Comments.Leading.String()) > 0 {
-		// Parse comments for @http-path directive (temporary)
-		// In production, this would use the actual protobuf extensions
+	// Extract our custom extension using the generated code
+	ext := proto.GetExtension(methodOptions, http.E_Config)
+	if ext == nil {
+		return nil
 	}
-
-	return nil
+	
+	httpConfig, ok := ext.(*http.HttpConfig)
+	if !ok || httpConfig == nil {
+		return nil
+	}
+	
+	return &HTTPConfig{
+		Path: httpConfig.Path,
+	}
 }
 
 // getServiceHTTPConfig extracts HTTP configuration from service options
@@ -58,8 +59,26 @@ func getServiceHTTPConfig(service *protogen.Service) *ServiceConfig {
 		return nil
 	}
 
-	// Similar to method config, in production this would use the generated extension code
-	return nil
+	// Get the raw options
+	serviceOptions, ok := options.(*descriptorpb.ServiceOptions)
+	if !ok {
+		return nil
+	}
+
+	// Extract our custom extension using the generated code
+	ext := proto.GetExtension(serviceOptions, http.E_ServiceConfig)
+	if ext == nil {
+		return nil
+	}
+	
+	serviceConfig, ok := ext.(*http.ServiceConfig)
+	if !ok || serviceConfig == nil {
+		return nil
+	}
+	
+	return &ServiceConfig{
+		BasePath: serviceConfig.BasePath,
+	}
 }
 
 // For now, let's add a helper to parse paths from the existing authv1 proto format

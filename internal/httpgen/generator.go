@@ -60,7 +60,7 @@ func (g *Generator) generateHTTPFile(file *protogen.File) error {
 	gf := g.plugin.NewGeneratedFile(filename, file.GoImportPath)
 
 	g.writeHeader(gf, file)
-	
+
 	gf.P("import (")
 	gf.P(`"context"`)
 	gf.P(")")
@@ -98,10 +98,10 @@ func (g *Generator) generateService(gf *protogen.GeneratedFile, file *protogen.F
 
 	for _, method := range service.Methods {
 		httpPath := g.getMethodPath(method, basePath, file.GoPackageName)
-		
+
 		handlerName := fmt.Sprintf("%sHandler", lowerFirst(method.GoName))
 		gf.P(handlerName, " := BindingMiddleware[", method.Input.GoIdent, "](")
-		gf.P("genericHandler[*", method.Input.GoIdent, ", *", method.Output.GoIdent, "](server.", method.GoName, "),")
+		gf.P("genericHandler(server.", method.GoName, "),")
 		gf.P(")")
 		gf.P()
 		gf.P(`config.mux.Handle("POST `, httpPath, `", `, handlerName, `)`)
@@ -371,15 +371,28 @@ func (g *Generator) writeHeader(gf *protogen.GeneratedFile, file *protogen.File)
 // getMethodPath determines the HTTP path for a method
 func (g *Generator) getMethodPath(method *protogen.Method, basePath string, packageName protogen.GoPackageName) string {
 	// Try to get custom path from options
-	if path := g.getCustomPath(method); path != "" {
-		return path
+	customPath := g.getCustomPath(method)
+
+	// If we have both base path and custom path, combine them
+	if basePath != "" && customPath != "" {
+		// Ensure proper path joining
+		basePath = strings.TrimSuffix(basePath, "/")
+		if !strings.HasPrefix(customPath, "/") {
+			customPath = "/" + customPath
+		}
+		return basePath + customPath
 	}
-	
+
+	// If only custom path, use it
+	if customPath != "" {
+		return customPath
+	}
+
 	// Generate default path
 	if basePath != "" {
 		return fmt.Sprintf("%s/%s", strings.TrimSuffix(basePath, "/"), camelToSnake(method.GoName))
 	}
-	
+
 	return fmt.Sprintf("/%s/%s", packageName, camelToSnake(method.GoName))
 }
 
@@ -389,7 +402,7 @@ func (g *Generator) getCustomPath(method *protogen.Method) string {
 	if config != nil && config.Path != "" {
 		return config.Path
 	}
-	
+
 	// Try to parse existing annotation format (temporary)
 	return parseExistingAnnotation(method)
 }
