@@ -1,0 +1,107 @@
+syntax = "proto3";
+
+package authv1;
+
+message LoginMethod {
+  message WithEmail {
+    // email is the email address of the user
+    string email = 1;
+    // otp is the one time password sent to the user
+    string otp = 2;
+  }
+
+  message WithPhoneNumber {
+    // phone number with country code: example +971585997292
+    string phone_number = 1;
+    // otp is the one time password sent to the user
+    string otp = 2;
+  }
+
+  message WithGoogle {
+    // token is the google token
+    string token = 1;
+  }
+
+  message WithFacebook {
+    // facebook_id is deprecated, it is no longer needed in order to login
+    // it can be derived from the facebook_token by the server
+    string facebook_id = 1 [deprecated = true];
+    // facebook_token is the facebook token
+    string facebook_token = 2;
+  }
+
+  message WithApple {
+    // identity_token is the identity token returned from apple
+    string identity_token = 1;
+    // apple_id is deprecated, it is no longer needed in order to login
+    // it can be derived from the identity_token by the server
+    string apple_id = 2 [deprecated = true];
+    // email is deprecated, it is no longer needed in order to login
+    // it can be derived from the identity_token by the server
+    string email = 3 [deprecated = true];
+  }
+
+  message WithLoginCode {
+    // code that was previously consumed by an authenticated user.
+    string code = 1;
+  }
+
+  message WithAnghami {
+    // anghami_session_id is the session id of the user in anghami
+    string anghami_session_id = 1;
+  }
+
+  oneof method {
+    WithEmail email = 1;
+    WithPhoneNumber phone_number = 2;
+    WithGoogle google = 3;
+    WithFacebook facebook = 4;
+    WithApple apple = 5;
+    WithLoginCode login_code = 6;
+    WithAnghami anghami = 7;
+  }
+}
+
+message LoginRequest {
+  LoginMethod login_method = 1;
+}
+
+message LoginResponse {
+  message SignupDetails {
+    // was_anghami_user will be true if the user was an existing anghami user
+    bool was_anghami_user = 1;
+    // was_osn_user will be true if the user was an existing osn user
+    bool was_osn_user = 2;
+    // anghami_identifier can be used as a label for the match account screen
+    string anghami_identifier = 3;
+    // osn_identifier can be used as a label for the match account screen
+    string osn_identifier = 4;
+  }
+
+  // token can be used to authenticate requests
+  string token = 1;
+  // refresh_token can be used to get a new token
+  string refresh_token = 2;
+  // expires_at is the time in seconds since epoch when the token will expire
+  int64 expires_at = 3;
+  // new_user will be true if the this is the first login for the user
+  bool new_user = 4;
+  // new_user_details will be set if new_user is true, can be ignored if new_user is false
+  SignupDetails signup_details = 5;
+  // user_id is the unique identifier of the user across OSN and Anghami
+  string user_id = 6;
+  // logged_in indicates whether the user was successfully logged in or not
+  bool logged_in = 7;
+  // failure_message will be set if logged_in is false, can be ignored if logged_in is true
+  string failure_message = 8;
+  // is_account_disabled represents whether an account is disabled or not.
+  // accounts that are disabled can only be used in case they got restored.
+  // the access token of a disabled account can ONLY be used for the endpoint that restores an account.
+  // the access token of a disabled account will not work for endpoints that require authentication.
+  bool is_account_disabled = 9;
+  // failure_code is an identifier for the failure reason of an unsuccessful login
+  // it is set along side with failure_message, empty when when successful login
+  // it is relevant for TV clients to distinguish polling error (incorrect code)
+  // vs other "post-scan" errors that need to be displayed to the user
+  string failure_code = 10;
+}
