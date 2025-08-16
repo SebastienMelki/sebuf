@@ -14,7 +14,7 @@ message HttpConfig {
 
 // Extension for method options
 extend google.protobuf.MethodOptions {
-  HttpConfig config = 50000;
+  HttpConfig config = 50003;
 }
 
 // ServiceConfig defines HTTP-specific configuration for an entire service
@@ -25,5 +25,5 @@ message ServiceConfig {
 
 // Extension for service options
 extend google.protobuf.ServiceOptions {
-  ServiceConfig service_config = 50001;
+  ServiceConfig service_config = 50004;
 }
