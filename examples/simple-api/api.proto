@@ -3,7 +3,7 @@ syntax = "proto3";
 package example.v1;
 
 import "sebuf/http/annotations.proto";
-import "sebuf/validate/validate.proto";
+import "buf/validate/validate.proto";
 
 option go_package = "github.com/SebastienMelki/sebuf/examples/simple-api/api";
 
@@ -38,16 +38,16 @@ service UserService {
 // User represents a system user
 message User {
   // User ID must be a valid UUID
-  string id = 1 [(sebuf.validate.field).string.uuid = true];
+  string id = 1 [(buf.validate.field).string.uuid = true];
   
   // Name must be between 1 and 100 characters
-  string name = 2 [(sebuf.validate.field).string = {
+  string name = 2 [(buf.validate.field).string = {
     min_len: 1,
     max_len: 100
   }];
   
   // Email must be a valid email address
-  string email = 3 [(sebuf.validate.field).string.email = true];
+  string email = 3 [(buf.validate.field).string.email = true];
   
   // Creation timestamp
   int64 created_at = 4;
@@ -56,19 +56,19 @@ message User {
 // Request to create a new user
 message CreateUserRequest {
   // Name is required and must be between 2 and 100 characters
-  string name = 1 [(sebuf.validate.field).string = {
+  string name = 1 [(buf.validate.field).string = {
     min_len: 2,
     max_len: 100
   }];
   
   // Email is required and must be a valid email address
-  string email = 2 [(sebuf.validate.field).string.email = true];
+  string email = 2 [(buf.validate.field).string.email = true];
 }
 
 // Request to get a user by ID
 message GetUserRequest {
   // User ID must be a valid UUID
-  string id = 1 [(sebuf.validate.field).string.uuid = true];
+  string id = 1 [(buf.validate.field).string.uuid = true];
 }
 
 // Login request supporting multiple authentication methods
@@ -84,27 +84,27 @@ message LoginRequest {
 // Email and password authentication
 message EmailAuth {
   // Email must be a valid email address
-  string email = 1 [(sebuf.validate.field).string.email = true];
+  string email = 1 [(buf.validate.field).string.email = true];
   
   // Password must be at least 8 characters
-  string password = 2 [(sebuf.validate.field).string.min_len = 8];
+  string password = 2 [(buf.validate.field).string.min_len = 8];
 }
 
 // Token-based authentication
 message TokenAuth {
   // Token must be at least 10 characters and non-empty
-  string token = 1 [(sebuf.validate.field).string.min_len = 10];
+  string token = 1 [(buf.validate.field).string.min_len = 10];
 }
 
 // Social media authentication
 message SocialAuth {
   // Provider must be one of the allowed values
-  string provider = 1 [(sebuf.validate.field).string = {
+  string provider = 1 [(buf.validate.field).string = {
     in: ["google", "github", "facebook", "apple"]
   }];
   
   // Access token must be non-empty and at least 20 characters
-  string access_token = 2 [(sebuf.validate.field).string.min_len = 20];
+  string access_token = 2 [(buf.validate.field).string.min_len = 20];
 }
 
 // Login response with access token
