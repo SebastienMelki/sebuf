@@ -120,9 +120,42 @@ message ListUsersResponse {
 
 ### 2. Generate HTTP Code
 
+#### Using Buf (Recommended)
+
+Create `buf.yaml`:
+```yaml
+version: v2
+deps:
+  - buf.build/sebmelki/sebuf  # For HTTP annotations
+```
+
+Create `buf.gen.yaml`:
+```yaml
+version: v2
+plugins:
+  - remote: buf.build/protocolbuffers/go
+    out: .
+    opt: module=github.com/yourorg/userapi
+  - local: protoc-gen-go-http
+    out: .
+```
+
+Generate:
 ```bash
+buf generate
+```
+
+#### Using protoc
+
+```bash
+# Clone sebuf for annotations
+git clone https://github.com/SebastienMelki/sebuf.git
+
+# Generate with proper paths
 protoc --go_out=. --go_opt=module=github.com/yourorg/userapi \
        --go-http_out=. \
+       --proto_path=. \
+       --proto_path=./sebuf/proto \
        user_service.proto
 ```
 
@@ -774,11 +807,34 @@ func (s *AuthService) Login(ctx context.Context, req *LoginRequest) (*LoginRespo
 
 Generate both HTTP handlers and OpenAPI documentation:
 
+#### Using Buf
+
+```yaml
+# buf.gen.yaml
+version: v2
+plugins:
+  - remote: buf.build/protocolbuffers/go
+    out: .
+    opt: module=github.com/yourorg/api
+  - local: protoc-gen-go-http
+    out: .
+  - local: protoc-gen-openapiv3
+    out: ./docs
+```
+
+```bash
+buf generate
+```
+
+#### Using protoc
+
 ```bash
 # Generate both HTTP handlers and OpenAPI spec
 protoc --go_out=. --go_opt=module=github.com/yourorg/api \
        --go-http_out=. \
        --openapiv3_out=./docs \
+       --proto_path=. \
+       --proto_path=./sebuf/proto \
        api.proto
 ```
 

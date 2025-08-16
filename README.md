@@ -64,8 +64,55 @@ message User {
 ```
 
 2. **Generate everything**:
+
+#### Option A: Using Buf (Recommended)
+
+Create `buf.yaml`:
+```yaml
+version: v2
+deps:
+  - buf.build/sebmelki/sebuf
+```
+
+Create `buf.gen.yaml`:
+```yaml
+version: v2
+plugins:
+  - remote: buf.build/protocolbuffers/go
+    out: .
+    opt: 
+      - paths=source_relative
+  - local: protoc-gen-go-oneof-helper
+    out: .
+    opt: 
+      - paths=source_relative
+  - local: protoc-gen-go-http
+    out: .
+    opt: 
+      - paths=source_relative
+  - local: protoc-gen-openapiv3
+    out: .
+```
+
+Generate code:
 ```bash
-protoc --go_out=. --go-oneof-helper_out=. --go-http_out=. --openapiv3_out=. api.proto
+# First time: fetch dependencies
+buf dep update
+
+# Generate code
+buf generate
+```
+
+#### Option B: Using protoc
+```bash
+# Clone sebuf for proto files
+git clone https://github.com/SebastienMelki/sebuf.git
+
+# Generate with correct paths
+protoc --go_out=. --go-oneof-helper_out=. --go-http_out=. --openapiv3_out=. \
+       --proto_path=. \
+       --proto_path=./sebuf/proto \
+       api.proto
 ```
 
 3. **Use it**:

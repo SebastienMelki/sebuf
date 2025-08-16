@@ -47,12 +47,22 @@ protoc-gen-openapiv3 --version
 
 ### Install Dependencies
 
+#### Option 1: Using Buf (Recommended)
+```bash
+# Install Buf
+brew install bufbuild/buf/buf  # macOS
+# Or see https://docs.buf.build/installation for other platforms
+
+# No need to install protoc-gen-go separately if using Buf plugins
+```
+
+#### Option 2: Using protoc
 ```bash
 # Install standard protobuf tools
 go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
 
-# Install sebuf annotations
-go get github.com/SebastienMelki/sebuf/http
+# Clone sebuf to get proto files (needed for annotations)
+git clone https://github.com/SebastienMelki/sebuf.git
 ```
 
 ## Project Setup
@@ -107,14 +117,20 @@ taskapi/
 MODULE_NAME := $(shell cat go.mod | head -1 | cut -d' ' -f2)
 PROTO_FILES := $(shell find api -name "*.proto")
 
-# Generate all code
+# Generate all code (using Buf - recommended)
 generate:
+	@echo "Generating code from protobuf definitions..."
+	buf generate
+
+# Alternative: Generate using protoc
+generate-protoc:
 	@echo "Generating code from protobuf definitions..."
 	protoc --go_out=. --go_opt=module=$(MODULE_NAME) \
 	       --go-oneof-helper_out=. \
 	       --go-http_out=. \
 	       --openapiv3_out=./docs \
 	       --proto_path=. \
+	       --proto_path=./sebuf/proto \
 	       $(PROTO_FILES)
 
 # Build server
@@ -425,13 +441,59 @@ message ListTasksResponse {
 
 ### 1. Generate All Code
 
+#### Using Buf (Recommended)
+
+Create `buf.yaml`:
+```yaml
+version: v2
+deps:
+  - buf.build/sebmelki/sebuf
+```
+
+Create `buf.gen.yaml`:
+```yaml
+version: v2
+managed:
+  enabled: true
+plugins:
+  - remote: buf.build/protocolbuffers/go
+    out: .
+    opt: 
+      - paths=source_relative
+  - local: protoc-gen-go-oneof-helper
+    out: .
+    opt: 
+      - paths=source_relative
+  - local: protoc-gen-go-http
+    out: .
+    opt: 
+      - paths=source_relative
+  - local: protoc-gen-openapiv3
+    out: ./docs
+```
+
+Generate everything:
 ```bash
+# First time: fetch dependencies
+buf dep update
+
+# Generate code
+buf generate
+```
+
+#### Using protoc (Traditional)
+
+```bash
+# First clone sebuf to get proto files
+git clone https://github.com/SebastienMelki/sebuf.git
+
 # Generate protobuf code, HTTP handlers, oneof helpers, and OpenAPI spec
 protoc --go_out=. --go_opt=module=github.com/yourorg/taskapi \
        --go-oneof-helper_out=. \
        --go-http_out=. \
        --openapiv3_out=./docs \
        --proto_path=. \
+       --proto_path=./sebuf/proto \
        api/tasks/tasks.proto api/auth/auth.proto
 ```
 

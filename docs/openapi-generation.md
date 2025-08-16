@@ -180,6 +180,38 @@ service UserService {
 
 ### 2. Generate OpenAPI Specification
 
+#### Using Buf (Recommended)
+
+Create `buf.yaml`:
+```yaml
+version: v2
+# Add sebuf dependency if using HTTP annotations
+deps:
+  - buf.build/sebmelki/sebuf  # Optional, only if using HTTP annotations
+```
+
+Create `buf.gen.yaml`:
+```yaml
+version: v2
+plugins:
+  - remote: buf.build/protocolbuffers/go
+    out: .
+    opt: paths=source_relative
+  - local: protoc-gen-openapiv3
+    out: ./docs
+    # For JSON format instead of YAML:
+    # opt: format=json
+    # For custom filename:
+    # opt: filename=my_api.yaml
+```
+
+Generate:
+```bash
+buf generate
+```
+
+#### Using protoc
+
 ```bash
 # Generate YAML format (default)
 protoc --openapiv3_out=./docs user_api.proto
@@ -637,11 +669,37 @@ protoc --openapiv3_out=./docs --openapiv3_opt=filename=my_api.yaml api.proto
 
 When used together with `protoc-gen-go-http`, the OpenAPI specification will accurately reflect your actual HTTP endpoints:
 
+#### Using Buf
+
+```yaml
+# buf.gen.yaml
+version: v2
+plugins:
+  - remote: buf.build/protocolbuffers/go
+    out: .
+    opt: module=github.com/yourorg/api
+  - local: protoc-gen-go-http
+    out: .
+  - local: protoc-gen-openapiv3
+    out: ./docs
+```
+
 ```bash
+buf generate
+```
+
+#### Using protoc
+
+```bash
+# Clone sebuf for HTTP annotations
+git clone https://github.com/SebastienMelki/sebuf.git
+
 # Generate both HTTP handlers and OpenAPI spec
 protoc --go_out=. --go_opt=module=github.com/yourorg/api \
        --go-http_out=. \
        --openapiv3_out=./docs \
+       --proto_path=. \
+       --proto_path=./sebuf/proto \
        api.proto
 ```
 

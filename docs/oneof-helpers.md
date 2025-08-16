@@ -97,6 +97,34 @@ message LoginRequest {
 
 ### 2. Generate helpers
 
+#### Using Buf (Recommended)
+
+Create `buf.yaml`:
+```yaml
+version: v2
+# Add sebuf dependency if using HTTP annotations
+deps:
+  - buf.build/sebmelki/sebuf  # Optional, only if using HTTP annotations
+```
+
+Create `buf.gen.yaml`:
+```yaml
+version: v2
+plugins:
+  - remote: buf.build/protocolbuffers/go
+    out: .
+    opt: module=github.com/yourorg/yourapi
+  - local: protoc-gen-go-oneof-helper
+    out: .
+```
+
+Generate:
+```bash
+buf generate
+```
+
+#### Using protoc
+
 ```bash
 protoc --go_out=. --go_opt=module=github.com/yourorg/yourapi \
        --go-oneof-helper_out=. \
@@ -384,19 +412,44 @@ func CreateUserWithEmail(email, password string) (*User, error) {
 
 ## Configuration
 
-The plugin works without configuration, but you can customize its behavior through protoc options:
+The plugin works without configuration, but you can customize its behavior:
 
-### Basic Usage
+### Using Buf (Recommended)
+
+Create `buf.gen.yaml`:
+```yaml
+version: v2
+plugins:
+  - remote: buf.build/protocolbuffers/go
+    out: .
+    opt: paths=source_relative
+  - local: protoc-gen-go-oneof-helper
+    out: .
+    opt: paths=source_relative
+```
+
+Custom output directory:
+```yaml
+version: v2
+plugins:
+  - local: protoc-gen-go-oneof-helper
+    out: ./generated
+    opt: paths=source_relative
+```
+
+### Using protoc
+
+Basic usage:
 ```bash
 protoc --go-oneof-helper_out=. your_file.proto
 ```
 
-### Custom Output Directory
+Custom output directory:
 ```bash
 protoc --go-oneof-helper_out=./generated your_file.proto
 ```
 
-### With Module Option
+With module option:
 ```bash
 protoc --go_out=. --go_opt=module=github.com/yourorg/yourapi \
        --go-oneof-helper_out=. \
