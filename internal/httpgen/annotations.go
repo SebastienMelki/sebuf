@@ -19,8 +19,8 @@ type ServiceConfigImpl struct {
 
 // These constants should match the extension numbers in annotations.proto
 const (
-	httpConfigExtension    = 72295728
-	serviceConfigExtension = 72295729
+	httpConfigExtension    = 50003
+	serviceConfigExtension = 50004
 )
 
 // getMethodHTTPConfig extracts HTTP configuration from method options
