@@ -4,39 +4,75 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is `sebuf`, a Go protobuf code generator plugin that creates helper functions for protobuf messages with oneof fields. The main binary is `protoc-gen-go-oneof-helper`, which generates convenience constructors for oneof field assignments.
+This is `sebuf`, a comprehensive Go protobuf toolkit for building HTTP APIs. It consists of three complementary protoc plugins that together enable modern, type-safe API development:
+
+- **`protoc-gen-go-oneof-helper`**: Creates convenience constructors for protobuf oneof fields
+- **`protoc-gen-go-http`**: Generates HTTP handlers, routing, and request/response binding
+- **`protoc-gen-openapiv3`**: Creates comprehensive OpenAPI v3.1 specifications
+
+The toolkit enables developers to build HTTP APIs directly from protobuf definitions without gRPC dependencies, targeting web and mobile API development.
 
 ## Architecture
 
-The project follows a clean Go protoc plugin architecture with separated concerns:
+The project follows a clean Go protoc plugin architecture with separated concerns across three main components:
 
-- **cmd/protoc-gen-go-oneof-helper/main.go**: Minimal plugin entry point (protoc interface only)
-- **internal/oneofhelper/**: Core generation logic and utilities  
-- **internal/oneofhelper/**: Comprehensive test suite with golden file testing
-- **scripts/**: Test automation scripts
+### Plugin Structure
+- **cmd/protoc-gen-go-oneof-helper/**: Oneof helper generator entry point
+- **cmd/protoc-gen-go-http/**: HTTP handler generator entry point
+- **cmd/protoc-gen-openapiv3/**: OpenAPI specification generator entry point
+- **internal/oneofhelper/**: Oneof helper generation logic and tests
+- **internal/httpgen/**: HTTP handler generation logic and annotations
+- **internal/openapiv3/**: OpenAPI generation logic and type mapping
+- **proto/sebuf/http/**: HTTP annotation definitions
+- **scripts/**: Test automation and build scripts
 
 ### Core Components
 
-1. **Plugin Entry Point** (`main()` in cmd/protoc-gen-go-oneof-helper/main.go:14): Minimal orchestration - reads protobuf CodeGeneratorRequest from stdin, delegates to oneofhelper package, writes response to stdout
-2. **Code Generation** (`GenerateHelpers()` at internal/oneofhelper/generator.go:13): Iterates through protobuf files and generates helper functions for messages with oneofs
-3. **Helper Generation** (`GenerateMessageHelpers()` at generator.go:30): Creates constructor functions for oneof fields, handling complex parameter mapping from nested message fields
-4. **Type System** (`getFieldType()` at generator.go:118): Comprehensive protobuf-to-Go type mapping including maps, arrays, optionals, and message types
+1. **Oneof Helper Generator** (`internal/oneofhelper/generator.go:27`): Creates convenience constructors for oneof fields containing message types
+2. **HTTP Handler Generator** (`internal/httpgen/generator.go:22`): Generates HTTP handlers, request binding, and routing configuration
+3. **OpenAPI Generator** (`internal/openapiv3/generator.go:53`): Creates comprehensive OpenAPI v3.1 specifications from protobuf definitions
+4. **HTTP Annotations** (`proto/sebuf/http/annotations.proto`): Custom protobuf extensions for HTTP configuration
 
-### Generated Output Pattern
+### Generated Output Examples
 
-For each oneof field with a nested message, generates helpers like:
+**Oneof Helpers** - Convenience constructors:
 ```go
-// NewSimpleMessageEmail creates a new SimpleMessage with Email set
-func NewSimpleMessageEmail(email string, password string) *SimpleMessage {
-    return &SimpleMessage{
-        AuthMethod: &SimpleMessage_Email{
-            Email: &SimpleMessage_EmailAuth{
+// NewLoginRequestEmail creates a new LoginRequest with Email set
+func NewLoginRequestEmail(email string, password string) *LoginRequest {
+    return &LoginRequest{
+        AuthMethod: &LoginRequest_Email{
+            Email: &LoginRequest_EmailAuth{
                 Email:    email,
                 Password: password,
             },
         },
     }
 }
+```
+
+**HTTP Handlers** - Complete HTTP server infrastructure:
+```go
+// UserServiceServer is the server API for UserService
+type UserServiceServer interface {
+    CreateUser(context.Context, *CreateUserRequest) (*User, error)
+}
+
+// RegisterUserServiceServer registers HTTP handlers for UserService
+func RegisterUserServiceServer(server UserServiceServer, opts ...ServerOption) error
+```
+
+**OpenAPI Specifications** - Comprehensive API documentation:
+```yaml
+openapi: 3.1.0
+paths:
+  /api/v1/users:
+    post:
+      summary: CreateUser
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateUserRequest'
 ```
 
 ## Development Commands
@@ -62,8 +98,13 @@ go test -v -run TestExhaustiveGoldenFiles   # Golden file tests
 
 ### Building
 ```bash
-# Build the plugin binary
+# Build all plugin binaries
+make build
+
+# Build individual plugins
 go build -o protoc-gen-go-oneof-helper ./cmd/protoc-gen-go-oneof-helper
+go build -o protoc-gen-go-http ./cmd/protoc-gen-go-http
+go build -o protoc-gen-openapiv3 ./cmd/protoc-gen-openapiv3
 
 # Format code
 go fmt ./...
@@ -71,9 +112,16 @@ go fmt ./...
 
 ### Manual Testing
 ```bash
-# Test plugin with sample proto file
-protoc --plugin=protoc-gen-go-oneof-helper=./protoc-gen-go-oneof-helper \
-       --go-helpers_out=. \
+# Test all plugins with sample proto file
+protoc --go_out=. --go_opt=module=github.com/SebastienMelki/sebuf \
+       --go-oneof-helper_out=. \
+       --go-http_out=. \
+       --openapiv3_out=./docs \
+       --proto_path=internal/oneofhelper/testdata/proto \
+       internal/oneofhelper/testdata/proto/simple_oneof.proto
+
+# Test specific plugin
+protoc --go-oneof-helper_out=. \
        --proto_path=internal/oneofhelper/testdata/proto \
        internal/oneofhelper/testdata/proto/simple_oneof.proto
 ```
