@@ -23,7 +23,7 @@ This starts a working HTTP API with JSON endpoints, OpenAPI docs, and helper fun
 ## What you get
 
 - **HTTP handlers** from protobuf services (JSON + binary support)
-- **Automatic request validation** using protovalidate with sebuf.validate annotations
+- **Automatic request validation** using protovalidate with buf.validate annotations
 - **OpenAPI v3.1 docs** that stay in sync with your code  
 - **Helper functions** that eliminate protobuf boilerplate
 - **Zero runtime dependencies** - works with any Go HTTP framework
@@ -37,11 +37,11 @@ service UserService {
 }
 
 message CreateUserRequest {
-  // Automatic validation with sebuf.validate
-  string name = 1 [(sebuf.validate.field).string = {
+  // Automatic validation with buf.validate
+  string name = 1 [(buf.validate.field).string = {
     min_len: 2, max_len: 100
   }];
-  string email = 2 [(sebuf.validate.field).string.email = true];
+  string email = 2 [(buf.validate.field).string.email = true];
   
   oneof auth_method {
     EmailAuth email = 3;

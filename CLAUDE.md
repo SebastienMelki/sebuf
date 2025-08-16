@@ -166,9 +166,9 @@ The project uses a comprehensive two-tier testing approach:
 
 The HTTP generator automatically includes request validation using protovalidate:
 
-### sebuf.validate Annotations
-- **Alias for buf.validate**: Use `(sebuf.validate.field)` instead of `(buf.validate.field)`
-- **Full compatibility**: All buf.validate rules work identically
+### buf.validate Integration
+- **Direct buf.validate support**: Use standard `(buf.validate.field)` annotations
+- **Full protovalidate compatibility**: All buf.validate rules work identically
 - **Automatic validation**: No configuration required - validation happens automatically
 - **Performance optimized**: Validator instance is cached and reused
 
@@ -176,24 +176,24 @@ The HTTP generator automatically includes request validation using protovalidate
 ```protobuf
 message CreateUserRequest {
   // String validation
-  string name = 1 [(sebuf.validate.field).string = {
+  string name = 1 [(buf.validate.field).string = {
     min_len: 2,
     max_len: 100
   }];
   
   // Email validation
-  string email = 2 [(sebuf.validate.field).string.email = true];
+  string email = 2 [(buf.validate.field).string.email = true];
   
   // UUID validation
-  string id = 3 [(sebuf.validate.field).string.uuid = true];
+  string id = 3 [(buf.validate.field).string.uuid = true];
   
   // Enum validation (in constraint)
-  string status = 4 [(sebuf.validate.field).string = {
+  string status = 4 [(buf.validate.field).string = {
     in: ["active", "inactive", "pending"]
   }];
   
   // Numeric validation
-  int32 age = 5 [(sebuf.validate.field).int32 = {
+  int32 age = 5 [(buf.validate.field).int32 = {
     gte: 18,
     lte: 120
   }];

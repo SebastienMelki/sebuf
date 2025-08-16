@@ -4,25 +4,25 @@ sebuf provides automatic request validation powered by [protovalidate](https://g
 
 ## Quick Start
 
-Add validation rules to your protobuf messages using `sebuf.validate` annotations:
+Add validation rules to your protobuf messages using `buf.validate` annotations:
 
 ```protobuf
 syntax = "proto3";
 
-import "sebuf/validate/validate.proto";
+import "buf/validate/validate.proto";
 
 message CreateUserRequest {
   // Name must be between 2 and 100 characters
-  string name = 1 [(sebuf.validate.field).string = {
+  string name = 1 [(buf.validate.field).string = {
     min_len: 2,
     max_len: 100
   }];
   
   // Email must be valid
-  string email = 2 [(sebuf.validate.field).string.email = true];
+  string email = 2 [(buf.validate.field).string.email = true];
   
   // Age must be between 18 and 120
-  int32 age = 3 [(sebuf.validate.field).int32 = {
+  int32 age = 3 [(buf.validate.field).int32 = {
     gte: 18,
     lte: 120
   }];
@@ -35,7 +35,7 @@ That's it! Validation happens automatically in your HTTP handlers.
 
 - ✅ **Zero configuration** - Validation works automatically
 - ✅ **All protovalidate rules** - Full compatibility with buf.validate ecosystem
-- ✅ **sebuf.validate namespace** - Use `(sebuf.validate.field)` consistently
+- ✅ **Standard buf.validate** - Use standard `(buf.validate.field)` annotations
 - ✅ **Performance optimized** - Cached validator instances
 - ✅ **Clear error messages** - HTTP 400 with detailed validation errors
 - ✅ **No code generation** - Pure runtime validation
@@ -47,27 +47,27 @@ That's it! Validation happens automatically in your HTTP handlers.
 ```protobuf
 message StringValidationExample {
   // Length constraints
-  string name = 1 [(sebuf.validate.field).string = {
+  string name = 1 [(buf.validate.field).string = {
     min_len: 1,
     max_len: 50
   }];
   
   // Email validation
-  string email = 2 [(sebuf.validate.field).string.email = true];
+  string email = 2 [(buf.validate.field).string.email = true];
   
   // UUID validation
-  string id = 3 [(sebuf.validate.field).string.uuid = true];
+  string id = 3 [(buf.validate.field).string.uuid = true];
   
   // Pattern matching (regex)
-  string phone = 4 [(sebuf.validate.field).string.pattern = "^\\+?[1-9]\\d{1,14}$"];
+  string phone = 4 [(buf.validate.field).string.pattern = "^\\+?[1-9]\\d{1,14}$"];
   
   // Enum-like validation (allowed values)
-  string status = 5 [(sebuf.validate.field).string = {
+  string status = 5 [(buf.validate.field).string = {
     in: ["active", "inactive", "pending"]
   }];
   
   // URL validation
-  string website = 6 [(sebuf.validate.field).string.uri = true];
+  string website = 6 [(buf.validate.field).string.uri = true];
 }
 ```
 
@@ -76,21 +76,21 @@ message StringValidationExample {
 ```protobuf
 message NumericValidationExample {
   // Integer range
-  int32 age = 1 [(sebuf.validate.field).int32 = {
+  int32 age = 1 [(buf.validate.field).int32 = {
     gte: 0,
     lte: 150
   }];
   
   // Exact value
-  int32 version = 2 [(sebuf.validate.field).int32.const = 1];
+  int32 version = 2 [(buf.validate.field).int32.const = 1];
   
   // List of allowed values
-  int32 priority = 3 [(sebuf.validate.field).int32 = {
+  int32 priority = 3 [(buf.validate.field).int32 = {
     in: [1, 2, 3, 4, 5]
   }];
   
   // Float validation
-  float score = 4 [(sebuf.validate.field).float = {
+  float score = 4 [(buf.validate.field).float = {
     gte: 0.0,
     lte: 100.0
   }];
@@ -102,19 +102,19 @@ message NumericValidationExample {
 ```protobuf
 message CollectionValidationExample {
   // Repeated field size
-  repeated string tags = 1 [(sebuf.validate.field).repeated = {
+  repeated string tags = 1 [(buf.validate.field).repeated = {
     min_items: 1,
     max_items: 10
   }];
   
   // Map validation
-  map<string, string> metadata = 2 [(sebuf.validate.field).map = {
+  map<string, string> metadata = 2 [(buf.validate.field).map = {
     min_pairs: 1,
     max_pairs: 20
   }];
   
   // Nested message validation
-  repeated UserInfo users = 3 [(sebuf.validate.field).repeated.min_items = 1];
+  repeated UserInfo users = 3 [(buf.validate.field).repeated.min_items = 1];
 }
 ```
 
@@ -123,10 +123,10 @@ message CollectionValidationExample {
 ```protobuf
 message MessageValidationExample {
   // Required field (non-zero/non-empty)
-  string required_field = 1 [(sebuf.validate.field).required = true];
+  string required_field = 1 [(buf.validate.field).required = true];
   
   // Skip validation for this field
-  string internal_field = 2 [(sebuf.validate.field).ignore = IGNORE_ALWAYS];
+  string internal_field = 2 [(buf.validate.field).ignore = IGNORE_ALWAYS];
 }
 ```
 
@@ -154,13 +154,13 @@ Use CEL expressions for custom validation logic:
 
 ```protobuf
 message AdvancedValidation {
-  string password = 1 [(sebuf.validate.field).string = {
+  string password = 1 [(buf.validate.field).string = {
     min_len: 8,
     pattern: "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d).*$"
   }];
   
   // Custom CEL validation
-  string username = 2 [(sebuf.validate.field).cel = {
+  string username = 2 [(buf.validate.field).cel = {
     id: "username.unique",
     message: "Username must be unique and start with letter",
     expression: "this.matches('^[a-zA-Z][a-zA-Z0-9_]*$')"
@@ -175,7 +175,7 @@ message ConditionalValidation {
   string type = 1;
   
   // Only validate email if type is "email"
-  string contact = 2 [(sebuf.validate.field).cel = {
+  string contact = 2 [(buf.validate.field).cel = {
     id: "contact.conditional",
     expression: "this.type != 'email' || this.contact.isEmail()"
   }];
@@ -198,7 +198,7 @@ sebuf validation is fully compatible with the protovalidate ecosystem:
 - **buf CLI**: Use buf validate commands
 - **IDE support**: Validation rules show in proto IDE plugins  
 - **Other languages**: Same rules work with protovalidate for Python, Java, etc.
-- **Migration**: Easy to migrate from buf.validate to sebuf.validate
+- **Migration**: Uses standard buf.validate annotations directly
 
 ## Best Practices
 
@@ -211,7 +211,7 @@ sebuf validation is fully compatible with the protovalidate ecosystem:
 ## Troubleshooting
 
 **Validation not working?**
-- Ensure you're importing `"sebuf/validate/validate.proto"`
+- Ensure you're importing `"buf/validate/validate.proto"`
 - Check that your message fields have validation annotations
 - Regenerate your code after adding validation rules
 

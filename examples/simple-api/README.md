@@ -16,7 +16,7 @@ This runs the complete workflow and starts the API server. Skip to [Testing the 
 
 A user management API with:
 - ✅ **HTTP endpoints** for creating users and authentication
-- ✅ **Automatic request validation** using sebuf.validate annotations
+- ✅ **Automatic request validation** using buf.validate annotations
 - ✅ **Multiple auth methods** (email, token, social) using oneof fields
 - ✅ **Helper functions** that eliminate protobuf boilerplate  
 - ✅ **OpenAPI documentation** that stays in sync automatically
@@ -54,18 +54,18 @@ service UserService {
 }
 ```
 
-**Automatic validation** is built in using `sebuf.validate` annotations:
+**Automatic validation** is built in using `buf.validate` annotations:
 
 ```protobuf
 message CreateUserRequest {
   // Name is required and must be between 2 and 100 characters
-  string name = 1 [(sebuf.validate.field).string = {
+  string name = 1 [(buf.validate.field).string = {
     min_len: 2,
     max_len: 100
   }];
   
   // Email is required and must be a valid email address
-  string email = 2 [(sebuf.validate.field).string.email = true];
+  string email = 2 [(buf.validate.field).string.email = true];
 }
 ```
 
