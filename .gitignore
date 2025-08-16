@@ -47,7 +47,6 @@ Thumbs.db
 /bin/hexago
 
 # Coverage reports and profiles
-coverage/
 *.coverprofile
 
 # Generated protobuf files
