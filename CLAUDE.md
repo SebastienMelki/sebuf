@@ -7,10 +7,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 This is `sebuf`, a comprehensive Go protobuf toolkit for building HTTP APIs. It consists of three complementary protoc plugins that together enable modern, type-safe API development:
 
 - **`protoc-gen-go-oneof-helper`**: Creates convenience constructors for protobuf oneof fields
-- **`protoc-gen-go-http`**: Generates HTTP handlers, routing, and request/response binding
+- **`protoc-gen-go-http`**: Generates HTTP handlers, routing, request/response binding, and automatic validation
 - **`protoc-gen-openapiv3`**: Creates comprehensive OpenAPI v3.1 specifications
 
-The toolkit enables developers to build HTTP APIs directly from protobuf definitions without gRPC dependencies, targeting web and mobile API development.
+The toolkit enables developers to build HTTP APIs directly from protobuf definitions without gRPC dependencies, targeting web and mobile API development with built-in request validation.
 
 ## Architecture
 
@@ -29,9 +29,10 @@ The project follows a clean Go protoc plugin architecture with separated concern
 ### Core Components
 
 1. **Oneof Helper Generator** (`internal/oneofhelper/generator.go:27`): Creates convenience constructors for oneof fields containing message types
-2. **HTTP Handler Generator** (`internal/httpgen/generator.go:22`): Generates HTTP handlers, request binding, and routing configuration
+2. **HTTP Handler Generator** (`internal/httpgen/generator.go:22`): Generates HTTP handlers, request binding, routing configuration, and automatic validation
 3. **OpenAPI Generator** (`internal/openapiv3/generator.go:53`): Creates comprehensive OpenAPI v3.1 specifications from protobuf definitions
 4. **HTTP Annotations** (`proto/sebuf/http/annotations.proto`): Custom protobuf extensions for HTTP configuration
+5. **Validation Annotations** (`proto/sebuf/validate/validate.proto`): Alias for buf.validate enabling sebuf.validate annotations
 
 ### Generated Output Examples
 
@@ -73,6 +74,26 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/CreateUserRequest'
+```
+
+**Automatic Validation** - Built-in request validation:
+```go
+// Generated validation code automatically validates requests
+func BindingMiddleware[Req any](next http.Handler) http.Handler {
+  return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+    // ... binding logic ...
+    
+    // Automatic validation happens here
+    if msg, ok := any(toBind).(proto.Message); ok {
+      if err := ValidateMessage(msg); err != nil {
+        http.Error(w, err.Error(), http.StatusBadRequest)
+        return
+      }
+    }
+    
+    // ... continue to handler ...
+  })
+}
 ```
 
 ## Development Commands
@@ -141,6 +162,49 @@ The project uses a comprehensive two-tier testing approach:
 - **Mocked components**: Uses protogen mocks for isolated testing
 - **File locations**: internal/oneofhelper/simple_test.go, internal/oneofhelper/comprehensive_test.go
 
+## Validation System
+
+The HTTP generator automatically includes request validation using protovalidate:
+
+### sebuf.validate Annotations
+- **Alias for buf.validate**: Use `(sebuf.validate.field)` instead of `(buf.validate.field)`
+- **Full compatibility**: All buf.validate rules work identically
+- **Automatic validation**: No configuration required - validation happens automatically
+- **Performance optimized**: Validator instance is cached and reused
+
+### Supported Validation Rules
+```protobuf
+message CreateUserRequest {
+  // String validation
+  string name = 1 [(sebuf.validate.field).string = {
+    min_len: 2,
+    max_len: 100
+  }];
+  
+  // Email validation
+  string email = 2 [(sebuf.validate.field).string.email = true];
+  
+  // UUID validation
+  string id = 3 [(sebuf.validate.field).string.uuid = true];
+  
+  // Enum validation (in constraint)
+  string status = 4 [(sebuf.validate.field).string = {
+    in: ["active", "inactive", "pending"]
+  }];
+  
+  // Numeric validation
+  int32 age = 5 [(sebuf.validate.field).int32 = {
+    gte: 18,
+    lte: 120
+  }];
+}
+```
+
+### Error Handling
+- **HTTP 400 responses**: Validation errors return Bad Request with error message
+- **Detailed errors**: Full validation error details from protovalidate
+- **Fail-fast**: Validation stops request processing immediately on failure
+
 ## Type System
 
 The plugin handles comprehensive protobuf-to-Go type mapping in `getFieldType()` (generator.go:118):
@@ -172,3 +236,42 @@ The repository contains:
 - **cmd/protoc-gen-go-oneof-helper/**: Minimal plugin entry point (47 lines)
 - **internal/oneofhelper/**: Core generation logic and comprehensive test suite
 - **scripts/run_tests.sh**: Advanced test runner with coverage analysis and reporting
+
+## Acknowledgments & Ecosystem
+
+sebuf stands on the shoulders of giants. We build upon and integrate with an incredible ecosystem of tools and libraries:
+
+### Core Foundation
+- **[Protocol Buffers](https://protobuf.dev/)** by Google - The foundation that makes everything possible. Proto3 syntax, rich type system, and cross-language compatibility.
+- **[protoc](https://grpc.io/docs/protoc-installation/)** - The official Protocol Buffer compiler that powers our plugin architecture.
+- **[protogen](https://pkg.go.dev/google.golang.org/protobuf/compiler/protogen)** - Go's official protoc plugin framework that provides the foundation for all our generators.
+
+### Validation Ecosystem  
+- **[protovalidate](https://github.com/bufbuild/protovalidate)** by Buf - The modern validation framework that powers our automatic request validation. Built on CEL for flexibility and performance.
+- **[Common Expression Language (CEL)](https://github.com/google/cel-go)** by Google - The expression language that enables powerful custom validation rules in protovalidate.
+- **[buf.validate](https://buf.build/bufbuild/protovalidate)** - The proto definitions that provide the validation annotations we alias as `sebuf.validate`.
+
+### API Documentation
+- **[OpenAPI 3.1](https://spec.openapis.org/oas/v3.1.0)** - The industry standard for REST API documentation that our OpenAPI generator targets.
+- **[JSON Schema](https://json-schema.org/)** - The schema definition language that OpenAPI 3.1 uses and that we generate for protobuf messages.
+
+### Development Tooling
+- **[Buf CLI](https://buf.build/)** - The modern protobuf build system that replaces protoc for dependency management and code generation.
+- **[Go Modules](https://go.dev/blog/using-go-modules)** - Go's dependency management system that ensures reproducible builds.
+
+### HTTP & JSON Standards
+- **[net/http](https://pkg.go.dev/net/http)** - Go's standard HTTP library that provides the foundation for our generated HTTP handlers.
+- **[encoding/json](https://pkg.go.dev/encoding/json)** - Go's standard JSON library for request/response serialization.
+- **[protojson](https://pkg.go.dev/google.golang.org/protobuf/encoding/protojson)** - Google's canonical JSON mapping for Protocol Buffers.
+
+### Testing & Quality
+- **[Golden File Testing](https://en.wikipedia.org/wiki/Characterization_test)** - The testing pattern we use for regression detection in code generation.
+- **[Go Testing](https://pkg.go.dev/testing)** - Go's built-in testing framework that powers our comprehensive test suite.
+
+This ecosystem approach means:
+- **Standards compliance**: We follow established protocols and specifications
+- **Interoperability**: Generated APIs work with existing tools and frameworks  
+- **Community support**: Leverage documentation, tools, and knowledge from these mature projects
+- **Future-proofing**: Built on stable, widely-adopted technologies
+
+We're grateful to all the maintainers and contributors of these projects that make sebuf possible.

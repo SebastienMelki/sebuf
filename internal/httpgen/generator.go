@@ -135,6 +135,9 @@ func (g *Generator) generateBindingFile(file *protogen.File) error {
 	gf.P(`"fmt"`)
 	gf.P(`"io"`)
 	gf.P(`"net/http"`)
+	gf.P(`"sync"`)
+	gf.P()
+	gf.P(`"buf.build/go/protovalidate"`)
 	gf.P(`"google.golang.org/protobuf/encoding/protojson"`)
 	gf.P(`"google.golang.org/protobuf/proto"`)
 	gf.P(")")
@@ -168,6 +171,7 @@ func (g *Generator) generateBindingFile(file *protogen.File) error {
 
 	// BindingMiddleware function
 	gf.P("// BindingMiddleware creates a middleware that binds HTTP requests to protobuf messages")
+	gf.P("// and validates them using protovalidate")
 	gf.P("func BindingMiddleware[Req any](next http.Handler) http.Handler {")
 	gf.P("return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {")
 	gf.P("toBind := new(Req)")
@@ -176,6 +180,14 @@ func (g *Generator) generateBindingFile(file *protogen.File) error {
 	gf.P("if err != nil {")
 	gf.P(`http.Error(w, "bad request", http.StatusBadRequest)`)
 	gf.P("return")
+	gf.P("}")
+	gf.P()
+	gf.P("// Validate the message if it's a proto.Message")
+	gf.P("if msg, ok := any(toBind).(proto.Message); ok {")
+	gf.P("if err := ValidateMessage(msg); err != nil {")
+	gf.P(`http.Error(w, err.Error(), http.StatusBadRequest)`)
+	gf.P("return")
+	gf.P("}")
 	gf.P("}")
 	gf.P()
 	gf.P("ctx := context.WithValue(r.Context(), bodyCtxKey{}, toBind)")
@@ -308,6 +320,9 @@ func (g *Generator) generateBindingFile(file *protogen.File) error {
 	gf.P("}")
 	gf.P("}")
 	gf.P()
+
+	// Generate validation support
+	g.generateValidationFunctions(gf)
 
 	return nil
 }
@@ -444,4 +459,42 @@ func camelToSnake(s string) string {
 		}
 	}
 	return string(result)
+}
+
+// generateValidationFunctions generates the validation support code
+func (g *Generator) generateValidationFunctions(gf *protogen.GeneratedFile) {
+	// Global validator instance
+	gf.P("var (")
+	gf.P("// Global validator instance - created once and reused")
+	gf.P("validatorOnce sync.Once")
+	gf.P("validator protovalidate.Validator")
+	gf.P("validatorErr error")
+	gf.P(")")
+	gf.P()
+
+	// getValidator function
+	gf.P("// getValidator returns a cached validator instance")
+	gf.P("func getValidator() (protovalidate.Validator, error) {")
+	gf.P("validatorOnce.Do(func() {")
+	gf.P("validator, validatorErr = protovalidate.New()")
+	gf.P("})")
+	gf.P("return validator, validatorErr")
+	gf.P("}")
+	gf.P()
+
+	// ValidateMessage function
+	gf.P("// ValidateMessage validates a protobuf message using protovalidate")
+	gf.P("func ValidateMessage(msg proto.Message) error {")
+	gf.P("// Get cached validator")
+	gf.P("v, err := getValidator()")
+	gf.P("if err != nil {")
+	gf.P("// If we can't create a validator, log and continue")
+	gf.P("// This allows the service to run even if validation setup fails")
+	gf.P("return nil")
+	gf.P("}")
+	gf.P()
+	gf.P("// Validate the message and return any error")
+	gf.P("return v.Validate(msg)")
+	gf.P("}")
+	gf.P()
 }

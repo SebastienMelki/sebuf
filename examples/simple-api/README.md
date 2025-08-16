@@ -16,6 +16,7 @@ This runs the complete workflow and starts the API server. Skip to [Testing the 
 
 A user management API with:
 - ✅ **HTTP endpoints** for creating users and authentication
+- ✅ **Automatic request validation** using sebuf.validate annotations
 - ✅ **Multiple auth methods** (email, token, social) using oneof fields
 - ✅ **Helper functions** that eliminate protobuf boilerplate  
 - ✅ **OpenAPI documentation** that stays in sync automatically
@@ -37,7 +38,7 @@ go install github.com/SebastienMelki/sebuf/cmd/protoc-gen-openapiv3@latest
 
 ### 2. Understanding the protobuf definition
 
-Look at `api.proto` - notice how we define services with HTTP annotations:
+Look at `api.proto` - notice how we define services with HTTP annotations and validation rules:
 
 ```protobuf
 service UserService {
@@ -50,6 +51,21 @@ service UserService {
   rpc Login(LoginRequest) returns (LoginResponse) {
     option (sebuf.http.config) = { path: "/auth/login" };
   }
+}
+```
+
+**Automatic validation** is built in using `sebuf.validate` annotations:
+
+```protobuf
+message CreateUserRequest {
+  // Name is required and must be between 2 and 100 characters
+  string name = 1 [(sebuf.validate.field).string = {
+    min_len: 2,
+    max_len: 100
+  }];
+  
+  // Email is required and must be a valid email address
+  string email = 2 [(sebuf.validate.field).string.email = true];
 }
 ```
 
@@ -96,7 +112,7 @@ The server starts on port 8080 with these endpoints:
 
 ## Testing the API
 
-### Create a user
+### Create a user (valid request)
 ```bash
 curl -X POST http://localhost:8080/api/v1/users \
   -H "Content-Type: application/json" \
@@ -106,8 +122,38 @@ curl -X POST http://localhost:8080/api/v1/users \
   }'
 ```
 
-### Login with email (demonstrates oneof helpers)
+### Test validation errors
+Try creating a user with invalid data to see validation in action:
+
 ```bash
+# Invalid email (should return 400 Bad Request)
+curl -X POST http://localhost:8080/api/v1/users \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "John Doe",
+    "email": "not-an-email"
+  }'
+
+# Name too short (should return 400 Bad Request)
+curl -X POST http://localhost:8080/api/v1/users \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "J",
+    "email": "john@example.com"
+  }'
+
+# Empty name (should return 400 Bad Request)
+curl -X POST http://localhost:8080/api/v1/users \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "",
+    "email": "john@example.com"
+  }'
+```
+
+### Login with email (demonstrates oneof helpers and validation)
+```bash
+# Valid login request
 curl -X POST http://localhost:8080/api/v1/auth/login \
   -H "Content-Type: application/json" \
   -d '{
@@ -116,27 +162,58 @@ curl -X POST http://localhost:8080/api/v1/auth/login \
       "password": "secret123"
     }
   }'
+
+# Test password validation (too short - should return 400)
+curl -X POST http://localhost:8080/api/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": {
+      "email": "john@example.com",
+      "password": "short"
+    }
+  }'
 ```
 
 ### Login with token
 ```bash
+# Valid token login
 curl -X POST http://localhost:8080/api/v1/auth/login \
   -H "Content-Type: application/json" \
   -d '{
     "token": {
-      "token": "my-auth-token"
+      "token": "my-auth-token-1234567890"
+    }
+  }'
+
+# Invalid token (too short - should return 400)
+curl -X POST http://localhost:8080/api/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{
+    "token": {
+      "token": "short"
     }
   }'
 ```
 
 ### Login with social auth
 ```bash
+# Valid social login
 curl -X POST http://localhost:8080/api/v1/auth/login \
   -H "Content-Type: application/json" \
   -d '{
     "social": {
       "provider": "google",
-      "access_token": "oauth-token"
+      "access_token": "oauth-token-1234567890123456789012345"
+    }
+  }'
+
+# Invalid provider (should return 400)
+curl -X POST http://localhost:8080/api/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{
+    "social": {
+      "provider": "invalid-provider",
+      "access_token": "oauth-token-1234567890123456789012345"
     }
   }'
 ```
