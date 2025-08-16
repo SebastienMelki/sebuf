@@ -64,7 +64,7 @@ func GenerateOneofHelper(g *protogen.GeneratedFile, message *protogen.Message,
 	// Generate helper function name
 	helperName := fmt.Sprintf("New%s%s", message.GoIdent.GoName, field.GoName)
 
-	// Get the wrapper type name (e.g., LoginMethod_Anghami)
+	// Get the wrapper type name (e.g., LoginMethod_Email)
 	wrapperType := fmt.Sprintf("%s_%s", message.GoIdent.GoName, field.GoName)
 
 	// Check if this field is a message type that might have fields
