@@ -194,7 +194,7 @@ for proto in testdata/proto/*.proto; do
 done
 
 # Move files to flat structure
-mv testdata/golden/github.com/anghami/anghamak-go/cmd/protoc-gen-go-oneof-helper/testdata/* testdata/golden/
+mv testdata/golden/github.com/SebastienMelki/sebuf/internal/oneofhelper/testdata/* testdata/golden/
 rm -rf testdata/golden/github.com
 
 # Clean up
