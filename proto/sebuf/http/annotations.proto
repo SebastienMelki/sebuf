@@ -1,0 +1,29 @@
+syntax = "proto3";
+
+package sebuf.http;
+
+import "google/protobuf/descriptor.proto";
+
+option go_package = "github.com/SebastienMelki/sebuf/internal/httpgen;httpgen";
+
+// HttpConfig defines HTTP-specific configuration for an RPC method
+message HttpConfig {
+  // The HTTP path for this method
+  string path = 1;
+}
+
+// Extension for method options
+extend google.protobuf.MethodOptions {
+  HttpConfig config = 72295728;
+}
+
+// ServiceConfig defines HTTP-specific configuration for an entire service
+message ServiceConfig {
+  // Base path prefix for all methods in this service
+  string base_path = 1;
+}
+
+// Extension for service options
+extend google.protobuf.ServiceOptions {
+  ServiceConfig service_config = 72295729;
+}

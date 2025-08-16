@@ -4,6 +4,7 @@ go 1.24.4
 
 require (
 	github.com/pb33f/libopenapi v0.25.3
+	google.golang.org/genproto/googleapis/api v0.0.0-20250811230008-5f3141c8851a
 	google.golang.org/protobuf v1.36.7
 	gopkg.in/yaml.v3 v3.0.1
 )

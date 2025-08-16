@@ -1,0 +1,5 @@
+# Ignore everything except sebuf/http
+*
+!sebuf/
+!sebuf/http/
+!sebuf/http/*.proto

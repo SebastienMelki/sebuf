@@ -1,0 +1,8 @@
+version: v1
+name: buf.build/sebmelki/sebuf
+breaking:
+  use:
+    - FILE
+lint:
+  use:
+    - DEFAULT

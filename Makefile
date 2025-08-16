@@ -26,6 +26,8 @@ help:
 	@echo "  test-fast   - Run all tests without coverage (faster)"
 	@echo "  install     - Install all required dependencies"
 	@echo "  install-binaries - Install binaries to GOPATH/bin"
+	@echo "  proto       - Generate Go code from proto files"
+	@echo "  publish     - Publish annotations to Buf Schema Registry"
 	@echo "  fmt         - Format all Go code"
 	@echo "  lint        - Run golangci-lint to check code quality"
 	@echo "  lint-fix    - Run golangci-lint with auto-fix"
@@ -92,6 +94,23 @@ install-binaries:
 		echo "Installing $$binary..."; \
 		go install ./$(CMD_DIR)/$$binary; \
 	done
+
+# Generate proto files
+.PHONY: proto
+proto:
+	@echo "Generating Go code from proto files..."
+	@protoc --go_out=. --go_opt=module=github.com/SebastienMelki/sebuf \
+		--go_opt=Msebuf/http/annotations.proto=github.com/SebastienMelki/sebuf/internal/httpgen \
+		--proto_path=. \
+		proto/sebuf/http/annotations.proto
+
+# Publish annotations to Buf Schema Registry
+.PHONY: publish
+publish:
+	@echo "Publishing annotations to Buf Schema Registry..."
+	@cd proto && buf push
+	@echo "✅ Published to buf.build/sebmelki/sebuf"
+	@echo "Other projects can now use: deps: [buf.build/sebmelki/sebuf]"
 
 # Format Go code
 .PHONY: fmt
