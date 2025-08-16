@@ -4,7 +4,7 @@ package sebuf.http;
 
 import "google/protobuf/descriptor.proto";
 
-option go_package = "github.com/SebastienMelki/sebuf/sebuf/http;http";
+option go_package = "github.com/SebastienMelki/sebuf/internal/httpgen;httpgen";
 
 // HttpConfig defines HTTP-specific configuration for an RPC method
 message HttpConfig {

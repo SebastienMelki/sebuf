@@ -1,7 +1,6 @@
 package httpgen
 
 import (
-	"github.com/SebastienMelki/sebuf/sebuf/http"
 	"google.golang.org/protobuf/compiler/protogen"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/descriptorpb"
@@ -12,8 +11,8 @@ type HTTPConfig struct {
 	Path string
 }
 
-// ServiceConfig represents the HTTP configuration for a service
-type ServiceConfig struct {
+// ServiceConfigImpl represents the HTTP configuration for a service
+type ServiceConfigImpl struct {
 	BasePath string
 }
 
@@ -37,23 +36,23 @@ func getMethodHTTPConfig(method *protogen.Method) *HTTPConfig {
 	}
 
 	// Extract our custom extension using the generated code
-	ext := proto.GetExtension(methodOptions, http.E_Config)
+	ext := proto.GetExtension(methodOptions, E_Config)
 	if ext == nil {
 		return nil
 	}
-	
-	httpConfig, ok := ext.(*http.HttpConfig)
+
+	httpConfig, ok := ext.(*HttpConfig)
 	if !ok || httpConfig == nil {
 		return nil
 	}
-	
+
 	return &HTTPConfig{
 		Path: httpConfig.Path,
 	}
 }
 
 // getServiceHTTPConfig extracts HTTP configuration from service options
-func getServiceHTTPConfig(service *protogen.Service) *ServiceConfig {
+func getServiceHTTPConfig(service *protogen.Service) *ServiceConfigImpl {
 	options := service.Desc.Options()
 	if options == nil {
 		return nil
@@ -66,17 +65,17 @@ func getServiceHTTPConfig(service *protogen.Service) *ServiceConfig {
 	}
 
 	// Extract our custom extension using the generated code
-	ext := proto.GetExtension(serviceOptions, http.E_ServiceConfig)
+	ext := proto.GetExtension(serviceOptions, E_ServiceConfig)
 	if ext == nil {
 		return nil
 	}
-	
-	serviceConfig, ok := ext.(*http.ServiceConfig)
+
+	serviceConfig, ok := ext.(*ServiceConfig)
 	if !ok || serviceConfig == nil {
 		return nil
 	}
-	
-	return &ServiceConfig{
+
+	return &ServiceConfigImpl{
 		BasePath: serviceConfig.BasePath,
 	}
 }
@@ -85,7 +84,7 @@ func getServiceHTTPConfig(service *protogen.Service) *ServiceConfig {
 func parseExistingAnnotation(method *protogen.Method) string {
 	// This is a temporary parser for the existing sebuf.http.config format
 	// that's used in authv1/service.proto
-	
+
 	// In the actual implementation, this would properly parse the extension
 	// For now, we'll return empty and use default paths
 	return ""
