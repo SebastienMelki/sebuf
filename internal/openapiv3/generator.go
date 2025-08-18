@@ -90,8 +90,10 @@ func (g *Generator) buildObjectSchema(message *protogen.Message) *base.SchemaPro
 		fieldName := field.Desc.JSONName()
 		properties.Set(fieldName, fieldSchema)
 
-		// In proto3, fields are optional by default, but we can mark some as required
-		// based on business logic or annotations in the future
+		// Check if field has the required constraint from buf.validate
+		if checkIfFieldRequired(field) {
+			required = append(required, fieldName)
+		}
 	}
 
 	schema := &base.Schema{
