@@ -10,6 +10,7 @@ The `protoc-gen-go-http` plugin generates complete HTTP server infrastructure fr
 - [Installation](#installation)
 - [Quick Start](#quick-start)
 - [HTTP Annotations](#http-annotations)
+- [Header Validation](#header-validation)
 - [Generated Code Structure](#generated-code-structure)
 - [Framework Integration](#framework-integration)
 - [Request/Response Handling](#requestresponse-handling)
@@ -32,6 +33,7 @@ The HTTP generation plugin creates three main components from your protobuf serv
 - **Framework Agnostic** - Works with any Go HTTP framework or standard library
 - **Type Safe** - Full protobuf type checking and validation
 - **Customizable Routing** - Control HTTP paths through annotations
+- **Header Validation** - Automatic validation of HTTP headers with type and format checking
 - **Middleware Ready** - Built-in hooks for authentication, logging, etc.
 
 ## Installation
@@ -324,6 +326,201 @@ The final HTTP path is determined by:
    // Results in: POST /userapi/create_user (no annotations)
    ```
 
+## Header Validation
+
+The HTTP generator provides comprehensive header validation through service and method-level annotations.
+
+### Service-Level Headers
+
+Define headers that apply to all methods in a service:
+
+```protobuf
+import "sebuf/http/headers.proto";
+
+service UserService {
+  option (sebuf.http.service_headers) = {
+    required_headers: [
+      {
+        name: "X-API-Key"
+        description: "API authentication key"
+        type: "string"
+        required: true
+        format: "uuid"
+        example: "123e4567-e89b-12d3-a456-426614174000"
+      },
+      {
+        name: "X-Tenant-ID"
+        description: "Tenant identifier"
+        type: "integer"
+        required: true
+      }
+    ]
+  };
+  
+  // All methods in this service will require X-API-Key and X-Tenant-ID headers
+  rpc CreateUser(CreateUserRequest) returns (User);
+  rpc GetUser(GetUserRequest) returns (User);
+}
+```
+
+### Method-Level Headers
+
+Define headers for specific methods (these override service-level headers with the same name):
+
+```protobuf
+service UserService {
+  rpc CreateUser(CreateUserRequest) returns (User) {
+    option (sebuf.http.method_headers) = {
+      required_headers: [
+        {
+          name: "X-Request-ID"
+          description: "Unique request identifier for tracing"
+          type: "string"
+          format: "uuid"
+          required: true
+        },
+        {
+          name: "X-Idempotency-Key"
+          description: "Idempotency key for safe retries"
+          type: "string"
+          required: false
+        }
+      ]
+    };
+  };
+}
+```
+
+### Supported Header Types
+
+| Type | Description | Example |
+|------|-------------|---------|
+| `string` | Text values | `"Bearer token123"` |
+| `integer` | Whole numbers | `42` |
+| `number` | Decimal numbers | `3.14` |
+| `boolean` | True/false values | `true` |
+| `array` | Comma-separated values | `"value1,value2,value3"` |
+
+### Supported String Formats
+
+| Format | Description | Validation Pattern |
+|--------|-------------|-------------------|
+| `uuid` | UUID v4 | `^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$` |
+| `email` | Email address | Standard email validation |
+| `date-time` | ISO 8601 datetime | `2006-01-02T15:04:05Z07:00` |
+| `date` | ISO 8601 date | `2006-01-02` |
+| `time` | ISO 8601 time | `15:04:05` |
+
+### Header Validation Behavior
+
+1. **Validation Order**: Headers are validated before request body
+2. **Required Headers**: Missing required headers return HTTP 400
+3. **Type Validation**: Invalid types return HTTP 400 with details
+4. **Format Validation**: Invalid formats return HTTP 400 with pattern info
+5. **Header Merging**: Method headers override service headers with same name
+
+### Generated Validation Code
+
+The plugin generates header validation middleware that's automatically applied:
+
+```go
+// Generated middleware validates headers before processing requests
+func validateHeaders(requiredHeaders []HeaderConfig) func(http.Handler) http.Handler {
+    return func(next http.Handler) http.Handler {
+        return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+            // Validate each required header
+            for _, header := range requiredHeaders {
+                value := r.Header.Get(header.Name)
+                
+                // Check required headers
+                if header.Required && value == "" {
+                    http.Error(w, fmt.Sprintf("Missing required header: %s", header.Name), 400)
+                    return
+                }
+                
+                // Validate type and format
+                if err := validateHeaderValue(value, header.Type, header.Format); err != nil {
+                    http.Error(w, fmt.Sprintf("Invalid header %s: %v", header.Name, err), 400)
+                    return
+                }
+            }
+            
+            next.ServeHTTP(w, r)
+        })
+    }
+}
+```
+
+### Example: API with Authentication Headers
+
+```protobuf
+service AuthenticatedAPI {
+  option (sebuf.http.service_config) = {
+    base_path: "/api/v1"
+  };
+  
+  option (sebuf.http.service_headers) = {
+    required_headers: [
+      {
+        name: "Authorization"
+        description: "Bearer token for authentication"
+        type: "string"
+        required: true
+        example: "Bearer eyJhbGciOiJIUzI1NiIs..."
+      },
+      {
+        name: "X-API-Version"
+        description: "API version"
+        type: "string"
+        required: false
+        default: "v1"
+        enum: ["v1", "v2", "v3"]
+      }
+    ]
+  };
+  
+  rpc GetUserProfile(GetUserRequest) returns (UserProfile);
+  
+  rpc UpdateUserProfile(UpdateUserRequest) returns (UserProfile) {
+    option (sebuf.http.method_headers) = {
+      required_headers: [
+        {
+          name: "X-Request-ID"
+          type: "string"
+          format: "uuid"
+          required: true
+        }
+      ]
+    };
+  };
+}
+```
+
+### Testing with Headers
+
+```bash
+# Valid request with all required headers
+curl -X POST http://localhost:8080/api/v1/users \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: 123e4567-e89b-12d3-a456-426614174000" \
+  -H "X-Tenant-ID: 42" \
+  -d '{"name": "John", "email": "john@example.com"}'
+
+# Missing required header (returns 400)
+curl -X POST http://localhost:8080/api/v1/users \
+  -H "Content-Type: application/json" \
+  -d '{"name": "John", "email": "john@example.com"}'
+# Response: 400 Bad Request - Missing required header: X-API-Key
+
+# Invalid header format (returns 400)
+curl -X POST http://localhost:8080/api/v1/users \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: not-a-uuid" \
+  -H "X-Tenant-ID: 42" \
+  -d '{"name": "John", "email": "john@example.com"}'
+# Response: 400 Bad Request - Invalid header X-API-Key: invalid UUID format
+```
+
 ## Generated Code Structure
 
 The plugin generates three files for each protobuf file containing services:
@@ -353,6 +550,8 @@ Contains middleware and request/response handling:
 - **Content Type Support** - JSON and binary protobuf
 - **Request Binding** - Automatic deserialization from HTTP requests  
 - **Response Marshaling** - Automatic serialization to HTTP responses
+- **Header Validation** - Automatic header validation middleware
+- **Body Validation** - Automatic request body validation via buf.validate
 - **Error Handling** - Structured error responses
 
 ### 3. Config File (`*_http_config.pb.go`)
@@ -453,11 +652,12 @@ curl -X POST /api/v1/users \
 
 ### Request Processing Flow
 
-1. **Content Type Detection** - Checks `Content-Type` header
-2. **Request Binding** - Deserializes based on content type
-3. **Validation** - Protobuf validation (required fields, types)
-4. **Service Call** - Invokes your service implementation
-5. **Response Marshaling** - Serializes response in same format as request
+1. **Header Validation** - Validates required headers and their formats
+2. **Content Type Detection** - Checks `Content-Type` header
+3. **Request Binding** - Deserializes based on content type
+4. **Body Validation** - Protobuf validation (required fields, types) and buf.validate rules
+5. **Service Call** - Invokes your service implementation
+6. **Response Marshaling** - Serializes response in same format as request
 
 ### Error Handling
 

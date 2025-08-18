@@ -24,9 +24,10 @@ The OpenAPI generation plugin bridges the gap between protobuf service definitio
 
 - **Complete Schema Definitions** - All protobuf messages converted to JSON schemas
 - **Service Endpoints** - RPC methods mapped to HTTP operations
+- **Header Parameters** - HTTP headers from service and method annotations included as parameters
 - **Type Safety** - Accurate type information including enums, arrays, and nested objects
 - **Documentation** - Comments from protobuf definitions preserved as descriptions
-- **Validation Rules** - Protobuf constraints reflected in OpenAPI validation
+- **Validation Rules** - Both buf.validate constraints and header validation rules reflected in OpenAPI
 
 ### Key Benefits
 
@@ -371,6 +372,34 @@ info:
   description: ""                  # Can be customized
 ```
 
+### Header Parameters
+
+When using header annotations, the OpenAPI specification automatically includes header parameters:
+
+```yaml
+paths:
+  /endpoint:
+    post:
+      parameters:
+        - name: X-API-Key
+          in: header
+          required: true
+          description: API authentication key
+          schema:
+            type: string
+            format: uuid
+            example: "123e4567-e89b-12d3-a456-426614174000"
+        - name: X-Tenant-ID
+          in: header
+          required: false
+          description: Tenant identifier
+          schema:
+            type: integer
+            minimum: 1
+      requestBody:
+        # ...
+```
+
 ### Paths
 
 Each protobuf service method becomes an OpenAPI path:
@@ -709,19 +738,44 @@ protoc --go_out=. --go_opt=module=github.com/yourorg/api \
 - **Single source of truth** - One protobuf definition drives everything
 - **Testing alignment** - Test against the same spec that documents the API
 
-### With HTTP Annotations
+### With HTTP Annotations and Headers
 
 ```protobuf
 import "sebuf/http/annotations.proto";
+import "sebuf/http/headers.proto";
 
 service UserService {
   option (sebuf.http.service_config) = {
     base_path: "/api/v1"
   };
   
+  option (sebuf.http.service_headers) = {
+    required_headers: [
+      {
+        name: "X-API-Key"
+        description: "API authentication key"
+        type: "string"
+        format: "uuid"
+        required: true
+        example: "123e4567-e89b-12d3-a456-426614174000"
+      }
+    ]
+  };
+  
   rpc CreateUser(CreateUserRequest) returns (User) {
     option (sebuf.http.config) = {
       path: "/users"
+    };
+    option (sebuf.http.method_headers) = {
+      required_headers: [
+        {
+          name: "X-Request-ID"
+          description: "Unique request identifier"
+          type: "string"
+          format: "uuid"
+          required: true
+        }
+      ]
     };
   }
   
@@ -733,18 +787,47 @@ service UserService {
 }
 ```
 
-The OpenAPI spec will reflect the actual HTTP paths:
+The OpenAPI spec will reflect the actual HTTP paths and header parameters:
 
 ```yaml
 paths:
   /api/v1/users:
     post:
       summary: CreateUser
-      # ...
+      parameters:
+        - name: X-API-Key
+          in: header
+          description: API authentication key
+          required: true
+          schema:
+            type: string
+            format: uuid
+            example: "123e4567-e89b-12d3-a456-426614174000"
+        - name: X-Request-ID
+          in: header
+          description: Unique request identifier
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        # ...
+      responses:
+        # ...
   /api/v1/users/get:
     post:
       summary: GetUser
-      # ...
+      parameters:
+        - name: X-API-Key
+          in: header
+          description: API authentication key
+          required: true
+          schema:
+            type: string
+            format: uuid
+            example: "123e4567-e89b-12d3-a456-426614174000"
+      requestBody:
+        # ...
 ```
 
 ## Customization Options
