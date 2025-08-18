@@ -1,3 +1,4 @@
 version: v2
 deps:
   - buf.build/sebmelki/sebuf
+  - buf.build/bufbuild/protovalidate
