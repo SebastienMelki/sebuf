@@ -16,10 +16,11 @@ This runs the complete workflow and starts the API server. Skip to [Testing the 
 
 A user management API with:
 - ✅ **HTTP endpoints** for creating users and authentication
+- ✅ **Header validation** with type checking and format validation (UUID, email, datetime)
 - ✅ **Automatic request validation** using buf.validate annotations
 - ✅ **Multiple auth methods** (email, token, social) using oneof fields
 - ✅ **Helper functions** that eliminate protobuf boilerplate  
-- ✅ **OpenAPI documentation** that stays in sync automatically
+- ✅ **OpenAPI documentation** that stays in sync automatically, including header parameters
 - ✅ **JSON and binary** protobuf support
 
 ## Step-by-step walkthrough
@@ -38,14 +39,38 @@ go install github.com/SebastienMelki/sebuf/cmd/protoc-gen-openapiv3@latest
 
 ### 2. Understanding the protobuf definition
 
-Look at `api.proto` - notice how we define services with HTTP annotations and validation rules:
+Look at `api.proto` - notice how we define services with HTTP annotations, header validation, and body validation rules:
 
 ```protobuf
 service UserService {
   option (sebuf.http.service_config) = { base_path: "/api/v1" };
   
+  // Service-level headers apply to all methods
+  option (sebuf.http.service_headers) = {
+    required_headers: [
+      {
+        name: "X-API-Key"
+        description: "API authentication key"
+        type: "string"
+        format: "uuid"
+        required: true
+      }
+    ]
+  };
+  
   rpc CreateUser(CreateUserRequest) returns (User) {
     option (sebuf.http.config) = { path: "/users" };
+    // Method-specific headers
+    option (sebuf.http.method_headers) = {
+      required_headers: [
+        {
+          name: "X-Request-ID"
+          type: "string"
+          format: "uuid"
+          required: false
+        }
+      ]
+    };
   }
   
   rpc Login(LoginRequest) returns (LoginResponse) {
@@ -54,7 +79,7 @@ service UserService {
 }
 ```
 
-**Automatic validation** is built in using `buf.validate` annotations:
+**Automatic validation** is built in for both headers and request bodies using annotations:
 
 ```protobuf
 message CreateUserRequest {
@@ -112,7 +137,21 @@ The server starts on port 8080 with these endpoints:
 
 ## Testing the API
 
-### Create a user (valid request)
+### Testing Header Validation
+
+#### Valid request with required headers
+```bash
+curl -X POST http://localhost:8080/api/v1/users \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: 123e4567-e89b-12d3-a456-426614174000" \
+  -H "X-Request-ID: 987fcdeb-51a2-43d1-9012-345678901234" \
+  -d '{
+    "name": "John Doe",
+    "email": "john@example.com"
+  }'
+```
+
+#### Missing required header (returns 400)
 ```bash
 curl -X POST http://localhost:8080/api/v1/users \
   -H "Content-Type: application/json" \
@@ -120,15 +159,29 @@ curl -X POST http://localhost:8080/api/v1/users \
     "name": "John Doe",
     "email": "john@example.com"
   }'
+# Error: Missing required header: X-API-Key
 ```
 
-### Test validation errors
-Try creating a user with invalid data to see validation in action:
+#### Invalid header format (returns 400)
+```bash
+curl -X POST http://localhost:8080/api/v1/users \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: not-a-valid-uuid" \
+  -d '{
+    "name": "John Doe",
+    "email": "john@example.com"
+  }'
+# Error: Invalid header X-API-Key: invalid UUID format
+```
+
+### Testing Body Validation
+Try creating a user with invalid data to see body validation in action (remember to include valid headers):
 
 ```bash
 # Invalid email (should return 400 Bad Request)
 curl -X POST http://localhost:8080/api/v1/users \
   -H "Content-Type: application/json" \
+  -H "X-API-Key: 123e4567-e89b-12d3-a456-426614174000" \
   -d '{
     "name": "John Doe",
     "email": "not-an-email"
@@ -137,6 +190,7 @@ curl -X POST http://localhost:8080/api/v1/users \
 # Name too short (should return 400 Bad Request)
 curl -X POST http://localhost:8080/api/v1/users \
   -H "Content-Type: application/json" \
+  -H "X-API-Key: 123e4567-e89b-12d3-a456-426614174000" \
   -d '{
     "name": "J",
     "email": "john@example.com"
@@ -145,6 +199,7 @@ curl -X POST http://localhost:8080/api/v1/users \
 # Empty name (should return 400 Bad Request)
 curl -X POST http://localhost:8080/api/v1/users \
   -H "Content-Type: application/json" \
+  -H "X-API-Key: 123e4567-e89b-12d3-a456-426614174000" \
   -d '{
     "name": "",
     "email": "john@example.com"
@@ -156,6 +211,7 @@ curl -X POST http://localhost:8080/api/v1/users \
 # Valid login request
 curl -X POST http://localhost:8080/api/v1/auth/login \
   -H "Content-Type: application/json" \
+  -H "X-API-Key: 123e4567-e89b-12d3-a456-426614174000" \
   -d '{
     "email": {
       "email": "john@example.com",
@@ -166,6 +222,7 @@ curl -X POST http://localhost:8080/api/v1/auth/login \
 # Test password validation (too short - should return 400)
 curl -X POST http://localhost:8080/api/v1/auth/login \
   -H "Content-Type: application/json" \
+  -H "X-API-Key: 123e4567-e89b-12d3-a456-426614174000" \
   -d '{
     "email": {
       "email": "john@example.com",
@@ -179,6 +236,7 @@ curl -X POST http://localhost:8080/api/v1/auth/login \
 # Valid token login
 curl -X POST http://localhost:8080/api/v1/auth/login \
   -H "Content-Type: application/json" \
+  -H "X-API-Key: 123e4567-e89b-12d3-a456-426614174000" \
   -d '{
     "token": {
       "token": "my-auth-token-1234567890"
@@ -188,6 +246,7 @@ curl -X POST http://localhost:8080/api/v1/auth/login \
 # Invalid token (too short - should return 400)
 curl -X POST http://localhost:8080/api/v1/auth/login \
   -H "Content-Type: application/json" \
+  -H "X-API-Key: 123e4567-e89b-12d3-a456-426614174000" \
   -d '{
     "token": {
       "token": "short"
@@ -200,6 +259,7 @@ curl -X POST http://localhost:8080/api/v1/auth/login \
 # Valid social login
 curl -X POST http://localhost:8080/api/v1/auth/login \
   -H "Content-Type: application/json" \
+  -H "X-API-Key: 123e4567-e89b-12d3-a456-426614174000" \
   -d '{
     "social": {
       "provider": "google",
@@ -210,6 +270,7 @@ curl -X POST http://localhost:8080/api/v1/auth/login \
 # Invalid provider (should return 400)
 curl -X POST http://localhost:8080/api/v1/auth/login \
   -H "Content-Type: application/json" \
+  -H "X-API-Key: 123e4567-e89b-12d3-a456-426614174000" \
   -d '{
     "social": {
       "provider": "invalid-provider",
@@ -241,13 +302,22 @@ req := api.NewLoginRequestSocial("google", "oauth-token")
 
 ## View the API documentation
 
-After running `buf generate`, open `openapi.yaml` in your favorite OpenAPI viewer:
+After running `buf generate`, open `openapi.yaml` in your favorite OpenAPI viewer. The documentation will include:
+- All API endpoints with their paths
+- Required and optional header parameters with validation rules
+- Request and response schemas
+- Validation constraints from buf.validate annotations
 
 ```bash
 # Quick view with Swagger UI
 docker run -p 8081:8080 -v $(pwd):/app swaggerapi/swagger-ui
 # Then visit http://localhost:8081/?url=/app/openapi.yaml
 ```
+
+The OpenAPI spec will show header requirements like:
+- `X-API-Key` (required, UUID format) for all endpoints
+- `X-Request-ID` (optional, UUID format) for CreateUser endpoint
+- Complete validation rules for request bodies
 
 ## Explore the generated code
 

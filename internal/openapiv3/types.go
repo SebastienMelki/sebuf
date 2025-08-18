@@ -15,12 +15,17 @@ func (g *Generator) convertField(field *protogen.Field) *base.SchemaProxy {
 	// Handle repeated fields (arrays)
 	if field.Desc.IsList() {
 		itemSchema := g.convertScalarField(field)
-		return base.CreateSchemaProxy(&base.Schema{
+		arraySchema := &base.Schema{
 			Type: []string{"array"},
 			Items: &base.DynamicValue[*base.SchemaProxy, bool]{
 				A: itemSchema,
 			},
-		})
+		}
+		
+		// Apply validation constraints for the array itself
+		extractValidationConstraints(field, arraySchema)
+		
+		return base.CreateSchemaProxy(arraySchema)
 	}
 
 	// Handle map fields
@@ -106,6 +111,9 @@ func (g *Generator) convertScalarField(field *protogen.Field) *base.SchemaProxy 
 		schema.Description = strings.TrimSpace(string(field.Comments.Leading))
 	}
 
+	// Apply buf.validate constraints
+	extractValidationConstraints(field, schema)
+
 	return base.CreateSchemaProxy(schema)
 }
 
@@ -176,6 +184,9 @@ func (g *Generator) convertMapField(field *protogen.Field) *base.SchemaProxy {
 	if field.Comments.Leading != "" {
 		schema.Description = strings.TrimSpace(string(field.Comments.Leading))
 	}
+
+	// Apply validation constraints for the map itself
+	extractValidationConstraints(field, schema)
 
 	return base.CreateSchemaProxy(schema)
 }

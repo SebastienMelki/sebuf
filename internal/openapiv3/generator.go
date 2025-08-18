@@ -90,8 +90,10 @@ func (g *Generator) buildObjectSchema(message *protogen.Message) *base.SchemaPro
 		fieldName := field.Desc.JSONName()
 		properties.Set(fieldName, fieldSchema)
 
-		// In proto3, fields are optional by default, but we can mark some as required
-		// based on business logic or annotations in the future
+		// Check if field has the required constraint from buf.validate
+		if checkIfFieldRequired(field) {
+			required = append(required, fieldName)
+		}
 	}
 
 	schema := &base.Schema{
@@ -120,8 +122,28 @@ func (g *Generator) processService(service *protogen.Service) {
 
 // processMethod converts a protobuf RPC method to an OpenAPI operation.
 func (g *Generator) processMethod(service *protogen.Service, method *protogen.Method) {
-	// Create gRPC-style path
-	path := fmt.Sprintf("/%s/%s", service.Desc.Name(), method.Desc.Name())
+	// Extract HTTP configuration from annotations
+	var path string
+	serviceConfig := getServiceHTTPConfig(service)
+	methodConfig := getMethodHTTPConfig(method)
+	
+	if serviceConfig != nil || methodConfig != nil {
+		// Use sebuf.http annotations
+		servicePath := ""
+		methodPath := ""
+		
+		if serviceConfig != nil {
+			servicePath = serviceConfig.BasePath
+		}
+		if methodConfig != nil {
+			methodPath = methodConfig.Path
+		}
+		
+		path = buildHTTPPath(servicePath, methodPath)
+	} else {
+		// Fallback to gRPC-style path
+		path = fmt.Sprintf("/%s/%s", service.Desc.Name(), method.Desc.Name())
+	}
 
 	// Create operation
 	operation := &v3.Operation{
@@ -133,6 +155,16 @@ func (g *Generator) processMethod(service *protogen.Service, method *protogen.Me
 	// Add description from comments
 	if method.Comments.Leading != "" {
 		operation.Description = strings.TrimSpace(string(method.Comments.Leading))
+	}
+
+	// Extract and add header parameters
+	serviceHeaders := getServiceHeaders(service)
+	methodHeaders := getMethodHeaders(method)
+	allHeaders := combineHeaders(serviceHeaders, methodHeaders)
+	
+	if len(allHeaders) > 0 {
+		headerParameters := convertHeadersToParameters(allHeaders)
+		operation.Parameters = headerParameters
 	}
 
 	// Add request body for the input message

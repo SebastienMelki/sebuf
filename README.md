@@ -24,7 +24,8 @@ This starts a working HTTP API with JSON endpoints, OpenAPI docs, and helper fun
 
 - **HTTP handlers** from protobuf services (JSON + binary support)
 - **Automatic request validation** using protovalidate with buf.validate annotations
-- **OpenAPI v3.1 docs** that stay in sync with your code  
+- **HTTP header validation** with type checking and format validation (UUID, email, datetime)
+- **OpenAPI v3.1 docs** that stay in sync with your code, including header parameters
 - **Helper functions** that eliminate protobuf boilerplate
 - **Zero runtime dependencies** - works with any Go HTTP framework
 
@@ -33,6 +34,16 @@ This starts a working HTTP API with JSON endpoints, OpenAPI docs, and helper fun
 From this protobuf definition:
 ```protobuf
 service UserService {
+  // Header validation at service level
+  option (sebuf.http.service_headers) = {
+    required_headers: [{
+      name: "X-API-Key"
+      type: "string"
+      format: "uuid"
+      required: true
+    }]
+  };
+  
   rpc CreateUser(CreateUserRequest) returns (User);
 }
 
@@ -52,15 +63,17 @@ message CreateUserRequest {
 
 sebuf generates:
 ```go
-// HTTP handlers with automatic validation
+// HTTP handlers with automatic validation (both headers and body)
 api.RegisterUserServiceServer(userService, api.WithMux(mux))
 
 // Helper functions  
 req := api.NewCreateUserRequestEmail("user@example.com", "secret")
 req := api.NewCreateUserRequestToken("auth-token")
 
-// Validation happens automatically - returns HTTP 400 for invalid requests
-// OpenAPI docs (api.yaml) - automatically generated with validation rules
+// Validation happens automatically:
+// - Headers validated first (returns HTTP 400 for missing/invalid headers)
+// - Then request body validated (returns HTTP 400 for invalid requests)
+// OpenAPI docs (api.yaml) - includes both validation rules and header parameters
 ```
 
 ## Quick setup

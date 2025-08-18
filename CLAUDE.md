@@ -21,18 +21,19 @@ The project follows a clean Go protoc plugin architecture with separated concern
 - **cmd/protoc-gen-go-http/**: HTTP handler generator entry point
 - **cmd/protoc-gen-openapiv3/**: OpenAPI specification generator entry point
 - **internal/oneofhelper/**: Oneof helper generation logic and tests
-- **internal/httpgen/**: HTTP handler generation logic and annotations
-- **internal/openapiv3/**: OpenAPI generation logic and type mapping
-- **proto/sebuf/http/**: HTTP annotation definitions
+- **internal/httpgen/**: HTTP handler generation logic, annotations, and header validation middleware
+- **internal/openapiv3/**: OpenAPI generation logic, type mapping, and header parameter generation
+- **proto/sebuf/http/**: HTTP annotation definitions including headers.proto for header validation
 - **scripts/**: Test automation and build scripts
 
 ### Core Components
 
 1. **Oneof Helper Generator** (`internal/oneofhelper/generator.go:27`): Creates convenience constructors for oneof fields containing message types
-2. **HTTP Handler Generator** (`internal/httpgen/generator.go:22`): Generates HTTP handlers, request binding, routing configuration, and automatic validation
-3. **OpenAPI Generator** (`internal/openapiv3/generator.go:53`): Creates comprehensive OpenAPI v3.1 specifications from protobuf definitions
+2. **HTTP Handler Generator** (`internal/httpgen/generator.go:22`): Generates HTTP handlers, request binding, routing configuration, automatic body validation, and header validation middleware
+3. **OpenAPI Generator** (`internal/openapiv3/generator.go:53`): Creates comprehensive OpenAPI v3.1 specifications from protobuf definitions with full header parameter support
 4. **HTTP Annotations** (`proto/sebuf/http/annotations.proto`): Custom protobuf extensions for HTTP configuration
-5. **Validation Annotations** (`proto/sebuf/validate/validate.proto`): Alias for buf.validate enabling sebuf.validate annotations
+5. **Header Validation** (`proto/sebuf/http/headers.proto`): Protobuf definitions for service and method-level header validation
+6. **Validation System**: Automatic request body validation via buf.validate/protovalidate and header validation middleware
 
 ### Generated Output Examples
 
@@ -76,14 +77,14 @@ paths:
               $ref: '#/components/schemas/CreateUserRequest'
 ```
 
-**Automatic Validation** - Built-in request validation:
+**Automatic Validation** - Built-in request and header validation:
 ```go
 // Generated validation code automatically validates requests
 func BindingMiddleware[Req any](next http.Handler) http.Handler {
   return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
     // ... binding logic ...
     
-    // Automatic validation happens here
+    // Automatic body validation happens here
     if msg, ok := any(toBind).(proto.Message); ok {
       if err := ValidateMessage(msg); err != nil {
         http.Error(w, err.Error(), http.StatusBadRequest)
@@ -93,6 +94,58 @@ func BindingMiddleware[Req any](next http.Handler) http.Handler {
     
     // ... continue to handler ...
   })
+}
+
+// Generated header validation middleware
+func HeaderValidationMiddleware(requiredHeaders []HeaderConfig) func(http.Handler) http.Handler {
+  return func(next http.Handler) http.Handler {
+    return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+      // Validate required headers
+      for _, header := range requiredHeaders {
+        value := r.Header.Get(header.Name)
+        if header.Required && value == "" {
+          http.Error(w, fmt.Sprintf("Missing required header: %s", header.Name), http.StatusBadRequest)
+          return
+        }
+        // Type and format validation
+        if err := validateHeaderValue(value, header.Type, header.Format); err != nil {
+          http.Error(w, err.Error(), http.StatusBadRequest)
+          return
+        }
+      }
+      next.ServeHTTP(w, r)
+    })
+  }
+}
+```
+
+**Header Annotations** - Service and method-level header configuration:
+```protobuf
+service UserService {
+  option (sebuf.http.service_headers) = {
+    required_headers: [
+      {
+        name: "X-API-Key"
+        description: "API authentication key"
+        type: "string"
+        required: true
+        format: "uuid"
+      }
+    ]
+  };
+  
+  rpc CreateUser(CreateUserRequest) returns (User) {
+    option (sebuf.http.method_headers) = {
+      required_headers: [
+        {
+          name: "X-Request-ID"
+          type: "string"
+          format: "uuid"
+          required: true
+        }
+      ]
+    };
+  }
 }
 ```
 
@@ -164,15 +217,25 @@ The project uses a comprehensive two-tier testing approach:
 
 ## Validation System
 
-The HTTP generator automatically includes request validation using protovalidate:
+The HTTP generator automatically includes comprehensive validation for both request bodies and headers:
 
-### buf.validate Integration
+### Request Body Validation (buf.validate Integration)
 - **Direct buf.validate support**: Use standard `(buf.validate.field)` annotations
 - **Full protovalidate compatibility**: All buf.validate rules work identically
 - **Automatic validation**: No configuration required - validation happens automatically
 - **Performance optimized**: Validator instance is cached and reused
 
+### Header Validation
+- **Service-level headers**: Applied to all RPCs in a service via `(sebuf.http.service_headers)`
+- **Method-level headers**: Applied to specific RPCs via `(sebuf.http.method_headers)`
+- **Type validation**: Support for string, integer, number, boolean, and array types
+- **Format validation**: Built-in validators for UUID, email, date-time, date, time formats
+- **Required headers**: Automatic HTTP 400 responses for missing required headers
+- **Header merging**: Method headers override service headers with the same name
+
 ### Supported Validation Rules
+
+**Request Body Validation:**
 ```protobuf
 message CreateUserRequest {
   // String validation
@@ -200,10 +263,34 @@ message CreateUserRequest {
 }
 ```
 
+**Header Validation:**
+```protobuf
+service UserService {
+  option (sebuf.http.service_headers) = {
+    required_headers: [
+      {
+        name: "X-API-Key"
+        description: "API authentication key"
+        type: "string"
+        required: true
+        format: "uuid"
+        example: "123e4567-e89b-12d3-a456-426614174000"
+      },
+      {
+        name: "X-Tenant-ID"
+        type: "integer"
+        required: true
+      }
+    ]
+  };
+}
+```
+
 ### Error Handling
-- **HTTP 400 responses**: Validation errors return Bad Request with error message
-- **Detailed errors**: Full validation error details from protovalidate
-- **Fail-fast**: Validation stops request processing immediately on failure
+- **HTTP 400 responses**: Validation errors return Bad Request with error message for both body and header validation failures
+- **Detailed errors**: Full validation error details from protovalidate for body validation
+- **Header errors**: Clear messages indicating which header failed validation and why
+- **Fail-fast**: Validation stops request processing immediately on failure (headers validated before body)
 
 ## Type System
 

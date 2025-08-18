@@ -5,6 +5,8 @@ import (
 	"strings"
 
 	"google.golang.org/protobuf/compiler/protogen"
+
+	"github.com/SebastienMelki/sebuf/http"
 )
 
 // Generator handles HTTP code generation for protobuf services.
@@ -102,12 +104,17 @@ func (g *Generator) generateService(gf *protogen.GeneratedFile, file *protogen.F
 	// Get service-level base path if configured
 	basePath := g.getServiceBasePath(service)
 
+	// Get service-level headers
+	gf.P("serviceHeaders := get", serviceName, "Headers()")
+	gf.P()
+
 	for _, method := range service.Methods {
 		httpPath := g.getMethodPath(method, basePath, file.GoPackageName)
 
 		handlerName := fmt.Sprintf("%sHandler", lowerFirst(method.GoName))
+		gf.P("methodHeaders := get", method.GoName, "Headers()")
 		gf.P(handlerName, " := BindingMiddleware[", method.Input.GoIdent, "](")
-		gf.P("genericHandler(server.", method.GoName, "),")
+		gf.P("genericHandler(server.", method.GoName, "), serviceHeaders, methodHeaders,")
 		gf.P(")")
 		gf.P()
 		gf.P(`config.mux.Handle("POST `, httpPath, `", `, handlerName, `)`)
@@ -117,6 +124,11 @@ func (g *Generator) generateService(gf *protogen.GeneratedFile, file *protogen.F
 	gf.P("return nil")
 	gf.P("}")
 	gf.P()
+
+	// Generate header getter functions
+	if err := g.generateHeaderGetters(gf, service); err != nil {
+		return err
+	}
 
 	return nil
 }
@@ -135,11 +147,17 @@ func (g *Generator) generateBindingFile(file *protogen.File) error {
 	gf.P(`"fmt"`)
 	gf.P(`"io"`)
 	gf.P(`"net/http"`)
+	gf.P(`"strconv"`)
+	gf.P(`"strings"`)
 	gf.P(`"sync"`)
+	gf.P(`"time"`)
+	gf.P(`"unicode/utf8"`)
 	gf.P()
 	gf.P(`"buf.build/go/protovalidate"`)
 	gf.P(`"google.golang.org/protobuf/encoding/protojson"`)
 	gf.P(`"google.golang.org/protobuf/proto"`)
+	gf.P()
+	gf.P(`sebufhttp "github.com/SebastienMelki/sebuf/http"`)
 	gf.P(")")
 	gf.P()
 
@@ -171,9 +189,15 @@ func (g *Generator) generateBindingFile(file *protogen.File) error {
 
 	// BindingMiddleware function
 	gf.P("// BindingMiddleware creates a middleware that binds HTTP requests to protobuf messages")
-	gf.P("// and validates them using protovalidate")
-	gf.P("func BindingMiddleware[Req any](next http.Handler) http.Handler {")
+	gf.P("// and validates them using protovalidate and header validation")
+	gf.P("func BindingMiddleware[Req any](next http.Handler, serviceHeaders, methodHeaders []*sebufhttp.Header) http.Handler {")
 	gf.P("return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {")
+	gf.P("// Validate headers first")
+	gf.P("if err := validateHeaders(r, serviceHeaders, methodHeaders); err != nil {")
+	gf.P(`http.Error(w, fmt.Sprintf("header validation failed: %v", err), http.StatusBadRequest)`)
+	gf.P("return")
+	gf.P("}")
+	gf.P()
 	gf.P("toBind := new(Req)")
 	gf.P()
 	gf.P("err := bindDataBasedOnContentType(r, toBind)")
@@ -323,6 +347,9 @@ func (g *Generator) generateBindingFile(file *protogen.File) error {
 
 	// Generate validation support
 	g.generateValidationFunctions(gf)
+
+	// Generate header validation support
+	g.generateHeaderValidationFunctions(gf)
 
 	return nil
 }
@@ -497,4 +524,260 @@ func (g *Generator) generateValidationFunctions(gf *protogen.GeneratedFile) {
 	gf.P("return v.Validate(msg)")
 	gf.P("}")
 	gf.P()
+}
+
+// generateHeaderValidationFunctions generates header validation support code
+func (g *Generator) generateHeaderValidationFunctions(gf *protogen.GeneratedFile) {
+
+	// validateHeaders function
+	gf.P("// validateHeaders validates required headers for a service and method")
+	gf.P("func validateHeaders(r *http.Request, serviceHeaders, methodHeaders []*sebufhttp.Header) error {")
+	gf.P("// Merge service and method headers, with method headers taking precedence")
+	gf.P("allHeaders := make(map[string]*sebufhttp.Header)")
+	gf.P()
+	gf.P("// Add service headers first")
+	gf.P("for _, header := range serviceHeaders {")
+	gf.P("if header.GetRequired() {")
+	gf.P("allHeaders[strings.ToLower(header.GetName())] = header")
+	gf.P("}")
+	gf.P("}")
+	gf.P()
+	gf.P("// Add method headers (override service headers if same name)")
+	gf.P("for _, header := range methodHeaders {")
+	gf.P("if header.GetRequired() {")
+	gf.P("allHeaders[strings.ToLower(header.GetName())] = header")
+	gf.P("}")
+	gf.P("}")
+	gf.P()
+	gf.P("// Validate each required header")
+	gf.P("for headerName, headerSpec := range allHeaders {")
+	gf.P("value := r.Header.Get(headerSpec.GetName())")
+	gf.P("if value == \"\" {")
+	gf.P(`return fmt.Errorf("required header '%s' is missing", headerSpec.GetName())`)
+	gf.P("}")
+	gf.P()
+	gf.P("if err := validateHeaderValue(headerSpec, value); err != nil {")
+	gf.P(`return fmt.Errorf("header '%s' validation failed: %w", headerSpec.GetName(), err)`)
+	gf.P("}")
+	gf.P("}")
+	gf.P()
+	gf.P("return nil")
+	gf.P("}")
+	gf.P()
+
+	// validateHeaderValue function
+	gf.P("// validateHeaderValue validates a single header value against its specification")
+	gf.P("func validateHeaderValue(headerSpec *sebufhttp.Header, value string) error {")
+	gf.P("headerType := headerSpec.GetType()")
+	gf.P("format := headerSpec.GetFormat()")
+	gf.P()
+	gf.P("// Validate based on type")
+	gf.P("switch headerType {")
+	gf.P("case \"string\":")
+	gf.P("return validateStringHeader(value, format)")
+	gf.P("case \"integer\":")
+	gf.P("return validateIntegerHeader(value)")
+	gf.P("case \"number\":")
+	gf.P("return validateNumberHeader(value)")
+	gf.P("case \"boolean\":")
+	gf.P("return validateBooleanHeader(value)")
+	gf.P("case \"array\":")
+	gf.P("return validateArrayHeader(value)")
+	gf.P("default:")
+	gf.P("// Default to string validation if type is not specified")
+	gf.P("return validateStringHeader(value, format)")
+	gf.P("}")
+	gf.P("}")
+	gf.P()
+
+	// String header validation
+	gf.P("// validateStringHeader validates string headers with optional format validation")
+	gf.P("func validateStringHeader(value, format string) error {")
+	gf.P("if !utf8.ValidString(value) {")
+	gf.P(`return fmt.Errorf("value is not valid UTF-8")`)
+	gf.P("}")
+	gf.P()
+	gf.P("// Apply format-specific validation")
+	gf.P("switch format {")
+	gf.P("case \"uuid\":")
+	gf.P("return validateUUIDFormat(value)")
+	gf.P("case \"email\":")
+	gf.P("return validateEmailFormat(value)")
+	gf.P("case \"date-time\":")
+	gf.P("return validateDateTimeFormat(value)")
+	gf.P("case \"date\":")
+	gf.P("return validateDateFormat(value)")
+	gf.P("case \"time\":")
+	gf.P("return validateTimeFormat(value)")
+	gf.P("}")
+	gf.P()
+	gf.P("return nil")
+	gf.P("}")
+	gf.P()
+
+	// Integer header validation
+	gf.P("// validateIntegerHeader validates integer headers")
+	gf.P("func validateIntegerHeader(value string) error {")
+	gf.P("_, err := strconv.ParseInt(value, 10, 64)")
+	gf.P("if err != nil {")
+	gf.P(`return fmt.Errorf("value is not a valid integer: %w", err)`)
+	gf.P("}")
+	gf.P("return nil")
+	gf.P("}")
+	gf.P()
+
+	// Number header validation
+	gf.P("// validateNumberHeader validates numeric headers (float)")
+	gf.P("func validateNumberHeader(value string) error {")
+	gf.P("_, err := strconv.ParseFloat(value, 64)")
+	gf.P("if err != nil {")
+	gf.P(`return fmt.Errorf("value is not a valid number: %w", err)`)
+	gf.P("}")
+	gf.P("return nil")
+	gf.P("}")
+	gf.P()
+
+	// Boolean header validation
+	gf.P("// validateBooleanHeader validates boolean headers")
+	gf.P("func validateBooleanHeader(value string) error {")
+	gf.P("_, err := strconv.ParseBool(value)")
+	gf.P("if err != nil {")
+	gf.P(`return fmt.Errorf("value is not a valid boolean: %w", err)`)
+	gf.P("}")
+	gf.P("return nil")
+	gf.P("}")
+	gf.P()
+
+	// Array header validation
+	gf.P("// validateArrayHeader validates array headers (comma-separated values)")
+	gf.P("func validateArrayHeader(value string) error {")
+	gf.P("// Arrays are typically comma-separated values")
+	gf.P("// Basic validation: ensure it's not empty")
+	gf.P("if strings.TrimSpace(value) == \"\" {")
+	gf.P(`return fmt.Errorf("array value cannot be empty")`)
+	gf.P("}")
+	gf.P("return nil")
+	gf.P("}")
+	gf.P()
+
+	// Format validators
+	gf.P("// validateUUIDFormat validates UUID format (basic check)")
+	gf.P("func validateUUIDFormat(value string) error {")
+	gf.P("// Basic UUID format check: 8-4-4-4-12 hex digits")
+	gf.P("if len(value) != 36 {")
+	gf.P(`return fmt.Errorf("UUID must be 36 characters long")`)
+	gf.P("}")
+	gf.P()
+	gf.P("// Check for correct dash positions")
+	gf.P("if value[8] != '-' || value[13] != '-' || value[18] != '-' || value[23] != '-' {")
+	gf.P(`return fmt.Errorf("invalid UUID format")`)
+	gf.P("}")
+	gf.P()
+	gf.P("return nil")
+	gf.P("}")
+	gf.P()
+
+	gf.P("// validateEmailFormat validates email format (basic check)")
+	gf.P("func validateEmailFormat(value string) error {")
+	gf.P("// Basic email format check")
+	gf.P("if !strings.Contains(value, \"@\") {")
+	gf.P(`return fmt.Errorf("invalid email format: missing @")`)
+	gf.P("}")
+	gf.P()
+	gf.P("parts := strings.Split(value, \"@\")")
+	gf.P("if len(parts) != 2 || parts[0] == \"\" || parts[1] == \"\" {")
+	gf.P(`return fmt.Errorf("invalid email format")`)
+	gf.P("}")
+	gf.P()
+	gf.P("return nil")
+	gf.P("}")
+	gf.P()
+
+	gf.P("// validateDateTimeFormat validates RFC3339 date-time format")
+	gf.P("func validateDateTimeFormat(value string) error {")
+	gf.P("_, err := time.Parse(time.RFC3339, value)")
+	gf.P("if err != nil {")
+	gf.P(`return fmt.Errorf("invalid date-time format, expected RFC3339: %w", err)`)
+	gf.P("}")
+	gf.P("return nil")
+	gf.P("}")
+	gf.P()
+
+	gf.P("// validateDateFormat validates date format (YYYY-MM-DD)")
+	gf.P("func validateDateFormat(value string) error {")
+	gf.P("_, err := time.Parse(\"2006-01-02\", value)")
+	gf.P("if err != nil {")
+	gf.P(`return fmt.Errorf("invalid date format, expected YYYY-MM-DD: %w", err)`)
+	gf.P("}")
+	gf.P("return nil")
+	gf.P("}")
+	gf.P()
+
+	gf.P("// validateTimeFormat validates time format (HH:MM:SS)")
+	gf.P("func validateTimeFormat(value string) error {")
+	gf.P("_, err := time.Parse(\"15:04:05\", value)")
+	gf.P("if err != nil {")
+	gf.P(`return fmt.Errorf("invalid time format, expected HH:MM:SS: %w", err)`)
+	gf.P("}")
+	gf.P("return nil")
+	gf.P("}")
+	gf.P()
+}
+
+// generateHeaderGetters generates functions to get headers for service and methods
+func (g *Generator) generateHeaderGetters(gf *protogen.GeneratedFile, service *protogen.Service) error {
+
+	// Generate service headers getter function
+	serviceName := service.GoName
+	gf.P("// get", serviceName, "Headers returns the service-level required headers for ", serviceName)
+	gf.P("func get", serviceName, "Headers() []*sebufhttp.Header {")
+	
+	// Get actual service headers if they exist
+	serviceHeaders := getServiceHeaders(service)
+	if serviceHeaders != nil && len(serviceHeaders) > 0 {
+		gf.P("return []*sebufhttp.Header{")
+		for _, header := range serviceHeaders {
+			g.generateHeaderLiteral(gf, header)
+		}
+		gf.P("}")
+	} else {
+		gf.P("return nil")
+	}
+	gf.P("}")
+	gf.P()
+
+	// Generate method headers getter functions
+	for _, method := range service.Methods {
+		gf.P("// get", method.GoName, "Headers returns the method-level required headers for ", method.GoName)
+		gf.P("func get", method.GoName, "Headers() []*sebufhttp.Header {")
+		
+		// Get actual method headers if they exist
+		methodHeaders := getMethodHeaders(method)
+		if methodHeaders != nil && len(methodHeaders) > 0 {
+			gf.P("return []*sebufhttp.Header{")
+			for _, header := range methodHeaders {
+				g.generateHeaderLiteral(gf, header)
+			}
+			gf.P("}")
+		} else {
+			gf.P("return nil")
+		}
+		gf.P("}")
+		gf.P()
+	}
+
+	return nil
+}
+
+// generateHeaderLiteral generates a header literal in Go code
+func (g *Generator) generateHeaderLiteral(gf *protogen.GeneratedFile, header *http.Header) {
+	gf.P("{")
+	gf.P(`Name: "`, header.GetName(), `",`)
+	gf.P(`Description: "`, header.GetDescription(), `",`)
+	gf.P(`Type: "`, header.GetType(), `",`)
+	gf.P(`Required: `, fmt.Sprintf("%t", header.GetRequired()), `,`)
+	gf.P(`Format: "`, header.GetFormat(), `",`)
+	gf.P(`Example: "`, header.GetExample(), `",`)
+	gf.P(`Deprecated: `, fmt.Sprintf("%t", header.GetDeprecated()), `,`)
+	gf.P("},")
 }

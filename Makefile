@@ -101,8 +101,10 @@ proto:
 	@echo "Generating Go code from proto files..."
 	@protoc --go_out=. --go_opt=module=github.com/SebastienMelki/sebuf \
 		--go_opt=Msebuf/http/annotations.proto=github.com/SebastienMelki/sebuf/http \
+		--go_opt=Msebuf/http/headers.proto=github.com/SebastienMelki/sebuf/http \
 		--proto_path=. \
-		proto/sebuf/http/annotations.proto
+		proto/sebuf/http/annotations.proto \
+		proto/sebuf/http/headers.proto
 
 # Publish annotations to Buf Schema Registry
 .PHONY: publish
