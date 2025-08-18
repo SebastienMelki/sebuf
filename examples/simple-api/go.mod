@@ -5,7 +5,7 @@ go 1.24.4
 require (
 	buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go v1.36.7-20250717185734-6c6e0d3c608e.1
 	buf.build/go/protovalidate v0.14.0
-	github.com/SebastienMelki/sebuf v0.0.0-20250816214820-648d9fb26901
+	github.com/SebastienMelki/sebuf v0.0.0-20250818125809-ff61bcf670dd
 	google.golang.org/protobuf v1.36.7
 )
 
