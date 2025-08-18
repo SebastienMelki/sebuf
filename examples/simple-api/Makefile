@@ -14,6 +14,7 @@ demo:
 install:
 	@echo "Installing sebuf plugins..."
 	@go install github.com/bufbuild/buf/cmd/buf@latest
+	@go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
 	@go install github.com/SebastienMelki/sebuf/cmd/protoc-gen-go-oneof-helper@latest
 	@go install github.com/SebastienMelki/sebuf/cmd/protoc-gen-go-http@latest
 	@go install github.com/SebastienMelki/sebuf/cmd/protoc-gen-openapiv3@latest
