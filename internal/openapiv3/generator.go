@@ -122,8 +122,28 @@ func (g *Generator) processService(service *protogen.Service) {
 
 // processMethod converts a protobuf RPC method to an OpenAPI operation.
 func (g *Generator) processMethod(service *protogen.Service, method *protogen.Method) {
-	// Create gRPC-style path
-	path := fmt.Sprintf("/%s/%s", service.Desc.Name(), method.Desc.Name())
+	// Extract HTTP configuration from annotations
+	var path string
+	serviceConfig := getServiceHTTPConfig(service)
+	methodConfig := getMethodHTTPConfig(method)
+	
+	if serviceConfig != nil || methodConfig != nil {
+		// Use sebuf.http annotations
+		servicePath := ""
+		methodPath := ""
+		
+		if serviceConfig != nil {
+			servicePath = serviceConfig.BasePath
+		}
+		if methodConfig != nil {
+			methodPath = methodConfig.Path
+		}
+		
+		path = buildHTTPPath(servicePath, methodPath)
+	} else {
+		// Fallback to gRPC-style path
+		path = fmt.Sprintf("/%s/%s", service.Desc.Name(), method.Desc.Name())
+	}
 
 	// Create operation
 	operation := &v3.Operation{
