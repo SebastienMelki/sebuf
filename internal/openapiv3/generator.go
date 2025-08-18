@@ -157,6 +157,16 @@ func (g *Generator) processMethod(service *protogen.Service, method *protogen.Me
 		operation.Description = strings.TrimSpace(string(method.Comments.Leading))
 	}
 
+	// Extract and add header parameters
+	serviceHeaders := getServiceHeaders(service)
+	methodHeaders := getMethodHeaders(method)
+	allHeaders := combineHeaders(serviceHeaders, methodHeaders)
+	
+	if len(allHeaders) > 0 {
+		headerParameters := convertHeadersToParameters(allHeaders)
+		operation.Parameters = headerParameters
+	}
+
 	// Add request body for the input message
 	inputSchemaRef := fmt.Sprintf("#/components/schemas/%s", method.Input.Desc.Name())
 	operation.RequestBody = &v3.RequestBody{
