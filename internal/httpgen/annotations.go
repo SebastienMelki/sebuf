@@ -76,6 +76,60 @@ func getServiceHTTPConfig(service *protogen.Service) *ServiceConfigImpl {
 	}
 }
 
+// getServiceHeaders extracts header configuration from service options.
+func getServiceHeaders(service *protogen.Service) []*http.Header {
+	options := service.Desc.Options()
+	if options == nil {
+		return nil
+	}
+
+	// Get the raw options
+	serviceOptions, ok := options.(*descriptorpb.ServiceOptions)
+	if !ok {
+		return nil
+	}
+
+	// Extract our custom extension using the generated code
+	ext := proto.GetExtension(serviceOptions, http.E_ServiceHeaders)
+	if ext == nil {
+		return nil
+	}
+
+	serviceHeaders, ok := ext.(*http.ServiceHeaders)
+	if !ok || serviceHeaders == nil {
+		return nil
+	}
+
+	return serviceHeaders.GetRequiredHeaders()
+}
+
+// getMethodHeaders extracts header configuration from method options.
+func getMethodHeaders(method *protogen.Method) []*http.Header {
+	options := method.Desc.Options()
+	if options == nil {
+		return nil
+	}
+
+	// Get the raw options
+	methodOptions, ok := options.(*descriptorpb.MethodOptions)
+	if !ok {
+		return nil
+	}
+
+	// Extract our custom extension using the generated code
+	ext := proto.GetExtension(methodOptions, http.E_MethodHeaders)
+	if ext == nil {
+		return nil
+	}
+
+	methodHeaders, ok := ext.(*http.MethodHeaders)
+	if !ok || methodHeaders == nil {
+		return nil
+	}
+
+	return methodHeaders.GetRequiredHeaders()
+}
+
 // For now, let's add a helper to parse paths from the existing authv1 proto format.
 func parseExistingAnnotation(_ *protogen.Method) string {
 	// This is a temporary parser for the existing sebuf.http.config format
