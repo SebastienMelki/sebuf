@@ -65,6 +65,8 @@ func (g *Generator) generateHTTPFile(file *protogen.File) error {
 
 	gf.P("import (")
 	gf.P(`"context"`)
+	gf.P()
+	gf.P(`sebufhttp "github.com/SebastienMelki/sebuf/http"`)
 	gf.P(")")
 	gf.P()
 
@@ -108,11 +110,15 @@ func (g *Generator) generateService(gf *protogen.GeneratedFile, file *protogen.F
 	gf.P("serviceHeaders := get", serviceName, "Headers()")
 	gf.P()
 
-	for _, method := range service.Methods {
+	for i, method := range service.Methods {
 		httpPath := g.getMethodPath(method, basePath, file.GoPackageName)
 
 		handlerName := fmt.Sprintf("%sHandler", lowerFirst(method.GoName))
-		gf.P("methodHeaders := get", method.GoName, "Headers()")
+		if i == 0 {
+			gf.P("methodHeaders := get", method.GoName, "Headers()")
+		} else {
+			gf.P("methodHeaders = get", method.GoName, "Headers()")
+		}
 		gf.P(handlerName, " := BindingMiddleware[", method.Input.GoIdent, "](")
 		gf.P("genericHandler(server.", method.GoName, "), serviceHeaders, methodHeaders,")
 		gf.P(")")
@@ -550,7 +556,7 @@ func (g *Generator) generateHeaderValidationFunctions(gf *protogen.GeneratedFile
 	gf.P("}")
 	gf.P()
 	gf.P("// Validate each required header")
-	gf.P("for headerName, headerSpec := range allHeaders {")
+	gf.P("for _, headerSpec := range allHeaders {")
 	gf.P("value := r.Header.Get(headerSpec.GetName())")
 	gf.P("if value == \"\" {")
 	gf.P(`return fmt.Errorf("required header '%s' is missing", headerSpec.GetName())`)
