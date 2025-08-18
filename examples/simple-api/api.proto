@@ -3,6 +3,7 @@ syntax = "proto3";
 package example.v1;
 
 import "sebuf/http/annotations.proto";
+import "sebuf/http/headers.proto";
 import "buf/validate/validate.proto";
 
 option go_package = "github.com/SebastienMelki/sebuf/examples/simple-api/api";
@@ -11,6 +12,18 @@ option go_package = "github.com/SebastienMelki/sebuf/examples/simple-api/api";
 service UserService {
   option (sebuf.http.service_config) = { 
     base_path: "/api/v1" 
+  };
+  option (sebuf.http.service_headers) = {
+    required_headers: [
+      {
+        name: "X-API-Key"
+        description: "API authentication key"
+        type: "string"
+        required: true
+        format: "uuid"
+        example: "123e4567-e89b-12d3-a456-426614174000"
+      }
+    ]
   };
   
   // Create a new user
@@ -31,6 +44,17 @@ service UserService {
   rpc Login(LoginRequest) returns (LoginResponse) {
     option (sebuf.http.config) = { 
       path: "/auth/login" 
+    };
+    option (sebuf.http.method_headers) = {
+      required_headers: [
+        {
+          name: "X-Request-ID"
+          description: "Unique request identifier for tracing"
+          type: "string"
+          required: true
+          format: "uuid"
+        }
+      ]
     };
   }
 }
@@ -64,6 +88,7 @@ message CreateUserRequest {
   // Email is required and must be a valid email address
   string email = 2 [(buf.validate.field).string.email = true];
 }
+
 
 // Request to get a user by ID
 message GetUserRequest {
