@@ -1,13 +1,21 @@
-# sebuf
+<div align="center">
+  <img src="docs/sebuf-logo.png" alt="sebuf logo" width="200">
+  
+  # sebuf
+  
+  > **Build HTTP APIs from protobuf definitions**
+  
+  Transform your protobuf services into production-ready HTTP APIs with automatic documentation and helper functions.
+</div>
 
-> **Build HTTP APIs from protobuf definitions**
-
-Transform your protobuf services into production-ready HTTP APIs with automatic documentation and helper functions.
+<div align="center">
 
 [![Go Version](https://img.shields.io/github/go-mod/go-version/SebastienMelki/sebuf)](https://golang.org/)
 [![Build Status](https://img.shields.io/github/actions/workflow/status/SebastienMelki/sebuf/ci.yml?branch=main)](https://github.com/SebastienMelki/sebuf/actions)
 [![Test Coverage](https://img.shields.io/badge/coverage-85%25-green)](./coverage/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
+</div>
 
 ## 🚀 Try it in 30 seconds
 
