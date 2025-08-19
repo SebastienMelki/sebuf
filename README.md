@@ -142,3 +142,12 @@ We welcome contributions! See [CONTRIBUTING.md](./CONTRIBUTING.md) for details.
 ## License
 
 MIT License - see [LICENSE](./LICENSE)
+
+## Star History
+
+<a href="https://star-history.com/#SebastienMelki/sebuf&Date">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=SebastienMelki/sebuf&type=Date&theme=dark" />
+   <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=SebastienMelki/sebuf&type=Date" />
+ </picture>
+</a>
