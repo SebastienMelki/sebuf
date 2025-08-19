@@ -1,7 +1,6 @@
 <div align="center">
   <img src="docs/sebuf-logo.png" alt="sebuf logo" width="200">
   
-  # sebuf
   
   > **Build HTTP APIs from protobuf definitions**
   
