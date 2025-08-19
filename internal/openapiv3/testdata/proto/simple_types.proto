@@ -1,0 +1,92 @@
+syntax = "proto3";
+
+package test.simple;
+
+option go_package = "github.com/SebastienMelki/sebuf/internal/openapiv3/testdata/proto;testdata";
+
+import "buf/validate/validate.proto";
+import "sebuf/http/annotations.proto";
+
+// SimpleMessage tests basic scalar types
+message SimpleMessage {
+  string name = 1;
+  int32 age = 2;
+  bool active = 3;
+  double balance = 4;
+  bytes data = 5;
+}
+
+// OptionalFields tests proto3 optional
+message OptionalFields {
+  optional string optional_name = 1;
+  optional int32 optional_age = 2;
+  string required_field = 3;
+}
+
+// RepeatedFields tests arrays
+message RepeatedFields {
+  repeated string tags = 1;
+  repeated int32 numbers = 2;
+  repeated SimpleMessage messages = 3;
+}
+
+// MapFields tests map types
+message MapFields {
+  map<string, string> string_map = 1;
+  map<int32, SimpleMessage> message_map = 2;
+  map<string, int32> count_map = 3;
+}
+
+// EnumMessage tests enum handling
+enum Status {
+  STATUS_UNSPECIFIED = 0;
+  STATUS_ACTIVE = 1;
+  STATUS_INACTIVE = 2;
+  STATUS_PENDING = 3;
+}
+
+message EnumMessage {
+  Status status = 1;
+  repeated Status statuses = 2;
+}
+
+// NestedMessage tests nested structures
+message NestedMessage {
+  message Inner {
+    string value = 1;
+    
+    message DeepInner {
+      int32 count = 1;
+    }
+    
+    DeepInner deep = 2;
+  }
+  
+  Inner inner = 1;
+  repeated Inner inners = 2;
+}
+
+// SimpleService tests basic service generation
+service SimpleService {
+  option (sebuf.http.service_config) = {
+    base_path: "/api/v1"
+  };
+  
+  rpc CreateSimple(SimpleMessage) returns (SimpleMessage) {
+    option (sebuf.http.config) = {
+      path: "/simple"
+    };
+  }
+  
+  rpc GetSimple(SimpleMessage) returns (SimpleMessage) {
+    option (sebuf.http.config) = {
+      path: "/simple/{name}"
+    };
+  }
+  
+  rpc ListSimple(SimpleMessage) returns (RepeatedFields) {
+    option (sebuf.http.config) = {
+      path: "/simple"
+    };
+  }
+}

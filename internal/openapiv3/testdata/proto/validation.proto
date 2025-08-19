@@ -1,0 +1,190 @@
+syntax = "proto3";
+
+package test.validation;
+
+option go_package = "github.com/SebastienMelki/sebuf/internal/openapiv3/testdata/proto;testdata";
+
+import "buf/validate/validate.proto";
+import "sebuf/http/annotations.proto";
+
+// StringValidation tests string constraints
+message StringValidation {
+  // Basic length constraints
+  string username = 1 [(buf.validate.field).string = {
+    min_len: 3,
+    max_len: 20
+  }];
+  
+  // Email format
+  string email = 2 [(buf.validate.field).string.email = true];
+  
+  // UUID format
+  string id = 3 [(buf.validate.field).string.uuid = true];
+  
+  // Pattern matching
+  string phone = 4 [(buf.validate.field).string.pattern = "^\\+[1-9]\\d{1,14}$"];
+  
+  // URI format
+  string website = 5 [(buf.validate.field).string.uri = true];
+  
+  // Hostname format
+  string hostname = 6 [(buf.validate.field).string.hostname = true];
+  
+  // IP address formats
+  string ip_address = 7 [(buf.validate.field).string.ip = true];
+  string ipv4_address = 8 [(buf.validate.field).string.ipv4 = true];
+  string ipv6_address = 9 [(buf.validate.field).string.ipv6 = true];
+  
+  // Enum constraint (in)
+  string status = 10 [(buf.validate.field).string = {
+    in: ["active", "inactive", "pending"]
+  }];
+  
+  // Const value
+  string version = 11 [(buf.validate.field).string.const = "v1.0.0"];
+}
+
+// NumericValidation tests numeric constraints
+message NumericValidation {
+  // Int32 constraints
+  int32 age = 1 [(buf.validate.field).int32 = {
+    gte: 18,
+    lte: 120
+  }];
+  
+  int32 score = 2 [(buf.validate.field).int32 = {
+    gt: 0,
+    lt: 100
+  }];
+  
+  int32 exact_value = 3 [(buf.validate.field).int32.const = 42];
+  
+  int32 enum_value = 4 [(buf.validate.field).int32 = {
+    in: [1, 2, 3, 5, 8, 13]
+  }];
+  
+  // Int64 constraints
+  int64 timestamp = 5 [(buf.validate.field).int64 = {
+    gte: 0,
+    lte: 9999999999
+  }];
+  
+  // Float constraints
+  float percentage = 6 [(buf.validate.field).float = {
+    gte: 0.0,
+    lte: 100.0
+  }];
+  
+  // Double constraints
+  double price = 7 [(buf.validate.field).double = {
+    gt: 0.0,
+    lt: 1000000.0
+  }];
+  
+  // Unsigned types
+  uint32 count = 8 [(buf.validate.field).uint32 = {
+    gte: 1,
+    lte: 1000
+  }];
+  
+  uint64 large_count = 9 [(buf.validate.field).uint64 = {
+    gte: 1,
+    lte: 1000000000000
+  }];
+}
+
+// CollectionValidation tests collection constraints
+message CollectionValidation {
+  // Array constraints
+  repeated string tags = 1 [(buf.validate.field).repeated = {
+    min_items: 1,
+    max_items: 10,
+    unique: true
+  }];
+  
+  repeated int32 numbers = 2 [(buf.validate.field).repeated = {
+    min_items: 3,
+    max_items: 5
+  }];
+  
+  // Map constraints
+  map<string, string> metadata = 3 [(buf.validate.field).map = {
+    min_pairs: 1,
+    max_pairs: 20
+  }];
+  
+  map<string, int32> counts = 4 [(buf.validate.field).map = {
+    min_pairs: 0,
+    max_pairs: 100
+  }];
+}
+
+// RequiredValidation tests required field handling
+message RequiredValidation {
+  string required_field = 1 [(buf.validate.field).required = true];
+  string optional_field = 2;
+  int32 required_number = 3 [(buf.validate.field).required = true];
+  repeated string required_list = 4 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).repeated.min_items = 1
+  ];
+}
+
+// ComplexValidation tests combined constraints
+message ComplexValidation {
+  // String with multiple constraints
+  string complex_string = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string = {
+      min_len: 5,
+      max_len: 50,
+      pattern: "^[a-zA-Z0-9_-]+$"
+    }
+  ];
+  
+  // Nested message with validation
+  RequiredValidation nested = 2 [(buf.validate.field).required = true];
+  
+  // Array of validated items
+  repeated StringValidation validated_items = 3 [(buf.validate.field).repeated = {
+    min_items: 1,
+    max_items: 5
+  }];
+}
+
+// ValidationService tests validation in service context
+service ValidationService {
+  option (sebuf.http.service_config) = {
+    base_path: "/api/validation"
+  };
+  
+  rpc ValidateString(StringValidation) returns (StringValidation) {
+    option (sebuf.http.config) = {
+      path: "/string"
+    };
+  }
+  
+  rpc ValidateNumeric(NumericValidation) returns (NumericValidation) {
+    option (sebuf.http.config) = {
+      path: "/numeric"
+    };
+  }
+  
+  rpc ValidateCollection(CollectionValidation) returns (CollectionValidation) {
+    option (sebuf.http.config) = {
+      path: "/collection"
+    };
+  }
+  
+  rpc ValidateRequired(RequiredValidation) returns (RequiredValidation) {
+    option (sebuf.http.config) = {
+      path: "/required"
+    };
+  }
+  
+  rpc ValidateComplex(ComplexValidation) returns (ComplexValidation) {
+    option (sebuf.http.config) = {
+      path: "/complex"
+    };
+  }
+}

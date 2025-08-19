@@ -1,0 +1,194 @@
+syntax = "proto3";
+
+package test.headers;
+
+option go_package = "github.com/SebastienMelki/sebuf/internal/openapiv3/testdata/proto;testdata";
+
+import "sebuf/http/annotations.proto";
+import "sebuf/http/headers.proto";
+
+// HeaderTestRequest is a simple request message
+message HeaderTestRequest {
+  string message = 1;
+}
+
+// HeaderTestResponse is a simple response message
+message HeaderTestResponse {
+  string result = 1;
+}
+
+// HeaderService tests header parameter generation
+service HeaderService {
+  // Service-level headers that apply to all methods
+  option (sebuf.http.service_config) = {
+    base_path: "/api/headers"
+  };
+  
+  option (sebuf.http.service_headers) = {
+    required_headers: [
+      {
+        name: "X-API-Key"
+        description: "API authentication key"
+        type: "string"
+        required: true
+        format: "uuid"
+        example: "123e4567-e89b-12d3-a456-426614174000"
+      },
+      {
+        name: "X-Tenant-ID"
+        description: "Tenant identifier"
+        type: "integer"
+        required: true
+        example: "12345"
+      },
+      {
+        name: "X-Optional-Header"
+        description: "Optional service header"
+        type: "string"
+        required: false
+      }
+    ]
+  };
+  
+  // Method with additional headers
+  rpc MethodWithHeaders(HeaderTestRequest) returns (HeaderTestResponse) {
+    option (sebuf.http.config) = {
+      path: "/with-headers"
+    };
+    
+    option (sebuf.http.method_headers) = {
+      required_headers: [
+        {
+          name: "X-Request-ID"
+          description: "Unique request identifier"
+          type: "string"
+          format: "uuid"
+          required: true
+        },
+        {
+          name: "X-User-Agent"
+          description: "Client user agent"
+          type: "string"
+          required: false
+        },
+        {
+          name: "X-Debug-Mode"
+          description: "Enable debug mode"
+          type: "boolean"
+          required: false
+          example: "true"
+        }
+      ]
+    };
+  }
+  
+  // Method that overrides service header
+  rpc MethodOverridingHeader(HeaderTestRequest) returns (HeaderTestResponse) {
+    option (sebuf.http.config) = {
+      path: "/override-header"
+    };
+    
+    option (sebuf.http.method_headers) = {
+      required_headers: [
+        {
+          name: "X-Tenant-ID"  // Same name as service header
+          description: "Override tenant ID to be string"
+          type: "string"  // Different type than service level
+          required: false  // Different requirement
+        }
+      ]
+    };
+  }
+  
+  // Method with array header
+  rpc MethodWithArrayHeader(HeaderTestRequest) returns (HeaderTestResponse) {
+    option (sebuf.http.config) = {
+      path: "/array-header"
+    };
+    
+    option (sebuf.http.method_headers) = {
+      required_headers: [
+        {
+          name: "X-Features"
+          description: "Enabled features"
+          type: "array"
+          required: false
+        }
+      ]
+    };
+  }
+  
+  // Method with deprecated header
+  rpc MethodWithDeprecatedHeader(HeaderTestRequest) returns (HeaderTestResponse) {
+    option (sebuf.http.config) = {
+      path: "/deprecated-header"
+    };
+    
+    option (sebuf.http.method_headers) = {
+      required_headers: [
+        {
+          name: "X-Legacy-Header"
+          description: "Deprecated header for backwards compatibility"
+          type: "string"
+          required: false
+          deprecated: true
+        }
+      ]
+    };
+  }
+  
+  // Method with various format headers
+  rpc MethodWithFormattedHeaders(HeaderTestRequest) returns (HeaderTestResponse) {
+    option (sebuf.http.config) = {
+      path: "/formatted-headers"
+    };
+    
+    option (sebuf.http.method_headers) = {
+      required_headers: [
+        {
+          name: "X-Email"
+          type: "string"
+          format: "email"
+          required: false
+        },
+        {
+          name: "X-Date"
+          type: "string"
+          format: "date"
+          required: false
+        },
+        {
+          name: "X-DateTime"
+          type: "string"
+          format: "date-time"
+          required: false
+        },
+        {
+          name: "X-Time"
+          type: "string"
+          format: "time"
+          required: false
+        },
+        {
+          name: "X-Float-Value"
+          type: "number"
+          format: "float"
+          required: false
+        },
+        {
+          name: "X-Double-Value"
+          type: "number"
+          format: "double"
+          required: false
+        }
+      ]
+    };
+  }
+  
+  // Method without any method-specific headers (inherits service headers only)
+  rpc MethodWithoutHeaders(HeaderTestRequest) returns (HeaderTestResponse) {
+    option (sebuf.http.config) = {
+      path: "/no-headers"
+    };
+  }
+}
