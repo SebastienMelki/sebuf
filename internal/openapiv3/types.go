@@ -5,7 +5,6 @@ import (
 	"strings"
 
 	"github.com/pb33f/libopenapi/datamodel/high/base"
-	"github.com/pb33f/libopenapi/orderedmap"
 	"google.golang.org/protobuf/compiler/protogen"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
@@ -127,19 +126,13 @@ func (g *Generator) convertScalarField(field *protogen.Field) *base.SchemaProxy 
 			Value: examples[0],
 		}
 		
-		// Add all examples as x-examples for tools that support it
-		if len(examples) > 1 {
-			schema.Extensions = orderedmap.New[string, *yaml.Node]()
-			examplesNode := &yaml.Node{
-				Kind: yaml.SequenceNode,
+		// Add all examples using OpenAPI 3.1 examples array format
+		schema.Examples = make([]*yaml.Node, len(examples))
+		for i, example := range examples {
+			schema.Examples[i] = &yaml.Node{
+				Kind:  yaml.ScalarNode,
+				Value: example,
 			}
-			for _, example := range examples {
-				examplesNode.Content = append(examplesNode.Content, &yaml.Node{
-					Kind:  yaml.ScalarNode,
-					Value: example,
-				})
-			}
-			schema.Extensions.Set("x-examples", examplesNode)
 		}
 	}
 
