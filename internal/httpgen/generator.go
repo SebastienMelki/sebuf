@@ -11,13 +11,27 @@ import (
 
 // Generator handles HTTP code generation for protobuf services.
 type Generator struct {
-	plugin *protogen.Plugin
+	plugin       *protogen.Plugin
+	generateMock bool
+}
+
+// Options configures the generator.
+type Options struct {
+	GenerateMock bool
 }
 
 // New creates a new HTTP generator.
 func New(plugin *protogen.Plugin) *Generator {
 	return &Generator{
 		plugin: plugin,
+	}
+}
+
+// NewWithOptions creates a new HTTP generator with options.
+func NewWithOptions(plugin *protogen.Plugin, opts Options) *Generator {
+	return &Generator{
+		plugin:       plugin,
+		generateMock: opts.GenerateMock,
 	}
 }
 
@@ -52,6 +66,13 @@ func (g *Generator) generateFile(file *protogen.File) error {
 	// Generate config file
 	if err := g.generateConfigFile(file); err != nil {
 		return err
+	}
+
+	// Generate mock file if requested
+	if g.generateMock {
+		if err := g.generateMockFile(file); err != nil {
+			return err
+		}
 	}
 
 	return nil
