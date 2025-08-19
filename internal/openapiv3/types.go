@@ -6,8 +6,12 @@ import (
 
 	"github.com/pb33f/libopenapi/datamodel/high/base"
 	"google.golang.org/protobuf/compiler/protogen"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
+	"google.golang.org/protobuf/types/descriptorpb"
 	"gopkg.in/yaml.v3"
+
+	"github.com/SebastienMelki/sebuf/http"
 )
 
 // convertField converts a protobuf field to an OpenAPI schema.
@@ -114,6 +118,24 @@ func (g *Generator) convertScalarField(field *protogen.Field) *base.SchemaProxy 
 	// Apply buf.validate constraints
 	extractValidationConstraints(field, schema)
 
+	// Add field examples if available
+	if examples := getFieldExamples(field); len(examples) > 0 {
+		// Set the first example as the default example
+		schema.Example = &yaml.Node{
+			Kind:  yaml.ScalarNode,
+			Value: examples[0],
+		}
+		
+		// Add all examples using OpenAPI 3.1 examples array format
+		schema.Examples = make([]*yaml.Node, len(examples))
+		for i, example := range examples {
+			schema.Examples[i] = &yaml.Node{
+				Kind:  yaml.ScalarNode,
+				Value: example,
+			}
+		}
+	}
+
 	return base.CreateSchemaProxy(schema)
 }
 
@@ -189,4 +211,31 @@ func (g *Generator) convertMapField(field *protogen.Field) *base.SchemaProxy {
 	extractValidationConstraints(field, schema)
 
 	return base.CreateSchemaProxy(schema)
+}
+
+// getFieldExamples extracts example values from field options.
+func getFieldExamples(field *protogen.Field) []string {
+	options := field.Desc.Options()
+	if options == nil {
+		return nil
+	}
+
+	// Get the raw options
+	fieldOptions, ok := options.(*descriptorpb.FieldOptions)
+	if !ok {
+		return nil
+	}
+
+	// Extract our custom extension using the generated code
+	ext := proto.GetExtension(fieldOptions, http.E_FieldExamples)
+	if ext == nil {
+		return nil
+	}
+
+	fieldExamples, ok := ext.(*http.FieldExamples)
+	if !ok || fieldExamples == nil {
+		return nil
+	}
+
+	return fieldExamples.GetValues()
 }

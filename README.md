@@ -23,9 +23,10 @@ This starts a working HTTP API with JSON endpoints, OpenAPI docs, and helper fun
 ## What you get
 
 - **HTTP handlers** from protobuf services (JSON + binary support)
+- **Mock server generation** with realistic field examples for rapid prototyping
 - **Automatic request validation** using protovalidate with buf.validate annotations
 - **HTTP header validation** with type checking and format validation (UUID, email, datetime)
-- **OpenAPI v3.1 docs** that stay in sync with your code, including header parameters
+- **OpenAPI v3.1 docs** that stay in sync with your code, including header parameters and field examples
 - **Helper functions** that eliminate protobuf boilerplate
 - **Zero runtime dependencies** - works with any Go HTTP framework
 
@@ -49,10 +50,20 @@ service UserService {
 
 message CreateUserRequest {
   // Automatic validation with buf.validate
-  string name = 1 [(buf.validate.field).string = {
-    min_len: 2, max_len: 100
-  }];
-  string email = 2 [(buf.validate.field).string.email = true];
+  string name = 1 [
+    (buf.validate.field).string = {
+      min_len: 2, max_len: 100
+    },
+    (sebuf.http.field_examples) = {
+      values: ["Alice Johnson", "Bob Smith", "Charlie Davis"]
+    }
+  ];
+  string email = 2 [
+    (buf.validate.field).string.email = true,
+    (sebuf.http.field_examples) = {
+      values: ["alice@example.com", "bob@example.com"]
+    }
+  ];
   
   oneof auth_method {
     EmailAuth email = 3;
@@ -66,6 +77,10 @@ sebuf generates:
 // HTTP handlers with automatic validation (both headers and body)
 api.RegisterUserServiceServer(userService, api.WithMux(mux))
 
+// Mock server with realistic data (optional)
+mockService := api.NewMockUserServiceServer()
+api.RegisterUserServiceServer(mockService, api.WithMux(mux))
+
 // Helper functions  
 req := api.NewCreateUserRequestEmail("user@example.com", "secret")
 req := api.NewCreateUserRequestToken("auth-token")
@@ -73,7 +88,7 @@ req := api.NewCreateUserRequestToken("auth-token")
 // Validation happens automatically:
 // - Headers validated first (returns HTTP 400 for missing/invalid headers)
 // - Then request body validated (returns HTTP 400 for invalid requests)
-// OpenAPI docs (api.yaml) - includes both validation rules and header parameters
+// OpenAPI docs (api.yaml) - includes validation rules, header parameters, and field examples
 ```
 
 ## Quick setup

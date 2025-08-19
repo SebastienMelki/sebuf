@@ -27,3 +27,14 @@ message ServiceConfig {
 extend google.protobuf.ServiceOptions {
   ServiceConfig service_config = 50004;
 }
+
+// FieldExamples defines example values for a field
+message FieldExamples {
+  // List of example values for this field
+  repeated string values = 1;
+}
+
+// Extension for field-level examples
+extend google.protobuf.FieldOptions {
+  FieldExamples field_examples = 50007;
+}

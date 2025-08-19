@@ -62,31 +62,67 @@ service UserService {
 // User represents a system user
 message User {
   // User ID must be a valid UUID
-  string id = 1 [(buf.validate.field).string.uuid = true];
+  string id = 1 [
+    (buf.validate.field).string.uuid = true,
+    (sebuf.http.field_examples) = {
+      values: [
+        "550e8400-e29b-41d4-a716-446655440000",
+        "f47ac10b-58cc-4372-a567-0e02b2c3d479",
+        "123e4567-e89b-12d3-a456-426614174000"
+      ]
+    }
+  ];
   
   // Name must be between 1 and 100 characters
-  string name = 2 [(buf.validate.field).string = {
-    min_len: 1,
-    max_len: 100
-  }];
+  string name = 2 [
+    (buf.validate.field).string = {
+      min_len: 1,
+      max_len: 100
+    },
+    (sebuf.http.field_examples) = {
+      values: ["Alice Johnson", "Bob Smith", "Charlie Davis", "Diana Wilson"]
+    }
+  ];
   
   // Email must be a valid email address
-  string email = 3 [(buf.validate.field).string.email = true];
+  string email = 3 [
+    (buf.validate.field).string.email = true,
+    (sebuf.http.field_examples) = {
+      values: [
+        "alice.johnson@example.com",
+        "bob.smith@example.com",
+        "charlie.davis@example.com",
+        "diana.wilson@example.com"
+      ]
+    }
+  ];
   
   // Creation timestamp
-  int64 created_at = 4;
+  int64 created_at = 4 [(sebuf.http.field_examples) = {
+    values: ["1704067200", "1704153600", "1704240000"]
+  }];
 }
 
 // Request to create a new user
 message CreateUserRequest {
   // Name is required and must be between 2 and 100 characters
-  string name = 1 [(buf.validate.field).string = {
-    min_len: 2,
-    max_len: 100
-  }];
+  string name = 1 [
+    (buf.validate.field).string = {
+      min_len: 2,
+      max_len: 100
+    },
+    (sebuf.http.field_examples) = {
+      values: ["Alice Johnson", "Bob Smith", "Charlie Davis"]
+    }
+  ];
   
   // Email is required and must be a valid email address
-  string email = 2 [(buf.validate.field).string.email = true];
+  string email = 2 [
+    (buf.validate.field).string.email = true,
+    (sebuf.http.field_examples) = {
+      values: ["alice@example.com", "bob@example.com", "charlie@example.com"]
+    }
+  ];
 }
 
 

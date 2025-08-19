@@ -139,3 +139,30 @@ func parseExistingAnnotation(_ *protogen.Method) string {
 	// For now, we'll return empty and use default paths
 	return ""
 }
+
+// getFieldExamples extracts example values from field options.
+func getFieldExamples(field *protogen.Field) []string {
+	options := field.Desc.Options()
+	if options == nil {
+		return nil
+	}
+
+	// Get the raw options
+	fieldOptions, ok := options.(*descriptorpb.FieldOptions)
+	if !ok {
+		return nil
+	}
+
+	// Extract our custom extension using the generated code
+	ext := proto.GetExtension(fieldOptions, http.E_FieldExamples)
+	if ext == nil {
+		return nil
+	}
+
+	fieldExamples, ok := ext.(*http.FieldExamples)
+	if !ok || fieldExamples == nil {
+		return nil
+	}
+
+	return fieldExamples.GetValues()
+}

@@ -25,6 +25,7 @@ The OpenAPI generation plugin bridges the gap between protobuf service definitio
 - **Complete Schema Definitions** - All protobuf messages converted to JSON schemas
 - **Service Endpoints** - RPC methods mapped to HTTP operations
 - **Header Parameters** - HTTP headers from service and method annotations included as parameters
+- **Field Examples** - Example values from protobuf field annotations included in OpenAPI
 - **Type Safety** - Accurate type information including enums, arrays, and nested objects
 - **Documentation** - Comments from protobuf definitions preserved as descriptions
 - **Validation Rules** - Both buf.validate constraints and header validation rules reflected in OpenAPI
@@ -62,19 +63,37 @@ option go_package = "github.com/yourorg/userapi/v1;userapi";
 // User represents a system user
 message User {
   // Unique user identifier
-  string id = 1;
+  string id = 1 [(sebuf.http.field_examples) = {
+    values: [
+      "550e8400-e29b-41d4-a716-446655440000",
+      "f47ac10b-58cc-4372-a567-0e02b2c3d479",
+      "123e4567-e89b-12d3-a456-426614174000"
+    ]
+  }];
   
   // User's email address
-  string email = 2;
+  string email = 2 [(sebuf.http.field_examples) = {
+    values: [
+      "alice.johnson@example.com",
+      "bob.smith@example.com",
+      "charlie.davis@example.com"
+    ]
+  }];
   
   // Full name of the user
-  string name = 3;
+  string name = 3 [(sebuf.http.field_examples) = {
+    values: ["Alice Johnson", "Bob Smith", "Charlie Davis", "Diana Wilson"]
+  }];
   
   // Age in years
-  int32 age = 4;
+  int32 age = 4 [(sebuf.http.field_examples) = {
+    values: ["25", "34", "42", "28"]
+  }];
   
   // Tags associated with the user
-  repeated string tags = 5;
+  repeated string tags = 5 [(sebuf.http.field_examples) = {
+    values: ["engineer", "manager", "designer"]
+  }];
   
   // Additional metadata
   map<string, string> metadata = 6;
@@ -280,21 +299,43 @@ components:
         id:
           type: string
           description: Unique user identifier
+          examples:
+            - "550e8400-e29b-41d4-a716-446655440000"
+            - "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+            - "123e4567-e89b-12d3-a456-426614174000"
         email:
           type: string
           description: User's email address
+          examples:
+            - "alice.johnson@example.com"
+            - "bob.smith@example.com"
+            - "charlie.davis@example.com"
         name:
           type: string
           description: Full name of the user
+          examples:
+            - "Alice Johnson"
+            - "Bob Smith"
+            - "Charlie Davis"
+            - "Diana Wilson"
         age:
           type: integer
           format: int32
           description: Age in years
+          examples:
+            - 25
+            - 34
+            - 42
+            - 28
         tags:
           type: array
           description: Tags associated with the user
           items:
             type: string
+          examples:
+            - ["engineer"]
+            - ["manager"]
+            - ["designer"]
         metadata:
           type: object
           description: Additional metadata
@@ -505,6 +546,21 @@ UserProfile profile = 1;
 ```yaml
 profile:
   $ref: '#/components/schemas/UserProfile'
+```
+
+**Field Examples:**
+```protobuf
+string email = 1 [(sebuf.http.field_examples) = {
+  values: ["alice@example.com", "bob@example.com", "charlie@example.com"]
+}];
+```
+```yaml
+email:
+  type: string
+  examples:
+    - "alice@example.com"
+    - "bob@example.com"
+    - "charlie@example.com"
 ```
 
 **Optional Fields (Proto3):**

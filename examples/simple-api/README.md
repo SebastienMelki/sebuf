@@ -16,11 +16,12 @@ This runs the complete workflow and starts the API server. Skip to [Testing the 
 
 A user management API with:
 - ✅ **HTTP endpoints** for creating users and authentication
+- ✅ **Mock server generation** with realistic data from field examples
 - ✅ **Header validation** with type checking and format validation (UUID, email, datetime)
 - ✅ **Automatic request validation** using buf.validate annotations
 - ✅ **Multiple auth methods** (email, token, social) using oneof fields
 - ✅ **Helper functions** that eliminate protobuf boilerplate  
-- ✅ **OpenAPI documentation** that stays in sync automatically, including header parameters
+- ✅ **OpenAPI documentation** that stays in sync automatically, including header parameters and examples
 - ✅ **JSON and binary** protobuf support
 
 ## Step-by-step walkthrough
@@ -39,7 +40,7 @@ go install github.com/SebastienMelki/sebuf/cmd/protoc-gen-openapiv3@latest
 
 ### 2. Understanding the protobuf definition
 
-Look at `api.proto` - notice how we define services with HTTP annotations, header validation, and body validation rules:
+Look at `api.proto` - notice how we define services with HTTP annotations, header validation, body validation rules, and field examples:
 
 ```protobuf
 service UserService {
@@ -79,20 +80,32 @@ service UserService {
 }
 ```
 
-**Automatic validation** is built in for both headers and request bodies using annotations:
+**Field examples** provide realistic data for documentation and mock servers:
 
 ```protobuf
 message CreateUserRequest {
   // Name is required and must be between 2 and 100 characters
-  string name = 1 [(buf.validate.field).string = {
-    min_len: 2,
-    max_len: 100
-  }];
+  string name = 1 [
+    (buf.validate.field).string = {
+      min_len: 2,
+      max_len: 100
+    },
+    (sebuf.http.field_examples) = {
+      values: ["Alice Johnson", "Bob Smith", "Charlie Davis"]
+    }
+  ];
   
   // Email is required and must be a valid email address
-  string email = 2 [(buf.validate.field).string.email = true];
+  string email = 2 [
+    (buf.validate.field).string.email = true,
+    (sebuf.http.field_examples) = {
+      values: ["alice@example.com", "bob@example.com", "charlie@example.com"]
+    }
+  ];
 }
 ```
+
+**Automatic validation** is built in for both headers and request bodies using buf.validate annotations shown above.
 
 The `LoginRequest` uses a oneof field for different authentication methods:
 
@@ -121,8 +134,9 @@ go mod tidy
 
 This creates:
 - `api/api_http*.pb.go` - HTTP server code
+- `api/api_http_mock.pb.go` - Mock server implementation (if enabled)
 - `api/api_helpers.pb.go` - Helper functions for oneof fields
-- `openapi.yaml` - Complete API documentation
+- `openapi.yaml` - Complete API documentation with examples
 
 ### 4. Run the server
 
@@ -134,6 +148,8 @@ The server starts on port 8080 with these endpoints:
 - `POST /api/v1/users` - Create a user
 - `POST /api/v1/users/get` - Get a user by ID  
 - `POST /api/v1/auth/login` - Login with different methods
+
+**Note:** The example now uses a mock server (`api.NewMockUserServiceServer()`) that generates realistic responses based on the field examples in your protobuf definition.
 
 ## Testing the API
 
@@ -314,10 +330,11 @@ docker run -p 8081:8080 -v $(pwd):/app swaggerapi/swagger-ui
 # Then visit http://localhost:8081/?url=/app/openapi.yaml
 ```
 
-The OpenAPI spec will show header requirements like:
+The OpenAPI spec will show:
 - `X-API-Key` (required, UUID format) for all endpoints
 - `X-Request-ID` (optional, UUID format) for CreateUser endpoint
 - Complete validation rules for request bodies
+- Field examples for all fields with `(sebuf.http.field_examples)` annotations
 
 ## Explore the generated code
 
