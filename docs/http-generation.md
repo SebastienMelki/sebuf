@@ -10,6 +10,8 @@ The `protoc-gen-go-http` plugin generates complete HTTP server infrastructure fr
 - [Installation](#installation)
 - [Quick Start](#quick-start)
 - [HTTP Annotations](#http-annotations)
+- [Field Examples](#field-examples)
+- [Mock Server Generation](#mock-server-generation)
 - [Header Validation](#header-validation)
 - [Generated Code Structure](#generated-code-structure)
 - [Framework Integration](#framework-integration)
@@ -33,6 +35,7 @@ The HTTP generation plugin creates three main components from your protobuf serv
 - **Framework Agnostic** - Works with any Go HTTP framework or standard library
 - **Type Safe** - Full protobuf type checking and validation
 - **Customizable Routing** - Control HTTP paths through annotations
+- **Mock Server Generation** - Generate mock implementations with realistic data based on field examples
 - **Header Validation** - Automatic validation of HTTP headers with type and format checking
 - **Middleware Ready** - Built-in hooks for authentication, logging, etc.
 
@@ -145,6 +148,22 @@ plugins:
 Generate:
 ```bash
 buf generate
+```
+
+#### Generating with Mock Server
+
+To also generate a mock server implementation, add the `generate_mock=true` option:
+
+```yaml
+# buf.gen.yaml
+version: v2
+plugins:
+  - remote: buf.build/protocolbuffers/go
+    out: .
+    opt: module=github.com/yourorg/userapi
+  - local: protoc-gen-go-http
+    out: .
+    opt: generate_mock=true
 ```
 
 #### Using protoc
@@ -325,6 +344,174 @@ The final HTTP path is determined by:
    ```protobuf
    // Results in: POST /userapi/create_user (no annotations)
    ```
+
+## Field Examples
+
+Add example values to protobuf fields using the `field_examples` annotation. These examples are used in OpenAPI documentation and mock server generation.
+
+### Basic Field Examples
+
+```protobuf
+import "sebuf/http/annotations.proto";
+
+message CreateUserRequest {
+  string name = 1 [
+    (buf.validate.field).string = {
+      min_len: 2,
+      max_len: 100
+    },
+    (sebuf.http.field_examples) = {
+      values: ["Alice Johnson", "Bob Smith", "Charlie Davis", "Diana Wilson"]
+    }
+  ];
+  
+  string email = 2 [
+    (buf.validate.field).string.email = true,
+    (sebuf.http.field_examples) = {
+      values: [
+        "alice.johnson@example.com",
+        "bob.smith@example.com", 
+        "charlie.davis@example.com"
+      ]
+    }
+  ];
+  
+  int32 age = 3 [(sebuf.http.field_examples) = {
+    values: ["25", "34", "42", "28"]
+  }];
+}
+```
+
+### Examples for Different Types
+
+**String fields:**
+```protobuf
+string user_id = 1 [(sebuf.http.field_examples) = {
+  values: [
+    "550e8400-e29b-41d4-a716-446655440000",
+    "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+  ]
+}];
+```
+
+**Numeric fields:**
+```protobuf
+int64 timestamp = 1 [(sebuf.http.field_examples) = {
+  values: ["1704067200", "1704153600", "1704240000"]
+}];
+
+double price = 2 [(sebuf.http.field_examples) = {
+  values: ["29.99", "15.50", "199.95"]
+}];
+```
+
+**Boolean fields:**
+```protobuf
+bool is_active = 1 [(sebuf.http.field_examples) = {
+  values: ["true", "false"]
+}];
+```
+
+### Benefits of Field Examples
+
+- **OpenAPI Documentation** - Examples appear in generated OpenAPI specifications
+- **Mock Server Generation** - Used to generate realistic mock data
+- **Developer Experience** - Provide clear examples of expected data formats
+- **Testing** - Help generate test cases with realistic data
+
+## Mock Server Generation
+
+Generate complete mock server implementations with realistic data based on your field examples.
+
+### Enabling Mock Generation
+
+Add the `generate_mock=true` option when generating HTTP code:
+
+#### Using Buf
+
+```yaml
+# buf.gen.yaml
+version: v2
+plugins:
+  - remote: buf.build/protocolbuffers/go
+    out: .
+    opt: module=github.com/yourorg/userapi
+  - local: protoc-gen-go-http
+    out: .
+    opt: generate_mock=true
+```
+
+#### Using protoc
+
+```bash
+protoc --go-http_out=. --go-http_opt=generate_mock=true user_service.proto
+```
+
+### Generated Mock Server
+
+The plugin generates a complete mock server implementation in `*_http_mock.pb.go`:
+
+```go
+// Generated mock server
+func NewMockUserServiceServer() UserServiceServer {
+    return &mockUserServiceServer{}
+}
+
+type mockUserServiceServer struct{}
+
+func (s *mockUserServiceServer) CreateUser(ctx context.Context, req *CreateUserRequest) (*User, error) {
+    // Returns realistic data based on field examples
+    return &User{
+        Id:        randomFieldExample("User.id"),        // From field examples
+        Name:      randomFieldExample("User.name"),      // From field examples  
+        Email:     randomFieldExample("User.email"),     // From field examples
+        CreatedAt: time.Now().Unix(),
+    }, nil
+}
+```
+
+### Using Mock Server in Development
+
+```go
+package main
+
+import (
+    "log"
+    "net/http"
+    
+    "github.com/yourorg/userapi"
+)
+
+func main() {
+    // Use mock server for development
+    mockService := userapi.NewMockUserServiceServer()
+    
+    mux := http.NewServeMux()
+    err := userapi.RegisterUserServiceServer(mockService, userapi.WithMux(mux))
+    if err != nil {
+        log.Fatal(err)
+    }
+    
+    log.Println("Mock server starting on :8080")
+    log.Fatal(http.ListenAndServe(":8080", mux))
+}
+```
+
+### Mock Data Generation
+
+The mock server uses field examples to generate realistic responses:
+
+- **Random Selection** - Randomly selects from available field examples
+- **Type Safety** - Respects protobuf field types and validation rules
+- **Realistic Data** - Uses your defined examples for consistent, meaningful test data
+- **Fallback Values** - Provides sensible defaults when no examples are defined
+
+### Benefits of Mock Generation
+
+- **Rapid Prototyping** - Get a working API immediately for frontend development
+- **Testing** - Use for integration tests and demo environments
+- **Documentation** - Show realistic API responses in documentation
+- **Development Workflow** - Enable parallel frontend/backend development
 
 ## Header Validation
 
