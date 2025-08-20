@@ -4,25 +4,28 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is `sebuf`, a comprehensive Go protobuf toolkit for building HTTP APIs. It consists of three complementary protoc plugins that together enable modern, type-safe API development:
+This is `sebuf`, a comprehensive Go protobuf toolkit for building HTTP APIs. It consists of four complementary protoc plugins that together enable modern, type-safe API development:
 
 - **`protoc-gen-go-oneof-helper`**: Creates convenience constructors for protobuf oneof fields
 - **`protoc-gen-go-http`**: Generates HTTP handlers, routing, request/response binding, and automatic validation
 - **`protoc-gen-openapiv3`**: Creates comprehensive OpenAPI v3.1 specifications
+- **`protoc-gen-go-whatif`**: Generates LLM-powered test scenarios and mock servers for comprehensive API testing
 
-The toolkit enables developers to build HTTP APIs directly from protobuf definitions without gRPC dependencies, targeting web and mobile API development with built-in request validation.
+The toolkit enables developers to build HTTP APIs directly from protobuf definitions without gRPC dependencies, targeting web and mobile API development with built-in request validation and AI-generated test scenarios.
 
 ## Architecture
 
-The project follows a clean Go protoc plugin architecture with separated concerns across three main components:
+The project follows a clean Go protoc plugin architecture with separated concerns across four main components:
 
 ### Plugin Structure
 - **cmd/protoc-gen-go-oneof-helper/**: Oneof helper generator entry point
 - **cmd/protoc-gen-go-http/**: HTTP handler generator entry point
 - **cmd/protoc-gen-openapiv3/**: OpenAPI specification generator entry point
+- **cmd/protoc-gen-go-whatif/**: LLM-powered test scenario generator entry point
 - **internal/oneofhelper/**: Oneof helper generation logic and tests
 - **internal/httpgen/**: HTTP handler generation logic, annotations, and header validation middleware
 - **internal/openapiv3/**: OpenAPI generation logic, type mapping, and header parameter generation
+- **internal/whatif/**: LLM integration, scenario generation, and mock server creation
 - **proto/sebuf/http/**: HTTP annotation definitions including headers.proto for header validation
 - **scripts/**: Test automation and build scripts
 
@@ -31,9 +34,10 @@ The project follows a clean Go protoc plugin architecture with separated concern
 1. **Oneof Helper Generator** (`internal/oneofhelper/generator.go:27`): Creates convenience constructors for oneof fields containing message types
 2. **HTTP Handler Generator** (`internal/httpgen/generator.go:22`): Generates HTTP handlers, request binding, routing configuration, automatic body validation, and header validation middleware
 3. **OpenAPI Generator** (`internal/openapiv3/generator.go:53`): Creates comprehensive OpenAPI v3.1 specifications from protobuf definitions with full header parameter support
-4. **HTTP Annotations** (`proto/sebuf/http/annotations.proto`): Custom protobuf extensions for HTTP configuration
-5. **Header Validation** (`proto/sebuf/http/headers.proto`): Protobuf definitions for service and method-level header validation
-6. **Validation System**: Automatic request body validation via buf.validate/protovalidate and header validation middleware
+4. **WhatIf Scenario Generator** (`internal/whatif/generator.go`): Uses LLMs to generate type-safe test scenarios and mock servers with realistic error conditions and intelligent field values
+5. **HTTP Annotations** (`proto/sebuf/http/annotations.proto`): Custom protobuf extensions for HTTP configuration
+6. **Header Validation** (`proto/sebuf/http/headers.proto`): Protobuf definitions for service and method-level header validation
+7. **Validation System**: Automatic request body validation via buf.validate/protovalidate and header validation middleware
 
 ### Generated Output Examples
 
@@ -119,6 +123,37 @@ func HeaderValidationMiddleware(requiredHeaders []HeaderConfig) func(http.Handle
 }
 ```
 
+**WhatIf Scenarios** - LLM-powered test scenario generation:
+```go
+// Generated type-safe scenario functions
+var WhatIf = whatIfScenarios{}
+
+// Service-level scenarios (affect all methods)
+func (w whatIfScenarios) DatabaseDown() WhatIfOption {
+  return func(config *whatifServerConfig) {
+    config.serviceScenarios = append(config.serviceScenarios, &databasedownHandler{})
+  }
+}
+
+// Method-specific scenarios with intelligent error handling
+func (w whatIfScenarios) CreateUserDuplicateEmail() WhatIfOption {
+  return func(config *whatifServerConfig) {
+    config.scenarios["CreateUser"] = append(config.scenarios["CreateUser"], &createuserduplicateemailHandler{})
+  }
+}
+
+func (h *createuserduplicateemailHandler) Handle(ctx context.Context, method string, req interface{}) (interface{}, error) {
+  return nil, fmt.Errorf("email already exists in system") // LLM-generated realistic error
+}
+
+// Usage: Type-safe scenario testing
+server := api.NewWhatIfUserServiceServer(
+  api.WhatIf.DatabaseDown(),                // Service-level
+  api.WhatIf.CreateUserDuplicateEmail(),    // Method-specific  
+  api.WhatIf.LoginExpiredSocialToken(),     // LLM-generated scenarios
+)
+```
+
 **Header Annotations** - Service and method-level header configuration:
 ```protobuf
 service UserService {
@@ -179,6 +214,7 @@ make build
 go build -o protoc-gen-go-oneof-helper ./cmd/protoc-gen-go-oneof-helper
 go build -o protoc-gen-go-http ./cmd/protoc-gen-go-http
 go build -o protoc-gen-openapiv3 ./cmd/protoc-gen-openapiv3
+go build -o protoc-gen-go-whatif ./cmd/protoc-gen-go-whatif
 
 # Format code
 go fmt ./...
@@ -191,10 +227,16 @@ protoc --go_out=. --go_opt=module=github.com/SebastienMelki/sebuf \
        --go-oneof-helper_out=. \
        --go-http_out=. \
        --openapiv3_out=./docs \
+       --go-whatif_out=. \
        --proto_path=internal/oneofhelper/testdata/proto \
        internal/oneofhelper/testdata/proto/simple_oneof.proto
 
-# Test specific plugin
+# Test whatif plugin with LLM integration
+cd examples/simple-api
+export PATH=$PATH:../../bin
+buf generate  # Requires OpenRouter API key in buf.gen.yaml
+
+# Test specific plugin  
 protoc --go-oneof-helper_out=. \
        --proto_path=internal/oneofhelper/testdata/proto \
        internal/oneofhelper/testdata/proto/simple_oneof.proto
