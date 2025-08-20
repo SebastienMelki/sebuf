@@ -378,10 +378,14 @@ func (l *LLMClient) buildServicePrompt(service *protogen.Service) string {
 Service: %s
 Methods: %s
 
-Generate 2-3 scenarios that would affect ALL methods in this service.
+Generate 3-4 scenarios that would affect ALL methods in this service.
 Think about infrastructure issues, service-wide failures, and cross-cutting concerns.
 
-Examples: database down, rate limiting, maintenance mode, authentication service unavailable.`,
+MUST include these specific scenarios:
+- slow_response → SlowResponse: All responses are slow due to system performance issues
+
+Also generate 2-3 additional scenarios like:
+- database down, maintenance mode, authentication service unavailable`,
 		service.GoName,
 		strings.Join(methods, ", "))
 }
@@ -400,16 +404,30 @@ Response: %s { %s }
 
 Method semantics: %s
 
-Generate 3-5 scenarios specific to this method's functionality.
-Consider the method name, request/response fields, and common failure modes.
-Focus on realistic edge cases, validation errors, and business logic scenarios.`,
+Generate 5-7 scenarios specific to this method's functionality:
+
+MUST include these specific scenarios:
+- %s_error → %sError: Generic error case for %s method
+- %s_success → %sSuccess: Successful case with realistic response data
+
+Also generate 4-5 additional realistic scenarios:
+- SUCCESS scenarios (2): Happy path variations with different realistic data
+- ERROR scenarios (3): Validation errors, authentication issues, business logic failures
+- Examples: rate limiting, resource not found, permission denied, invalid formats
+
+Balance between success scenarios (2-3) and error scenarios (3-4) for comprehensive testing.`,
 		service.GoName,
 		method.GoName,
 		method.Input.GoIdent.GoName,
 		requestFields,
 		method.Output.GoIdent.GoName,
 		responseFields,
-		semantics)
+		semantics,
+		strings.ToLower(method.GoName),
+		method.GoName,
+		method.GoName,
+		strings.ToLower(method.GoName),
+		method.GoName)
 }
 
 func (l *LLMClient) describeMessageStructure(msg *protogen.Message) string {

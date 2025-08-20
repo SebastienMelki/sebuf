@@ -400,13 +400,26 @@ func (g *Generator) generateServiceScenarios(gf *protogen.GeneratedFile, service
 
 func (g *Generator) generateScenarioFunction(gf *protogen.GeneratedFile, service *protogen.Service, scenario Scenario) {
 	// Create unique function and handler names to avoid conflicts
-	functionName := scenario.FunctionName
-	handlerName := strings.ToLower(scenario.FunctionName)
+	// Use the scenario name (which is unique) to generate function names
+	var functionName string
+	var handlerName string
 	
-	if scenario.Level == MethodLevel && scenario.Method != "" {
-		// Prefix method scenarios with method name to avoid conflicts
-		functionName = scenario.Method + scenario.FunctionName
-		handlerName = strings.ToLower(scenario.Method) + strings.ToLower(scenario.FunctionName)
+	if scenario.Level == ServiceLevel {
+		// Service-level: use FunctionName directly
+		functionName = scenario.FunctionName
+		handlerName = strings.ToLower(scenario.FunctionName)
+	} else {
+		// Method-level: create unique name based on method + scenario name
+		// Convert snake_case name to PascalCase for function name
+		nameParts := strings.Split(scenario.Name, "_")
+		var pascalName strings.Builder
+		for _, part := range nameParts {
+			if len(part) > 0 {
+				pascalName.WriteString(strings.ToUpper(part[:1]) + strings.ToLower(part[1:]))
+			}
+		}
+		functionName = scenario.Method + pascalName.String()
+		handlerName = strings.ToLower(scenario.Method) + strings.ToLower(pascalName.String())
 	}
 	handlerName += "Handler"
 	
@@ -439,11 +452,32 @@ func (g *Generator) generateScenarioFunction(gf *protogen.GeneratedFile, service
 	gf.P()
 }
 
+// generateSuccessResponse generates a realistic success response using LLM field values
+func (g *Generator) generateSuccessResponse(gf *protogen.GeneratedFile, scenario Scenario) {
+	// For now, just return a basic success response with field values as comments
+	// This can be enhanced to generate actual proto message construction
+	gf.P("// LLM-generated field values: %v", scenario.FieldValues)
+	gf.P("// TODO: Generate realistic response using field values")
+	gf.P("return nil, fmt.Errorf(\"success scenario not yet implemented\")")
+}
+
 func (g *Generator) generateScenarioLogic(gf *protogen.GeneratedFile, scenario Scenario) {
+	// First priority: use LLM-generated error information if available
+	if scenario.Error != nil {
+		gf.P(`return nil, fmt.Errorf("`, scenario.Error.Message, `")`)
+		return
+	}
+	
+	// Second priority: use LLM-generated success field values if available
+	if len(scenario.FieldValues) > 0 {
+		g.generateSuccessResponse(gf, scenario)
+		return
+	}
+	
+	// Fallback to pattern-based logic for basic scenarios
 	name := strings.ToLower(scenario.Name)
 	desc := strings.ToLower(scenario.Description)
 	
-	// Generate intelligent logic based on scenario name and description
 	switch {
 	case strings.Contains(name, "database") && strings.Contains(name, "down"):
 		gf.P(`return nil, fmt.Errorf("database connection failed: connection timeout")`)
