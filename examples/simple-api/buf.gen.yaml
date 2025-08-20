@@ -17,3 +17,10 @@ plugins:
       - generate_mock=true
   - local: protoc-gen-openapiv3
     out: .
+  - local: protoc-gen-go-whatif
+    out: api
+    opt:
+      - paths=source_relative
+      - openrouter_api_key=YOUR_OPENROUTER_API_KEY_HERE
+      - model=openai/gpt-4o-mini
+      - debug=true
