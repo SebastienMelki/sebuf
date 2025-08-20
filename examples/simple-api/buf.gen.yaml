@@ -21,6 +21,6 @@ plugins:
     out: api
     opt:
       - paths=source_relative
-      - openrouter_api_key=YOUR_OPENROUTER_API_KEY_HERE
+      - openrouter_api_key=YOUR_OPENROUTER_API_KEY_HERE  # Get from https://openrouter.ai/keys
       - model=openai/gpt-4o-mini
       - debug=true
