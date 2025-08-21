@@ -30,6 +30,7 @@ jobs:
         uses: bufbuild/buf-setup-action@v1
         with:
           version: ${{ env.BUF_VERSION }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
           
       - name: Install golangci-lint
         uses: golangci/golangci-lint-action@v3
@@ -80,6 +81,7 @@ jobs:
         uses: bufbuild/buf-setup-action@v1
         with:
           version: ${{ env.BUF_VERSION }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
           
       - name: Install dependencies
         run: |
@@ -126,6 +128,7 @@ jobs:
         uses: bufbuild/buf-setup-action@v1
         with:
           version: ${{ env.BUF_VERSION }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
           
       - name: Install dependencies
         run: |
@@ -212,6 +215,7 @@ jobs:
         uses: bufbuild/buf-setup-action@v1
         with:
           version: ${{ env.BUF_VERSION }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
           
       - name: Download binaries
         uses: actions/download-artifact@v4

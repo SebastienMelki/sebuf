@@ -1,6 +1,8 @@
 module github.com/SebastienMelki/sebuf
 
-go 1.24.4
+go 1.24.0
+
+toolchain go1.24.4
 
 require (
 	buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go v1.36.7-20250717185734-6c6e0d3c608e.1

@@ -127,7 +127,7 @@ run_package_tests() {
                     
                     if [ -n "$coverage" ]; then
                         # Check if coverage meets threshold
-                        if (( $(echo "$coverage >= $COVERAGE_THRESHOLD" | bc -l) )); then
+                        if (( $(echo "$coverage" | cut -d. -f1) >= $COVERAGE_THRESHOLD )); then
                             echo -e "${GREEN}  ✅  Coverage: ${coverage}% (Above threshold: ${COVERAGE_THRESHOLD}%)${NC}"
                             echo "$temp_profile" >> "$COVERAGE_DIR/profiles.list"
                             return 0
@@ -265,7 +265,7 @@ generate_coverage_summary() {
             local coverage=$(echo "$line" | awk '{print $3}')
             local coverage_num=$(echo "$coverage" | sed 's/%//')
             
-            if (( $(echo "$coverage_num >= $COVERAGE_THRESHOLD" | bc -l) )); then
+            if (( $(echo "$coverage_num" | cut -d. -f1) >= $COVERAGE_THRESHOLD )); then
                 echo -e "${GREEN}  ✅  $file: $coverage${NC}"
             else
                 echo -e "${RED}  ❌  $file: $coverage${NC}"
@@ -281,14 +281,10 @@ generate_coverage_summary() {
     fi
 }
 
-# Function to check if bc is available
+# Function to check dependencies (no longer needed with native bash arithmetic)
 check_dependencies() {
-    if ! command -v bc &> /dev/null; then
-        echo -e "${RED}Error: 'bc' command not found. Please install bc for coverage calculations.${NC}"
-        echo -e "${YELLOW}On macOS: brew install bc${NC}"
-        echo -e "${YELLOW}On Ubuntu/Debian: sudo apt-get install bc${NC}"
-        exit 1
-    fi
+    # All calculations now use native bash arithmetic - no external dependencies needed
+    return 0
 }
 
 # Main execution
@@ -298,8 +294,8 @@ main() {
     # Clean up previous coverage data
     rm -f "$COVERAGE_DIR"/*.out "$COVERAGE_DIR"/*.html "$COVERAGE_DIR"/*.json "$COVERAGE_DIR"/profiles.list
     
-    # Get all packages and root module
-    packages=$(go list ./...)
+    # Get all packages and root module, excluding cmd packages (entry points)
+    packages=$(go list ./... | grep -v '/cmd/')
     root_module=$(go list -m)
     
     

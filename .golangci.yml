@@ -1,7 +1,7 @@
 # This file is licensed under the terms of the MIT license https://opensource.org/license/mit
 # Copyright (c) 2021-2025 Marat Reymers
 
-## Golden config for golangci-lint v2.4.0
+## Golden config for golangci-lint v1.x compatible
 #
 # This is the best config for golangci-lint based on my experience and opinion.
 # It is very strict, but not extremely strict.
@@ -10,38 +10,13 @@
 
 # Based on https://gist.github.com/maratori/47a4d00457a92aa426dbd48a18776322
 
-version: "2"
-
 issues:
   # Maximum count of issues with the same text.
   # Set to 0 to disable.
   # Default: 3
   max-same-issues: 50
 
-formatters:
-  enable:
-    - goimports # checks if the code and import statements are formatted according to the 'goimports' command
-    - golines # checks if code is formatted, and fixes long lines
-
-    ## you may want to enable
-    #- gci # checks if code and import statements are formatted, with additional rules
-    #- gofmt # checks if the code is formatted according to 'gofmt' command
-    #- gofumpt # enforces a stricter format than 'gofmt', while being backwards compatible
-    #- swaggo # formats swaggo comments
-
-  # All settings can be found here https://github.com/golangci/golangci-lint/blob/HEAD/.golangci.reference.yml
-  settings:
-    goimports:
-      # A list of prefixes, which, if set, checks import paths
-      # with the given prefixes are grouped after 3rd-party packages.
-      # Default: []
-      local-prefixes:
-        - github.com/SebastienMelki/sebuf
-
-    golines:
-      # Target maximum line length.
-      # Default: 100
-      max-len: 120
+# formatters section is not available in golangci-lint v1.x
 
 linters:
   enable:
@@ -78,6 +53,7 @@ linters:
     - goprintffuncname # checks that printf-like functions are named with f at the end
     - gosec # inspects source code for security problems
     - govet # reports suspicious constructs, such as Printf calls whose arguments do not align with the format string
+    - goimports # checks if the code and import statements are formatted according to the 'goimports' command
     - iface # checks the incorrect use of interfaces, helping developers avoid interface pollution
     - ineffassign # detects when assignments to existing variables are not used
     - intrange # finds places where for loops could make use of an integer range
@@ -309,6 +285,13 @@ linters:
           # Whether to skip (*x).method() calls where x is a pointer receiver.
           # Default: true
           skipRecvDeref: false
+
+    goimports:
+      # A list of prefixes, which, if set, checks import paths
+      # with the given prefixes are grouped after 3rd-party packages.
+      # Default: []
+      local-prefixes:
+        - github.com/SebastienMelki/sebuf
 
     govet:
       # Enable all analyzers.
