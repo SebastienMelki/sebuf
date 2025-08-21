@@ -1,0 +1,258 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+env:
+  GO_VERSION: '1.21'
+  BUF_VERSION: 'latest'
+  PROTOC_VERSION: '25.1'
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+          
+      - name: Setup Buf
+        uses: bufbuild/buf-setup-action@v1
+        with:
+          version: ${{ env.BUF_VERSION }}
+          
+      - name: Install golangci-lint
+        uses: golangci/golangci-lint-action@v3
+        with:
+          version: latest
+          args: --timeout=5m
+          
+      - name: Run Go fmt check
+        run: |
+          fmt_output=$(gofmt -l .)
+          if [ -n "$fmt_output" ]; then
+            echo "The following files need formatting:"
+            echo "$fmt_output"
+            exit 1
+          fi
+          
+      - name: Run Go vet
+        run: go vet ./...
+        
+      - name: Run Buf lint
+        run: buf lint proto/
+
+  test:
+    name: Test (Go ${{ matrix.go-version }} - ${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        go-version: ['1.20', '1.21', '1.22']
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ matrix.go-version }}
+          cache: true
+          
+      - name: Setup Protoc
+        uses: arduino/setup-protoc@v3
+        with:
+          version: ${{ env.PROTOC_VERSION }}
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          
+      - name: Setup Buf
+        uses: bufbuild/buf-setup-action@v1
+        with:
+          version: ${{ env.BUF_VERSION }}
+          
+      - name: Install dependencies
+        run: |
+          go mod download
+          go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+          
+      - name: Build plugins
+        run: make build
+        
+      - name: Run tests
+        run: ./scripts/run_tests.sh --verbose
+        shell: bash
+        
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-${{ matrix.os }}-go${{ matrix.go-version }}
+          path: |
+            coverage.out
+            coverage.html
+            
+  coverage:
+    name: Coverage Analysis
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+          
+      - name: Setup Protoc
+        uses: arduino/setup-protoc@v3
+        with:
+          version: ${{ env.PROTOC_VERSION }}
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          
+      - name: Setup Buf
+        uses: bufbuild/buf-setup-action@v1
+        with:
+          version: ${{ env.BUF_VERSION }}
+          
+      - name: Install dependencies
+        run: |
+          go mod download
+          go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+          
+      - name: Build plugins
+        run: make build
+        
+      - name: Run tests with coverage
+        run: ./scripts/run_tests.sh
+        
+      - name: Generate coverage badge
+        uses: vladopajic/go-test-coverage@v2
+        with:
+          config: ./.testcoverage.yml
+          
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v3
+        with:
+          file: ./coverage.out
+          flags: unittests
+          name: codecov-umbrella
+          fail_ci_if_error: false
+          
+      - name: Comment PR with coverage
+        if: github.event_name == 'pull_request'
+        uses: alexanderdamiani/pytester-cov@v1.2.4
+        with:
+          pytest-cov-path: ./coverage.out
+          pytest-cov-comment: true
+          
+  build:
+    name: Build Binaries
+    runs-on: ubuntu-latest
+    needs: [lint, test]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+          
+      - name: Build all plugins
+        run: |
+          make build
+          
+      - name: Test plugin execution
+        run: |
+          ./bin/protoc-gen-go-oneof-helper --version || true
+          ./bin/protoc-gen-go-http --version || true
+          ./bin/protoc-gen-openapiv3 --version || true
+          
+      - name: Upload binaries
+        uses: actions/upload-artifact@v4
+        with:
+          name: plugin-binaries
+          path: bin/
+          
+  integration:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+          
+      - name: Setup Protoc
+        uses: arduino/setup-protoc@v3
+        with:
+          version: ${{ env.PROTOC_VERSION }}
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          
+      - name: Setup Buf
+        uses: bufbuild/buf-setup-action@v1
+        with:
+          version: ${{ env.BUF_VERSION }}
+          
+      - name: Download binaries
+        uses: actions/download-artifact@v4
+        with:
+          name: plugin-binaries
+          path: bin/
+          
+      - name: Make binaries executable
+        run: chmod +x bin/*
+        
+      - name: Run integration test with sample proto
+        run: |
+          # Test all plugins with a sample proto file
+          export PATH=$PWD/bin:$PATH
+          
+          # Create test directory
+          mkdir -p integration-test-output
+          
+          # Run protoc with all plugins
+          protoc \
+            --plugin=protoc-gen-go-oneof-helper=bin/protoc-gen-go-oneof-helper \
+            --plugin=protoc-gen-go-http=bin/protoc-gen-go-http \
+            --plugin=protoc-gen-openapiv3=bin/protoc-gen-openapiv3 \
+            --go_out=integration-test-output \
+            --go_opt=module=github.com/SebastienMelki/sebuf \
+            --go-oneof-helper_out=integration-test-output \
+            --go-oneof-helper_opt=module=github.com/SebastienMelki/sebuf \
+            --go-http_out=integration-test-output \
+            --go-http_opt=module=github.com/SebastienMelki/sebuf \
+            --openapiv3_out=integration-test-output \
+            --proto_path=internal/oneofhelper/testdata/proto \
+            internal/oneofhelper/testdata/proto/simple_oneof.proto
+          
+          # Verify outputs were generated
+          test -f integration-test-output/internal/oneofhelper/testdata/proto/simple_oneof_helpers.pb.go
+          test -f integration-test-output/internal/oneofhelper/testdata/proto/simple_oneof_http.pb.go
+          test -f integration-test-output/simple_oneof.openapi.yaml
+          
+      - name: Compile generated code
+        run: |
+          cd integration-test-output
+          go mod init test-module
+          go mod tidy
+          go build ./...
