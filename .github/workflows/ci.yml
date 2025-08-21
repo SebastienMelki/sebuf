@@ -32,11 +32,12 @@ jobs:
           version: ${{ env.BUF_VERSION }}
           github_token: ${{ secrets.GITHUB_TOKEN }}
           
-      - name: Install golangci-lint
-        uses: golangci/golangci-lint-action@v3
+      - name: Run golangci-lint
+        uses: golangci/golangci-lint-action@v8
         with:
-          version: latest
-          args: --timeout=5m
+          version: v2.1.6
+          args: ""
+          only-new-issues: true
           
       - name: Run Go fmt check
         run: |
