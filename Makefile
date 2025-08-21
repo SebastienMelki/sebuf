@@ -31,6 +31,14 @@ help:
 	@echo "  fmt         - Format all Go code"
 	@echo "  lint        - Run golangci-lint to check code quality"
 	@echo "  lint-fix    - Run golangci-lint with auto-fix"
+	@echo ""
+	@echo "CI/CD targets:"
+	@echo "  ci          - Run CI pipeline locally with act"
+	@echo "  ci-lint     - Run lint workflow locally"
+	@echo "  ci-test     - Run test workflow locally"
+	@echo "  ci-list     - List available GitHub Actions workflows"
+	@echo "  ci-setup    - Install act for local CI testing"
+	@echo ""
 	@echo "  help        - Show this help message"
 	@echo ""
 	@echo "Current binaries to build: $(BINARIES)"
@@ -168,3 +176,111 @@ test-setup: check-scripts test
 
 .PHONY: test-fast-setup  
 test-fast-setup: check-scripts test-fast
+
+# CI/CD targets using nektos/act for local testing
+
+# Install act for local GitHub Actions testing
+.PHONY: ci-setup
+ci-setup:
+	@echo "Installing act for local CI testing..."
+	@if ! command -v act >/dev/null 2>&1; then \
+		if [ "$(shell uname)" = "Darwin" ]; then \
+			echo "Installing act via Homebrew..."; \
+			brew install act; \
+		elif [ "$(shell uname)" = "Linux" ]; then \
+			echo "Installing act via script..."; \
+			curl -s https://raw.githubusercontent.com/nektos/act/master/install.sh | sudo bash; \
+		else \
+			echo "Please install act manually from: https://github.com/nektos/act"; \
+			exit 1; \
+		fi; \
+		echo "✅ act installed successfully"; \
+	else \
+		echo "✅ act is already installed"; \
+	fi
+	@echo ""
+	@echo "Next steps:"
+	@echo "1. Copy .env.act.example to .env.act and customize if needed"
+	@echo "2. Copy .secrets.example to .secrets and add any required secrets"
+	@echo "3. Run 'make ci' to test the CI pipeline locally"
+
+# Run full CI pipeline locally
+.PHONY: ci
+ci:
+	@echo "Running CI pipeline locally with act..."
+	@if ! command -v act >/dev/null 2>&1; then \
+		echo "act not found. Run 'make ci-setup' to install it."; \
+		exit 1; \
+	fi
+	@act push --workflows .github/workflows/ci.yml
+
+# Run only lint job locally
+.PHONY: ci-lint
+ci-lint:
+	@echo "Running lint workflow locally..."
+	@if ! command -v act >/dev/null 2>&1; then \
+		echo "act not found. Run 'make ci-setup' to install it."; \
+		exit 1; \
+	fi
+	@act push --workflows .github/workflows/ci.yml --job lint
+
+# Run only test job locally
+.PHONY: ci-test
+ci-test:
+	@echo "Running test workflow locally..."
+	@if ! command -v act >/dev/null 2>&1; then \
+		echo "act not found. Run 'make ci-setup' to install it."; \
+		exit 1; \
+	fi
+	@act push --workflows .github/workflows/ci.yml --job test
+
+# Run proto validation workflow locally
+.PHONY: ci-proto
+ci-proto:
+	@echo "Running proto validation workflow locally..."
+	@if ! command -v act >/dev/null 2>&1; then \
+		echo "act not found. Run 'make ci-setup' to install it."; \
+		exit 1; \
+	fi
+	@act push --workflows .github/workflows/proto.yml
+
+# List available workflows and jobs
+.PHONY: ci-list
+ci-list:
+	@echo "Available GitHub Actions workflows:"
+	@if ! command -v act >/dev/null 2>&1; then \
+		echo "act not found. Run 'make ci-setup' to install it."; \
+		exit 1; \
+	fi
+	@act list --workflows .github/workflows/
+
+# Run release workflow locally (dry run)
+.PHONY: ci-release-dry
+ci-release-dry:
+	@echo "Running release workflow in dry-run mode..."
+	@if ! command -v act >/dev/null 2>&1; then \
+		echo "act not found. Run 'make ci-setup' to install it."; \
+		exit 1; \
+	fi
+	@act push --workflows .github/workflows/release.yml --dryrun
+
+# Clean act artifacts
+.PHONY: ci-clean
+ci-clean:
+	@echo "Cleaning act artifacts..."
+	@rm -rf .act
+	@docker container prune -f
+	@docker image prune -f
+
+# Validate all workflows
+.PHONY: ci-validate
+ci-validate:
+	@echo "Validating GitHub Actions workflows..."
+	@for workflow in .github/workflows/*.yml; do \
+		echo "Validating $$workflow..."; \
+		if command -v actionlint >/dev/null 2>&1; then \
+			actionlint $$workflow; \
+		else \
+			echo "actionlint not found. Install with: go install github.com/rhysd/actionlint/cmd/actionlint@latest"; \
+		fi; \
+	done
