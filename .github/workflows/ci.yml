@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
 
 env:
-  GO_VERSION: '1.21'
+  GO_VERSION: '1.24'
   BUF_VERSION: 'latest'
   PROTOC_VERSION: '25.1'
 
@@ -27,6 +27,9 @@ jobs:
         with:
           go-version: ${{ env.GO_VERSION }}
           cache: true
+          cache-dependency-path: |
+            go.sum
+            go.mod
           
       - name: Setup Buf
         uses: bufbuild/buf-setup-action@v1
@@ -113,6 +116,9 @@ jobs:
         with:
           go-version: ${{ matrix.go-version }}
           cache: true
+          cache-dependency-path: |
+            go.sum
+            go.mod
           
       - name: Setup Protoc
         uses: arduino/setup-protoc@v3
@@ -317,6 +323,9 @@ jobs:
         with:
           go-version: ${{ env.GO_VERSION }}
           cache: true
+          cache-dependency-path: |
+            go.sum
+            go.mod
           
       - name: Build all plugins
         run: |
@@ -342,11 +351,19 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
         
+      - name: Clean Go module cache to prevent conflicts
+        run: |
+          rm -rf ~/.cache/go-build || true
+          rm -rf ~/go/pkg || true
+        
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
           go-version: ${{ env.GO_VERSION }}
           cache: true
+          cache-dependency-path: |
+            go.sum
+            go.mod
           
       - name: Setup Protoc
         uses: arduino/setup-protoc@v3
