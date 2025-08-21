@@ -2,6 +2,7 @@ package openapiv3
 
 import (
 	"fmt"
+	"google.golang.org/protobuf/proto"
 	"strings"
 
 	"github.com/pb33f/libopenapi/datamodel/high/base"
@@ -126,19 +127,19 @@ func (g *Generator) processMethod(service *protogen.Service, method *protogen.Me
 	var path string
 	serviceConfig := getServiceHTTPConfig(service)
 	methodConfig := getMethodHTTPConfig(method)
-	
+
 	if serviceConfig != nil || methodConfig != nil {
 		// Use sebuf.http annotations
 		servicePath := ""
 		methodPath := ""
-		
+
 		if serviceConfig != nil {
 			servicePath = serviceConfig.BasePath
 		}
 		if methodConfig != nil {
 			methodPath = methodConfig.Path
 		}
-		
+
 		path = buildHTTPPath(servicePath, methodPath)
 	} else {
 		// Fallback to gRPC-style path
@@ -161,7 +162,7 @@ func (g *Generator) processMethod(service *protogen.Service, method *protogen.Me
 	serviceHeaders := getServiceHeaders(service)
 	methodHeaders := getMethodHeaders(method)
 	allHeaders := combineHeaders(serviceHeaders, methodHeaders)
-	
+
 	if len(allHeaders) > 0 {
 		headerParameters := convertHeadersToParameters(allHeaders)
 		operation.Parameters = headerParameters
@@ -170,7 +171,7 @@ func (g *Generator) processMethod(service *protogen.Service, method *protogen.Me
 	// Add request body for the input message
 	inputSchemaRef := fmt.Sprintf("#/components/schemas/%s", method.Input.Desc.Name())
 	operation.RequestBody = &v3.RequestBody{
-		Required: &[]bool{true}[0], // Convert bool to *bool
+		Required: proto.Bool(true), // Convert bool to *bool
 		Content:  orderedmap.New[string, *v3.MediaType](),
 	}
 	operation.RequestBody.Content.Set("application/json", &v3.MediaType{
