@@ -25,10 +25,10 @@ func (g *Generator) convertField(field *protogen.Field) *base.SchemaProxy {
 				A: itemSchema,
 			},
 		}
-		
+
 		// Apply validation constraints for the array itself
 		extractValidationConstraints(field, arraySchema)
-		
+
 		return base.CreateSchemaProxy(arraySchema)
 	}
 
@@ -125,7 +125,7 @@ func (g *Generator) convertScalarField(field *protogen.Field) *base.SchemaProxy 
 			Kind:  yaml.ScalarNode,
 			Value: examples[0],
 		}
-		
+
 		// Add all examples using OpenAPI 3.1 examples array format
 		schema.Examples = make([]*yaml.Node, len(examples))
 		for i, example := range examples {

@@ -758,7 +758,7 @@ func (g *Generator) generateHeaderGetters(gf *protogen.GeneratedFile, service *p
 	serviceName := service.GoName
 	gf.P("// get", serviceName, "Headers returns the service-level required headers for ", serviceName)
 	gf.P("func get", serviceName, "Headers() []*sebufhttp.Header {")
-	
+
 	// Get actual service headers if they exist
 	serviceHeaders := getServiceHeaders(service)
 	if serviceHeaders != nil && len(serviceHeaders) > 0 {
@@ -777,7 +777,7 @@ func (g *Generator) generateHeaderGetters(gf *protogen.GeneratedFile, service *p
 	for _, method := range service.Methods {
 		gf.P("// get", method.GoName, "Headers returns the method-level required headers for ", method.GoName)
 		gf.P("func get", method.GoName, "Headers() []*sebufhttp.Header {")
-		
+
 		// Get actual method headers if they exist
 		methodHeaders := getMethodHeaders(method)
 		if methodHeaders != nil && len(methodHeaders) > 0 {
