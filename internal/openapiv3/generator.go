@@ -1,7 +1,6 @@
 package openapiv3
 
 import (
-	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -10,6 +9,7 @@ import (
 	"github.com/pb33f/libopenapi/orderedmap"
 	"google.golang.org/protobuf/compiler/protogen"
 	"gopkg.in/yaml.v3"
+	k8syaml "sigs.k8s.io/yaml"
 )
 
 // OutputFormat represents the output format for the OpenAPI document.
@@ -230,7 +230,17 @@ func (g *Generator) processMethod(service *protogen.Service, method *protogen.Me
 func (g *Generator) Render() ([]byte, error) {
 	switch g.format {
 	case FormatJSON:
-		return json.MarshalIndent(g.doc, "", "  ")
+		// First marshal to YAML (which works correctly with libopenapi)
+		yamlData, err := yaml.Marshal(g.doc)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal to YAML: %w", err)
+		}
+		// Then convert YAML to JSON
+		jsonData, err := k8syaml.YAMLToJSON(yamlData)
+		if err != nil {
+			return nil, fmt.Errorf("failed to convert YAML to JSON: %w", err)
+		}
+		return jsonData, nil
 	case FormatYAML:
 		return yaml.Marshal(g.doc)
 	default:
