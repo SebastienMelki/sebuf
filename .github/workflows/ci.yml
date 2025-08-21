@@ -398,7 +398,7 @@ jobs:
       - name: Run integration test with sample proto
         run: |
           # Test all plugins with a sample proto file
-          export PATH=$PWD/bin:$PATH
+          export PATH=$PWD/bin:$(go env GOPATH)/bin:$PATH
           
           # Create test directory
           mkdir -p integration-test-output
