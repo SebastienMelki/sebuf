@@ -1,124 +1,46 @@
 # Test coverage configuration for go-test-coverage action
 # https://github.com/vladopajic/go-test-coverage
 
-# Threshold for overall project coverage
-# The CI will fail if coverage drops below this percentage
+# Profile path (relative to project root)
+profile: coverage/coverage.out
+
+# Threshold configuration (percentages)
 threshold:
-  file: 70    # Minimum coverage for individual files
-  package: 80 # Minimum coverage for packages
-  total: 85   # Minimum total coverage for the project
+  file: 70
+  package: 80  
+  total: 85
 
-# Coverage profile configuration
-profile: coverage.out
+# Local prefix for coverage calculation
+localPrefix: "github.com/SebastienMelki/sebuf"
 
-# Local coverage file to use when available
-local-prefix: "github.com/SebastienMelki/sebuf"
-
-# Exclude patterns for files that shouldn't be included in coverage
+# Files and packages to exclude from coverage analysis
 exclude:
-  # Generated files
-  - ".*\\.pb\\.go$"           # Protocol buffer generated files
-  - ".*\\.pb\\.gw\\.go$"       # gRPC gateway generated files
-  - ".*_gen\\.go$"             # Any generated files
-  - ".*_generated\\.go$"       # Any generated files
+  files:
+    - ".*\\.pb\\.go$"           # Protocol buffer generated files
+    - ".*\\.pb\\.gw\\.go$"      # gRPC gateway generated files  
+    - ".*_gen\\.go$"            # Any generated files
+    - ".*_generated\\.go$"      # Any generated files
+    - ".*_test\\.go$"           # Test files
+    - ".*/testdata/.*"          # Test data
+    - ".*/mocks/.*"             # Mock files
+    - ".*/fixtures/.*"          # Fixture files
   
-  # Test files (already excluded by default, but being explicit)
-  - ".*_test\\.go$"
-  
-  # Main entry points (thin wrappers, minimal logic)
-  - "^cmd/"
-  
-  # Mock and test data
-  - ".*/testdata/.*"
-  - ".*/mocks/.*"
-  - ".*/fixtures/.*"
-  
-  # Vendor directory
-  - "^vendor/"
-  
-  # Documentation and examples
-  - "^examples/"
-  - "^docs/"
+  packages:
+    - "github.com/SebastienMelki/sebuf/cmd/.*"       # Command entry points
+    - "github.com/SebastienMelki/sebuf/vendor/.*"    # Vendor directory
+    - "github.com/SebastienMelki/sebuf/examples/.*"  # Examples
+    - "github.com/SebastienMelki/sebuf/docs/.*"      # Documentation
 
-# Override thresholds for specific paths
-override:
-  # Core generator logic should have higher coverage
-  - path: "^internal/oneofhelper/generator\\.go$"
-    threshold:
-      file: 90
-  
-  - path: "^internal/httpgen/generator\\.go$"
-    threshold:
-      file: 90
-      
-  - path: "^internal/openapiv3/generator\\.go$"
-    threshold:
-      file: 85
-  
-  # Utility functions should be well tested
-  - path: "^internal/.*/utils\\.go$"
-    threshold:
-      file: 95
-  
-  # Allow lower coverage for complex template files
-  - path: "^internal/.*/templates\\.go$"
-    threshold:
-      file: 60
+# Coverage calculation settings
+coverageMode: "atomic"
 
-# Badge generation configuration
+# Badge generation
 badge:
-  enabled: true
-  path: coverage-badge.svg
-  
-# Report generation
+  fileName: "coverage-badge.svg"
+
+# Report settings
 report:
   enabled: true
-  path: coverage-report.html
   
-# Fail conditions
-fail:
-  # Fail if any file has 0% coverage (except excluded files)
-  if-empty: true
-  
-  # Fail if coverage decreases by more than this percentage
-  decrease-tolerance: 2
-  
-# Coverage calculation method
-coverage-type: atomic
-
-# Comments on pull requests
-comment:
-  enabled: true
-  # Only comment if coverage changes by at least this percentage
-  threshold: 1
-  
-# Table display in PR comments
-table:
-  enabled: true
-  # Show files with coverage below this threshold in the table
-  threshold: 80
-  # Maximum number of files to show in the table
-  max-files: 10
-  
-# Diff display settings  
-diff:
-  enabled: true
-  # Show coverage diff for changed files
-  changed-files-only: true
-  
-# Statistics to track
-stats:
-  - total
-  - per-package
-  - per-file
-  - top-uncovered
-  
-# Cache configuration for faster runs
-cache:
-  enabled: true
-  path: .coverage-cache
-  
-# Parallel test execution
-parallel:
-  enabled: true
-  packages: 4
+# GitHub Actions specific settings
+githubActionOutput: true

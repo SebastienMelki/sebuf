@@ -38,7 +38,7 @@ jobs:
         uses: golangci/golangci-lint-action@v8
         with:
           version: v2.1.6
-          args: --out-format=github-actions
+          args: ""
           only-new-issues: true
           
       - name: Run Go fmt check
