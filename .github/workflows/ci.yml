@@ -168,31 +168,36 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: test-results-ubuntu-latest-go1.24
-          path: ./
+          path: ./coverage-download
           
       - name: Verify and locate coverage file
         run: |
-          echo "📁 Checking for coverage files..."
-          echo "Available files:"
-          find . -name "*.out" -o -name "*coverage*" | head -10
+          echo "📁 Checking for coverage files in downloaded artifacts..."
+          echo "Available files in coverage-download:"
+          find ./coverage-download -type f | head -20
           
-          # Check for coverage file in multiple possible locations
-          if [ -f "coverage/coverage.out" ]; then
-            echo "✅ Coverage file found: coverage/coverage.out"
+          # Create coverage directory for final location
+          mkdir -p coverage
+          
+          # Check for coverage file in multiple possible locations within the download
+          if [ -f "coverage-download/coverage/coverage.out" ]; then
+            echo "✅ Coverage file found: coverage-download/coverage/coverage.out"
+            cp coverage-download/coverage/coverage.out coverage/coverage.out
             echo "COVERAGE_FILE=coverage/coverage.out" >> $GITHUB_ENV
-            ls -la coverage/
-          elif [ -f "coverage.out" ]; then
-            echo "✅ Coverage file found: coverage.out (root level)"
-            echo "COVERAGE_FILE=coverage.out" >> $GITHUB_ENV
-            # Ensure coverage directory exists and copy file there for consistency
-            mkdir -p coverage
-            cp coverage.out coverage/coverage.out
-            echo "📋 Copied to coverage/coverage.out for consistency"
-            ls -la coverage/
+          elif [ -f "coverage-download/coverage.out" ]; then
+            echo "✅ Coverage file found: coverage-download/coverage.out (root level)"
+            cp coverage-download/coverage.out coverage/coverage.out
+            echo "COVERAGE_FILE=coverage/coverage.out" >> $GITHUB_ENV
           else
-            echo "❌ No coverage file found!"
+            echo "❌ No coverage file found in expected locations!"
+            echo "Available files structure:"
+            ls -la coverage-download/ || true
+            find coverage-download -name "*.out" 2>/dev/null || true
             exit 1
           fi
+          
+          echo "📋 Coverage file ready at: coverage/coverage.out"
+          ls -la coverage/
           
       - name: Setup Go for coverage tools
         uses: actions/setup-go@v5
@@ -376,6 +381,10 @@ jobs:
         with:
           version: ${{ env.BUF_VERSION }}
           github_token: ${{ secrets.GITHUB_TOKEN }}
+          
+      - name: Install protoc-gen-go dependency
+        run: |
+          go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
           
       - name: Download binaries
         uses: actions/download-artifact@v4
