@@ -164,15 +164,27 @@ jobs:
           name: test-results-ubuntu-latest-go1.24
           path: ./
           
-      - name: Verify coverage file exists
+      - name: Verify and locate coverage file
         run: |
+          echo "📁 Checking for coverage files..."
+          echo "Available files:"
+          find . -name "*.out" -o -name "*coverage*" | head -10
+          
+          # Check for coverage file in multiple possible locations
           if [ -f "coverage/coverage.out" ]; then
             echo "✅ Coverage file found: coverage/coverage.out"
+            echo "COVERAGE_FILE=coverage/coverage.out" >> $GITHUB_ENV
+            ls -la coverage/
+          elif [ -f "coverage.out" ]; then
+            echo "✅ Coverage file found: coverage.out (root level)"
+            echo "COVERAGE_FILE=coverage.out" >> $GITHUB_ENV
+            # Ensure coverage directory exists and copy file there for consistency
+            mkdir -p coverage
+            cp coverage.out coverage/coverage.out
+            echo "📋 Copied to coverage/coverage.out for consistency"
             ls -la coverage/
           else
-            echo "❌ Coverage file not found!"
-            echo "Available files:"
-            find . -name "*.out" -o -name "*coverage*" | head -10
+            echo "❌ No coverage file found!"
             exit 1
           fi
           
@@ -183,11 +195,12 @@ jobs:
           
       - name: Generate coverage badge and reports
         run: |
-          if [ -f "coverage/coverage.out" ]; then
-            echo "📊 Generating coverage reports..."
+          coverage_file="${COVERAGE_FILE:-coverage/coverage.out}"
+          if [ -f "$coverage_file" ]; then
+            echo "📊 Generating coverage reports from: $coverage_file"
             
             # Get total coverage percentage
-            total_coverage=$(go tool cover -func=coverage/coverage.out | grep "total:" | awk '{print $3}')
+            total_coverage=$(go tool cover -func="$coverage_file" | grep "total:" | awk '{print $3}')
             echo "Total coverage: $total_coverage"
             
             # Create a simple coverage badge
@@ -208,6 +221,7 @@ jobs:
             echo "COVERAGE_BADGE_URL=$badge_url" >> $GITHUB_ENV
           else
             echo "❌ No coverage file found for badge generation"
+            exit 1
           fi
           
       - name: Upload coverage to Codecov
@@ -253,9 +267,10 @@ jobs:
           
       - name: Check coverage threshold
         run: |
-          if [ -f "coverage/coverage.out" ]; then
+          coverage_file="coverage/coverage.out"
+          if [ -f "$coverage_file" ]; then
             # Extract total coverage percentage using go tool cover
-            total_coverage=$(go tool cover -func=coverage/coverage.out | grep "total:" | awk '{print $3}')
+            total_coverage=$(go tool cover -func="$coverage_file" | grep "total:" | awk '{print $3}')
             coverage_num=$(echo "$total_coverage" | sed 's/%//')
             
             echo "📊 Coverage: ${total_coverage}"
