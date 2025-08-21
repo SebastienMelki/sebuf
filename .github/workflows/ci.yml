@@ -14,8 +14,10 @@ env:
 
 jobs:
   lint:
-    name: Lint
+    name: Lint & Code Quality
     runs-on: ubuntu-latest
+    outputs:
+      lint-status: ${{ steps.lint-summary.outputs.status }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -36,23 +38,58 @@ jobs:
         uses: golangci/golangci-lint-action@v8
         with:
           version: v2.1.6
-          args: ""
+          args: --out-format=github-actions
           only-new-issues: true
           
       - name: Run Go fmt check
+        id: fmt-check
         run: |
           fmt_output=$(gofmt -l .)
           if [ -n "$fmt_output" ]; then
-            echo "The following files need formatting:"
-            echo "$fmt_output"
+            echo "::error::The following files need formatting:"
+            echo "$fmt_output" | while read -r file; do
+              echo "::error file=$file::File needs gofmt formatting"
+            done
+            echo "FMT_STATUS=❌ Format issues" >> $GITHUB_ENV
             exit 1
+          else
+            echo "FMT_STATUS=✅ Well formatted" >> $GITHUB_ENV
           fi
           
       - name: Run Go vet
-        run: go vet ./...
+        id: vet-check
+        run: |
+          if go vet ./...; then
+            echo "VET_STATUS=✅ No issues" >> $GITHUB_ENV
+          else
+            echo "VET_STATUS=❌ Vet issues" >> $GITHUB_ENV
+            exit 1
+          fi
         
       - name: Run Buf lint
-        run: buf lint proto/
+        id: buf-check
+        run: |
+          if buf lint proto/; then
+            echo "BUF_STATUS=✅ Proto lint passed" >> $GITHUB_ENV
+          else
+            echo "BUF_STATUS=❌ Proto lint issues" >> $GITHUB_ENV
+            exit 1
+          fi
+          
+      - name: Lint summary
+        id: lint-summary
+        if: always()
+        run: |
+          echo "📝 Lint Summary:"
+          echo "- Go Format: ${FMT_STATUS:-❌ Failed}"
+          echo "- Go Vet: ${VET_STATUS:-❌ Failed}"  
+          echo "- Buf Lint: ${BUF_STATUS:-❌ Failed}"
+          
+          if [[ "${FMT_STATUS}" == *"✅"* && "${VET_STATUS}" == *"✅"* && "${BUF_STATUS}" == *"✅"* ]]; then
+            echo "status=✅ All checks passed" >> $GITHUB_OUTPUT
+          else
+            echo "status=❌ Some checks failed" >> $GITHUB_OUTPUT
+          fi
 
   test:
     name: Test (Go ${{ matrix.go-version }} - ${{ matrix.os }})
@@ -102,65 +139,109 @@ jobs:
         with:
           name: test-results-${{ matrix.os }}-go${{ matrix.go-version }}
           path: |
-            coverage.out
-            coverage.html
+            coverage/coverage.out
+            coverage/coverage.html
+            coverage/coverage.json
+            coverage/coverage-badge.svg
             
   coverage:
     name: Coverage Analysis
     runs-on: ubuntu-latest
     needs: test
+    if: always()
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-        
-      - name: Setup Go
-        uses: actions/setup-go@v5
+          
+      - name: Download coverage from test job
+        uses: actions/download-artifact@v4
         with:
-          go-version: ${{ env.GO_VERSION }}
-          cache: true
+          name: test-results-ubuntu-latest-go1.24
+          path: ./
           
-      - name: Setup Protoc
-        uses: arduino/setup-protoc@v3
-        with:
-          version: ${{ env.PROTOC_VERSION }}
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
-          
-      - name: Setup Buf
-        uses: bufbuild/buf-setup-action@v1
-        with:
-          version: ${{ env.BUF_VERSION }}
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          
-      - name: Install dependencies
-        run: |
-          go mod download
-          go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
-          
-      - name: Build plugins
-        run: make build
-        
-      - name: Run tests with coverage
-        run: ./scripts/run_tests.sh
-        
       - name: Generate coverage badge
         uses: vladopajic/go-test-coverage@v2
         with:
           config: ./.testcoverage.yml
           
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v3
+        uses: codecov/codecov-action@v4
         with:
-          file: ./coverage.out
+          file: ./coverage/coverage.out
           flags: unittests
           name: codecov-umbrella
           fail_ci_if_error: false
+          token: ${{ secrets.CODECOV_TOKEN }}
           
       - name: Comment PR with coverage
         if: github.event_name == 'pull_request'
-        uses: alexanderdamiani/pytester-cov@v1.2.4
+        uses: fgrosse/go-coverage-report@v1.0.2
         with:
-          pytest-cov-path: ./coverage.out
-          pytest-cov-comment: true
+          coverage-artifact-name: test-results-ubuntu-latest-go1.24
+          coverage-file-name: coverage/coverage.out
+          
+      - name: Upload coverage reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-reports
+          path: |
+            coverage/
+            .testcoverage.yml
+
+  coverage-check:
+    name: Coverage Status Check
+    runs-on: ubuntu-latest
+    needs: coverage
+    if: always()
+    steps:
+      - name: Download coverage reports
+        uses: actions/download-artifact@v4
+        with:
+          name: coverage-reports
+          path: ./
+          
+      - name: Setup Go for coverage analysis
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          
+      - name: Check coverage threshold
+        run: |
+          if [ -f "coverage/coverage.out" ]; then
+            # Extract total coverage percentage using go tool cover
+            total_coverage=$(go tool cover -func=coverage/coverage.out | grep "total:" | awk '{print $3}')
+            coverage_num=$(echo "$total_coverage" | sed 's/%//')
+            
+            echo "📊 Coverage: ${total_coverage}"
+            
+            # Set threshold (85%)
+            threshold=85
+            if [ "${coverage_num%.*}" -ge "$threshold" ]; then
+              echo "✅ Coverage meets threshold (${threshold}%)"
+              echo "COVERAGE_STATUS=✅ ${total_coverage}" >> $GITHUB_ENV
+            else
+              echo "❌ Coverage below threshold (${threshold}%)"
+              echo "COVERAGE_STATUS=⚠️ ${total_coverage}" >> $GITHUB_ENV
+            fi
+          else
+            echo "❌ No coverage file found"
+            echo "COVERAGE_STATUS=❌ No coverage" >> $GITHUB_ENV
+          fi
+          
+      - name: Update commit status
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.repos.createCommitStatus({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              sha: context.payload.pull_request.head.sha,
+              state: 'success',
+              target_url: `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
+              description: process.env.COVERAGE_STATUS,
+              context: 'Coverage Report'
+            });
           
   build:
     name: Build Binaries
@@ -261,3 +342,67 @@ jobs:
           go mod init test-module
           go mod tidy
           go build ./...
+
+  status-check:
+    name: PR Status Summary
+    runs-on: ubuntu-latest
+    needs: [lint, test, coverage-check, build, integration]
+    if: always() && github.event_name == 'pull_request'
+    steps:
+      - name: Generate PR status summary
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { data: checkRuns } = await github.rest.checks.listForRef({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              ref: context.payload.pull_request.head.sha
+            });
+            
+            const jobs = {
+              lint: '${{ needs.lint.result }}',
+              test: '${{ needs.test.result }}', 
+              coverage: '${{ needs.coverage-check.result }}',
+              build: '${{ needs.build.result }}',
+              integration: '${{ needs.integration.result }}'
+            };
+            
+            let summary = '## 🔍 CI Pipeline Status\n\n';
+            
+            for (const [job, status] of Object.entries(jobs)) {
+              const emoji = status === 'success' ? '✅' : status === 'failure' ? '❌' : '⚠️';
+              const jobName = job.charAt(0).toUpperCase() + job.slice(1);
+              summary += `${emoji} **${jobName}**: ${status}\n`;
+            }
+            
+            summary += '\n---\n';
+            summary += '📊 **Coverage Report**: Available in checks above\n';
+            summary += '🔗 **Artifacts**: Test results and coverage reports uploaded\n';
+            
+            // Post comment on PR
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.payload.pull_request.number
+            });
+            
+            const botComment = comments.find(comment => 
+              comment.user.login === 'github-actions[bot]' && 
+              comment.body.includes('CI Pipeline Status')
+            );
+            
+            if (botComment) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: botComment.id,
+                body: summary
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.payload.pull_request.number,
+                body: summary
+              });
+            }
