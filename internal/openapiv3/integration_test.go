@@ -89,35 +89,7 @@ func TestPluginIntegration(t *testing.T) {
 				t.Fatalf("Failed to list output directory: %v", listErr)
 			}
 
-			if tc.expectOut {
-				if len(files) == 0 {
-					t.Errorf("Expected output files but none were generated for %s", tc.name)
-				} else {
-					// Verify file extensions match format
-					var extension string
-					if tc.format == "json" {
-						extension = ".json"
-					} else {
-						extension = ".yaml"
-					}
-
-					foundCorrectFile := false
-					for _, file := range files {
-						if strings.HasSuffix(file.Name(), extension) {
-							foundCorrectFile = true
-							break
-						}
-					}
-
-					if !foundCorrectFile {
-						t.Errorf("Expected file with %s extension but found: %v", extension, getFileNames(files))
-					}
-				}
-			} else {
-				if len(files) > 0 {
-					t.Errorf("Expected no output files but found: %v", getFileNames(files))
-				}
-			}
+			validateOutputFiles(t, tc, files)
 		})
 	}
 }
@@ -407,4 +379,66 @@ func minimum(a, b int) int {
 		return a
 	}
 	return b
+}
+
+// validateOutputFiles validates the generated output files against test case expectations.
+func validateOutputFiles(t *testing.T, tc struct {
+	name      string
+	protoFile string
+	format    string
+	expectOut bool
+}, files []os.DirEntry) {
+	if tc.expectOut {
+		validateExpectedOutput(t, tc, files)
+	} else {
+		validateNoOutput(t, tc, files)
+	}
+}
+
+// validateExpectedOutput validates that expected output files were generated.
+func validateExpectedOutput(t *testing.T, tc struct {
+	name      string
+	protoFile string
+	format    string
+	expectOut bool
+}, files []os.DirEntry) {
+	if len(files) == 0 {
+		t.Errorf("Expected output files but none were generated for %s", tc.name)
+		return
+	}
+
+	extension := getExpectedExtension(tc.format)
+	if !hasCorrectFileExtension(files, extension) {
+		t.Errorf("Expected file with %s extension but found: %v", extension, getFileNames(files))
+	}
+}
+
+// validateNoOutput validates that no output files were generated.
+func validateNoOutput(t *testing.T, _ struct {
+	name      string
+	protoFile string
+	format    string
+	expectOut bool
+}, files []os.DirEntry) {
+	if len(files) > 0 {
+		t.Errorf("Expected no output files but found: %v", getFileNames(files))
+	}
+}
+
+// getExpectedExtension returns the expected file extension for the given format.
+func getExpectedExtension(format string) string {
+	if format == "json" {
+		return ".json"
+	}
+	return ".yaml"
+}
+
+// hasCorrectFileExtension checks if any file has the correct extension.
+func hasCorrectFileExtension(files []os.DirEntry, extension string) bool {
+	for _, file := range files {
+		if strings.HasSuffix(file.Name(), extension) {
+			return true
+		}
+	}
+	return false
 }
