@@ -248,6 +248,7 @@ jobs:
       - name: Comment PR with coverage
         if: github.event_name == 'pull_request'
         uses: fgrosse/go-coverage-report@v1.0.2
+        continue-on-error: true  # Don't fail on coverage reporting issues
         with:
           coverage-artifact-name: test-results-ubuntu-latest-go1.24
           coverage-file-name: coverage/coverage.out
@@ -409,7 +410,10 @@ jobs:
           export PATH=$PWD/bin:$PATH
           
           # Verify protoc-gen-go is available
-          which protoc-gen-go || (echo "protoc-gen-go not found in PATH" && exit 1)
+          if ! which protoc-gen-go; then
+            echo "protoc-gen-go not found in PATH"
+            exit 1
+          fi
           
           # Create test directory
           mkdir -p integration-test-output
