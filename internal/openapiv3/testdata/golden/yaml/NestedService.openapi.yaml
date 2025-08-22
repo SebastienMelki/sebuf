@@ -1,0 +1,362 @@
+openapi: 3.1.0
+info:
+    title: NestedService API
+    version: 1.0.0
+paths:
+    /NestedService/ProcessOrganization:
+        post:
+            tags:
+                - NestedService
+            summary: ProcessOrganization
+            description: Process organization with nested data
+            operationId: ProcessOrganization
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/NestedRequest'
+                required: true
+            responses:
+                "200":
+                    description: Successful response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/NestedResponse'
+                default:
+                    description: Error response
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    error:
+                                        type: string
+                                    code:
+                                        type: integer
+    /NestedService/ValidateNested:
+        post:
+            tags:
+                - NestedService
+            summary: ValidateNested
+            description: Validate nested message structure
+            operationId: ValidateNested
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/NestedRequest'
+                required: true
+            responses:
+                "200":
+                    description: Successful response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/NestedResponse'
+                default:
+                    description: Error response
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    error:
+                                        type: string
+                                    code:
+                                        type: integer
+components:
+    schemas:
+        Organization:
+            type: object
+            properties:
+                id:
+                    type: string
+                    description: Organization ID
+                details:
+                    $ref: '#/components/schemas/Details'
+                members:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/Member'
+                departments:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/Department'
+            description: Top-level message with nested messages
+        Details:
+            type: object
+            properties:
+                title:
+                    type: string
+                description:
+                    type: string
+                startDate:
+                    type: integer
+                    format: int64
+                endDate:
+                    type: integer
+                    format: int64
+                phases:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/Phase'
+            description: Project details
+        Settings:
+            type: object
+            properties:
+                notificationsEnabled:
+                    type: boolean
+                    description: Enable notifications
+                theme:
+                    type: string
+                    description: Default theme
+                privacy:
+                    $ref: '#/components/schemas/Privacy'
+            description: Organization settings
+        Privacy:
+            type: object
+            properties:
+                publicProfile:
+                    type: boolean
+                    description: Public profile
+                searchable:
+                    type: boolean
+                    description: Allow search indexing
+                dataRetentionDays:
+                    type: integer
+                    format: int32
+                    description: Data retention period (days)
+            description: Privacy settings
+        Member:
+            type: object
+            properties:
+                id:
+                    type: string
+                    description: Member ID
+                profile:
+                    $ref: '#/components/schemas/Profile'
+                role:
+                    type: string
+                    description: Member role
+                joinedAt:
+                    type: integer
+                    format: int64
+                    description: Join date
+                active:
+                    type: boolean
+                    description: Whether member is active
+            description: Member of an organization
+        Profile:
+            type: object
+            properties:
+                displayName:
+                    type: string
+                    description: Display name
+                avatarUrl:
+                    type: string
+                    description: Avatar URL
+                bio:
+                    type: string
+                    description: Bio or description
+                contact:
+                    $ref: '#/components/schemas/Contact'
+            description: Member profile information
+        Contact:
+            type: object
+            properties:
+                primaryEmail:
+                    type: string
+                    description: Primary email
+                secondaryEmail:
+                    type: string
+                    description: Secondary email
+                phone:
+                    type: string
+                    description: Phone number
+                social:
+                    $ref: '#/components/schemas/Social'
+            description: Contact information
+        Social:
+            type: object
+            properties:
+                linkedin:
+                    type: string
+                    description: LinkedIn profile
+                twitter:
+                    type: string
+                    description: Twitter handle
+                github:
+                    type: string
+                    description: GitHub username
+            description: Social media links
+        Department:
+            type: object
+            properties:
+                id:
+                    type: string
+                    description: Department ID
+                name:
+                    type: string
+                    description: Department name
+                description:
+                    type: string
+                    description: Department description
+                config:
+                    $ref: '#/components/schemas/Config'
+                memberIds:
+                    type: array
+                    items:
+                        type: string
+                        description: Department members
+                subDepartments:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/Department'
+            description: Department within organization
+        Config:
+            type: object
+            properties:
+                budget:
+                    type: number
+                    format: double
+                    description: Budget allocated
+                headMemberId:
+                    type: string
+                    description: Department head
+                policies:
+                    $ref: '#/components/schemas/Policies'
+            description: Department configuration
+        Policies:
+            type: object
+            properties:
+                remoteWorkAllowed:
+                    type: boolean
+                    description: Work from home policy
+                flexibleHours:
+                    type: boolean
+                    description: Flexible hours policy
+                vacationDays:
+                    type: integer
+                    format: int32
+                    description: Vacation days per year
+                approvals:
+                    $ref: '#/components/schemas/Approvals'
+            description: Department policies
+        Approvals:
+            type: object
+            properties:
+                managerApprovalRequired:
+                    type: boolean
+                    description: Requires manager approval
+                hrApprovalRequired:
+                    type: boolean
+                    description: Requires HR approval
+                autoApproveLimit:
+                    type: number
+                    format: double
+                    description: Auto-approve limit (amount)
+            description: Approval workflow settings
+        Project:
+            type: object
+            properties:
+                id:
+                    type: string
+                    description: Project ID
+                details:
+                    $ref: '#/components/schemas/Details'
+                departmentId:
+                    type: string
+                    description: Assigned department
+                status:
+                    type: string
+                    description: Project status
+            description: Project managed by organization
+        Phase:
+            type: object
+            properties:
+                name:
+                    type: string
+                description:
+                    type: string
+                startDate:
+                    type: integer
+                    format: int64
+                endDate:
+                    type: integer
+                    format: int64
+                tasks:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/Task'
+            description: Project phases
+        Task:
+            type: object
+            properties:
+                id:
+                    type: string
+                title:
+                    type: string
+                description:
+                    type: string
+                assigneeId:
+                    type: string
+                estimatedHours:
+                    type: integer
+                    format: int32
+                completed:
+                    type: boolean
+                dependencyTaskIds:
+                    type: array
+                    items:
+                        type: string
+                        description: Task dependencies
+            description: Tasks within phase
+        NestedRequest:
+            type: object
+            properties:
+                organization:
+                    $ref: '#/components/schemas/Organization'
+                projects:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/Project'
+            description: Request containing nested messages
+        NestedResponse:
+            type: object
+            properties:
+                success:
+                    type: boolean
+                    description: Success indicator
+                organization:
+                    $ref: '#/components/schemas/Organization'
+                metadata:
+                    $ref: '#/components/schemas/Metadata'
+            description: Response containing nested messages
+        Metadata:
+            type: object
+            properties:
+                processingTimeMs:
+                    type: integer
+                    format: int64
+                    description: Processing time (milliseconds)
+                validation:
+                    $ref: '#/components/schemas/ValidationResults'
+            description: Processing metadata
+        ValidationResults:
+            type: object
+            properties:
+                membersValidated:
+                    type: integer
+                    format: int32
+                    description: Number of members validated
+                departmentsProcessed:
+                    type: integer
+                    format: int32
+                    description: Number of departments processed
+                errors:
+                    type: array
+                    items:
+                        type: string
+                        description: Validation errors
+            description: Validation results

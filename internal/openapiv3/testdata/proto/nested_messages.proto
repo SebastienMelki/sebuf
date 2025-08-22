@@ -1,0 +1,282 @@
+syntax = "proto3";
+
+package nested;
+
+option go_package = "github.com/SebastienMelki/sebuf/internal/openapiv3/testdata/nested;nested";
+
+// Top-level message with nested messages
+message Organization {
+  // Organization details
+  message Details {
+    // Organization name
+    string name = 1;
+    
+    // Organization description
+    string description = 2;
+    
+    // Founding date (timestamp)
+    int64 founded_date = 3;
+    
+    // Organization settings
+    message Settings {
+      // Enable notifications
+      bool notifications_enabled = 1;
+      
+      // Default theme
+      string theme = 2;
+      
+      // Privacy settings
+      message Privacy {
+        // Public profile
+        bool public_profile = 1;
+        
+        // Allow search indexing
+        bool searchable = 2;
+        
+        // Data retention period (days)
+        int32 data_retention_days = 3;
+      }
+      
+      // Privacy configuration
+      Privacy privacy = 3;
+    }
+    
+    // Settings configuration
+    Settings settings = 4;
+  }
+  
+  // Organization ID
+  string id = 1;
+  
+  // Organization details
+  Details details = 2;
+  
+  // Organization members
+  repeated Member members = 3;
+  
+  // Departments within organization
+  repeated Department departments = 4;
+}
+
+// Member of an organization
+message Member {
+  // Member profile information  
+  message Profile {
+    // Display name
+    string display_name = 1;
+    
+    // Avatar URL
+    string avatar_url = 2;
+    
+    // Bio or description
+    string bio = 3;
+    
+    // Contact information
+    message Contact {
+      // Primary email
+      string primary_email = 1;
+      
+      // Secondary email
+      string secondary_email = 2;
+      
+      // Phone number
+      string phone = 3;
+      
+      // Social media links
+      message Social {
+        // LinkedIn profile
+        string linkedin = 1;
+        
+        // Twitter handle  
+        string twitter = 2;
+        
+        // GitHub username
+        string github = 3;
+      }
+      
+      // Social media information
+      Social social = 4;
+    }
+    
+    // Contact details
+    Contact contact = 4;
+  }
+  
+  // Member ID
+  string id = 1;
+  
+  // User profile
+  Profile profile = 2;
+  
+  // Member role
+  string role = 3;
+  
+  // Join date
+  int64 joined_at = 4;
+  
+  // Whether member is active
+  bool active = 5;
+}
+
+// Department within organization  
+message Department {
+  // Department configuration
+  message Config {
+    // Budget allocated
+    double budget = 1;
+    
+    // Department head
+    string head_member_id = 2;
+    
+    // Department policies
+    message Policies {
+      // Work from home policy
+      bool remote_work_allowed = 1;
+      
+      // Flexible hours policy
+      bool flexible_hours = 2;
+      
+      // Vacation days per year
+      int32 vacation_days = 3;
+      
+      // Approval workflow settings
+      message Approvals {
+        // Requires manager approval
+        bool manager_approval_required = 1;
+        
+        // Requires HR approval  
+        bool hr_approval_required = 2;
+        
+        // Auto-approve limit (amount)
+        double auto_approve_limit = 3;
+      }
+      
+      // Approval configuration
+      Approvals approvals = 4;
+    }
+    
+    // Policy configuration
+    Policies policies = 3;
+  }
+  
+  // Department ID
+  string id = 1;
+  
+  // Department name
+  string name = 2;
+  
+  // Department description
+  string description = 3;
+  
+  // Department configuration
+  Config config = 4;
+  
+  // Department members
+  repeated string member_ids = 5;
+  
+  // Sub-departments
+  repeated Department sub_departments = 6;  // Recursive nesting!
+}
+
+// Project managed by organization
+message Project {
+  // Project details
+  message Details {
+    string title = 1;
+    string description = 2;
+    int64 start_date = 3;
+    int64 end_date = 4;
+    
+    // Project phases
+    message Phase {
+      string name = 1;
+      string description = 2;
+      int64 start_date = 3;
+      int64 end_date = 4;
+      
+      // Tasks within phase
+      message Task {
+        string id = 1;
+        string title = 2;
+        string description = 3;
+        string assignee_id = 4;
+        int32 estimated_hours = 5;
+        bool completed = 6;
+        
+        // Task dependencies
+        repeated string dependency_task_ids = 7;
+      }
+      
+      // Phase tasks
+      repeated Task tasks = 5;
+    }
+    
+    // Project phases
+    repeated Phase phases = 5;
+  }
+  
+  // Project ID
+  string id = 1;
+  
+  // Project details
+  Details details = 2;
+  
+  // Assigned department
+  string department_id = 3;
+  
+  // Project status
+  string status = 4;
+}
+
+// === Service for testing nested message handling ===
+
+// Request containing nested messages
+message NestedRequest {
+  // The organization data
+  Organization organization = 1;
+  
+  // Associated projects  
+  repeated Project projects = 2;
+}
+
+// Response containing nested messages
+message NestedResponse {
+  // Success indicator
+  bool success = 1;
+  
+  // The processed organization
+  Organization organization = 2;
+  
+  // Processing metadata
+  message Metadata {
+    // Processing time (milliseconds)
+    int64 processing_time_ms = 1;
+    
+    // Validation results
+    message ValidationResults {
+      // Number of members validated
+      int32 members_validated = 1;
+      
+      // Number of departments processed
+      int32 departments_processed = 2;
+      
+      // Validation errors
+      repeated string errors = 3;
+    }
+    
+    // Validation information
+    ValidationResults validation = 2;
+  }
+  
+  // Processing metadata
+  Metadata metadata = 3;
+}
+
+// Service for testing deeply nested message schemas
+service NestedService {
+  // Process organization with nested data
+  rpc ProcessOrganization(NestedRequest) returns (NestedResponse);
+  
+  // Validate nested message structure
+  rpc ValidateNested(NestedRequest) returns (NestedResponse);
+}

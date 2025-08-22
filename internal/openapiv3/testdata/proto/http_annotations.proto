@@ -1,0 +1,159 @@
+syntax = "proto3";
+
+package http_test;
+
+import "sebuf/http/annotations.proto";
+
+option go_package = "github.com/SebastienMelki/sebuf/internal/openapiv3/testdata/http;http";
+
+// Simple request message
+message CreateUserRequest {
+  // User name
+  string name = 1;
+  
+  // User email
+  string email = 2;
+}
+
+// Simple response message
+message User {
+  // User ID
+  string id = 1;
+  
+  // User name
+  string name = 2;
+  
+  // User email
+  string email = 3;
+}
+
+// Get user request
+message GetUserRequest {
+  // User ID to retrieve
+  string id = 1;
+}
+
+// Update user request
+message UpdateUserRequest {
+  // User ID
+  string id = 1;
+  
+  // Updated user data
+  User user = 2;
+}
+
+// Delete user request
+message DeleteUserRequest {
+  // User ID to delete
+  string id = 1;
+}
+
+// Delete user response
+message DeleteUserResponse {
+  // Success indicator
+  bool success = 1;
+  
+  // Status message
+  string message = 2;
+}
+
+// Service with HTTP path annotations
+service UserService {
+  option (sebuf.http.service_config) = {
+    base_path: "/api/v1"
+  };
+  
+  // Create a new user
+  rpc CreateUser(CreateUserRequest) returns (User) {
+    option (sebuf.http.config) = {
+      path: "/users"
+    };
+  }
+  
+  // Get user by ID
+  rpc GetUser(GetUserRequest) returns (User) {
+    option (sebuf.http.config) = {
+      path: "/users/get"  
+    };
+  }
+  
+  // Update user
+  rpc UpdateUser(UpdateUserRequest) returns (User) {
+    option (sebuf.http.config) = {
+      path: "/users/update"
+    };
+  }
+  
+  // Delete user
+  rpc DeleteUser(DeleteUserRequest) returns (DeleteUserResponse) {
+    option (sebuf.http.config) = {
+      path: "/users/delete"
+    };
+  }
+}
+
+// Service without base path (fallback to gRPC-style paths)
+service BasicService {
+  // Simple method without HTTP config
+  rpc SimpleMethod(CreateUserRequest) returns (User);
+  
+  // Method with only path config
+  rpc ConfiguredMethod(GetUserRequest) returns (User) {
+    option (sebuf.http.config) = {
+      path: "/configured"
+    };
+  }
+}
+
+// Admin service with different base path
+service AdminService {
+  option (sebuf.http.service_config) = {
+    base_path: "/admin/v2/api"
+  };
+  
+  // Admin method
+  rpc ManageUsers(CreateUserRequest) returns (User) {
+    option (sebuf.http.config) = {
+      path: "/users/manage"
+    };
+  }
+  
+  // Method with empty path (should use base path only)
+  rpc AdminRoot(CreateUserRequest) returns (User) {
+    option (sebuf.http.config) = {
+      path: ""
+    };
+  }
+}
+
+// Service testing edge cases
+service EdgeCaseService {
+  // Method with base path but no method path
+  option (sebuf.http.service_config) = {
+    base_path: "/edge"  
+  };
+  
+  // No method path specified
+  rpc NoPath(CreateUserRequest) returns (User);
+  
+  // Root path
+  rpc RootPath(CreateUserRequest) returns (User) {
+    option (sebuf.http.config) = {
+      path: "/"
+    };
+  }
+  
+  // Path with leading slash
+  rpc LeadingSlash(CreateUserRequest) returns (User) {
+    option (sebuf.http.config) = {
+      path: "/path"
+    };
+  }
+  
+  // Path without leading slash
+  rpc NoLeadingSlash(CreateUserRequest) returns (User) {
+    option (sebuf.http.config) = {
+      path: "path"
+    };
+  }
+}

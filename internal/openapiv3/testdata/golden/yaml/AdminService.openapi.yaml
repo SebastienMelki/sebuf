@@ -1,0 +1,125 @@
+openapi: 3.1.0
+info:
+    title: AdminService API
+    version: 1.0.0
+paths:
+    /admin/v2/api/users/manage:
+        post:
+            tags:
+                - AdminService
+            summary: ManageUsers
+            description: Admin method
+            operationId: ManageUsers
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/CreateUserRequest'
+                required: true
+            responses:
+                "200":
+                    description: Successful response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/User'
+                default:
+                    description: Error response
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    error:
+                                        type: string
+                                    code:
+                                        type: integer
+    /admin/v2/api:
+        post:
+            tags:
+                - AdminService
+            summary: AdminRoot
+            description: Method with empty path (should use base path only)
+            operationId: AdminRoot
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/CreateUserRequest'
+                required: true
+            responses:
+                "200":
+                    description: Successful response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/User'
+                default:
+                    description: Error response
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    error:
+                                        type: string
+                                    code:
+                                        type: integer
+components:
+    schemas:
+        CreateUserRequest:
+            type: object
+            properties:
+                name:
+                    type: string
+                    description: User name
+                email:
+                    type: string
+                    description: User email
+            description: Simple request message
+        User:
+            type: object
+            properties:
+                id:
+                    type: string
+                    description: User ID
+                name:
+                    type: string
+                    description: User name
+                email:
+                    type: string
+                    description: User email
+            description: Simple response message
+        GetUserRequest:
+            type: object
+            properties:
+                id:
+                    type: string
+                    description: User ID to retrieve
+            description: Get user request
+        UpdateUserRequest:
+            type: object
+            properties:
+                id:
+                    type: string
+                    description: User ID
+                user:
+                    $ref: '#/components/schemas/User'
+            description: Update user request
+        DeleteUserRequest:
+            type: object
+            properties:
+                id:
+                    type: string
+                    description: User ID to delete
+            description: Delete user request
+        DeleteUserResponse:
+            type: object
+            properties:
+                success:
+                    type: boolean
+                    description: Success indicator
+                message:
+                    type: string
+                    description: Status message
+            description: Delete user response

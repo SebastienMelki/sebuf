@@ -1,0 +1,61 @@
+openapi: 3.1.0
+info:
+    title: DeprecatedHeaderService API
+    version: 1.0.0
+paths:
+    /deprecated/legacy:
+        post:
+            tags:
+                - DeprecatedHeaderService
+            summary: WithDeprecatedHeader
+            description: Method with deprecated header
+            operationId: WithDeprecatedHeader
+            parameters:
+                - name: X-Legacy-Header
+                  in: header
+                  description: Legacy header that is deprecated
+                  required: false
+                  deprecated: true
+                  schema:
+                    type: string
+                    example: legacy-value
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/HeaderRequest'
+                required: true
+            responses:
+                "200":
+                    description: Successful response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/HeaderResponse'
+                default:
+                    description: Error response
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    error:
+                                        type: string
+                                    code:
+                                        type: integer
+components:
+    schemas:
+        HeaderRequest:
+            type: object
+            properties:
+                data:
+                    type: string
+                    description: Request data
+            description: Simple request message
+        HeaderResponse:
+            type: object
+            properties:
+                result:
+                    type: string
+                    description: Response data
+            description: Simple response message

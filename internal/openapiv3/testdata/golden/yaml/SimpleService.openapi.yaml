@@ -1,0 +1,97 @@
+openapi: 3.1.0
+info:
+    title: SimpleService API
+    version: 1.0.0
+paths:
+    /SimpleService/Create:
+        post:
+            tags:
+                - SimpleService
+            summary: Create
+            description: Create a simple resource
+            operationId: Create
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/SimpleRequest'
+                required: true
+            responses:
+                "200":
+                    description: Successful response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/SimpleResponse'
+                default:
+                    description: Error response
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    error:
+                                        type: string
+                                    code:
+                                        type: integer
+    /SimpleService/Get:
+        post:
+            tags:
+                - SimpleService
+            summary: Get
+            description: Get a simple resource
+            operationId: Get
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/SimpleRequest'
+                required: true
+            responses:
+                "200":
+                    description: Successful response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/SimpleResponse'
+                default:
+                    description: Error response
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    error:
+                                        type: string
+                                    code:
+                                        type: integer
+components:
+    schemas:
+        SimpleRequest:
+            type: object
+            properties:
+                name:
+                    type: string
+                    description: User's name
+                age:
+                    type: integer
+                    format: int32
+                    description: User's age
+                active:
+                    type: boolean
+                    description: Whether user is active
+            description: Simple message for testing basic OpenAPI generation
+        SimpleResponse:
+            type: object
+            properties:
+                message:
+                    type: string
+                    description: Response message
+                success:
+                    type: boolean
+                    description: Success indicator
+                timestamp:
+                    type: integer
+                    format: int64
+                    description: Response timestamp
+            description: Simple response message
