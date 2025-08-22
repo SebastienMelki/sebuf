@@ -20,7 +20,7 @@ jobs:
       lint-status: ${{ steps.lint-summary.outputs.status }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         
       - name: Setup Go
         uses: actions/setup-go@v5
@@ -109,7 +109,7 @@ jobs:
         os: [ubuntu-latest, macos-latest]
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         
       - name: Setup Go
         uses: actions/setup-go@v5
@@ -163,7 +163,7 @@ jobs:
     continue-on-error: true  # Make coverage a warning, not a failure
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
           
       - name: Download coverage from test job
         uses: actions/download-artifact@v5
@@ -333,7 +333,7 @@ jobs:
     needs: [lint, test]
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         
       - name: Setup Go
         uses: actions/setup-go@v5
@@ -366,7 +366,7 @@ jobs:
     needs: build
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         
       - name: Clean Go module cache to prevent conflicts
         run: |
