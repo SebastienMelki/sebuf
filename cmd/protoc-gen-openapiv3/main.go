@@ -88,6 +88,10 @@ func main() {
 
 	// Write response to stdout
 	resp := plugin.Response()
+	
+	// Add supported features - proto3 optional fields
+	resp.SupportedFeatures = proto.Uint64(uint64(pluginpb.CodeGeneratorResponse_FEATURE_PROTO3_OPTIONAL))
+	
 	respOutput, err := proto.Marshal(resp)
 	if err != nil {
 		panic(err)
