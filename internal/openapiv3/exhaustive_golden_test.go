@@ -105,7 +105,6 @@ func writeTemporaryGeneratedFile(t *testing.T, goldenFile string, generatedConte
 // TestExhaustiveGoldenFiles performs exhaustive byte-for-byte comparison
 // between generated OpenAPI output and golden files.
 func TestExhaustiveGoldenFiles(t *testing.T) {
-	t.Skip("TODO: This test needs to be rewritten to handle service-specific output files instead of proto-file-specific files")
 	// Build the plugin binary for testing
 	pluginPath := "./protoc-gen-openapiv3-golden-test"
 	buildCmd := exec.Command("go", "build", "-o", pluginPath, "../../cmd/protoc-gen-openapiv3")
@@ -114,107 +113,193 @@ func TestExhaustiveGoldenFiles(t *testing.T) {
 	}
 	defer os.Remove(pluginPath)
 
+	// Test cases mapping proto files to their services and expected golden files
 	testCases := []struct {
-		name       string
-		protoFile  string
-		goldenFile string
-		format     string // "yaml" or "json"
+		name        string
+		protoFile   string
+		serviceName string
+		goldenFile  string
+		format      string // "yaml" or "json"
 	}{
+		// simple_service.proto -> SimpleService
 		{
-			name:       "simple_service_yaml",
-			protoFile:  "testdata/proto/simple_service.proto",
-			goldenFile: "testdata/golden/yaml/simple_service.openapi.yaml",
-			format:     "yaml",
+			name:        "simple_service_yaml",
+			protoFile:   "testdata/proto/simple_service.proto",
+			serviceName: "SimpleService",
+			goldenFile:  "testdata/golden/yaml/SimpleService.openapi.yaml",
+			format:      "yaml",
 		},
 		{
-			name:       "simple_service_json",
-			protoFile:  "testdata/proto/simple_service.proto",
-			goldenFile: "testdata/golden/json/simple_service.openapi.json",
-			format:     "json",
+			name:        "simple_service_json",
+			protoFile:   "testdata/proto/simple_service.proto",
+			serviceName: "SimpleService",
+			goldenFile:  "testdata/golden/json/SimpleService.openapi.json",
+			format:      "json",
+		},
+		// complex_types.proto -> ComplexService
+		{
+			name:        "complex_types_yaml",
+			protoFile:   "testdata/proto/complex_types.proto",
+			serviceName: "ComplexService",
+			goldenFile:  "testdata/golden/yaml/ComplexService.openapi.yaml",
+			format:      "yaml",
 		},
 		{
-			name:       "multiple_services_yaml",
-			protoFile:  "testdata/proto/multiple_services.proto",
-			goldenFile: "testdata/golden/yaml/multiple_services.openapi.yaml",
-			format:     "yaml",
+			name:        "complex_types_json",
+			protoFile:   "testdata/proto/complex_types.proto",
+			serviceName: "ComplexService",
+			goldenFile:  "testdata/golden/json/ComplexService.openapi.json",
+			format:      "json",
+		},
+		// nested_messages.proto -> NestedService
+		{
+			name:        "nested_messages_yaml",
+			protoFile:   "testdata/proto/nested_messages.proto",
+			serviceName: "NestedService",
+			goldenFile:  "testdata/golden/yaml/NestedService.openapi.yaml",
+			format:      "yaml",
 		},
 		{
-			name:       "multiple_services_json",
-			protoFile:  "testdata/proto/multiple_services.proto",
-			goldenFile: "testdata/golden/json/multiple_services.openapi.json",
-			format:     "json",
+			name:        "nested_messages_json",
+			protoFile:   "testdata/proto/nested_messages.proto",
+			serviceName: "NestedService",
+			goldenFile:  "testdata/golden/json/NestedService.openapi.json",
+			format:      "json",
+		},
+		// headers.proto -> HeaderService
+		{
+			name:        "header_service_yaml",
+			protoFile:   "testdata/proto/headers.proto",
+			serviceName: "HeaderService",
+			goldenFile:  "testdata/golden/yaml/HeaderService.openapi.yaml",
+			format:      "yaml",
 		},
 		{
-			name:       "complex_types_yaml",
-			protoFile:  "testdata/proto/complex_types.proto",
-			goldenFile: "testdata/golden/yaml/complex_types.openapi.yaml",
-			format:     "yaml",
+			name:        "header_service_json",
+			protoFile:   "testdata/proto/headers.proto",
+			serviceName: "HeaderService",
+			goldenFile:  "testdata/golden/json/HeaderService.openapi.json",
+			format:      "json",
+		},
+		// headers.proto -> HeaderTypesService
+		{
+			name:        "header_types_service_yaml",
+			protoFile:   "testdata/proto/headers.proto",
+			serviceName: "HeaderTypesService",
+			goldenFile:  "testdata/golden/yaml/HeaderTypesService.openapi.yaml",
+			format:      "yaml",
 		},
 		{
-			name:       "complex_types_json",
-			protoFile:  "testdata/proto/complex_types.proto",
-			goldenFile: "testdata/golden/json/complex_types.openapi.json",
-			format:     "json",
+			name:        "header_types_service_json",
+			protoFile:   "testdata/proto/headers.proto",
+			serviceName: "HeaderTypesService",
+			goldenFile:  "testdata/golden/json/HeaderTypesService.openapi.json",
+			format:      "json",
+		},
+		// headers.proto -> NoHeaderService
+		{
+			name:        "no_header_service_yaml",
+			protoFile:   "testdata/proto/headers.proto",
+			serviceName: "NoHeaderService",
+			goldenFile:  "testdata/golden/yaml/NoHeaderService.openapi.yaml",
+			format:      "yaml",
 		},
 		{
-			name:       "nested_messages_yaml",
-			protoFile:  "testdata/proto/nested_messages.proto",
-			goldenFile: "testdata/golden/yaml/nested_messages.openapi.yaml",
-			format:     "yaml",
+			name:        "no_header_service_json",
+			protoFile:   "testdata/proto/headers.proto",
+			serviceName: "NoHeaderService",
+			goldenFile:  "testdata/golden/json/NoHeaderService.openapi.json",
+			format:      "json",
+		},
+		// headers.proto -> DeprecatedHeaderService
+		{
+			name:        "deprecated_header_service_yaml",
+			protoFile:   "testdata/proto/headers.proto",
+			serviceName: "DeprecatedHeaderService",
+			goldenFile:  "testdata/golden/yaml/DeprecatedHeaderService.openapi.yaml",
+			format:      "yaml",
 		},
 		{
-			name:       "nested_messages_json",
-			protoFile:  "testdata/proto/nested_messages.proto",
-			goldenFile: "testdata/golden/json/nested_messages.openapi.json",
-			format:     "json",
+			name:        "deprecated_header_service_json",
+			protoFile:   "testdata/proto/headers.proto",
+			serviceName: "DeprecatedHeaderService",
+			goldenFile:  "testdata/golden/json/DeprecatedHeaderService.openapi.json",
+			format:      "json",
+		},
+		// headers.proto -> EdgeCaseService
+		{
+			name:        "edge_case_service_yaml",
+			protoFile:   "testdata/proto/headers.proto",
+			serviceName: "EdgeCaseService",
+			goldenFile:  "testdata/golden/yaml/EdgeCaseService.openapi.yaml",
+			format:      "yaml",
 		},
 		{
-			name:       "headers_yaml",
-			protoFile:  "testdata/proto/headers.proto",
-			goldenFile: "testdata/golden/yaml/headers.openapi.yaml",
-			format:     "yaml",
+			name:        "edge_case_service_json",
+			protoFile:   "testdata/proto/headers.proto",
+			serviceName: "EdgeCaseService",
+			goldenFile:  "testdata/golden/json/EdgeCaseService.openapi.json",
+			format:      "json",
+		},
+		// multiple_services.proto -> UserService
+		{
+			name:        "multi_user_service_yaml",
+			protoFile:   "testdata/proto/multiple_services.proto",
+			serviceName: "UserService",
+			goldenFile:  "testdata/golden/yaml/UserService.openapi.yaml",
+			format:      "yaml",
 		},
 		{
-			name:       "headers_json",
-			protoFile:  "testdata/proto/headers.proto",
-			goldenFile: "testdata/golden/json/headers.openapi.json",
-			format:     "json",
+			name:        "multi_user_service_json",
+			protoFile:   "testdata/proto/multiple_services.proto",
+			serviceName: "UserService",
+			goldenFile:  "testdata/golden/json/UserService.openapi.json",
+			format:      "json",
+		},
+		// multiple_services.proto -> AdminService
+		{
+			name:        "multi_admin_service_yaml",
+			protoFile:   "testdata/proto/multiple_services.proto",
+			serviceName: "AdminService",
+			goldenFile:  "testdata/golden/yaml/AdminService.openapi.yaml",
+			format:      "yaml",
 		},
 		{
-			name:       "validation_constraints_yaml",
-			protoFile:  "testdata/proto/validation_constraints.proto",
-			goldenFile: "testdata/golden/yaml/validation_constraints.openapi.yaml",
-			format:     "yaml",
+			name:        "multi_admin_service_json",
+			protoFile:   "testdata/proto/multiple_services.proto",
+			serviceName: "AdminService",
+			goldenFile:  "testdata/golden/json/AdminService.openapi.json",
+			format:      "json",
+		},
+		// multiple_services.proto -> NotificationService
+		{
+			name:        "notification_service_yaml",
+			protoFile:   "testdata/proto/multiple_services.proto",
+			serviceName: "NotificationService",
+			goldenFile:  "testdata/golden/yaml/NotificationService.openapi.yaml",
+			format:      "yaml",
 		},
 		{
-			name:       "validation_constraints_json",
-			protoFile:  "testdata/proto/validation_constraints.proto",
-			goldenFile: "testdata/golden/json/validation_constraints.openapi.json",
-			format:     "json",
+			name:        "notification_service_json",
+			protoFile:   "testdata/proto/multiple_services.proto",
+			serviceName: "NotificationService",
+			goldenFile:  "testdata/golden/json/NotificationService.openapi.json",
+			format:      "json",
+		},
+		// http_annotations.proto -> BasicService
+		{
+			name:        "basic_service_yaml",
+			protoFile:   "testdata/proto/http_annotations.proto",
+			serviceName: "BasicService",
+			goldenFile:  "testdata/golden/yaml/BasicService.openapi.yaml",
+			format:      "yaml",
 		},
 		{
-			name:       "http_annotations_yaml",
-			protoFile:  "testdata/proto/http_annotations.proto",
-			goldenFile: "testdata/golden/yaml/http_annotations.openapi.yaml",
-			format:     "yaml",
-		},
-		{
-			name:       "http_annotations_json",
-			protoFile:  "testdata/proto/http_annotations.proto",
-			goldenFile: "testdata/golden/json/http_annotations.openapi.json",
-			format:     "json",
-		},
-		{
-			name:       "no_services_yaml",
-			protoFile:  "testdata/proto/no_services.proto",
-			goldenFile: "testdata/golden/yaml/no_services.openapi.yaml",
-			format:     "yaml",
-		},
-		{
-			name:       "no_services_json",
-			protoFile:  "testdata/proto/no_services.proto",
-			goldenFile: "testdata/golden/json/no_services.openapi.json",
-			format:     "json",
+			name:        "basic_service_json",
+			protoFile:   "testdata/proto/http_annotations.proto",
+			serviceName: "BasicService",
+			goldenFile:  "testdata/golden/json/BasicService.openapi.json",
+			format:      "json",
 		},
 	}
 
@@ -245,15 +330,14 @@ func TestExhaustiveGoldenFiles(t *testing.T) {
 					tc.name, runErr, stdout.String(), stderr.String())
 			}
 
-			// Find the generated file
-			baseName := strings.TrimSuffix(filepath.Base(tc.protoFile), ".proto")
+			// The generator creates service-specific files, so look for ServiceName.openapi.ext
 			var extension string
 			if tc.format == "json" {
 				extension = ".openapi.json"
 			} else {
 				extension = ".openapi.yaml"
 			}
-			generatedFile := filepath.Join(tempDir, baseName+extension)
+			generatedFile := filepath.Join(tempDir, tc.serviceName+extension)
 
 			// Read generated content
 			generatedContent, err := os.ReadFile(generatedFile)
@@ -280,7 +364,6 @@ func TestExhaustiveGoldenFiles(t *testing.T) {
 // TestExhaustiveRegression tests that any change to the implementation
 // is detected by comparing against multiple golden files.
 func TestExhaustiveRegression(t *testing.T) {
-	t.Skip("TODO: This test needs to be rewritten to handle service-specific output files instead of proto-file-specific files")
 	if testing.Short() {
 		t.Skip("Skipping exhaustive regression test in short mode")
 	}
@@ -293,80 +376,85 @@ func TestExhaustiveRegression(t *testing.T) {
 	}
 	defer os.Remove(pluginPath)
 
-	// Test all proto files in testdata/proto
-	protoFiles, err := filepath.Glob("testdata/proto/*.proto")
-	if err != nil {
-		t.Fatalf("Failed to find proto files: %v", err)
-	}
-
-	if len(protoFiles) == 0 {
-		t.Fatal("No proto files found in testdata/proto")
+	// Mapping of proto files to their services for comprehensive regression testing
+	protoToServices := map[string][]string{
+		"testdata/proto/simple_service.proto":    {"SimpleService"},
+		"testdata/proto/complex_types.proto":     {"ComplexService"},
+		"testdata/proto/nested_messages.proto":   {"NestedService"},
+		"testdata/proto/headers.proto":           {"HeaderService", "HeaderTypesService", "NoHeaderService", "DeprecatedHeaderService", "EdgeCaseService"},
+		"testdata/proto/multiple_services.proto": {"UserService", "AdminService", "NotificationService"},
+		"testdata/proto/http_annotations.proto":  {"BasicService"},
 	}
 
 	formats := []string{"yaml", "json"}
 
-	for _, protoFile := range protoFiles {
-		baseName := strings.TrimSuffix(filepath.Base(protoFile), ".proto")
+	for protoFile, services := range protoToServices {
+		// Skip proto files that don't exist
+		if _, statErr := os.Stat(protoFile); os.IsNotExist(statErr) {
+			continue
+		}
 
-		for _, format := range formats {
-			var extension string
-			if format == "json" {
-				extension = ".openapi.json"
-			} else {
-				extension = ".openapi.yaml"
+		for _, service := range services {
+			for _, format := range formats {
+				var extension string
+				if format == "json" {
+					extension = ".openapi.json"
+				} else {
+					extension = ".openapi.yaml"
+				}
+
+				goldenFile := fmt.Sprintf("testdata/golden/%s/%s%s", format, service, extension)
+
+				// Check if golden file exists
+				if _, statErr := os.Stat(goldenFile); os.IsNotExist(statErr) {
+					t.Logf("Skipping missing golden file: %s", goldenFile)
+					continue
+				}
+
+				testName := fmt.Sprintf("%s_%s_%s", filepath.Base(protoFile), service, format)
+				t.Run(testName, func(t *testing.T) {
+					// Generate output
+					tempDir := t.TempDir()
+					formatParam := fmt.Sprintf("format=%s", format)
+
+					cmd := exec.Command("protoc",
+						"--plugin=protoc-gen-openapiv3="+pluginPath,
+						"--openapiv3_out="+tempDir,
+						"--openapiv3_opt="+formatParam,
+						"--proto_path=testdata/proto",
+						"--proto_path=../../proto",
+						protoFile,
+					)
+
+					if runErr := cmd.Run(); runErr != nil {
+						t.Fatalf("protoc failed for %s: %v", protoFile, runErr)
+					}
+
+					// Find generated service-specific file
+					generatedFile := filepath.Join(tempDir, service+extension)
+
+					// Compare with golden file
+					generatedContent, genErr := os.ReadFile(generatedFile)
+					if genErr != nil {
+						t.Fatalf("Failed to read generated file %s: %v", generatedFile, genErr)
+					}
+
+					goldenContent, goldenErr := os.ReadFile(goldenFile)
+					if goldenErr != nil {
+						t.Fatalf("Failed to read golden file: %v", goldenErr)
+					}
+
+					if !bytes.Equal(generatedContent, goldenContent) {
+						t.Errorf("Regression detected in %s service from %s (%s format)", service, protoFile, format)
+						t.Errorf("Generated output differs from golden file")
+
+						// Show a summary of the difference
+						genLines := strings.Split(string(generatedContent), "\n")
+						goldenLines := strings.Split(string(goldenContent), "\n")
+						t.Errorf("Generated: %d lines, Golden: %d lines", len(genLines), len(goldenLines))
+					}
+				})
 			}
-
-			goldenFile := fmt.Sprintf("testdata/golden/%s/%s%s", format, baseName, extension)
-
-			// Check if golden file exists
-			if _, statErr := os.Stat(goldenFile); os.IsNotExist(statErr) {
-				t.Errorf("Golden file missing for %s in %s format: %s", protoFile, format, goldenFile)
-				continue
-			}
-
-			testName := fmt.Sprintf("%s_%s", baseName, format)
-			t.Run(testName, func(t *testing.T) {
-				// Generate output
-				tempDir := t.TempDir()
-				formatParam := fmt.Sprintf("format=%s", format)
-
-				cmd := exec.Command("protoc",
-					"--plugin=protoc-gen-openapiv3="+pluginPath,
-					"--openapiv3_out="+tempDir,
-					"--openapiv3_opt="+formatParam,
-					"--proto_path=testdata/proto",
-					"--proto_path=../../proto",
-					protoFile,
-				)
-
-				if runErr := cmd.Run(); runErr != nil {
-					t.Fatalf("protoc failed for %s: %v", protoFile, runErr)
-				}
-
-				// Find generated file
-				generatedFile := filepath.Join(tempDir, baseName+extension)
-
-				// Compare with golden file
-				generatedContent, genErr := os.ReadFile(generatedFile)
-				if genErr != nil {
-					t.Fatalf("Failed to read generated file: %v", genErr)
-				}
-
-				goldenContent, goldenErr := os.ReadFile(goldenFile)
-				if goldenErr != nil {
-					t.Fatalf("Failed to read golden file: %v", goldenErr)
-				}
-
-				if !bytes.Equal(generatedContent, goldenContent) {
-					t.Errorf("Regression detected in %s (%s format)", protoFile, format)
-					t.Errorf("Generated output differs from golden file")
-
-					// Show a summary of the difference
-					genLines := strings.Split(string(generatedContent), "\n")
-					goldenLines := strings.Split(string(goldenContent), "\n")
-					t.Errorf("Generated: %d lines, Golden: %d lines", len(genLines), len(goldenLines))
-				}
-			})
 		}
 	}
 }
