@@ -1,0 +1,175 @@
+openapi: 3.1.0
+info:
+    title: HeaderService API
+    version: 1.0.0
+paths:
+    /api/v1/service-headers:
+        post:
+            tags:
+                - HeaderService
+            summary: ServiceHeadersOnly
+            description: Method with no additional headers (only service headers)
+            operationId: ServiceHeadersOnly
+            parameters:
+                - name: X-API-Key
+                  in: header
+                  description: API authentication key
+                  required: true
+                  schema:
+                    type: string
+                    format: uuid
+                    example: 123e4567-e89b-12d3-a456-426614174000
+                - name: X-Client-Version
+                  in: header
+                  description: Client version identifier
+                  required: false
+                  schema:
+                    type: string
+                    example: 1.2.3
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/HeaderRequest'
+                required: true
+            responses:
+                "200":
+                    description: Successful response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/HeaderResponse'
+                default:
+                    description: Error response
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    error:
+                                        type: string
+                                    code:
+                                        type: integer
+    /api/v1/method-headers:
+        post:
+            tags:
+                - HeaderService
+            summary: WithMethodHeaders
+            description: Method with additional method-specific headers
+            operationId: WithMethodHeaders
+            parameters:
+                - name: X-API-Key
+                  in: header
+                  description: API authentication key
+                  required: true
+                  schema:
+                    type: string
+                    format: uuid
+                    example: 123e4567-e89b-12d3-a456-426614174000
+                - name: X-Client-Version
+                  in: header
+                  description: Client version identifier
+                  required: false
+                  schema:
+                    type: string
+                    example: 1.2.3
+                - name: X-Correlation-ID
+                  in: header
+                  description: Correlation ID for request tracking
+                  required: false
+                  schema:
+                    type: string
+                - name: X-Request-ID
+                  in: header
+                  description: Unique request identifier for tracing
+                  required: true
+                  schema:
+                    type: string
+                    format: uuid
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/HeaderRequest'
+                required: true
+            responses:
+                "200":
+                    description: Successful response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/HeaderResponse'
+                default:
+                    description: Error response
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    error:
+                                        type: string
+                                    code:
+                                        type: integer
+    /api/v1/override-header:
+        post:
+            tags:
+                - HeaderService
+            summary: OverrideServiceHeader
+            description: Method that overrides a service header
+            operationId: OverrideServiceHeader
+            parameters:
+                - name: X-API-Key
+                  in: header
+                  description: 'Override: Special API key for this method'
+                  required: true
+                  schema:
+                    type: string
+                    format: uuid
+                    example: override-uuid-example
+                - name: X-Client-Version
+                  in: header
+                  description: Client version identifier
+                  required: false
+                  schema:
+                    type: string
+                    example: 1.2.3
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/HeaderRequest'
+                required: true
+            responses:
+                "200":
+                    description: Successful response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/HeaderResponse'
+                default:
+                    description: Error response
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    error:
+                                        type: string
+                                    code:
+                                        type: integer
+components:
+    schemas:
+        HeaderRequest:
+            type: object
+            properties:
+                data:
+                    type: string
+                    description: Request data
+            description: Simple request message
+        HeaderResponse:
+            type: object
+            properties:
+                result:
+                    type: string
+                    description: Response data
+            description: Simple response message

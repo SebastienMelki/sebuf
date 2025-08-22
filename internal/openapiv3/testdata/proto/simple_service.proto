@@ -1,0 +1,38 @@
+syntax = "proto3";
+
+package simple;
+
+option go_package = "github.com/SebastienMelki/sebuf/internal/openapiv3/testdata/simple;simple";
+
+// Simple message for testing basic OpenAPI generation
+message SimpleRequest {
+  // User's name
+  string name = 1;
+  
+  // User's age  
+  int32 age = 2;
+  
+  // Whether user is active
+  bool active = 3;
+}
+
+// Simple response message
+message SimpleResponse {
+  // Response message
+  string message = 1;
+  
+  // Success indicator
+  bool success = 2;
+  
+  // Response timestamp
+  int64 timestamp = 3;
+}
+
+// Basic service for testing
+service SimpleService {
+  // Create a simple resource
+  rpc Create(SimpleRequest) returns (SimpleResponse);
+  
+  // Get a simple resource  
+  rpc Get(SimpleRequest) returns (SimpleResponse);
+}

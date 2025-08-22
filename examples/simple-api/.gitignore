@@ -1,5 +1,6 @@
 # Generated files
 api/
+docs/
 *.pb.go
 *_helpers.pb.go
 *_http.pb.go

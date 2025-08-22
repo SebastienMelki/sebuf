@@ -1,0 +1,194 @@
+syntax = "proto3";
+
+package multi;
+
+import "sebuf/http/annotations.proto";
+import "sebuf/http/headers.proto";
+
+option go_package = "github.com/SebastienMelki/sebuf/internal/openapiv3/testdata/multi;multi";
+
+// === Shared Messages ===
+
+// User message used by multiple services
+message User {
+  // User ID
+  string id = 1;
+  
+  // User name  
+  string name = 2;
+  
+  // User email
+  string email = 3;
+  
+  // User role
+  string role = 4;
+}
+
+// Generic request message
+message Request {
+  // Request ID
+  string id = 1;
+  
+  // Request data
+  string data = 2;
+}
+
+// Generic response message  
+message Response {
+  // Success indicator
+  bool success = 1;
+  
+  // Response message
+  string message = 2;
+  
+  // Response data
+  string data = 3;
+}
+
+// === Service 1: UserService ===
+
+service UserService {
+  option (sebuf.http.service_config) = {
+    base_path: "/api/v1/users"
+  };
+  
+  option (sebuf.http.service_headers) = {
+    required_headers: [
+      {
+        name: "X-User-Token"
+        description: "User authentication token"
+        type: "string"
+        required: true
+        format: "uuid"
+      }
+    ]
+  };
+  
+  // Create user
+  rpc CreateUser(User) returns (User) {
+    option (sebuf.http.config) = {
+      path: "/create"
+    };
+  }
+  
+  // Get user
+  rpc GetUser(Request) returns (User) {
+    option (sebuf.http.config) = {
+      path: "/get"
+    };
+  }
+  
+  // Update user
+  rpc UpdateUser(User) returns (User) {
+    option (sebuf.http.config) = {
+      path: "/update"
+    };
+  }
+}
+
+// === Service 2: AdminService ===
+
+service AdminService {
+  option (sebuf.http.service_config) = {
+    base_path: "/api/v1/admin"
+  };
+  
+  option (sebuf.http.service_headers) = {
+    required_headers: [
+      {
+        name: "X-Admin-Token"
+        description: "Admin authentication token"
+        type: "string"
+        required: true
+        format: "uuid"
+      },
+      {
+        name: "X-Admin-Role"
+        description: "Admin role level"
+        type: "string"
+        required: true
+      }
+    ]
+  };
+  
+  // List all users (admin only)
+  rpc ListUsers(Request) returns (Response) {
+    option (sebuf.http.config) = {
+      path: "/users/list"
+    };
+  }
+  
+  // Delete user (admin only)
+  rpc DeleteUser(Request) returns (Response) {
+    option (sebuf.http.config) = {
+      path: "/users/delete"
+    };
+    option (sebuf.http.method_headers) = {
+      required_headers: [
+        {
+          name: "X-Confirmation-Token"
+          description: "Confirmation token for destructive operations"
+          type: "string"
+          required: true
+        }
+      ]
+    };
+  }
+  
+  // Get system stats (admin only)
+  rpc GetSystemStats(Request) returns (Response) {
+    option (sebuf.http.config) = {
+      path: "/stats"  
+    };
+  }
+}
+
+// === Service 3: NotificationService ===
+
+service NotificationService {
+  option (sebuf.http.service_config) = {
+    base_path: "/api/v1/notifications"
+  };
+  
+  option (sebuf.http.service_headers) = {
+    required_headers: [
+      {
+        name: "X-Notification-Key"
+        description: "Notification service API key"
+        type: "string"
+        required: true
+      }
+    ]
+  };
+  
+  // Send email notification
+  rpc SendEmail(Request) returns (Response) {
+    option (sebuf.http.config) = {
+      path: "/email/send"
+    };
+  }
+  
+  // Send SMS notification  
+  rpc SendSMS(Request) returns (Response) {
+    option (sebuf.http.config) = {
+      path: "/sms/send"
+    };
+    option (sebuf.http.method_headers) = {
+      required_headers: [
+        {
+          name: "X-SMS-Provider"
+          description: "SMS provider to use"
+          type: "string"
+          required: false
+        }
+      ]
+    };
+  }
+  
+  // Send push notification
+  rpc SendPush(Request) returns (Response) {
+    option (sebuf.http.config) = {
+      path: "/push/send"
+    };
+  }
+}

@@ -1,0 +1,66 @@
+syntax = "proto3";
+
+package noservices;
+
+option go_package = "github.com/SebastienMelki/sebuf/internal/openapiv3/testdata/noservices;noservices";
+
+// This proto file contains only message definitions and no services.
+// The OpenAPI generator should not generate any output files for this,
+// since there are no RPC methods to document.
+
+// Status enum
+enum Status {
+  STATUS_UNSPECIFIED = 0;
+  STATUS_ACTIVE = 1;
+  STATUS_INACTIVE = 2;
+}
+
+// Basic message with various field types
+message DataMessage {
+  // String field
+  string name = 1;
+  
+  // Integer field
+  int32 value = 2;
+  
+  // Boolean field
+  bool enabled = 3;
+  
+  // Enum field
+  Status status = 4;
+  
+  // Repeated field
+  repeated string tags = 5;
+  
+  // Map field
+  map<string, string> metadata = 6;
+}
+
+// Nested message structure
+message Container {
+  // Container ID
+  string id = 1;
+  
+  // Contained data
+  DataMessage data = 2;
+  
+  // Array of nested messages
+  repeated DataMessage items = 3;
+}
+
+// Message with oneof field
+message OneofMessage {
+  // Oneof field with different types
+  oneof content {
+    string text = 1;
+    int32 number = 2;
+    DataMessage data = 3;
+  }
+  
+  // Common field
+  string common_field = 4;
+}
+
+// Note: No services defined here intentionally!
+// This tests the edge case where the plugin should generate no output
+// since there are no RPC methods to document in OpenAPI format.

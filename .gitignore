@@ -10,6 +10,12 @@ bin/
 # Test binary, built with `go test -c`
 *.test
 
+# Test plugin binaries (should be cleaned up automatically)
+protoc-gen-*-test
+protoc-gen-*-golden*
+protoc-gen-*-regression*
+protoc-gen-*-integration*
+
 # Output of the go coverage tool, specifically when used with LiteIDE
 *.out
 

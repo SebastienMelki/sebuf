@@ -1,0 +1,203 @@
+syntax = "proto3";
+
+package validation;
+
+import "buf/validate/validate.proto";
+
+option go_package = "github.com/SebastienMelki/sebuf/internal/openapiv3/testdata/validation;validation";
+
+// Message testing all validation constraints
+message ValidationMessage {
+  // === String Validation ===
+  
+  // String with min/max length  
+  string name = 1 [(buf.validate.field).string = {
+    min_len: 2,
+    max_len: 100
+  }];
+  
+  // Email validation
+  string email = 2 [(buf.validate.field).string.email = true];
+  
+  // UUID validation
+  string id = 3 [(buf.validate.field).string.uuid = true];
+  
+  // URI validation
+  string website = 4 [(buf.validate.field).string.uri = true];
+  
+  // Pattern validation (regex)
+  string username = 5 [(buf.validate.field).string.pattern = "^[a-zA-Z0-9_]{3,20}$"];
+  
+  // Const string value
+  string version = 6 [(buf.validate.field).string.const = "v1.0.0"];
+  
+  // String enum (in constraint)
+  string role = 7 [(buf.validate.field).string = {
+    in: ["admin", "user", "guest"]
+  }];
+  
+  // IP address validation
+  string ip_address = 8 [(buf.validate.field).string.ip = true];
+  
+  // IPv4 validation
+  string ipv4_address = 9 [(buf.validate.field).string.ipv4 = true];
+  
+  // IPv6 validation  
+  string ipv6_address = 10 [(buf.validate.field).string.ipv6 = true];
+  
+  // Hostname validation
+  string hostname = 11 [(buf.validate.field).string.hostname = true];
+  
+  // === Integer Validation ===
+  
+  // Int32 with min/max
+  int32 age = 12 [(buf.validate.field).int32 = {
+    gte: 0,
+    lte: 120
+  }];
+  
+  // Int32 with exclusive bounds  
+  int32 score = 13 [(buf.validate.field).int32 = {
+    gt: 0,
+    lt: 100
+  }];
+  
+  // Int32 const value
+  int32 magic_number = 14 [(buf.validate.field).int32.const = 42];
+  
+  // Int32 enum (in constraint)
+  int32 priority = 15 [(buf.validate.field).int32 = {
+    in: [1, 2, 3, 4, 5]
+  }];
+  
+  // Int64 validation
+  int64 timestamp = 16 [(buf.validate.field).int64 = {
+    gte: 0
+  }];
+  
+  // Uint32 validation (automatically gets minimum: 0)
+  uint32 count = 17 [(buf.validate.field).uint32 = {
+    lte: 1000
+  }];
+  
+  // Uint64 validation
+  uint64 file_size = 18 [(buf.validate.field).uint64 = {
+    gte: 1,
+    lte: 10737418240  // 10GB
+  }];
+  
+  // === Float Validation ===
+  
+  // Float with range
+  float percentage = 19 [(buf.validate.field).float = {
+    gte: 0.0,
+    lte: 100.0
+  }];
+  
+  // Double with range
+  double latitude = 20 [(buf.validate.field).double = {
+    gte: -90.0,
+    lte: 90.0
+  }];
+  
+  // Float const
+  float pi_approx = 21 [(buf.validate.field).float.const = 3.14159];
+  
+  // === Repeated Field Validation ===
+  
+  // Array with min/max items
+  repeated string tags = 22 [(buf.validate.field).repeated = {
+    min_items: 1,
+    max_items: 10
+  }];
+  
+  // Unique array items
+  repeated string unique_values = 23 [(buf.validate.field).repeated = {
+    unique: true,
+    min_items: 1
+  }];
+  
+  // Array of validated strings
+  repeated string emails = 24 [(buf.validate.field).repeated = {
+    min_items: 1,
+    max_items: 5,
+    items: {
+      string: {
+        email: true
+      }
+    }
+  }];
+  
+  // === Map Validation ===
+  
+  // Map with min/max pairs
+  map<string, string> properties = 25 [(buf.validate.field).map = {
+    min_pairs: 1,
+    max_pairs: 20
+  }];
+  
+  // Map with key/value validation
+  map<string, string> validated_map = 26 [(buf.validate.field).map = {
+    keys: {
+      string: {
+        pattern: "^[a-z_]+$"
+      }
+    },
+    values: {
+      string: {
+        min_len: 1,
+        max_len: 100
+      }
+    }
+  }];
+  
+  // === Required Fields ===
+  
+  // Required string
+  string required_field = 27 [(buf.validate.field) = {
+    required: true,
+    string: {
+      min_len: 1
+    }
+  }];
+  
+  // Required integer  
+  int32 required_number = 28 [(buf.validate.field) = {
+    required: true,
+    int32: {
+      gte: 1
+    }
+  }];
+}
+
+// Request message with validation
+message ValidationRequest {
+  // The validated data
+  ValidationMessage data = 1 [(buf.validate.field).required = true];
+  
+  // Request metadata with validation
+  string correlation_id = 2 [(buf.validate.field).string = {
+    uuid: true
+  }];
+}
+
+// Response message
+message ValidationResponse {
+  // Success indicator
+  bool valid = 1;
+  
+  // Validation errors if any
+  repeated string errors = 2;
+  
+  // The validated data (if successful)  
+  ValidationMessage validated_data = 3;
+}
+
+// Service for testing validation constraints
+service ValidationService {
+  // Validate input data
+  rpc Validate(ValidationRequest) returns (ValidationResponse);
+  
+  // Process validated data
+  rpc Process(ValidationRequest) returns (ValidationResponse);
+}

@@ -1,0 +1,52 @@
+openapi: 3.1.0
+info:
+    title: NoHeaderService API
+    version: 1.0.0
+paths:
+    /no-headers/simple:
+        post:
+            tags:
+                - NoHeaderService
+            summary: NoHeaders
+            description: Method with no headers
+            operationId: NoHeaders
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/HeaderRequest'
+                required: true
+            responses:
+                "200":
+                    description: Successful response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/HeaderResponse'
+                default:
+                    description: Error response
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    error:
+                                        type: string
+                                    code:
+                                        type: integer
+components:
+    schemas:
+        HeaderRequest:
+            type: object
+            properties:
+                data:
+                    type: string
+                    description: Request data
+            description: Simple request message
+        HeaderResponse:
+            type: object
+            properties:
+                result:
+                    type: string
+                    description: Response data
+            description: Simple response message

@@ -136,7 +136,8 @@ This creates:
 - `api/api_http*.pb.go` - HTTP server code
 - `api/api_http_mock.pb.go` - Mock server implementation (if enabled)
 - `api/api_helpers.pb.go` - Helper functions for oneof fields
-- `openapi.yaml` - Complete API documentation with examples
+- `docs/UserService.openapi.yaml` - User service API documentation
+- `docs/AdminService.openapi.yaml` - Admin service API documentation (if multiple services exist)
 
 ### 4. Run the server
 
@@ -318,21 +319,28 @@ req := api.NewLoginRequestSocial("google", "oauth-token")
 
 ## View the API documentation
 
-After running `buf generate`, open `openapi.yaml` in your favorite OpenAPI viewer. The documentation will include:
+After running `buf generate`, you'll find separate OpenAPI files for each service in the `docs/` directory:
+- `docs/UserService.openapi.yaml` - User management API documentation
+- `docs/AdminService.openapi.yaml` - Administrative API documentation
+
+The documentation includes:
 - All API endpoints with their paths
 - Required and optional header parameters with validation rules
 - Request and response schemas
 - Validation constraints from buf.validate annotations
 
 ```bash
-# Quick view with Swagger UI
-docker run -p 8081:8080 -v $(pwd):/app swaggerapi/swagger-ui
-# Then visit http://localhost:8081/?url=/app/openapi.yaml
+# Quick view with Swagger UI (for UserService)
+docker run -p 8081:8080 -v $(pwd)/docs:/app swaggerapi/swagger-ui
+# Then visit http://localhost:8081/?url=/app/UserService.openapi.yaml
+
+# View AdminService documentation
+# Visit http://localhost:8081/?url=/app/AdminService.openapi.yaml
 ```
 
-The OpenAPI spec will show:
-- `X-API-Key` (required, UUID format) for all endpoints
-- `X-Request-ID` (optional, UUID format) for CreateUser endpoint
+Each OpenAPI spec will show:
+- Service-specific headers (e.g., `X-API-Key` for UserService, `X-Admin-Token` for AdminService)
+- Method-specific headers (e.g., `X-Request-ID` for certain endpoints)
 - Complete validation rules for request bodies
 - Field examples for all fields with `(sebuf.http.field_examples)` annotations
 

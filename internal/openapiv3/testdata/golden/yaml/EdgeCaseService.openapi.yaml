@@ -1,0 +1,66 @@
+openapi: 3.1.0
+info:
+    title: EdgeCaseService API
+    version: 1.0.0
+paths:
+    /edge-headers/complex:
+        post:
+            tags:
+                - EdgeCaseService
+            summary: ComplexHeaders
+            description: Method with complex header combinations
+            operationId: ComplexHeaders
+            parameters:
+                - name: X-Complex-Array
+                  in: header
+                  description: Array header with complex format
+                  required: true
+                  schema:
+                    type: array
+                - name: X-Edge-Case
+                  in: header
+                  description: Edge case header
+                  required: false
+                  schema:
+                    type: string
+                    format: uuid
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/HeaderRequest'
+                required: true
+            responses:
+                "200":
+                    description: Successful response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/HeaderResponse'
+                default:
+                    description: Error response
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    error:
+                                        type: string
+                                    code:
+                                        type: integer
+components:
+    schemas:
+        HeaderRequest:
+            type: object
+            properties:
+                data:
+                    type: string
+                    description: Request data
+            description: Simple request message
+        HeaderResponse:
+            type: object
+            properties:
+                result:
+                    type: string
+                    description: Response data
+            description: Simple response message

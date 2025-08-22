@@ -33,7 +33,7 @@ This starts a working HTTP API with JSON endpoints, OpenAPI docs, and helper fun
 - **Mock server generation** with realistic field examples for rapid prototyping
 - **Automatic request validation** using protovalidate with buf.validate annotations
 - **HTTP header validation** with type checking and format validation (UUID, email, datetime)
-- **OpenAPI v3.1 docs** that stay in sync with your code, including header parameters and field examples
+- **OpenAPI v3.1 docs** that stay in sync with your code, one file per service for better organization
 - **Helper functions** that eliminate protobuf boilerplate
 - **Zero runtime dependencies** - works with any Go HTTP framework
 
@@ -95,7 +95,7 @@ req := api.NewCreateUserRequestToken("auth-token")
 // Validation happens automatically:
 // - Headers validated first (returns HTTP 400 for missing/invalid headers)
 // - Then request body validated (returns HTTP 400 for invalid requests)
-// OpenAPI docs (api.yaml) - includes validation rules, header parameters, and field examples
+// OpenAPI docs (UserService.openapi.yaml) - includes validation rules, headers, and examples
 ```
 
 ## Quick setup

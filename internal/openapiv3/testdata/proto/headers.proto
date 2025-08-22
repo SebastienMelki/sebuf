@@ -1,0 +1,254 @@
+syntax = "proto3";
+
+package headers;
+
+import "sebuf/http/annotations.proto";
+import "sebuf/http/headers.proto";
+
+option go_package = "github.com/SebastienMelki/sebuf/internal/openapiv3/testdata/headers;headers";
+
+// Simple request message
+message HeaderRequest {
+  // Request data
+  string data = 1;
+}
+
+// Simple response message  
+message HeaderResponse {
+  // Response data
+  string result = 1;
+}
+
+// Service with comprehensive header testing
+service HeaderService {
+  option (sebuf.http.service_config) = {
+    base_path: "/api/v1"
+  };
+  
+  // Service-level headers that apply to all methods
+  option (sebuf.http.service_headers) = {
+    required_headers: [
+      {
+        name: "X-API-Key"
+        description: "API authentication key"
+        type: "string"
+        required: true
+        format: "uuid"
+        example: "123e4567-e89b-12d3-a456-426614174000"
+      },
+      {
+        name: "X-Client-Version"
+        description: "Client version identifier"
+        type: "string"
+        required: false
+        example: "1.2.3"
+      }
+    ]
+  };
+  
+  // Method with no additional headers (only service headers)
+  rpc ServiceHeadersOnly(HeaderRequest) returns (HeaderResponse) {
+    option (sebuf.http.config) = {
+      path: "/service-headers"
+    };
+  }
+  
+  // Method with additional method-specific headers
+  rpc WithMethodHeaders(HeaderRequest) returns (HeaderResponse) {
+    option (sebuf.http.config) = {
+      path: "/method-headers"
+    };
+    option (sebuf.http.method_headers) = {
+      required_headers: [
+        {
+          name: "X-Request-ID"
+          description: "Unique request identifier for tracing"
+          type: "string"
+          required: true
+          format: "uuid"
+        },
+        {
+          name: "X-Correlation-ID"
+          description: "Correlation ID for request tracking"
+          type: "string"
+          required: false
+        }
+      ]
+    };
+  }
+  
+  // Method that overrides a service header
+  rpc OverrideServiceHeader(HeaderRequest) returns (HeaderResponse) {
+    option (sebuf.http.config) = {
+      path: "/override-header"
+    };
+    option (sebuf.http.method_headers) = {
+      required_headers: [
+        {
+          name: "X-API-Key"
+          description: "Override: Special API key for this method"
+          type: "string"
+          required: true
+          format: "uuid"
+          example: "override-uuid-example"
+        }
+      ]
+    };
+  }
+}
+
+// Service testing different header types
+service HeaderTypesService {
+  option (sebuf.http.service_config) = {
+    base_path: "/types"
+  };
+  
+  // Service with various header types
+  option (sebuf.http.service_headers) = {
+    required_headers: [
+      {
+        name: "X-String-Header"
+        description: "String header"
+        type: "string"
+        required: true
+      },
+      {
+        name: "X-Integer-Header"
+        description: "Integer header"
+        type: "integer"
+        required: true
+      },
+      {
+        name: "X-Number-Header" 
+        description: "Number header"
+        type: "number"
+        required: false
+      },
+      {
+        name: "X-Boolean-Header"
+        description: "Boolean header"
+        type: "boolean"
+        required: false
+      },
+      {
+        name: "X-Array-Header"
+        description: "Array header"
+        type: "array"
+        required: false
+      }
+    ]
+  };
+  
+  // Test different header formats
+  rpc TestHeaderFormats(HeaderRequest) returns (HeaderResponse) {
+    option (sebuf.http.config) = {
+      path: "/formats"
+    };
+    option (sebuf.http.method_headers) = {
+      required_headers: [
+        {
+          name: "X-UUID-Header"
+          type: "string"
+          format: "uuid"
+          required: true
+        },
+        {
+          name: "X-Email-Header"
+          type: "string"  
+          format: "email"
+          required: false
+        },
+        {
+          name: "X-DateTime-Header"
+          type: "string"
+          format: "date-time"
+          required: false
+        },
+        {
+          name: "X-Date-Header"
+          type: "string"
+          format: "date"
+          required: false
+        },
+        {
+          name: "X-Time-Header"
+          type: "string"
+          format: "time"
+          required: false
+        }
+      ]
+    };
+  }
+}
+
+// Service with no headers for testing edge case
+service NoHeaderService {
+  option (sebuf.http.service_config) = {
+    base_path: "/no-headers"
+  };
+  
+  // Method with no headers
+  rpc NoHeaders(HeaderRequest) returns (HeaderResponse) {
+    option (sebuf.http.config) = {
+      path: "/simple"
+    };
+  }
+}
+
+// Service testing deprecated headers
+service DeprecatedHeaderService {
+  option (sebuf.http.service_config) = {
+    base_path: "/deprecated"  
+  };
+  
+  option (sebuf.http.service_headers) = {
+    required_headers: [
+      {
+        name: "X-Legacy-Header"
+        description: "Legacy header that is deprecated"
+        type: "string"
+        required: false
+        deprecated: true
+        example: "legacy-value"
+      }
+    ]
+  };
+  
+  // Method with deprecated header
+  rpc WithDeprecatedHeader(HeaderRequest) returns (HeaderResponse) {
+    option (sebuf.http.config) = {
+      path: "/legacy"
+    };
+  }
+}
+
+// Service testing edge cases for headers
+service EdgeCaseService {
+  option (sebuf.http.service_config) = {
+    base_path: "/edge-headers"  
+  };
+  
+  // Method with complex header combinations
+  rpc ComplexHeaders(HeaderRequest) returns (HeaderResponse) {
+    option (sebuf.http.config) = {
+      path: "/complex"
+    };
+    option (sebuf.http.method_headers) = {
+      required_headers: [
+        {
+          name: "X-Complex-Array"
+          description: "Array header with complex format"
+          type: "array"
+          required: true
+        },
+        {
+          name: "X-Edge-Case"
+          description: "Edge case header"
+          type: "string"
+          required: false
+          format: "uuid"
+        }
+      ]
+    };
+  }
+}

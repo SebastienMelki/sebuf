@@ -175,3 +175,65 @@ message LoginResponse {
   int64 expires_in = 3;
   User user = 4;
 }
+
+// AdminService manages administrative operations
+service AdminService {
+  option (sebuf.http.service_config) = { 
+    base_path: "/api/v1/admin" 
+  };
+  option (sebuf.http.service_headers) = {
+    required_headers: [
+      {
+        name: "X-Admin-Token"
+        description: "Admin authentication token"
+        type: "string"
+        required: true
+        format: "uuid"
+      }
+    ]
+  };
+  
+  // Get system statistics
+  rpc GetStats(GetStatsRequest) returns (StatsResponse) {
+    option (sebuf.http.config) = { 
+      path: "/stats" 
+    };
+  }
+  
+  // Delete a user from the system
+  rpc DeleteUser(DeleteUserRequest) returns (DeleteUserResponse) {
+    option (sebuf.http.config) = { 
+      path: "/users/delete" 
+    };
+  }
+}
+
+// Request for system statistics
+message GetStatsRequest {
+  // Optional time range filter
+  int64 start_time = 1;
+  int64 end_time = 2;
+}
+
+// System statistics response
+message StatsResponse {
+  int64 total_users = 1;
+  int64 active_sessions = 2;
+  int64 requests_today = 3;
+  double avg_response_time_ms = 4;
+}
+
+// Request to delete a user
+message DeleteUserRequest {
+  // User ID must be a valid UUID
+  string id = 1 [(buf.validate.field).string.uuid = true];
+  
+  // Reason for deletion
+  string reason = 2 [(buf.validate.field).string.min_len = 5];
+}
+
+// Response after deleting a user
+message DeleteUserResponse {
+  bool success = 1;
+  string message = 2;
+}

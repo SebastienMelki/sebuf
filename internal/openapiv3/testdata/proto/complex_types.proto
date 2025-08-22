@@ -1,0 +1,204 @@
+syntax = "proto3";
+
+package complex;
+
+option go_package = "github.com/SebastienMelki/sebuf/internal/openapiv3/testdata/complex;complex";
+
+// Status enum for testing enum conversion
+enum Status {
+  STATUS_UNSPECIFIED = 0;
+  STATUS_ACTIVE = 1;
+  STATUS_INACTIVE = 2;
+  STATUS_PENDING = 3;
+}
+
+// Priority enum with comments  
+enum Priority {
+  // Default priority
+  PRIORITY_UNSPECIFIED = 0;
+  
+  // Low priority tasks
+  PRIORITY_LOW = 1;
+  
+  // Medium priority tasks
+  PRIORITY_MEDIUM = 2;
+  
+  // High priority tasks  
+  PRIORITY_HIGH = 3;
+  
+  // Urgent tasks requiring immediate attention
+  PRIORITY_URGENT = 4;
+}
+
+// Nested message for testing message references
+message Address {
+  // Street address
+  string street = 1;
+  
+  // City name
+  string city = 2;
+  
+  // State or province
+  string state = 3;
+  
+  // Postal code
+  string postal_code = 4;
+  
+  // Country name
+  string country = 5;
+}
+
+// User profile message
+message UserProfile {
+  // Profile avatar URL
+  string avatar_url = 1;
+  
+  // User bio or description  
+  string bio = 2;
+  
+  // User's preferred language (ISO 639-1)
+  string language = 3;
+  
+  // User's timezone
+  string timezone = 4;
+}
+
+// Complex message testing all field types
+message ComplexMessage {
+  // === Scalar Types ===
+  
+  // String field
+  string text = 1;
+  
+  // Boolean field
+  bool flag = 2;
+  
+  // 32-bit signed integer
+  int32 int32_value = 3;
+  
+  // 64-bit signed integer  
+  int64 int64_value = 4;
+  
+  // 32-bit unsigned integer
+  uint32 uint32_value = 5;
+  
+  // 64-bit unsigned integer
+  uint64 uint64_value = 6;
+  
+  // 32-bit signed integer (sint32 encoding)
+  sint32 sint32_value = 7;
+  
+  // 64-bit signed integer (sint64 encoding)
+  sint64 sint64_value = 8;
+  
+  // 32-bit fixed integer
+  fixed32 fixed32_value = 9;
+  
+  // 64-bit fixed integer
+  fixed64 fixed64_value = 10;
+  
+  // 32-bit signed fixed integer
+  sfixed32 sfixed32_value = 11;
+  
+  // 64-bit signed fixed integer
+  sfixed64 sfixed64_value = 12;
+  
+  // 32-bit floating point
+  float float_value = 13;
+  
+  // 64-bit floating point
+  double double_value = 14;
+  
+  // Binary data
+  bytes bytes_value = 15;
+  
+  // === Enum Fields ===
+  
+  // Status enum field
+  Status status = 16;
+  
+  // Priority enum field
+  Priority priority = 17;
+  
+  // === Repeated Fields (Arrays) ===
+  
+  // Array of strings
+  repeated string tags = 18;
+  
+  // Array of integers
+  repeated int32 numbers = 19;
+  
+  // Array of enums
+  repeated Status statuses = 20;
+  
+  // Array of nested messages
+  repeated Address addresses = 21;
+  
+  // === Map Fields ===
+  
+  // String to string map
+  map<string, string> metadata = 22;
+  
+  // String to integer map
+  map<string, int32> counters = 23;
+  
+  // String to message map
+  map<string, UserProfile> profiles = 24;
+  
+  // === Message References ===
+  
+  // Single nested message
+  Address primary_address = 25;
+  
+  // Another nested message
+  UserProfile profile = 26;
+  
+  // === Optional Fields ===
+  
+  // Optional string (proto3 optional)
+  optional string optional_text = 27;
+  
+  // Optional integer  
+  optional int32 optional_number = 28;
+  
+  // Optional message
+  optional Address optional_address = 29;
+  
+  // === Oneof Fields ===
+  
+  oneof contact_method {
+    string email = 30;
+    string phone = 31;
+    string slack_handle = 32;
+  }
+}
+
+// Request message using complex types
+message ComplexRequest {
+  // The complex data
+  ComplexMessage data = 1;
+  
+  // Request ID
+  string request_id = 2;
+}
+
+// Response message  
+message ComplexResponse {
+  // The processed complex data
+  ComplexMessage result = 1;
+  
+  // Processing status
+  Status processing_status = 2;
+  
+  // Error message if any
+  string error_message = 3;
+}
+
+// Service for testing complex types
+service ComplexService {
+  // Process complex data
+  rpc ProcessComplex(ComplexRequest) returns (ComplexResponse);
+  
+  // Validate complex data
+  rpc ValidateComplex(ComplexRequest) returns (ComplexResponse);
+}

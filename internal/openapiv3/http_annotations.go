@@ -81,7 +81,7 @@ func getServiceHTTPConfig(service *protogen.Service) *ServiceHTTPConfig {
 	}
 }
 
-// buildHTTPPath combines service base path with method path
+// buildHTTPPath combines service base path with method path.
 func buildHTTPPath(servicePath, methodPath string) string {
 	// Handle empty paths
 	if servicePath == "" && methodPath == "" {
@@ -101,7 +101,7 @@ func buildHTTPPath(servicePath, methodPath string) string {
 	return servicePath + "/" + methodPath
 }
 
-// ensureLeadingSlash ensures a path starts with "/"
+// ensureLeadingSlash ensures a path starts with "/".
 func ensureLeadingSlash(path string) string {
 	if path == "" {
 		return "/"
@@ -166,7 +166,7 @@ func getMethodHeaders(method *protogen.Method) []*http.Header {
 	return methodHeaders.GetRequiredHeaders()
 }
 
-// combineHeaders merges service headers with method headers, with method headers taking precedence
+// combineHeaders merges service headers with method headers, with method headers taking precedence.
 func combineHeaders(serviceHeaders, methodHeaders []*http.Header) []*http.Header {
 	if len(serviceHeaders) == 0 {
 		return methodHeaders
@@ -192,16 +192,33 @@ func combineHeaders(serviceHeaders, methodHeaders []*http.Header) []*http.Header
 		}
 	}
 
-	// Convert back to slice
+	// Convert back to slice, sorted by header name for deterministic output
 	result := make([]*http.Header, 0, len(headerMap))
-	for _, header := range headerMap {
-		result = append(result, header)
+
+	// Get sorted header names
+	headerNames := make([]string, 0, len(headerMap))
+	for name := range headerMap {
+		headerNames = append(headerNames, name)
+	}
+
+	// Sort header names to ensure deterministic order
+	for i := 0; i < len(headerNames); i++ {
+		for j := i + 1; j < len(headerNames); j++ {
+			if headerNames[i] > headerNames[j] {
+				headerNames[i], headerNames[j] = headerNames[j], headerNames[i]
+			}
+		}
+	}
+
+	// Add headers in sorted order
+	for _, name := range headerNames {
+		result = append(result, headerMap[name])
 	}
 
 	return result
 }
 
-// convertHeadersToParameters converts proto headers to OpenAPI parameters
+// convertHeadersToParameters converts proto headers to OpenAPI parameters.
 func convertHeadersToParameters(headers []*http.Header) []*v3.Parameter {
 	if len(headers) == 0 {
 		return nil
@@ -252,13 +269,20 @@ func convertHeadersToParameters(headers []*http.Header) []*v3.Parameter {
 	return parameters
 }
 
-// mapHeaderTypeToOpenAPI maps proto header types to OpenAPI schema types
+const (
+	headerTypeString  = "string"
+	headerTypeInt32   = "int32"
+	headerTypeInt64   = "int64"
+	headerTypeInteger = "integer"
+)
+
+// mapHeaderTypeToOpenAPI maps proto header types to OpenAPI schema types.
 func mapHeaderTypeToOpenAPI(headerType string) string {
 	switch strings.ToLower(headerType) {
-	case "string", "":
-		return "string"
-	case "integer", "int", "int32", "int64":
-		return "integer"
+	case headerTypeString, "":
+		return headerTypeString
+	case headerTypeInteger, "int", headerTypeInt32, headerTypeInt64:
+		return headerTypeInteger
 	case "number", "float", "double":
 		return "number"
 	case "boolean", "bool":
@@ -267,6 +291,6 @@ func mapHeaderTypeToOpenAPI(headerType string) string {
 		return "array"
 	default:
 		// Default to string for unknown types
-		return "string"
+		return headerTypeString
 	}
 }
