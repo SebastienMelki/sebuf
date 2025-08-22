@@ -378,10 +378,16 @@ func TestExhaustiveRegression(t *testing.T) {
 
 	// Mapping of proto files to their services for comprehensive regression testing
 	protoToServices := map[string][]string{
-		"testdata/proto/simple_service.proto":    {"SimpleService"},
-		"testdata/proto/complex_types.proto":     {"ComplexService"},
-		"testdata/proto/nested_messages.proto":   {"NestedService"},
-		"testdata/proto/headers.proto":           {"HeaderService", "HeaderTypesService", "NoHeaderService", "DeprecatedHeaderService", "EdgeCaseService"},
+		"testdata/proto/simple_service.proto":  {"SimpleService"},
+		"testdata/proto/complex_types.proto":   {"ComplexService"},
+		"testdata/proto/nested_messages.proto": {"NestedService"},
+		"testdata/proto/headers.proto": {
+			"HeaderService",
+			"HeaderTypesService",
+			"NoHeaderService",
+			"DeprecatedHeaderService",
+			"EdgeCaseService",
+		},
 		"testdata/proto/multiple_services.proto": {"UserService", "AdminService", "NotificationService"},
 		"testdata/proto/http_annotations.proto":  {"BasicService"},
 	}
@@ -481,12 +487,13 @@ func TestGoldenFileValidity(t *testing.T) {
 
 				contentStr := string(content)
 
-				if format == "yaml" {
+				switch format {
+				case "yaml":
 					// Basic YAML validation
 					if !strings.HasPrefix(contentStr, "openapi:") {
 						t.Error("YAML golden file should start with 'openapi:' declaration")
 					}
-					
+
 					// Check for required OpenAPI sections
 					requiredSections := []string{"info:", "paths:"}
 					for _, section := range requiredSections {
@@ -494,16 +501,16 @@ func TestGoldenFileValidity(t *testing.T) {
 							t.Errorf("YAML golden file missing required section: %s", section)
 						}
 					}
-				} else if format == "json" {
+				case "json":
 					// Basic JSON validation
 					if !strings.HasPrefix(strings.TrimSpace(contentStr), "{") {
 						t.Error("JSON golden file should start with '{'")
 					}
-					
+
 					if !strings.HasSuffix(strings.TrimSpace(contentStr), "}") {
 						t.Error("JSON golden file should end with '}'")
 					}
-					
+
 					// Check for required OpenAPI fields
 					requiredFields := []string{`"openapi"`, `"info"`, `"paths"`}
 					for _, field := range requiredFields {

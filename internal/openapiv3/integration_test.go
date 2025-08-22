@@ -9,7 +9,7 @@ import (
 )
 
 // TestPluginIntegration tests the actual protoc plugin integration
-// This verifies that the plugin works correctly when invoked by protoc
+// This verifies that the plugin works correctly when invoked by protoc.
 func TestPluginIntegration(t *testing.T) {
 	// Build the plugin binary for testing
 	pluginPath := "./protoc-gen-openapiv3-integration-test"
@@ -122,7 +122,7 @@ func TestPluginIntegration(t *testing.T) {
 	}
 }
 
-// TestPluginErrorHandling tests how the plugin handles various error conditions
+// TestPluginErrorHandling tests how the plugin handles various error conditions.
 func TestPluginErrorHandling(t *testing.T) {
 	// Build the plugin binary for testing
 	pluginPath := "./protoc-gen-openapiv3-error-test"
@@ -193,7 +193,7 @@ func TestPluginErrorHandling(t *testing.T) {
 	}
 }
 
-// TestPluginFormatOptions tests various format options
+// TestPluginFormatOptions tests various format options.
 func TestPluginFormatOptions(t *testing.T) {
 	// Build the plugin binary for testing
 	pluginPath := "./protoc-gen-openapiv3-format-test"
@@ -283,13 +283,17 @@ func TestPluginFormatOptions(t *testing.T) {
 
 			contentStr := strings.TrimSpace(string(content))
 			if !strings.HasPrefix(contentStr, tc.expectedPrefix) {
-				t.Errorf("File content should start with %q, but starts with: %q", tc.expectedPrefix, contentStr[:min(50, len(contentStr))])
+				t.Errorf(
+					"File content should start with %q, but starts with: %q",
+					tc.expectedPrefix,
+					contentStr[:minimum(50, len(contentStr))],
+				)
 			}
 		})
 	}
 }
 
-// TestPluginServiceGeneration tests generation of different service configurations
+// TestPluginServiceGeneration tests generation of different service configurations.
 func TestPluginServiceGeneration(t *testing.T) {
 	// Build the plugin binary for testing
 	pluginPath := "./protoc-gen-openapiv3-service-test"
@@ -319,7 +323,7 @@ func TestPluginServiceGeneration(t *testing.T) {
 			protoFile: "headers.proto",
 			expectedServices: []string{
 				"HeaderService",
-				"NoHeaderService", 
+				"NoHeaderService",
 				"HeaderTypesService",
 				"EdgeCaseService",
 				"DeprecatedHeaderService",
@@ -362,7 +366,11 @@ func TestPluginServiceGeneration(t *testing.T) {
 			// Verify all expected services were generated
 			for _, expectedService := range tc.expectedServices {
 				if !generatedServices[expectedService] {
-					t.Errorf("Expected service %s was not generated. Generated files: %v", expectedService, getFileNames(files))
+					t.Errorf(
+						"Expected service %s was not generated. Generated files: %v",
+						expectedService,
+						getFileNames(files),
+					)
 				}
 			}
 
@@ -394,7 +402,7 @@ func getMapKeys(m map[string]bool) []string {
 	return keys
 }
 
-func min(a, b int) int {
+func minimum(a, b int) int {
 	if a < b {
 		return a
 	}

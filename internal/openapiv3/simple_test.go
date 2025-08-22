@@ -1,4 +1,4 @@
-package openapiv3
+package openapiv3_test
 
 import (
 	"strings"
@@ -6,30 +6,32 @@ import (
 
 	v3 "github.com/pb33f/libopenapi/datamodel/high/v3"
 	"gopkg.in/yaml.v3"
+
+	"github.com/SebastienMelki/sebuf/internal/openapiv3"
 )
 
-// Test NewGenerator constructor
+// Test NewGenerator constructor.
 func TestNewGenerator(t *testing.T) {
 	tests := []struct {
 		name     string
-		format   OutputFormat
-		expected OutputFormat
+		format   openapiv3.OutputFormat
+		expected openapiv3.OutputFormat
 	}{
 		{
 			name:     "YAML format",
-			format:   FormatYAML,
-			expected: FormatYAML,
+			format:   openapiv3.FormatYAML,
+			expected: openapiv3.FormatYAML,
 		},
 		{
 			name:     "JSON format",
-			format:   FormatJSON,
-			expected: FormatJSON,
+			format:   openapiv3.FormatJSON,
+			expected: openapiv3.FormatJSON,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			gen := NewGenerator(tt.format)
+			gen := openapiv3.NewGenerator(tt.format)
 
 			// Check generator is not nil
 			if gen == nil {
@@ -37,71 +39,71 @@ func TestNewGenerator(t *testing.T) {
 			}
 
 			// Check format is set correctly
-			if gen.format != tt.expected {
-				t.Errorf("Expected format %v, got %v", tt.expected, gen.format)
+			if gen.Format() != tt.expected {
+				t.Errorf("Expected format %v, got %v", tt.expected, gen.Format())
 			}
 
 			// Check document is initialized
-			if gen.doc == nil {
+			if gen.Doc() == nil {
 				t.Error("Document is nil")
 			}
 
 			// Check schemas map is initialized
-			if gen.schemas == nil {
+			if gen.Schemas() == nil {
 				t.Error("Schemas map is nil")
 			}
 
 			// Check document structure
-			if gen.doc.Version != "3.1.0" {
-				t.Errorf("Expected OpenAPI version 3.1.0, got %s", gen.doc.Version)
+			if gen.Doc().Version != "3.1.0" {
+				t.Errorf("Expected OpenAPI version 3.1.0, got %s", gen.Doc().Version)
 			}
 
-			if gen.doc.Info == nil {
+			if gen.Doc().Info == nil {
 				t.Error("Info is nil")
 			}
 
-			if gen.doc.Info.Title != "Generated API" {
-				t.Errorf("Expected default title 'Generated API', got %s", gen.doc.Info.Title)
+			if gen.Doc().Info.Title != "Generated API" {
+				t.Errorf("Expected default title 'Generated API', got %s", gen.Doc().Info.Title)
 			}
 
-			if gen.doc.Info.Version != "1.0.0" {
-				t.Errorf("Expected default version '1.0.0', got %s", gen.doc.Info.Version)
+			if gen.Doc().Info.Version != "1.0.0" {
+				t.Errorf("Expected default version '1.0.0', got %s", gen.Doc().Info.Version)
 			}
 
 			// Check paths are initialized
-			if gen.doc.Paths == nil {
+			if gen.Doc().Paths == nil {
 				t.Error("Paths is nil")
 			}
 
-			if gen.doc.Paths.PathItems == nil {
+			if gen.Doc().Paths.PathItems == nil {
 				t.Error("PathItems is nil")
 			}
 
 			// Check components are initialized
-			if gen.doc.Components == nil {
+			if gen.Doc().Components == nil {
 				t.Error("Components is nil")
 			}
 
-			if gen.doc.Components.Schemas == nil {
+			if gen.Doc().Components.Schemas == nil {
 				t.Error("Components.Schemas is nil")
 			}
 		})
 	}
 }
 
-// Test Render method
+// Test Render method.
 func TestRender(t *testing.T) {
 	tests := []struct {
-		name       string
-		format     OutputFormat
-		setupFunc  func(*Generator)
-		wantErr    bool
-		checkFunc  func([]byte) error
+		name      string
+		format    openapiv3.OutputFormat
+		setupFunc func(*openapiv3.Generator)
+		wantErr   bool
+		checkFunc func([]byte) error
 	}{
 		{
 			name:   "YAML format",
-			format: FormatYAML,
-			setupFunc: func(g *Generator) {
+			format: openapiv3.FormatYAML,
+			setupFunc: func(g *openapiv3.Generator) {
 				// Add a simple path to make output non-empty
 				pathItem := &v3.PathItem{
 					Post: &v3.Operation{
@@ -109,7 +111,7 @@ func TestRender(t *testing.T) {
 						Summary:     "Test operation",
 					},
 				}
-				g.doc.Paths.PathItems.Set("/test", pathItem)
+				g.Doc().Paths.PathItems.Set("/test", pathItem)
 			},
 			wantErr: false,
 			checkFunc: func(data []byte) error {
@@ -123,8 +125,8 @@ func TestRender(t *testing.T) {
 		},
 		{
 			name:   "JSON format",
-			format: FormatJSON,
-			setupFunc: func(g *Generator) {
+			format: openapiv3.FormatJSON,
+			setupFunc: func(g *openapiv3.Generator) {
 				// Add a simple path to make output non-empty
 				pathItem := &v3.PathItem{
 					Post: &v3.Operation{
@@ -132,14 +134,18 @@ func TestRender(t *testing.T) {
 						Summary:     "Test operation",
 					},
 				}
-				g.doc.Paths.PathItems.Set("/test", pathItem)
+				g.Doc().Paths.PathItems.Set("/test", pathItem)
 			},
 			wantErr: false,
 			checkFunc: func(data []byte) error {
 				// Check that it looks like JSON (starts with '{' and ends with '}')
 				str := strings.TrimSpace(string(data))
 				if !strings.HasPrefix(str, "{") || !strings.HasSuffix(str, "}") {
-					t.Errorf("Output doesn't look like JSON: %s", str[:min(100, len(str))])
+					length := 100
+					if len(str) < length {
+						length = len(str)
+					}
+					t.Errorf("Output doesn't look like JSON: %s", str[:length])
 				}
 				return nil
 			},
@@ -148,7 +154,7 @@ func TestRender(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			gen := NewGenerator(tt.format)
+			gen := openapiv3.NewGenerator(tt.format)
 			if tt.setupFunc != nil {
 				tt.setupFunc(gen)
 			}
@@ -165,18 +171,10 @@ func TestRender(t *testing.T) {
 			}
 
 			if tt.checkFunc != nil {
-				if err := tt.checkFunc(data); err != nil {
-					t.Errorf("Output validation failed: %v", err)
+				if checkErr := tt.checkFunc(data); checkErr != nil {
+					t.Errorf("Output validation failed: %v", checkErr)
 				}
 			}
 		})
 	}
-}
-
-// Helper function for min (not available in older Go versions)
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
 }
