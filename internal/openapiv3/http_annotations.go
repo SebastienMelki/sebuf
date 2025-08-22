@@ -192,10 +192,27 @@ func combineHeaders(serviceHeaders, methodHeaders []*http.Header) []*http.Header
 		}
 	}
 
-	// Convert back to slice
+	// Convert back to slice, sorted by header name for deterministic output
 	result := make([]*http.Header, 0, len(headerMap))
-	for _, header := range headerMap {
-		result = append(result, header)
+	
+	// Get sorted header names
+	headerNames := make([]string, 0, len(headerMap))
+	for name := range headerMap {
+		headerNames = append(headerNames, name)
+	}
+	
+	// Sort header names to ensure deterministic order
+	for i := 0; i < len(headerNames); i++ {
+		for j := i + 1; j < len(headerNames); j++ {
+			if headerNames[i] > headerNames[j] {
+				headerNames[i], headerNames[j] = headerNames[j], headerNames[i]
+			}
+		}
+	}
+	
+	// Add headers in sorted order
+	for _, name := range headerNames {
+		result = append(result, headerMap[name])
 	}
 
 	return result
