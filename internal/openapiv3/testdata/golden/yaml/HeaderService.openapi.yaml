@@ -58,6 +58,13 @@ paths:
             description: Method with additional method-specific headers
             operationId: WithMethodHeaders
             parameters:
+                - name: X-Client-Version
+                  in: header
+                  description: Client version identifier
+                  required: false
+                  schema:
+                    type: string
+                    example: 1.2.3
                 - name: X-Request-ID
                   in: header
                   description: Unique request identifier for tracing
@@ -79,13 +86,6 @@ paths:
                     type: string
                     format: uuid
                     example: 123e4567-e89b-12d3-a456-426614174000
-                - name: X-Client-Version
-                  in: header
-                  description: Client version identifier
-                  required: false
-                  schema:
-                    type: string
-                    example: 1.2.3
             requestBody:
                 content:
                     application/json:

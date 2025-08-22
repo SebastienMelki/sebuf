@@ -3,18 +3,32 @@ info:
     title: AdminService API
     version: 1.0.0
 paths:
-    /admin/v2/api/users/manage:
+    /api/v1/admin/users/list:
         post:
             tags:
                 - AdminService
-            summary: ManageUsers
-            description: Admin method
-            operationId: ManageUsers
+            summary: ListUsers
+            description: List all users (admin only)
+            operationId: ListUsers
+            parameters:
+                - name: X-Admin-Token
+                  in: header
+                  description: Admin authentication token
+                  required: true
+                  schema:
+                    type: string
+                    format: uuid
+                - name: X-Admin-Role
+                  in: header
+                  description: Admin role level
+                  required: true
+                  schema:
+                    type: string
             requestBody:
                 content:
                     application/json:
                         schema:
-                            $ref: '#/components/schemas/CreateUserRequest'
+                            $ref: '#/components/schemas/Request'
                 required: true
             responses:
                 "200":
@@ -22,7 +36,7 @@ paths:
                     content:
                         application/json:
                             schema:
-                                $ref: '#/components/schemas/User'
+                                $ref: '#/components/schemas/Response'
                 default:
                     description: Error response
                     content:
@@ -34,18 +48,38 @@ paths:
                                         type: string
                                     code:
                                         type: integer
-    /admin/v2/api:
+    /api/v1/admin/users/delete:
         post:
             tags:
                 - AdminService
-            summary: AdminRoot
-            description: Method with empty path (should use base path only)
-            operationId: AdminRoot
+            summary: DeleteUser
+            description: Delete user (admin only)
+            operationId: DeleteUser
+            parameters:
+                - name: X-Admin-Token
+                  in: header
+                  description: Admin authentication token
+                  required: true
+                  schema:
+                    type: string
+                    format: uuid
+                - name: X-Admin-Role
+                  in: header
+                  description: Admin role level
+                  required: true
+                  schema:
+                    type: string
+                - name: X-Confirmation-Token
+                  in: header
+                  description: Confirmation token for destructive operations
+                  required: true
+                  schema:
+                    type: string
             requestBody:
                 content:
                     application/json:
                         schema:
-                            $ref: '#/components/schemas/CreateUserRequest'
+                            $ref: '#/components/schemas/Request'
                 required: true
             responses:
                 "200":
@@ -53,7 +87,52 @@ paths:
                     content:
                         application/json:
                             schema:
-                                $ref: '#/components/schemas/User'
+                                $ref: '#/components/schemas/Response'
+                default:
+                    description: Error response
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    error:
+                                        type: string
+                                    code:
+                                        type: integer
+    /api/v1/admin/stats:
+        post:
+            tags:
+                - AdminService
+            summary: GetSystemStats
+            description: Get system stats (admin only)
+            operationId: GetSystemStats
+            parameters:
+                - name: X-Admin-Token
+                  in: header
+                  description: Admin authentication token
+                  required: true
+                  schema:
+                    type: string
+                    format: uuid
+                - name: X-Admin-Role
+                  in: header
+                  description: Admin role level
+                  required: true
+                  schema:
+                    type: string
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/Request'
+                required: true
+            responses:
+                "200":
+                    description: Successful response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Response'
                 default:
                     description: Error response
                     content:
@@ -67,16 +146,6 @@ paths:
                                         type: integer
 components:
     schemas:
-        CreateUserRequest:
-            type: object
-            properties:
-                name:
-                    type: string
-                    description: User name
-                email:
-                    type: string
-                    description: User email
-            description: Simple request message
         User:
             type: object
             properties:
@@ -89,31 +158,21 @@ components:
                 email:
                     type: string
                     description: User email
-            description: Simple response message
-        GetUserRequest:
+                role:
+                    type: string
+                    description: User role
+            description: User message used by multiple services
+        Request:
             type: object
             properties:
                 id:
                     type: string
-                    description: User ID to retrieve
-            description: Get user request
-        UpdateUserRequest:
-            type: object
-            properties:
-                id:
+                    description: Request ID
+                data:
                     type: string
-                    description: User ID
-                user:
-                    $ref: '#/components/schemas/User'
-            description: Update user request
-        DeleteUserRequest:
-            type: object
-            properties:
-                id:
-                    type: string
-                    description: User ID to delete
-            description: Delete user request
-        DeleteUserResponse:
+                    description: Request data
+            description: Generic request message
+        Response:
             type: object
             properties:
                 success:
@@ -121,5 +180,8 @@ components:
                     description: Success indicator
                 message:
                     type: string
-                    description: Status message
-            description: Delete user response
+                    description: Response message
+                data:
+                    type: string
+                    description: Response data
+            description: Generic response message
