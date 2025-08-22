@@ -221,3 +221,34 @@ service DeprecatedHeaderService {
     };
   }
 }
+
+// Service testing edge cases for headers
+service EdgeCaseService {
+  option (sebuf.http.service_config) = {
+    base_path: "/edge-headers"  
+  };
+  
+  // Method with complex header combinations
+  rpc ComplexHeaders(HeaderRequest) returns (HeaderResponse) {
+    option (sebuf.http.config) = {
+      path: "/complex"
+    };
+    option (sebuf.http.method_headers) = {
+      required_headers: [
+        {
+          name: "X-Complex-Array"
+          description: "Array header with complex format"
+          type: "array"
+          required: true
+        },
+        {
+          name: "X-Edge-Case"
+          description: "Edge case header"
+          type: "string"
+          required: false
+          format: "uuid"
+        }
+      ]
+    };
+  }
+}
