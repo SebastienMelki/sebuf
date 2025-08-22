@@ -3,18 +3,32 @@ info:
     title: EdgeCaseService API
     version: 1.0.0
 paths:
-    /edge:
+    /edge-headers/complex:
         post:
             tags:
                 - EdgeCaseService
-            summary: NoPath
-            description: No method path specified
-            operationId: NoPath
+            summary: ComplexHeaders
+            description: Method with complex header combinations
+            operationId: ComplexHeaders
+            parameters:
+                - name: X-Complex-Array
+                  in: header
+                  description: Array header with complex format
+                  required: true
+                  schema:
+                    type: array
+                - name: X-Edge-Case
+                  in: header
+                  description: Edge case header
+                  required: false
+                  schema:
+                    type: string
+                    format: uuid
             requestBody:
                 content:
                     application/json:
                         schema:
-                            $ref: '#/components/schemas/CreateUserRequest'
+                            $ref: '#/components/schemas/HeaderRequest'
                 required: true
             responses:
                 "200":
@@ -22,69 +36,7 @@ paths:
                     content:
                         application/json:
                             schema:
-                                $ref: '#/components/schemas/User'
-                default:
-                    description: Error response
-                    content:
-                        application/json:
-                            schema:
-                                type: object
-                                properties:
-                                    error:
-                                        type: string
-                                    code:
-                                        type: integer
-    /edge/:
-        post:
-            tags:
-                - EdgeCaseService
-            summary: RootPath
-            description: Root path
-            operationId: RootPath
-            requestBody:
-                content:
-                    application/json:
-                        schema:
-                            $ref: '#/components/schemas/CreateUserRequest'
-                required: true
-            responses:
-                "200":
-                    description: Successful response
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/User'
-                default:
-                    description: Error response
-                    content:
-                        application/json:
-                            schema:
-                                type: object
-                                properties:
-                                    error:
-                                        type: string
-                                    code:
-                                        type: integer
-    /edge/path:
-        post:
-            tags:
-                - EdgeCaseService
-            summary: NoLeadingSlash
-            description: Path without leading slash
-            operationId: NoLeadingSlash
-            requestBody:
-                content:
-                    application/json:
-                        schema:
-                            $ref: '#/components/schemas/CreateUserRequest'
-                required: true
-            responses:
-                "200":
-                    description: Successful response
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/User'
+                                $ref: '#/components/schemas/HeaderResponse'
                 default:
                     description: Error response
                     content:
@@ -98,59 +50,17 @@ paths:
                                         type: integer
 components:
     schemas:
-        CreateUserRequest:
+        HeaderRequest:
             type: object
             properties:
-                name:
+                data:
                     type: string
-                    description: User name
-                email:
-                    type: string
-                    description: User email
+                    description: Request data
             description: Simple request message
-        User:
+        HeaderResponse:
             type: object
             properties:
-                id:
+                result:
                     type: string
-                    description: User ID
-                name:
-                    type: string
-                    description: User name
-                email:
-                    type: string
-                    description: User email
+                    description: Response data
             description: Simple response message
-        GetUserRequest:
-            type: object
-            properties:
-                id:
-                    type: string
-                    description: User ID to retrieve
-            description: Get user request
-        UpdateUserRequest:
-            type: object
-            properties:
-                id:
-                    type: string
-                    description: User ID
-                user:
-                    $ref: '#/components/schemas/User'
-            description: Update user request
-        DeleteUserRequest:
-            type: object
-            properties:
-                id:
-                    type: string
-                    description: User ID to delete
-            description: Delete user request
-        DeleteUserResponse:
-            type: object
-            properties:
-                success:
-                    type: boolean
-                    description: Success indicator
-                message:
-                    type: string
-                    description: Status message
-            description: Delete user response

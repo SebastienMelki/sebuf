@@ -11,54 +11,12 @@ paths:
             description: Test different header formats
             operationId: TestHeaderFormats
             parameters:
-                - name: X-String-Header
-                  in: header
-                  description: String header
-                  required: true
-                  schema:
-                    type: string
-                - name: X-Integer-Header
-                  in: header
-                  description: Integer header
-                  required: true
-                  schema:
-                    type: integer
-                - name: X-Number-Header
-                  in: header
-                  description: Number header
-                  required: false
-                  schema:
-                    type: number
                 - name: X-Array-Header
                   in: header
                   description: Array header
                   required: false
                   schema:
                     type: array
-                - name: X-UUID-Header
-                  in: header
-                  required: true
-                  schema:
-                    type: string
-                    format: uuid
-                - name: X-Email-Header
-                  in: header
-                  required: false
-                  schema:
-                    type: string
-                    format: email
-                - name: X-DateTime-Header
-                  in: header
-                  required: false
-                  schema:
-                    type: string
-                    format: date-time
-                - name: X-Time-Header
-                  in: header
-                  required: false
-                  schema:
-                    type: string
-                    format: time
                 - name: X-Boolean-Header
                   in: header
                   description: Boolean header
@@ -71,6 +29,48 @@ paths:
                   schema:
                     type: string
                     format: date
+                - name: X-DateTime-Header
+                  in: header
+                  required: false
+                  schema:
+                    type: string
+                    format: date-time
+                - name: X-Email-Header
+                  in: header
+                  required: false
+                  schema:
+                    type: string
+                    format: email
+                - name: X-Integer-Header
+                  in: header
+                  description: Integer header
+                  required: true
+                  schema:
+                    type: integer
+                - name: X-Number-Header
+                  in: header
+                  description: Number header
+                  required: false
+                  schema:
+                    type: number
+                - name: X-String-Header
+                  in: header
+                  description: String header
+                  required: true
+                  schema:
+                    type: string
+                - name: X-Time-Header
+                  in: header
+                  required: false
+                  schema:
+                    type: string
+                    format: time
+                - name: X-UUID-Header
+                  in: header
+                  required: true
+                  schema:
+                    type: string
+                    format: uuid
             requestBody:
                 content:
                     application/json:

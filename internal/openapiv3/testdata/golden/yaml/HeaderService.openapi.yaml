@@ -58,26 +58,6 @@ paths:
             description: Method with additional method-specific headers
             operationId: WithMethodHeaders
             parameters:
-                - name: X-Client-Version
-                  in: header
-                  description: Client version identifier
-                  required: false
-                  schema:
-                    type: string
-                    example: 1.2.3
-                - name: X-Request-ID
-                  in: header
-                  description: Unique request identifier for tracing
-                  required: true
-                  schema:
-                    type: string
-                    format: uuid
-                - name: X-Correlation-ID
-                  in: header
-                  description: Correlation ID for request tracking
-                  required: false
-                  schema:
-                    type: string
                 - name: X-API-Key
                   in: header
                   description: API authentication key
@@ -86,6 +66,26 @@ paths:
                     type: string
                     format: uuid
                     example: 123e4567-e89b-12d3-a456-426614174000
+                - name: X-Client-Version
+                  in: header
+                  description: Client version identifier
+                  required: false
+                  schema:
+                    type: string
+                    example: 1.2.3
+                - name: X-Correlation-ID
+                  in: header
+                  description: Correlation ID for request tracking
+                  required: false
+                  schema:
+                    type: string
+                - name: X-Request-ID
+                  in: header
+                  description: Unique request identifier for tracing
+                  required: true
+                  schema:
+                    type: string
+                    format: uuid
             requestBody:
                 content:
                     application/json:

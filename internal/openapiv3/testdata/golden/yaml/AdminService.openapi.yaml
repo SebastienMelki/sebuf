@@ -56,6 +56,12 @@ paths:
             description: Delete user (admin only)
             operationId: DeleteUser
             parameters:
+                - name: X-Admin-Role
+                  in: header
+                  description: Admin role level
+                  required: true
+                  schema:
+                    type: string
                 - name: X-Admin-Token
                   in: header
                   description: Admin authentication token
@@ -63,12 +69,6 @@ paths:
                   schema:
                     type: string
                     format: uuid
-                - name: X-Admin-Role
-                  in: header
-                  description: Admin role level
-                  required: true
-                  schema:
-                    type: string
                 - name: X-Confirmation-Token
                   in: header
                   description: Confirmation token for destructive operations
