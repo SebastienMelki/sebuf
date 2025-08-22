@@ -61,7 +61,7 @@ jobs:
           echo "$GPG_PRIVATE_KEY" | gpg --batch --import
           
       - name: Run GoReleaser
-        uses: goreleaser/goreleaser-action@v5
+        uses: goreleaser/goreleaser-action@v6
         with:
           version: latest
           args: release --clean
