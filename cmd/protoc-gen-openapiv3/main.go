@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"io"
 	"os"
 	"strings"
@@ -45,31 +46,44 @@ func main() {
 		panic(err)
 	}
 
-	// Generate OpenAPI document for all proto files
-	generator := openapiv3.NewGenerator(format)
+	// Generate OpenAPI document for each service in all proto files
 	for _, file := range plugin.Files {
 		if !file.Generate {
 			continue
 		}
-		generator.ProcessFile(file)
-	}
-
-	// Render the OpenAPI document
-	output, err := generator.Render()
-	if err != nil {
-		panic(err)
-	}
-
-	// Determine output filename based on format
-	filename := "openapi.yaml"
-	if format == openapiv3.FormatJSON {
-		filename = "openapi.json"
-	}
-
-	// Write to generated file
-	generatedFile := plugin.NewGeneratedFile(filename, "")
-	if _, writeErr := generatedFile.Write(output); writeErr != nil {
-		panic(writeErr)
+		
+		// Process each service separately
+		for _, service := range file.Services {
+			// Create a new generator for each service
+			generator := openapiv3.NewGenerator(format)
+			
+			// Process all messages from the file (needed for schemas)
+			for _, message := range file.Messages {
+				generator.ProcessMessage(message)
+			}
+			
+			// Process this specific service
+			generator.ProcessService(service)
+			
+			// Render the OpenAPI document for this service
+			output, err := generator.Render()
+			if err != nil {
+				panic(err)
+			}
+			
+			// Determine output filename based on service name and format
+			ext := "yaml"
+			if format == openapiv3.FormatJSON {
+				ext = "json"
+			}
+			filename := fmt.Sprintf("%s.openapi.%s", service.Desc.Name(), ext)
+			
+			// Write to generated file
+			generatedFile := plugin.NewGeneratedFile(filename, "")
+			if _, writeErr := generatedFile.Write(output); writeErr != nil {
+				panic(writeErr)
+			}
+		}
 	}
 
 	// Write response to stdout

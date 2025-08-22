@@ -51,22 +51,20 @@ func NewGenerator(format OutputFormat) *Generator {
 	}
 }
 
-// ProcessFile processes a single proto file and adds its definitions to the OpenAPI document.
-func (g *Generator) ProcessFile(file *protogen.File) {
-	// Update document info from the first file processed
-	if g.doc.Info.Title == "Generated API" && file.Desc.Package() != "" {
-		g.doc.Info.Title = fmt.Sprintf("%s API", file.Desc.Package())
-	}
+// ProcessMessage processes a single message and adds it to the OpenAPI schemas.
+// This is now exported to be called from main.go
+func (g *Generator) ProcessMessage(message *protogen.Message) {
+	g.processMessage(message)
+}
 
-	// Process all messages to create schemas
-	for _, message := range file.Messages {
-		g.processMessage(message)
-	}
-
-	// Process all services to create paths
-	for _, service := range file.Services {
-		g.processService(service)
-	}
+// ProcessService processes a single service and adds its paths to the OpenAPI document.
+// This is now exported to be called from main.go
+func (g *Generator) ProcessService(service *protogen.Service) {
+	// Update document info with service name
+	g.doc.Info.Title = fmt.Sprintf("%s API", service.Desc.Name())
+	
+	// Process the service
+	g.processService(service)
 }
 
 // processMessage converts a protobuf message to an OpenAPI schema.
