@@ -84,7 +84,11 @@ func (g *Generator) collectMessageFieldExamples(gf *protogen.GeneratedFile, mess
 }
 
 // generateMockService generates a mock implementation for a service.
-func (g *Generator) generateMockService(gf *protogen.GeneratedFile, file *protogen.File, service *protogen.Service) error {
+func (g *Generator) generateMockService(
+	gf *protogen.GeneratedFile,
+	_ *protogen.File,
+	service *protogen.Service,
+) error {
 	serviceName := service.GoName
 
 	// Mock server struct
@@ -112,13 +116,27 @@ func (g *Generator) generateMockService(gf *protogen.GeneratedFile, file *protog
 }
 
 // generateMockMethod generates a mock implementation for an RPC method.
-func (g *Generator) generateMockMethod(gf *protogen.GeneratedFile, service *protogen.Service, method *protogen.Method) error {
+func (g *Generator) generateMockMethod(
+	gf *protogen.GeneratedFile,
+	service *protogen.Service,
+	method *protogen.Method,
+) error {
 	methodName := method.GoName
 	inputType := method.Input.GoIdent
 	outputType := method.Output.GoIdent
 
 	gf.P("// ", methodName, " is a mock implementation of ", service.GoName, "Server.", methodName, ".")
-	gf.P("func (m *Mock", service.GoName, "Server) ", methodName, "(ctx context.Context, req *", inputType, ") (*", outputType, ", error) {")
+	gf.P(
+		"func (m *Mock",
+		service.GoName,
+		"Server) ",
+		methodName,
+		"(ctx context.Context, req *",
+		inputType,
+		") (*",
+		outputType,
+		", error) {",
+	)
 
 	// Validate request
 	gf.P("// Validate the request")
@@ -145,7 +163,11 @@ func (g *Generator) generateMockMethod(gf *protogen.GeneratedFile, service *prot
 }
 
 // generateMockFieldAssignments generates field assignments for a message.
-func (g *Generator) generateMockFieldAssignments(gf *protogen.GeneratedFile, message *protogen.Message, varName string) {
+func (g *Generator) generateMockFieldAssignments(
+	gf *protogen.GeneratedFile,
+	message *protogen.Message,
+	varName string,
+) {
 	messageName := string(message.Desc.Name())
 
 	for _, field := range message.Fields {
@@ -155,7 +177,16 @@ func (g *Generator) generateMockFieldAssignments(gf *protogen.GeneratedFile, mes
 		// Generate assignment based on field type
 		switch field.Desc.Kind() {
 		case protoreflect.StringKind:
-			gf.P(varName, ".", fieldName, " = selectStringExample(\"", fieldPath, "\", ", g.getDefaultGenerator(field), ")")
+			gf.P(
+				varName,
+				".",
+				fieldName,
+				" = selectStringExample(\"",
+				fieldPath,
+				"\", ",
+				g.getDefaultGenerator(field),
+				")",
+			)
 		case protoreflect.Int32Kind, protoreflect.Int64Kind:
 			gf.P(varName, ".", fieldName, " = selectIntExample(\"", fieldPath, "\", ", g.getDefaultValue(field), ")")
 		case protoreflect.BoolKind:
@@ -169,6 +200,18 @@ func (g *Generator) generateMockFieldAssignments(gf *protogen.GeneratedFile, mes
 				gf.P(varName, ".", fieldName, " = &", field.Message.GoIdent, "{}")
 				g.generateMockFieldAssignments(gf, field.Message, varName+"."+fieldName)
 			}
+		case protoreflect.EnumKind,
+			protoreflect.Sint32Kind,
+			protoreflect.Uint32Kind,
+			protoreflect.Sint64Kind,
+			protoreflect.Uint64Kind,
+			protoreflect.Sfixed32Kind,
+			protoreflect.Fixed32Kind,
+			protoreflect.Sfixed64Kind,
+			protoreflect.Fixed64Kind,
+			protoreflect.BytesKind,
+			protoreflect.GroupKind:
+			gf.P("// TODO: Handle field ", fieldName, " of type ", field.Desc.Kind())
 		default:
 			gf.P("// TODO: Handle field ", fieldName, " of type ", field.Desc.Kind())
 		}
@@ -207,6 +250,20 @@ func (g *Generator) getDefaultValue(field *protogen.Field) string {
 		return "true"
 	case protoreflect.FloatKind, protoreflect.DoubleKind:
 		return "3.14"
+	case protoreflect.EnumKind,
+		protoreflect.Sint32Kind,
+		protoreflect.Uint32Kind,
+		protoreflect.Sint64Kind,
+		protoreflect.Uint64Kind,
+		protoreflect.Sfixed32Kind,
+		protoreflect.Fixed32Kind,
+		protoreflect.Sfixed64Kind,
+		protoreflect.Fixed64Kind,
+		protoreflect.StringKind,
+		protoreflect.BytesKind,
+		protoreflect.MessageKind,
+		protoreflect.GroupKind:
+		return `""`
 	default:
 		return `""`
 	}
