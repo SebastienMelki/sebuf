@@ -558,7 +558,14 @@ func (g *Generator) generateValidationFunctions(gf *protogen.GeneratedFile) {
 
 // generateHeaderValidationFunctions generates header validation support code.
 func (g *Generator) generateHeaderValidationFunctions(gf *protogen.GeneratedFile) {
-	// validateHeaders function
+	g.generateValidateHeadersFunction(gf)
+	g.generateValidateHeaderValueFunction(gf)
+	g.generateTypeValidators(gf)
+	g.generateFormatValidators(gf)
+}
+
+// generateValidateHeadersFunction generates the main header validation function.
+func (g *Generator) generateValidateHeadersFunction(gf *protogen.GeneratedFile) {
 	gf.P("// validateHeaders validates required headers for a service and method")
 	gf.P("func validateHeaders(r *http.Request, serviceHeaders, methodHeaders []*sebufhttp.Header) error {")
 	gf.P("// Merge service and method headers, with method headers taking precedence")
@@ -593,8 +600,10 @@ func (g *Generator) generateHeaderValidationFunctions(gf *protogen.GeneratedFile
 	gf.P("return nil")
 	gf.P("}")
 	gf.P()
+}
 
-	// validateHeaderValue function
+// generateValidateHeaderValueFunction generates the header value validation function.
+func (g *Generator) generateValidateHeaderValueFunction(gf *protogen.GeneratedFile) {
 	gf.P("// validateHeaderValue validates a single header value against its specification")
 	gf.P("func validateHeaderValue(headerSpec *sebufhttp.Header, value string) error {")
 	gf.P("headerType := headerSpec.GetType()")
@@ -618,8 +627,17 @@ func (g *Generator) generateHeaderValidationFunctions(gf *protogen.GeneratedFile
 	gf.P("}")
 	gf.P("}")
 	gf.P()
+}
 
-	// String header validation
+// generateTypeValidators generates type-specific validation functions.
+func (g *Generator) generateTypeValidators(gf *protogen.GeneratedFile) {
+	g.generateStringValidator(gf)
+	g.generateNumericValidators(gf)
+	g.generateArrayValidator(gf)
+}
+
+// generateStringValidator generates string header validation function.
+func (g *Generator) generateStringValidator(gf *protogen.GeneratedFile) {
 	gf.P("// validateStringHeader validates string headers with optional format validation")
 	gf.P("func validateStringHeader(value, format string) error {")
 	gf.P("if !utf8.ValidString(value) {")
@@ -643,7 +661,12 @@ func (g *Generator) generateHeaderValidationFunctions(gf *protogen.GeneratedFile
 	gf.P("return nil")
 	gf.P("}")
 	gf.P()
+}
 
+// generateNumericValidators generates numeric header validation functions.
+//
+//nolint:dupl // Code generation patterns naturally have similar structure
+func (g *Generator) generateNumericValidators(gf *protogen.GeneratedFile) {
 	// Integer header validation
 	gf.P("// validateIntegerHeader validates integer headers")
 	gf.P("func validateIntegerHeader(value string) error {")
@@ -676,8 +699,10 @@ func (g *Generator) generateHeaderValidationFunctions(gf *protogen.GeneratedFile
 	gf.P("return nil")
 	gf.P("}")
 	gf.P()
+}
 
-	// Array header validation
+// generateArrayValidator generates array header validation function.
+func (g *Generator) generateArrayValidator(gf *protogen.GeneratedFile) {
 	gf.P("// validateArrayHeader validates array headers (comma-separated values)")
 	gf.P("func validateArrayHeader(value string) error {")
 	gf.P("// Arrays are typically comma-separated values")
@@ -688,8 +713,17 @@ func (g *Generator) generateHeaderValidationFunctions(gf *protogen.GeneratedFile
 	gf.P("return nil")
 	gf.P("}")
 	gf.P()
+}
 
-	// Format validators
+// generateFormatValidators generates format-specific validation functions.
+func (g *Generator) generateFormatValidators(gf *protogen.GeneratedFile) {
+	g.generateUUIDValidator(gf)
+	g.generateEmailValidator(gf)
+	g.generateDateTimeValidators(gf)
+}
+
+// generateUUIDValidator generates UUID format validation function.
+func (g *Generator) generateUUIDValidator(gf *protogen.GeneratedFile) {
 	gf.P("// validateUUIDFormat validates UUID format (basic check)")
 	gf.P("func validateUUIDFormat(value string) error {")
 	gf.P("// Basic UUID format check: 8-4-4-4-12 hex digits")
@@ -705,7 +739,10 @@ func (g *Generator) generateHeaderValidationFunctions(gf *protogen.GeneratedFile
 	gf.P("return nil")
 	gf.P("}")
 	gf.P()
+}
 
+// generateEmailValidator generates email format validation function.
+func (g *Generator) generateEmailValidator(gf *protogen.GeneratedFile) {
 	gf.P("// validateEmailFormat validates email format (basic check)")
 	gf.P("func validateEmailFormat(value string) error {")
 	gf.P("// Basic email format check")
@@ -721,7 +758,12 @@ func (g *Generator) generateHeaderValidationFunctions(gf *protogen.GeneratedFile
 	gf.P("return nil")
 	gf.P("}")
 	gf.P()
+}
 
+// generateDateTimeValidators generates date/time format validation functions.
+//
+//nolint:dupl // Code generation patterns naturally have similar structure
+func (g *Generator) generateDateTimeValidators(gf *protogen.GeneratedFile) {
 	gf.P("// validateDateTimeFormat validates RFC3339 date-time format")
 	gf.P("func validateDateTimeFormat(value string) error {")
 	gf.P("_, err := time.Parse(time.RFC3339, value)")

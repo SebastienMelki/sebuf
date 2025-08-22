@@ -271,6 +271,13 @@ func (g *Generator) getDefaultValue(field *protogen.Field) string {
 
 // generateMockHelpers generates helper functions for mock data generation.
 func (g *Generator) generateMockHelpers(gf *protogen.GeneratedFile) {
+	g.generateExampleSelectors(gf)
+	g.generateDefaultGenerators(gf)
+	g.generateInitFunction(gf)
+}
+
+// generateExampleSelectors generates functions to select examples from predefined values.
+func (g *Generator) generateExampleSelectors(gf *protogen.GeneratedFile) {
 	// String example selector
 	gf.P("// selectStringExample selects a random example or generates a default value.")
 	gf.P("func selectStringExample(fieldPath string, defaultGenerator func() string) string {")
@@ -319,8 +326,10 @@ func (g *Generator) generateMockHelpers(gf *protogen.GeneratedFile) {
 	gf.P("return defaultValue")
 	gf.P("}")
 	gf.P()
+}
 
-	// Default generators
+// generateDefaultGenerators generates default value generator functions.
+func (g *Generator) generateDefaultGenerators(gf *protogen.GeneratedFile) {
 	gf.P("// Default value generators")
 	gf.P("func generateUUID() string {")
 	gf.P("var b [16]byte")
@@ -364,8 +373,10 @@ func (g *Generator) generateMockHelpers(gf *protogen.GeneratedFile) {
 	gf.P(`return "example string"`)
 	gf.P("}")
 	gf.P()
+}
 
-	// Init function to seed random
+// generateInitFunction generates the init function for seeding random number generator.
+func (g *Generator) generateInitFunction(gf *protogen.GeneratedFile) {
 	gf.P("func init() {")
 	gf.P("rand.Seed(time.Now().UnixNano())")
 	gf.P("}")
