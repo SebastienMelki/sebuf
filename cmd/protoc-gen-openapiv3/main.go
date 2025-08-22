@@ -14,7 +14,14 @@ import (
 )
 
 func main() {
-	// Read request from stdin
+	req := readRequest()
+	format := parseFormat(req)
+	plugin := createPlugin(req)
+	generateOpenAPIFiles(plugin, format)
+	writeResponse(plugin)
+}
+
+func readRequest() *pluginpb.CodeGeneratorRequest {
 	input, err := io.ReadAll(os.Stdin)
 	if err != nil {
 		panic(err)
@@ -24,8 +31,10 @@ func main() {
 	if unmarshalErr := proto.Unmarshal(input, &req); unmarshalErr != nil {
 		panic(unmarshalErr)
 	}
+	return &req
+}
 
-	// Parse parameters for output format
+func parseFormat(req *pluginpb.CodeGeneratorRequest) openapiv3.OutputFormat {
 	format := openapiv3.FormatYAML // default to YAML
 	if req.Parameter != nil {
 		params := parseParameters(req.GetParameter())
@@ -38,58 +47,79 @@ func main() {
 			}
 		}
 	}
+	return format
+}
 
-	// Process with protogen helper
+func createPlugin(req *pluginpb.CodeGeneratorRequest) *protogen.Plugin {
 	opts := protogen.Options{}
-	plugin, err := opts.New(&req)
+	plugin, err := opts.New(req)
 	if err != nil {
 		panic(err)
 	}
+	return plugin
+}
 
-	// Generate OpenAPI document for each service in all proto files
+func generateOpenAPIFiles(plugin *protogen.Plugin, format openapiv3.OutputFormat) {
 	for _, file := range plugin.Files {
 		if !file.Generate {
 			continue
 		}
+		processFileServices(plugin, file, format)
+	}
+}
 
-		// Process each service separately
-		for _, service := range file.Services {
-			// Create a new generator for each service
-			generator := openapiv3.NewGenerator(format)
+func processFileServices(plugin *protogen.Plugin, file *protogen.File, format openapiv3.OutputFormat) {
+	for _, service := range file.Services {
+		generator := createServiceGenerator(file, service, format)
+		output := renderService(generator)
+		writeServiceFile(plugin, service, output, format)
+	}
+}
 
-			// Process all messages from the file (needed for schemas)
-			for _, message := range file.Messages {
-				generator.ProcessMessage(message)
-			}
+func createServiceGenerator(
+	file *protogen.File,
+	service *protogen.Service,
+	format openapiv3.OutputFormat,
+) *openapiv3.Generator {
+	generator := openapiv3.NewGenerator(format)
 
-			// Process this specific service
-			generator.ProcessService(service)
-
-			// Render the OpenAPI document for this service
-			output, renderErr := generator.Render()
-			if renderErr != nil {
-				panic(renderErr)
-			}
-
-			// Determine output filename based on service name and format
-			ext := "yaml"
-			if format == openapiv3.FormatJSON {
-				ext = "json"
-			}
-			filename := fmt.Sprintf("%s.openapi.%s", service.Desc.Name(), ext)
-
-			// Write to generated file
-			generatedFile := plugin.NewGeneratedFile(filename, "")
-			if _, writeErr := generatedFile.Write(output); writeErr != nil {
-				panic(writeErr)
-			}
-		}
+	// Process all messages from the file (needed for schemas)
+	for _, message := range file.Messages {
+		generator.ProcessMessage(message)
 	}
 
-	// Write response to stdout
-	resp := plugin.Response()
+	generator.ProcessService(service)
+	return generator
+}
 
-	// Add supported features - proto3 optional fields
+func renderService(generator *openapiv3.Generator) []byte {
+	output, renderErr := generator.Render()
+	if renderErr != nil {
+		panic(renderErr)
+	}
+	return output
+}
+
+func writeServiceFile(
+	plugin *protogen.Plugin,
+	service *protogen.Service,
+	output []byte,
+	format openapiv3.OutputFormat,
+) {
+	ext := "yaml"
+	if format == openapiv3.FormatJSON {
+		ext = "json"
+	}
+	filename := fmt.Sprintf("%s.openapi.%s", service.Desc.Name(), ext)
+
+	generatedFile := plugin.NewGeneratedFile(filename, "")
+	if _, writeErr := generatedFile.Write(output); writeErr != nil {
+		panic(writeErr)
+	}
+}
+
+func writeResponse(plugin *protogen.Plugin) {
+	resp := plugin.Response()
 	resp.SupportedFeatures = proto.Uint64(uint64(pluginpb.CodeGeneratorResponse_FEATURE_PROTO3_OPTIONAL))
 
 	respOutput, err := proto.Marshal(resp)
