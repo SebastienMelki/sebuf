@@ -2,8 +2,9 @@ package openapiv3
 
 import (
 	"fmt"
-	"google.golang.org/protobuf/proto"
 	"strings"
+
+	"google.golang.org/protobuf/proto"
 
 	"github.com/pb33f/libopenapi/datamodel/high/base"
 	v3 "github.com/pb33f/libopenapi/datamodel/high/v3"
@@ -52,17 +53,32 @@ func NewGenerator(format OutputFormat) *Generator {
 }
 
 // ProcessMessage processes a single message and adds it to the OpenAPI schemas.
-// This is now exported to be called from main.go
+// This is now exported to be called from main.go.
 func (g *Generator) ProcessMessage(message *protogen.Message) {
 	g.processMessage(message)
 }
 
+// Format returns the output format of the generator.
+func (g *Generator) Format() OutputFormat {
+	return g.format
+}
+
+// Doc returns the OpenAPI document.
+func (g *Generator) Doc() *v3.Document {
+	return g.doc
+}
+
+// Schemas returns the schemas map.
+func (g *Generator) Schemas() *orderedmap.Map[string, *base.SchemaProxy] {
+	return g.schemas
+}
+
 // ProcessService processes a single service and adds its paths to the OpenAPI document.
-// This is now exported to be called from main.go
+// This is now exported to be called from main.go.
 func (g *Generator) ProcessService(service *protogen.Service) {
 	// Update document info with service name
 	g.doc.Info.Title = fmt.Sprintf("%s API", service.Desc.Name())
-	
+
 	// Process the service
 	g.processService(service)
 }

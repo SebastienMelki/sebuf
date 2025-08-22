@@ -2,6 +2,7 @@ package openapiv3
 
 import (
 	"fmt"
+	"strconv"
 
 	"github.com/pb33f/libopenapi/datamodel/high/base"
 	"google.golang.org/protobuf/compiler/protogen"
@@ -12,7 +13,7 @@ import (
 	validate "buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go/buf/validate"
 )
 
-// extractValidationConstraints extracts buf.validate field options and applies them to the schema
+// extractValidationConstraints extracts buf.validate field options and applies them to the schema.
 func extractValidationConstraints(field *protogen.Field, schema *base.Schema) {
 	// Get the field descriptor options
 	fieldOptions := field.Desc.Options()
@@ -46,6 +47,12 @@ func extractValidationConstraints(field *protogen.Field, schema *base.Schema) {
 		applyFloatConstraints(fieldConstraints, schema)
 	case protoreflect.DoubleKind:
 		applyDoubleConstraints(fieldConstraints, schema)
+	case protoreflect.BoolKind,
+		protoreflect.EnumKind,
+		protoreflect.BytesKind,
+		protoreflect.MessageKind,
+		protoreflect.GroupKind:
+		// No specific constraints for these types
 	}
 
 	// Handle repeated field constraints
@@ -59,26 +66,25 @@ func extractValidationConstraints(field *protogen.Field, schema *base.Schema) {
 	}
 
 	// Handle required constraint
-	if fieldConstraints.GetRequired() {
-		// Note: Required is handled at the message level, not here
-		// This is a marker for the parent message to add this field to required[]
-	}
+	// Note: Required is handled at the message level, not here
+	// This is a marker for the parent message to add this field to required[]
+	_ = fieldConstraints.GetRequired()
 }
 
-// applyStringConstraints applies string validation constraints to the schema
+// applyStringConstraints applies string validation constraints to the schema.
 func applyStringConstraints(constraints *validate.FieldRules, schema *base.Schema) {
-	stringConstraints := constraints.GetString_()
+	stringConstraints := constraints.GetString()
 	if stringConstraints == nil {
 		return
 	}
 
 	// Min and max length
 	if stringConstraints.HasMinLen() {
-		minLen := int64(stringConstraints.GetMinLen())
+		minLen := int64(stringConstraints.GetMinLen()) // #nosec G115
 		schema.MinLength = &minLen
 	}
 	if stringConstraints.HasMaxLen() {
-		maxLen := int64(stringConstraints.GetMaxLen())
+		maxLen := int64(stringConstraints.GetMaxLen()) // #nosec G115
 		schema.MaxLength = &maxLen
 	}
 
@@ -88,31 +94,32 @@ func applyStringConstraints(constraints *validate.FieldRules, schema *base.Schem
 	}
 
 	// Format constraints
-	if stringConstraints.GetEmail() {
+	switch {
+	case stringConstraints.GetEmail():
 		schema.Format = "email"
-	} else if stringConstraints.GetUuid() {
+	case stringConstraints.GetUuid():
 		schema.Format = "uuid"
-	} else if stringConstraints.GetUri() {
+	case stringConstraints.GetUri():
 		schema.Format = "uri"
-	} else if stringConstraints.GetUriRef() {
+	case stringConstraints.GetUriRef():
 		schema.Format = "uri-reference"
-	} else if stringConstraints.GetAddress() {
+	case stringConstraints.GetAddress():
 		// IPv4 or IPv6 address
 		schema.Format = "ip"
-	} else if stringConstraints.GetHostname() {
+	case stringConstraints.GetHostname():
 		schema.Format = "hostname"
-	} else if stringConstraints.GetIp() {
+	case stringConstraints.GetIp():
 		schema.Format = "ip"
-	} else if stringConstraints.GetIpv4() {
+	case stringConstraints.GetIpv4():
 		schema.Format = "ipv4"
-	} else if stringConstraints.GetIpv6() {
+	case stringConstraints.GetIpv6():
 		schema.Format = "ipv6"
 	}
 
 	// Enum values (in constraint)
-	if len(stringConstraints.In) > 0 {
-		schema.Enum = make([]*yaml.Node, 0, len(stringConstraints.In))
-		for _, value := range stringConstraints.In {
+	if len(stringConstraints.GetIn()) > 0 {
+		schema.Enum = make([]*yaml.Node, 0, len(stringConstraints.GetIn()))
+		for _, value := range stringConstraints.GetIn() {
 			schema.Enum = append(schema.Enum, &yaml.Node{
 				Kind:  yaml.ScalarNode,
 				Value: value,
@@ -130,7 +137,7 @@ func applyStringConstraints(constraints *validate.FieldRules, schema *base.Schem
 	}
 }
 
-// applyInt32Constraints applies int32 validation constraints to the schema
+// applyInt32Constraints applies int32 validation constraints to the schema.
 func applyInt32Constraints(constraints *validate.FieldRules, schema *base.Schema) {
 	int32Constraints := constraints.GetInt32()
 	if int32Constraints == nil {
@@ -139,49 +146,49 @@ func applyInt32Constraints(constraints *validate.FieldRules, schema *base.Schema
 
 	// Greater than or equal (minimum)
 	if int32Constraints.HasGte() {
-		min := float64(int32Constraints.GetGte())
-		schema.Minimum = &min
+		minValue := float64(int32Constraints.GetGte())
+		schema.Minimum = &minValue
 	}
 
 	// Greater than (exclusive minimum)
 	if int32Constraints.HasGt() {
-		min := float64(int32Constraints.GetGt())
-		schema.ExclusiveMinimum = &base.DynamicValue[bool, float64]{B: min}
+		minValue := float64(int32Constraints.GetGt())
+		schema.ExclusiveMinimum = &base.DynamicValue[bool, float64]{B: minValue}
 	}
 
 	// Less than or equal (maximum)
 	if int32Constraints.HasLte() {
-		max := float64(int32Constraints.GetLte())
-		schema.Maximum = &max
+		maxValue := float64(int32Constraints.GetLte())
+		schema.Maximum = &maxValue
 	}
 
 	// Less than (exclusive maximum)
 	if int32Constraints.HasLt() {
-		max := float64(int32Constraints.GetLt())
-		schema.ExclusiveMaximum = &base.DynamicValue[bool, float64]{B: max}
+		maxValue := float64(int32Constraints.GetLt())
+		schema.ExclusiveMaximum = &base.DynamicValue[bool, float64]{B: maxValue}
 	}
 
 	// Const value
 	if int32Constraints.HasConst() {
 		schema.Const = &yaml.Node{
 			Kind:  yaml.ScalarNode,
-			Value: fmt.Sprintf("%d", int32Constraints.GetConst()),
+			Value: strconv.Itoa(int(int32Constraints.GetConst())),
 		}
 	}
 
 	// Enum values (in constraint)
-	if len(int32Constraints.In) > 0 {
-		schema.Enum = make([]*yaml.Node, 0, len(int32Constraints.In))
-		for _, value := range int32Constraints.In {
+	if len(int32Constraints.GetIn()) > 0 {
+		schema.Enum = make([]*yaml.Node, 0, len(int32Constraints.GetIn()))
+		for _, value := range int32Constraints.GetIn() {
 			schema.Enum = append(schema.Enum, &yaml.Node{
 				Kind:  yaml.ScalarNode,
-				Value: fmt.Sprintf("%d", value),
+				Value: strconv.Itoa(int(value)),
 			})
 		}
 	}
 }
 
-// applyInt64Constraints applies int64 validation constraints to the schema
+// applyInt64Constraints applies int64 validation constraints to the schema.
 func applyInt64Constraints(constraints *validate.FieldRules, schema *base.Schema) {
 	int64Constraints := constraints.GetInt64()
 	if int64Constraints == nil {
@@ -190,49 +197,49 @@ func applyInt64Constraints(constraints *validate.FieldRules, schema *base.Schema
 
 	// Greater than or equal (minimum)
 	if int64Constraints.HasGte() {
-		min := float64(int64Constraints.GetGte())
-		schema.Minimum = &min
+		minValue := float64(int64Constraints.GetGte())
+		schema.Minimum = &minValue
 	}
 
 	// Greater than (exclusive minimum)
 	if int64Constraints.HasGt() {
-		min := float64(int64Constraints.GetGt())
-		schema.ExclusiveMinimum = &base.DynamicValue[bool, float64]{B: min}
+		minValue := float64(int64Constraints.GetGt())
+		schema.ExclusiveMinimum = &base.DynamicValue[bool, float64]{B: minValue}
 	}
 
 	// Less than or equal (maximum)
 	if int64Constraints.HasLte() {
-		max := float64(int64Constraints.GetLte())
-		schema.Maximum = &max
+		maxValue := float64(int64Constraints.GetLte())
+		schema.Maximum = &maxValue
 	}
 
 	// Less than (exclusive maximum)
 	if int64Constraints.HasLt() {
-		max := float64(int64Constraints.GetLt())
-		schema.ExclusiveMaximum = &base.DynamicValue[bool, float64]{B: max}
+		maxValue := float64(int64Constraints.GetLt())
+		schema.ExclusiveMaximum = &base.DynamicValue[bool, float64]{B: maxValue}
 	}
 
 	// Const value
 	if int64Constraints.HasConst() {
 		schema.Const = &yaml.Node{
 			Kind:  yaml.ScalarNode,
-			Value: fmt.Sprintf("%d", int64Constraints.GetConst()),
+			Value: strconv.FormatInt(int64Constraints.GetConst(), 10),
 		}
 	}
 
 	// Enum values (in constraint)
-	if len(int64Constraints.In) > 0 {
-		schema.Enum = make([]*yaml.Node, 0, len(int64Constraints.In))
-		for _, value := range int64Constraints.In {
+	if len(int64Constraints.GetIn()) > 0 {
+		schema.Enum = make([]*yaml.Node, 0, len(int64Constraints.GetIn()))
+		for _, value := range int64Constraints.GetIn() {
 			schema.Enum = append(schema.Enum, &yaml.Node{
 				Kind:  yaml.ScalarNode,
-				Value: fmt.Sprintf("%d", value),
+				Value: strconv.FormatInt(value, 10),
 			})
 		}
 	}
 }
 
-// applyFloatConstraints applies float validation constraints to the schema
+// applyFloatConstraints applies float validation constraints to the schema.
 func applyFloatConstraints(constraints *validate.FieldRules, schema *base.Schema) {
 	floatConstraints := constraints.GetFloat()
 	if floatConstraints == nil {
@@ -241,26 +248,26 @@ func applyFloatConstraints(constraints *validate.FieldRules, schema *base.Schema
 
 	// Greater than or equal (minimum)
 	if floatConstraints.HasGte() {
-		min := float64(floatConstraints.GetGte())
-		schema.Minimum = &min
+		minValue := float64(floatConstraints.GetGte())
+		schema.Minimum = &minValue
 	}
 
 	// Greater than (exclusive minimum)
 	if floatConstraints.HasGt() {
-		min := float64(floatConstraints.GetGt())
-		schema.ExclusiveMinimum = &base.DynamicValue[bool, float64]{B: min}
+		minValue := float64(floatConstraints.GetGt())
+		schema.ExclusiveMinimum = &base.DynamicValue[bool, float64]{B: minValue}
 	}
 
 	// Less than or equal (maximum)
 	if floatConstraints.HasLte() {
-		max := float64(floatConstraints.GetLte())
-		schema.Maximum = &max
+		maxValue := float64(floatConstraints.GetLte())
+		schema.Maximum = &maxValue
 	}
 
 	// Less than (exclusive maximum)
 	if floatConstraints.HasLt() {
-		max := float64(floatConstraints.GetLt())
-		schema.ExclusiveMaximum = &base.DynamicValue[bool, float64]{B: max}
+		maxValue := float64(floatConstraints.GetLt())
+		schema.ExclusiveMaximum = &base.DynamicValue[bool, float64]{B: maxValue}
 	}
 
 	// Const value
@@ -272,9 +279,9 @@ func applyFloatConstraints(constraints *validate.FieldRules, schema *base.Schema
 	}
 
 	// Enum values (in constraint)
-	if len(floatConstraints.In) > 0 {
-		schema.Enum = make([]*yaml.Node, 0, len(floatConstraints.In))
-		for _, value := range floatConstraints.In {
+	if len(floatConstraints.GetIn()) > 0 {
+		schema.Enum = make([]*yaml.Node, 0, len(floatConstraints.GetIn()))
+		for _, value := range floatConstraints.GetIn() {
 			schema.Enum = append(schema.Enum, &yaml.Node{
 				Kind:  yaml.ScalarNode,
 				Value: fmt.Sprintf("%g", value),
@@ -283,7 +290,7 @@ func applyFloatConstraints(constraints *validate.FieldRules, schema *base.Schema
 	}
 }
 
-// applyDoubleConstraints applies double validation constraints to the schema
+// applyDoubleConstraints applies double validation constraints to the schema.
 func applyDoubleConstraints(constraints *validate.FieldRules, schema *base.Schema) {
 	doubleConstraints := constraints.GetDouble()
 	if doubleConstraints == nil {
@@ -292,26 +299,26 @@ func applyDoubleConstraints(constraints *validate.FieldRules, schema *base.Schem
 
 	// Greater than or equal (minimum)
 	if doubleConstraints.HasGte() {
-		min := doubleConstraints.GetGte()
-		schema.Minimum = &min
+		minValue := doubleConstraints.GetGte()
+		schema.Minimum = &minValue
 	}
 
 	// Greater than (exclusive minimum)
 	if doubleConstraints.HasGt() {
-		min := doubleConstraints.GetGt()
-		schema.ExclusiveMinimum = &base.DynamicValue[bool, float64]{B: min}
+		minValue := doubleConstraints.GetGt()
+		schema.ExclusiveMinimum = &base.DynamicValue[bool, float64]{B: minValue}
 	}
 
 	// Less than or equal (maximum)
 	if doubleConstraints.HasLte() {
-		max := doubleConstraints.GetLte()
-		schema.Maximum = &max
+		maxValue := doubleConstraints.GetLte()
+		schema.Maximum = &maxValue
 	}
 
 	// Less than (exclusive maximum)
 	if doubleConstraints.HasLt() {
-		max := doubleConstraints.GetLt()
-		schema.ExclusiveMaximum = &base.DynamicValue[bool, float64]{B: max}
+		maxValue := doubleConstraints.GetLt()
+		schema.ExclusiveMaximum = &base.DynamicValue[bool, float64]{B: maxValue}
 	}
 
 	// Const value
@@ -323,9 +330,9 @@ func applyDoubleConstraints(constraints *validate.FieldRules, schema *base.Schem
 	}
 
 	// Enum values (in constraint)
-	if len(doubleConstraints.In) > 0 {
-		schema.Enum = make([]*yaml.Node, 0, len(doubleConstraints.In))
-		for _, value := range doubleConstraints.In {
+	if len(doubleConstraints.GetIn()) > 0 {
+		schema.Enum = make([]*yaml.Node, 0, len(doubleConstraints.GetIn()))
+		for _, value := range doubleConstraints.GetIn() {
 			schema.Enum = append(schema.Enum, &yaml.Node{
 				Kind:  yaml.ScalarNode,
 				Value: fmt.Sprintf("%g", value),
@@ -334,7 +341,7 @@ func applyDoubleConstraints(constraints *validate.FieldRules, schema *base.Schem
 	}
 }
 
-// applyRepeatedConstraints applies repeated field validation constraints to the schema
+// applyRepeatedConstraints applies repeated field validation constraints to the schema.
 func applyRepeatedConstraints(constraints *validate.FieldRules, schema *base.Schema) {
 	repeatedConstraints := constraints.GetRepeated()
 	if repeatedConstraints == nil {
@@ -343,13 +350,13 @@ func applyRepeatedConstraints(constraints *validate.FieldRules, schema *base.Sch
 
 	// Min items
 	if repeatedConstraints.HasMinItems() {
-		minItems := int64(repeatedConstraints.GetMinItems())
+		minItems := int64(repeatedConstraints.GetMinItems()) // #nosec G115
 		schema.MinItems = &minItems
 	}
 
 	// Max items
 	if repeatedConstraints.HasMaxItems() {
-		maxItems := int64(repeatedConstraints.GetMaxItems())
+		maxItems := int64(repeatedConstraints.GetMaxItems()) // #nosec G115
 		schema.MaxItems = &maxItems
 	}
 
@@ -360,7 +367,7 @@ func applyRepeatedConstraints(constraints *validate.FieldRules, schema *base.Sch
 	}
 }
 
-// applyMapConstraints applies map field validation constraints to the schema
+// applyMapConstraints applies map field validation constraints to the schema.
 func applyMapConstraints(constraints *validate.FieldRules, schema *base.Schema) {
 	mapConstraints := constraints.GetMap()
 	if mapConstraints == nil {
@@ -369,18 +376,18 @@ func applyMapConstraints(constraints *validate.FieldRules, schema *base.Schema) 
 
 	// Min pairs (minProperties)
 	if mapConstraints.HasMinPairs() {
-		minProps := int64(mapConstraints.GetMinPairs())
+		minProps := int64(mapConstraints.GetMinPairs()) // #nosec G115
 		schema.MinProperties = &minProps
 	}
 
 	// Max pairs (maxProperties)
 	if mapConstraints.HasMaxPairs() {
-		maxProps := int64(mapConstraints.GetMaxPairs())
+		maxProps := int64(mapConstraints.GetMaxPairs()) // #nosec G115
 		schema.MaxProperties = &maxProps
 	}
 }
 
-// checkIfFieldRequired checks if a field has the required constraint
+// checkIfFieldRequired checks if a field has the required constraint.
 func checkIfFieldRequired(field *protogen.Field) bool {
 	// Get the field descriptor options
 	fieldOptions := field.Desc.Options()
