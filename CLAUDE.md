@@ -30,7 +30,7 @@ The project follows a clean Go protoc plugin architecture with separated concern
 
 1. **Oneof Helper Generator** (`internal/oneofhelper/generator.go:27`): Creates convenience constructors for oneof fields containing message types
 2. **HTTP Handler Generator** (`internal/httpgen/generator.go:22`): Generates HTTP handlers, request binding, routing configuration, automatic body validation, and header validation middleware
-3. **OpenAPI Generator** (`internal/openapiv3/generator.go:53`): Creates comprehensive OpenAPI v3.1 specifications from protobuf definitions with full header parameter support
+3. **OpenAPI Generator** (`internal/openapiv3/generator.go:53`): Creates comprehensive OpenAPI v3.1 specifications from protobuf definitions with full header parameter support, generating one file per service for better organization
 4. **HTTP Annotations** (`proto/sebuf/http/annotations.proto`): Custom protobuf extensions for HTTP configuration
 5. **Header Validation** (`proto/sebuf/http/headers.proto`): Protobuf definitions for service and method-level header validation
 6. **Validation System**: Automatic request body validation via buf.validate/protovalidate and header validation middleware
@@ -63,9 +63,13 @@ type UserServiceServer interface {
 func RegisterUserServiceServer(server UserServiceServer, opts ...ServerOption) error
 ```
 
-**OpenAPI Specifications** - Comprehensive API documentation:
+**OpenAPI Specifications** - Comprehensive API documentation (one file per service):
 ```yaml
+# UserService.openapi.yaml
 openapi: 3.1.0
+info:
+  title: UserService API
+  version: 1.0.0
 paths:
   /api/v1/users:
     post:

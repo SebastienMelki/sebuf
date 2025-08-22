@@ -697,21 +697,30 @@ service NotificationService {
 }
 ```
 
-All services are combined into a single OpenAPI specification with organized paths:
+**Each service generates its own OpenAPI specification file:**
 
+- `AuthService.openapi.yaml` - Contains authentication endpoints
+- `UserService.openapi.yaml` - Contains user management endpoints  
+- `NotificationService.openapi.yaml` - Contains notification endpoints
+
+This per-service approach provides:
+- **Better organization** - Each service has its own API documentation
+- **Independent versioning** - Services can evolve separately
+- **Easier deployment** - Deploy only the API specs you need
+- **Team ownership** - Different teams can manage their service docs
+
+Example `UserService.openapi.yaml`:
 ```yaml
+openapi: 3.1.0
+info:
+  title: UserService API
+  version: 1.0.0
 paths:
-  /auth/login:
-    post: { ... }
-  /auth/logout:
-    post: { ... }
-  /auth/refresh_token:
-    post: { ... }
   /user/create_user:
     post: { ... }
   /user/update_user:
     post: { ... }
-  /notification/send_email:
+  /user/delete_user:
     post: { ... }
 ```
 
@@ -721,7 +730,8 @@ paths:
 
 ```bash
 protoc --openapiv3_out=./docs api.proto
-# Generates: api.yaml
+# Generates: ServiceName.openapi.yaml for each service
+# Example: UserService.openapi.yaml, AdminService.openapi.yaml
 ```
 
 **Advantages:**
@@ -734,7 +744,8 @@ protoc --openapiv3_out=./docs api.proto
 
 ```bash
 protoc --openapiv3_out=./docs --openapiv3_opt=format=json api.proto
-# Generates: api.json
+# Generates: ServiceName.openapi.json for each service
+# Example: UserService.openapi.json, AdminService.openapi.json
 ```
 
 **Advantages:**
@@ -743,12 +754,16 @@ protoc --openapiv3_out=./docs --openapiv3_opt=format=json api.proto
 - Smaller file size
 - Direct use in JavaScript applications
 
-### Custom Filename
+### File Naming Convention
 
-```bash
-protoc --openapiv3_out=./docs --openapiv3_opt=filename=my_api.yaml api.proto
-# Generates: my_api.yaml
-```
+The plugin automatically generates one file per service with the naming pattern:
+- YAML: `{ServiceName}.openapi.yaml`
+- JSON: `{ServiceName}.openapi.json`
+
+This ensures:
+- No file conflicts when multiple services exist
+- Clear association between service and its documentation
+- Easy to manage and deploy individual service specs
 
 ## Integration with HTTP Generation
 
