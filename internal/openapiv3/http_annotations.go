@@ -97,7 +97,7 @@ func buildHTTPPath(servicePath, methodPath string) string {
 	// Clean and combine paths
 	servicePath = strings.TrimSuffix(ensureLeadingSlash(servicePath), "/")
 	methodPath = strings.TrimPrefix(methodPath, "/")
-	
+
 	return servicePath + "/" + methodPath
 }
 

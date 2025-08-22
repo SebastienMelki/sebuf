@@ -2,7 +2,7 @@ package openapiv3
 
 import (
 	"fmt"
-	
+
 	"github.com/pb33f/libopenapi/datamodel/high/base"
 	"google.golang.org/protobuf/compiler/protogen"
 	"google.golang.org/protobuf/proto"

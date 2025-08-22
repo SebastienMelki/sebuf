@@ -1,7 +1,7 @@
 # This file is licensed under the terms of the MIT license https://opensource.org/license/mit
 # Copyright (c) 2021-2025 Marat Reymers
 
-## Golden config for golangci-lint v2.4.0
+## Golden config for golangci-lint v2.1.6
 #
 # This is the best config for golangci-lint based on my experience and opinion.
 # It is very strict, but not extremely strict.
@@ -22,12 +22,6 @@ formatters:
   enable:
     - goimports # checks if the code and import statements are formatted according to the 'goimports' command
     - golines # checks if code is formatted, and fixes long lines
-
-    ## you may want to enable
-    #- gci # checks if code and import statements are formatted, with additional rules
-    #- gofmt # checks if the code is formatted according to 'gofmt' command
-    #- gofumpt # enforces a stricter format than 'gofmt', while being backwards compatible
-    #- swaggo # formats swaggo comments
 
   # All settings can be found here https://github.com/golangci/golangci-lint/blob/HEAD/.golangci.reference.yml
   settings:
@@ -55,7 +49,6 @@ linters:
     - depguard # checks if package imports are in a list of acceptable packages
     - dupl # tool for code clone detection
     - durationcheck # checks for two durations multiplied together
-    - embeddedstructfieldcheck # checks embedded types in structs
     - errcheck # checking for unchecked errors, these unchecked errors can be critical bugs in some cases
     - errname # checks that sentinel errors are prefixed with the Err and error types are suffixed with the Error
     - errorlint # finds code that will cause problems with the error wrapping scheme introduced in Go 1.13
@@ -217,10 +210,6 @@ linters:
             - pkg: log$
               desc: Use log/slog instead, see https://go.dev/blog/slog
 
-    embeddedstructfieldcheck:
-      # Checks that sync.Mutex and sync.RWMutex are not used as embedded fields.
-      # Default: false
-      forbid-mutex: true
 
     errcheck:
       # Report about not checking of errors in type assertions: `a := b.(MyStruct)`.
@@ -267,9 +256,6 @@ linters:
         - ^golang.org/x/tools/go/analysis.Analyzer$
         - ^google.golang.org/protobuf/.+Options$
         - ^gopkg.in/yaml.v3.Node$
-      # Allows empty structures in return statements.
-      # Default: false
-      allow-empty-returns: true
 
     funcorder:
       # Checks if the exported methods of a structure are placed before the non-exported ones.

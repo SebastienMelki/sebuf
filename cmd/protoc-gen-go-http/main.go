@@ -12,7 +12,7 @@ func main() {
 	var flags flag.FlagSet
 	var generateMock bool
 	flags.BoolVar(&generateMock, "generate_mock", false, "generate mock server implementation")
-	
+
 	options := protogen.Options{
 		ParamFunc: flags.Set,
 	}
