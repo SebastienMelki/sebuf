@@ -105,11 +105,11 @@
       "coverage": 0.0
     },
     {
-      "file": "github.com/SebastienMelki/sebuf/internal/openapiv3/http_annotations.go:205:",
+      "file": "github.com/SebastienMelki/sebuf/internal/openapiv3/http_annotations.go:222:",
       "coverage": 0.0
     },
     {
-      "file": "github.com/SebastienMelki/sebuf/internal/openapiv3/http_annotations.go:256:",
+      "file": "github.com/SebastienMelki/sebuf/internal/openapiv3/http_annotations.go:273:",
       "coverage": 0.0
     },
     {
@@ -169,5 +169,5 @@
       "coverage": 0.0
     }
   ],
-  "total_coverage": 9.9
+  "total_coverage": 9.8
 }
