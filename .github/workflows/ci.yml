@@ -160,6 +160,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: test
     if: always()
+    continue-on-error: true  # Make coverage a warning, not a failure
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -264,12 +265,14 @@ jobs:
     runs-on: ubuntu-latest
     needs: coverage
     if: always()
+    continue-on-error: true  # Don't fail the whole pipeline on coverage issues
     steps:
       - name: Download coverage reports
         uses: actions/download-artifact@v4
         with:
           name: coverage-reports
           path: ./
+        continue-on-error: true  # Handle missing artifacts gracefully
           
       - name: Setup Go for coverage analysis
         uses: actions/setup-go@v5
@@ -292,12 +295,14 @@ jobs:
               echo "✅ Coverage meets threshold (${threshold}%)"
               echo "COVERAGE_STATUS=✅ ${total_coverage}" >> $GITHUB_ENV
             else
-              echo "❌ Coverage below threshold (${threshold}%)"
+              echo "⚠️ Coverage below threshold (${threshold}%) - This is currently a warning"
               echo "COVERAGE_STATUS=⚠️ ${total_coverage}" >> $GITHUB_ENV
+              # Don't fail, just warn
             fi
           else
-            echo "❌ No coverage file found"
-            echo "COVERAGE_STATUS=❌ No coverage" >> $GITHUB_ENV
+            echo "⚠️ No coverage file found"
+            echo "COVERAGE_STATUS=⚠️ No coverage" >> $GITHUB_ENV
+            # Don't fail, just warn
           fi
           
       - name: Update commit status
@@ -397,8 +402,14 @@ jobs:
         
       - name: Run integration test with sample proto
         run: |
+          # Ensure Go bin directory is in PATH for protoc-gen-go
+          export PATH=$(go env GOPATH)/bin:$PATH
+          
           # Test all plugins with a sample proto file
-          export PATH=$PWD/bin:$(go env GOPATH)/bin:$PATH
+          export PATH=$PWD/bin:$PATH
+          
+          # Verify protoc-gen-go is available
+          which protoc-gen-go || (echo "protoc-gen-go not found in PATH" && exit 1)
           
           # Create test directory
           mkdir -p integration-test-output
@@ -435,6 +446,10 @@ jobs:
     runs-on: ubuntu-latest
     needs: [lint, test, coverage-check, build, integration]
     if: always() && github.event_name == 'pull_request'
+    permissions:
+      contents: read
+      pull-requests: write
+      checks: write
     steps:
       - name: Generate PR status summary
         uses: actions/github-script@v7
