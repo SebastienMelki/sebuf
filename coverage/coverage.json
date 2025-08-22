@@ -43,7 +43,131 @@
     {
       "file": "github.com/SebastienMelki/sebuf/internal/oneofhelper/generator.go:227:",
       "coverage": 7.7
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/internal/openapiv3/generator.go:32:",
+      "coverage": 100.0
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/internal/openapiv3/generator.go:56:",
+      "coverage": 0.0
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/internal/openapiv3/generator.go:62:",
+      "coverage": 0.0
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/internal/openapiv3/generator.go:71:",
+      "coverage": 0.0
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/internal/openapiv3/generator.go:83:",
+      "coverage": 0.0
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/internal/openapiv3/generator.go:116:",
+      "coverage": 0.0
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/internal/openapiv3/generator.go:123:",
+      "coverage": 0.0
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/internal/openapiv3/generator.go:229:",
+      "coverage": 70.0
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/internal/openapiv3/http_annotations.go:27:",
+      "coverage": 0.0
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/internal/openapiv3/http_annotations.go:56:",
+      "coverage": 0.0
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/internal/openapiv3/http_annotations.go:85:",
+      "coverage": 0.0
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/internal/openapiv3/http_annotations.go:105:",
+      "coverage": 0.0
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/internal/openapiv3/http_annotations.go:116:",
+      "coverage": 0.0
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/internal/openapiv3/http_annotations.go:143:",
+      "coverage": 0.0
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/internal/openapiv3/http_annotations.go:170:",
+      "coverage": 0.0
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/internal/openapiv3/http_annotations.go:205:",
+      "coverage": 0.0
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/internal/openapiv3/http_annotations.go:256:",
+      "coverage": 0.0
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/internal/openapiv3/types.go:18:",
+      "coverage": 0.0
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/internal/openapiv3/types.go:52:",
+      "coverage": 0.0
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/internal/openapiv3/types.go:143:",
+      "coverage": 0.0
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/internal/openapiv3/types.go:173:",
+      "coverage": 0.0
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/internal/openapiv3/types.go:217:",
+      "coverage": 0.0
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/internal/openapiv3/validation.go:16:",
+      "coverage": 0.0
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/internal/openapiv3/validation.go:69:",
+      "coverage": 0.0
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/internal/openapiv3/validation.go:134:",
+      "coverage": 0.0
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/internal/openapiv3/validation.go:185:",
+      "coverage": 0.0
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/internal/openapiv3/validation.go:236:",
+      "coverage": 0.0
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/internal/openapiv3/validation.go:287:",
+      "coverage": 0.0
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/internal/openapiv3/validation.go:338:",
+      "coverage": 0.0
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/internal/openapiv3/validation.go:364:",
+      "coverage": 0.0
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/internal/openapiv3/validation.go:384:",
+      "coverage": 0.0
     }
   ],
-  "total_coverage": 41.7
+  "total_coverage": 9.9
 }
