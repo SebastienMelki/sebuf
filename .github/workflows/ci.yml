@@ -247,7 +247,7 @@ jobs:
           
       - name: Comment PR with coverage
         if: github.event_name == 'pull_request'
-        uses: fgrosse/go-coverage-report@v1.0.2
+        uses: fgrosse/go-coverage-report@v1.2.0
         continue-on-error: true  # Don't fail on coverage reporting issues
         with:
           coverage-artifact-name: test-results-ubuntu-latest-go1.24
