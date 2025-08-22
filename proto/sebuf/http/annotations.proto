@@ -38,3 +38,18 @@ message FieldExamples {
 extend google.protobuf.FieldOptions {
   FieldExamples field_examples = 50007;
 }
+
+// ErrorConfig defines error handling configuration for methods
+message ErrorConfig {
+  // Whether to use custom error types (looks for ${RpcName}Error message)
+  bool custom_error = 1;
+  
+  // Default HTTP status code for errors (if not using custom errors)
+  int32 default_status_code = 2;
+}
+
+// Extension for method-level error configuration
+extend google.protobuf.MethodOptions {
+  ErrorConfig error_config = 50008;
+}
+
