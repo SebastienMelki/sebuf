@@ -104,11 +104,21 @@ func (g *Generator) generateHTTPFile(file *protogen.File) error {
 func (g *Generator) generateService(gf *protogen.GeneratedFile, file *protogen.File, service *protogen.Service) error {
 	serviceName := service.GoName
 
+	// Generate custom error implementations for methods that need them
+	for _, method := range service.Methods {
+		if shouldUseCustomError(method) {
+			if customError := findCustomErrorMessage(method, file); customError != nil {
+				g.generateCustomErrorImpl(gf, customError, method)
+			}
+		}
+	}
+
 	// Generate service interface
 	gf.P("// ", serviceName, "Server is the server API for ", serviceName, " service.")
 	gf.P("type ", serviceName, "Server interface {")
 	for _, method := range service.Methods {
-		gf.P(method.GoName, "(context.Context, *", method.Input.GoIdent, ") (*", method.Output.GoIdent, ", error)")
+		errorType := getErrorReturnType(method, file)
+		gf.P(method.GoName, "(context.Context, *", method.Input.GoIdent, ") (*", method.Output.GoIdent, ", ", errorType, ")")
 	}
 	gf.P("}")
 	gf.P()
@@ -204,6 +214,9 @@ func (g *Generator) generateBindingFile(file *protogen.File) error {
 	gf.P("type bodyCtxKey struct{}")
 	gf.P()
 
+	// Generate error handling code
+	g.generateErrorHandlingCode(gf)
+
 	// getRequest function
 	gf.P("func getRequest[Req any](ctx context.Context) Req {")
 	gf.P("val := ctx.Value(bodyCtxKey{})")
@@ -224,7 +237,12 @@ func (g *Generator) generateBindingFile(file *protogen.File) error {
 	gf.P("return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {")
 	gf.P("// Validate headers first")
 	gf.P("if err := validateHeaders(r, serviceHeaders, methodHeaders); err != nil {")
-	gf.P(`http.Error(w, fmt.Sprintf("header validation failed: %v", err), http.StatusBadRequest)`)
+	gf.P("// Convert to ValidationError with header violation")
+	gf.P("headerErr := convertHeaderValidationError(err)")
+	gf.P("errorBytes, statusCode := marshalError(r, headerErr)")
+	gf.P("w.Header().Set(\"Content-Type\", getResponseContentType(r))")
+	gf.P("w.WriteHeader(statusCode)")
+	gf.P("_, _ = w.Write(errorBytes)")
 	gf.P("return")
 	gf.P("}")
 	gf.P()
@@ -232,14 +250,29 @@ func (g *Generator) generateBindingFile(file *protogen.File) error {
 	gf.P()
 	gf.P("err := bindDataBasedOnContentType(r, toBind)")
 	gf.P("if err != nil {")
-	gf.P(`http.Error(w, "bad request", http.StatusBadRequest)`)
+	gf.P("// Handle binding error as bad request")
+	gf.P("bindErr := &StandardErrorWrapper{")
+	gf.P("StandardError: &sebufhttp.StandardError{")
+	gf.P("Code: sebufhttp.HTTPStatusCode_BAD_REQUEST,")
+	gf.P(`Message: fmt.Sprintf("failed to parse request: %v", err),`)
+	gf.P("},")
+	gf.P("}")
+	gf.P("errorBytes, statusCode := marshalError(r, bindErr)")
+	gf.P("w.Header().Set(\"Content-Type\", getResponseContentType(r))")
+	gf.P("w.WriteHeader(statusCode)")
+	gf.P("_, _ = w.Write(errorBytes)")
 	gf.P("return")
 	gf.P("}")
 	gf.P()
 	gf.P("// Validate the message if it's a proto.Message")
 	gf.P("if msg, ok := any(toBind).(proto.Message); ok {")
 	gf.P("if err := ValidateMessage(msg); err != nil {")
-	gf.P(`http.Error(w, err.Error(), http.StatusBadRequest)`)
+	gf.P("// Convert to ValidationError and handle properly")
+	gf.P("validationErr := convertValidationError(err)")
+	gf.P("errorBytes, statusCode := marshalError(r, validationErr)")
+	gf.P("w.Header().Set(\"Content-Type\", getResponseContentType(r))")
+	gf.P("w.WriteHeader(statusCode)")
+	gf.P("_, _ = w.Write(errorBytes)")
 	gf.P("return")
 	gf.P("}")
 	gf.P("}")
@@ -333,44 +366,65 @@ func (g *Generator) generateBindingFile(file *protogen.File) error {
 	gf.P()
 	gf.P("response, err := serve(r.Context(), request)")
 	gf.P("if err != nil {")
-	gf.P(`http.Error(w, fmt.Sprintf("internal server error: %v", err), http.StatusInternalServerError)`)
+	gf.P("// Handle error with proper status code and marshaling")
+	gf.P("errorBytes, statusCode := marshalError(r, err)")
+	gf.P("w.Header().Set(\"Content-Type\", getResponseContentType(r))")
+	gf.P("w.WriteHeader(statusCode)")
+	gf.P("_, _ = w.Write(errorBytes)")
 	gf.P("return")
 	gf.P("}")
 	gf.P()
 	gf.P("responseBytes, err := marshalResponse(r, response)")
 	gf.P("if err != nil {")
-	gf.P(`http.Error(w, fmt.Sprintf("failed to marshal response: %v", err), http.StatusInternalServerError)`)
+	gf.P("// Marshal error response")
+	gf.P("errorBytes, statusCode := marshalError(r, err)")
+	gf.P("w.Header().Set(\"Content-Type\", getResponseContentType(r))")
+	gf.P("w.WriteHeader(statusCode)")
+	gf.P("_, _ = w.Write(errorBytes)")
 	gf.P("return")
 	gf.P("}")
 	gf.P()
+	gf.P("w.Header().Set(\"Content-Type\", getResponseContentType(r))")
 	gf.P("_, err = w.Write(responseBytes)")
 	gf.P("if err != nil {")
-	gf.P(`http.Error(w, fmt.Sprintf("failed to write response: %v", err), http.StatusInternalServerError)`)
+	gf.P("// Log error but response is already partially sent")
+	gf.P("// In production, this should be logged")
 	gf.P("return")
 	gf.P("}")
 	gf.P("}")
 	gf.P("}")
 	gf.P()
 
-	// marshalResponse function
-	gf.P("func marshalResponse(r *http.Request, response any) ([]byte, error) {")
+	// getResponseContentType determines the response content type
+	gf.P("func getResponseContentType(r *http.Request) string {")
 	gf.P(`contentType := r.Header.Get("Content-Type")`)
-	gf.P("if contentType == \"\" {")
+	gf.P(`if contentType == "" {`)
+	gf.P(`contentType = r.Header.Get("Accept")`)
+	gf.P(`}`)
+	gf.P(`if contentType == "" {`)
 	gf.P("contentType = JSONContentType")
 	gf.P("}")
+	gf.P("return filterFlags(contentType)")
+	gf.P("}")
+	gf.P()
+
+	// marshalResponse function
+	gf.P("func marshalResponse(r *http.Request, response any) ([]byte, error) {")
+	gf.P("contentType := getResponseContentType(r)")
 	gf.P()
 	gf.P("msg, ok := response.(proto.Message)")
 	gf.P("if !ok {")
 	gf.P(`return nil, fmt.Errorf("response is not a protocol buffer message")`)
 	gf.P("}")
 	gf.P()
-	gf.P("switch filterFlags(contentType) {")
+	gf.P("switch contentType {")
 	gf.P("case JSONContentType:")
 	gf.P("return protojson.Marshal(msg)")
 	gf.P("case BinaryContentType, ProtoContentType:")
 	gf.P("return proto.Marshal(msg)")
 	gf.P("default:")
-	gf.P(`return nil, fmt.Errorf("unsupported content type: %s", contentType)`)
+	gf.P("// Default to JSON")
+	gf.P("return protojson.Marshal(msg)")
 	gf.P("}")
 	gf.P("}")
 	gf.P()
@@ -380,6 +434,27 @@ func (g *Generator) generateBindingFile(file *protogen.File) error {
 
 	// Generate header validation support
 	g.generateHeaderValidationFunctions(gf)
+
+	// Add convertHeaderValidationError function
+	gf.P("// convertHeaderValidationError converts header validation errors to ValidationError")
+	gf.P("func convertHeaderValidationError(err error) *ValidationErrorWrapper {")
+	gf.P("validationErr := &sebufhttp.ValidationError{")
+	gf.P(`Message: "Header validation failed",`)
+	gf.P("Violations: []*sebufhttp.ValidationError_Violation{")
+	gf.P("{")
+	gf.P("ViolationType: &sebufhttp.ValidationError_Violation_Header{")
+	gf.P("Header: &sebufhttp.ValidationError_HeaderViolation{")
+	gf.P("Name: \"\",") // TODO: Extract header name from error")
+	gf.P("Description: err.Error(),")
+	gf.P("Expected: \"\",")
+	gf.P("},")
+	gf.P("},")
+	gf.P("},")
+	gf.P("},")
+	gf.P("}")
+	gf.P("return &ValidationErrorWrapper{ValidationError: validationErr}")
+	gf.P("}")
+	gf.P()
 
 	return nil
 }
