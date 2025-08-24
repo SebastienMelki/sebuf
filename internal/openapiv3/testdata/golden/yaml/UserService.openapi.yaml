@@ -148,16 +148,3 @@ components:
                     type: string
                     description: Request data
             description: Generic request message
-        Response:
-            type: object
-            properties:
-                success:
-                    type: boolean
-                    description: Success indicator
-                message:
-                    type: string
-                    description: Response message
-                data:
-                    type: string
-                    description: Response data
-            description: Generic response message

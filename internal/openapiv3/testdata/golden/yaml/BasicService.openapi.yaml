@@ -97,29 +97,3 @@ components:
                     type: string
                     description: User ID to retrieve
             description: Get user request
-        UpdateUserRequest:
-            type: object
-            properties:
-                id:
-                    type: string
-                    description: User ID
-                user:
-                    $ref: '#/components/schemas/User'
-            description: Update user request
-        DeleteUserRequest:
-            type: object
-            properties:
-                id:
-                    type: string
-                    description: User ID to delete
-            description: Delete user request
-        DeleteUserResponse:
-            type: object
-            properties:
-                success:
-                    type: boolean
-                    description: Success indicator
-                message:
-                    type: string
-                    description: Status message
-            description: Delete user response

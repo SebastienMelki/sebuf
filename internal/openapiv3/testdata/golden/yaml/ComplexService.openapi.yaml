@@ -67,41 +67,15 @@ paths:
                                         type: integer
 components:
     schemas:
-        Address:
+        ComplexRequest:
             type: object
             properties:
-                street:
+                data:
+                    $ref: '#/components/schemas/ComplexMessage'
+                requestId:
                     type: string
-                    description: Street address
-                city:
-                    type: string
-                    description: City name
-                state:
-                    type: string
-                    description: State or province
-                postalCode:
-                    type: string
-                    description: Postal code
-                country:
-                    type: string
-                    description: Country name
-            description: Nested message for testing message references
-        UserProfile:
-            type: object
-            properties:
-                avatarUrl:
-                    type: string
-                    description: Profile avatar URL
-                bio:
-                    type: string
-                    description: User bio or description
-                language:
-                    type: string
-                    description: User's preferred language (ISO 639-1)
-                timezone:
-                    type: string
-                    description: User's timezone
-            description: User profile message
+                    description: Request ID
+            description: Request message using complex types
         ComplexMessage:
             type: object
             properties:
@@ -267,15 +241,41 @@ components:
                     type: string
                 value:
                     $ref: '#/components/schemas/UserProfile'
-        ComplexRequest:
+        Address:
             type: object
             properties:
-                data:
-                    $ref: '#/components/schemas/ComplexMessage'
-                requestId:
+                street:
                     type: string
-                    description: Request ID
-            description: Request message using complex types
+                    description: Street address
+                city:
+                    type: string
+                    description: City name
+                state:
+                    type: string
+                    description: State or province
+                postalCode:
+                    type: string
+                    description: Postal code
+                country:
+                    type: string
+                    description: Country name
+            description: Nested message for testing message references
+        UserProfile:
+            type: object
+            properties:
+                avatarUrl:
+                    type: string
+                    description: Profile avatar URL
+                bio:
+                    type: string
+                    description: User bio or description
+                language:
+                    type: string
+                    description: User's preferred language (ISO 639-1)
+                timezone:
+                    type: string
+                    description: User's timezone
+            description: User profile message
         ComplexResponse:
             type: object
             properties:

@@ -4,16 +4,20 @@ managed:
 plugins:
   - remote: buf.build/protocolbuffers/go
     out: api
-    opt: 
+    opt:
       - paths=source_relative
   - local: ../../bin/protoc-gen-go-oneof-helper
     out: api
-    opt: 
+    opt:
       - paths=source_relative
   - local: ../../bin/protoc-gen-go-http
     out: api
-    opt: 
+    opt:
       - paths=source_relative
       - generate_mock=true
   - local: ../../bin/protoc-gen-openapiv3
     out: docs
+  - local: ../../bin/protoc-gen-openapiv3
+    out: docs
+    opt:
+      - format=json

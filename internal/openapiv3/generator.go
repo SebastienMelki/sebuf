@@ -83,6 +83,59 @@ func (g *Generator) ProcessService(service *protogen.Service) {
 	g.processService(service)
 }
 
+// CollectReferencedMessages recursively collects all messages referenced by a service.
+// This includes input/output messages and all their nested field types.
+func (g *Generator) CollectReferencedMessages(service *protogen.Service) {
+	// Track processed messages to avoid infinite recursion
+	processed := make(map[string]bool)
+
+	// Collect messages from all methods
+	for _, method := range service.Methods {
+		g.collectMessageRecursive(method.Input, processed)
+		g.collectMessageRecursive(method.Output, processed)
+	}
+}
+
+// collectMessageRecursive recursively processes a message and all its dependencies.
+func (g *Generator) collectMessageRecursive(message *protogen.Message, processed map[string]bool) {
+	if message == nil {
+		return
+	}
+
+	// Use the fully qualified name as the key to avoid duplicates
+	key := string(message.Desc.FullName())
+	if processed[key] {
+		return
+	}
+	processed[key] = true
+
+	// Process this message
+	g.processMessage(message)
+
+	// Process all field types
+	for _, field := range message.Fields {
+		if field.Message != nil {
+			// Recursively process message fields
+			g.collectMessageRecursive(field.Message, processed)
+		}
+
+		// For maps, the value type might be a message
+		if field.Desc.IsMap() && field.Message != nil {
+			// Map entry messages have a value field (field 2)
+			for _, mapField := range field.Message.Fields {
+				if mapField.Desc.Number() == 2 && mapField.Message != nil {
+					g.collectMessageRecursive(mapField.Message, processed)
+				}
+			}
+		}
+	}
+
+	// Process nested messages
+	for _, nested := range message.Messages {
+		g.collectMessageRecursive(nested, processed)
+	}
+}
+
 // processMessage converts a protobuf message to an OpenAPI schema.
 func (g *Generator) processMessage(message *protogen.Message) {
 	schema := g.buildObjectSchema(message)
