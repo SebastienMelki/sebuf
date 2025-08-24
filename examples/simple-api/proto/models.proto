@@ -2,62 +2,10 @@ syntax = "proto3";
 
 package example.v1;
 
-import "sebuf/http/annotations.proto";
-import "sebuf/http/headers.proto";
 import "buf/validate/validate.proto";
+import "sebuf/http/annotations.proto";
 
-option go_package = "github.com/SebastienMelki/sebuf/examples/simple-api/api";
-
-// UserService manages users in the system
-service UserService {
-  option (sebuf.http.service_config) = { 
-    base_path: "/api/v1" 
-  };
-  option (sebuf.http.service_headers) = {
-    required_headers: [
-      {
-        name: "X-API-Key"
-        description: "API authentication key"
-        type: "string"
-        required: true
-        format: "uuid"
-        example: "123e4567-e89b-12d3-a456-426614174000"
-      }
-    ]
-  };
-  
-  // Create a new user
-  rpc CreateUser(CreateUserRequest) returns (User) {
-    option (sebuf.http.config) = { 
-      path: "/users" 
-    };
-  }
-  
-  // Get a user by ID
-  rpc GetUser(GetUserRequest) returns (User) {
-    option (sebuf.http.config) = { 
-      path: "/users/get" 
-    };
-  }
-  
-  // Login with different authentication methods
-  rpc Login(LoginRequest) returns (LoginResponse) {
-    option (sebuf.http.config) = { 
-      path: "/auth/login" 
-    };
-    option (sebuf.http.method_headers) = {
-      required_headers: [
-        {
-          name: "X-Request-ID"
-          description: "Unique request identifier for tracing"
-          type: "string"
-          required: true
-          format: "uuid"
-        }
-      ]
-    };
-  }
-}
+option go_package = "github.com/SebastienMelki/sebuf/examples/simple-api/api/proto";
 
 // User represents a system user
 message User {
@@ -174,38 +122,6 @@ message LoginResponse {
   string refresh_token = 2;
   int64 expires_in = 3;
   User user = 4;
-}
-
-// AdminService manages administrative operations
-service AdminService {
-  option (sebuf.http.service_config) = { 
-    base_path: "/api/v1/admin" 
-  };
-  option (sebuf.http.service_headers) = {
-    required_headers: [
-      {
-        name: "X-Admin-Token"
-        description: "Admin authentication token"
-        type: "string"
-        required: true
-        format: "uuid"
-      }
-    ]
-  };
-  
-  // Get system statistics
-  rpc GetStats(GetStatsRequest) returns (StatsResponse) {
-    option (sebuf.http.config) = { 
-      path: "/stats" 
-    };
-  }
-  
-  // Delete a user from the system
-  rpc DeleteUser(DeleteUserRequest) returns (DeleteUserResponse) {
-    option (sebuf.http.config) = { 
-      path: "/users/delete" 
-    };
-  }
 }
 
 // Request for system statistics
