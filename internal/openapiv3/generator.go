@@ -136,10 +136,43 @@ func (g *Generator) collectMessageRecursive(message *protogen.Message, processed
 	}
 }
 
+// getSchemaName generates a unique schema name for a protobuf message.
+// It uses the package name as a prefix to avoid collisions between messages
+// with the same name in different packages.
+func (g *Generator) getSchemaName(message *protogen.Message) string {
+	packageName := string(message.Desc.ParentFile().Package())
+	messageName := string(message.Desc.Name())
+	
+	// If no package or simple package name, just use the message name
+	if packageName == "" {
+		return messageName
+	}
+	
+	// Convert package separators to underscores and capitalize for schema names
+	// e.g., "api.models.v1" -> "ApiModelsV1_MessageName"
+	packageParts := strings.Split(packageName, ".")
+	var formattedParts []string
+	for _, part := range packageParts {
+		if part != "" {
+			// Capitalize first letter of each part
+			if len(part) > 0 {
+				formatted := strings.ToUpper(part[:1]) + strings.ToLower(part[1:])
+				formattedParts = append(formattedParts, formatted)
+			}
+		}
+	}
+	
+	if len(formattedParts) > 0 {
+		return strings.Join(formattedParts, "") + "_" + messageName
+	}
+	
+	return messageName
+}
+
 // processMessage converts a protobuf message to an OpenAPI schema.
 func (g *Generator) processMessage(message *protogen.Message) {
 	schema := g.buildObjectSchema(message)
-	schemaName := string(message.Desc.Name())
+	schemaName := g.getSchemaName(message)
 	g.schemas.Set(schemaName, schema)
 
 	// Process nested messages recursively
@@ -236,7 +269,7 @@ func (g *Generator) processMethod(service *protogen.Service, method *protogen.Me
 	}
 
 	// Add request body for the input message
-	inputSchemaRef := fmt.Sprintf("#/components/schemas/%s", method.Input.Desc.Name())
+	inputSchemaRef := fmt.Sprintf("#/components/schemas/%s", g.getSchemaName(method.Input))
 	operation.RequestBody = &v3.RequestBody{
 		Required: proto.Bool(true), // Convert bool to *bool
 		Content:  orderedmap.New[string, *v3.MediaType](),
@@ -246,7 +279,7 @@ func (g *Generator) processMethod(service *protogen.Service, method *protogen.Me
 	})
 
 	// Add response for the output message
-	outputSchemaRef := fmt.Sprintf("#/components/schemas/%s", method.Output.Desc.Name())
+	outputSchemaRef := fmt.Sprintf("#/components/schemas/%s", g.getSchemaName(method.Output))
 	responses := orderedmap.New[string, *v3.Response]()
 
 	successResponse := &v3.Response{

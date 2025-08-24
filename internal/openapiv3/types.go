@@ -96,12 +96,12 @@ func (g *Generator) convertScalarField(field *protogen.Field) *base.SchemaProxy 
 
 	case protoreflect.MessageKind:
 		// Reference to another message
-		return base.CreateSchemaProxyRef(fmt.Sprintf("#/components/schemas/%s", field.Message.Desc.Name()))
+		return base.CreateSchemaProxyRef(fmt.Sprintf("#/components/schemas/%s", g.getSchemaName(field.Message)))
 
 	case protoreflect.GroupKind:
 		// Groups are deprecated but still supported
 		if field.Message != nil {
-			return base.CreateSchemaProxyRef(fmt.Sprintf("#/components/schemas/%s", field.Message.Desc.Name()))
+			return base.CreateSchemaProxyRef(fmt.Sprintf("#/components/schemas/%s", g.getSchemaName(field.Message)))
 		}
 		schema.Type = []string{"object"}
 
