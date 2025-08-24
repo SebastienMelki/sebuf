@@ -1,17 +1,16 @@
 syntax = "proto3";
 
-package example.v1;
+package proto;
 
 import "sebuf/http/annotations.proto";
 import "sebuf/http/headers.proto";
 import "proto/models.proto";
 
-option go_package = "github.com/SebastienMelki/sebuf/examples/simple-api/api/proto";
 
 // UserService manages users in the system
 service UserService {
-  option (sebuf.http.service_config) = { 
-    base_path: "/api/v1" 
+  option (sebuf.http.service_config) = {
+    base_path: "/api/v1"
   };
   option (sebuf.http.service_headers) = {
     required_headers: [
@@ -25,25 +24,25 @@ service UserService {
       }
     ]
   };
-  
+
   // Create a new user
   rpc CreateUser(CreateUserRequest) returns (User) {
-    option (sebuf.http.config) = { 
-      path: "/users" 
+    option (sebuf.http.config) = {
+      path: "/users"
     };
   }
-  
+
   // Get a user by ID
   rpc GetUser(GetUserRequest) returns (User) {
-    option (sebuf.http.config) = { 
-      path: "/users/get" 
+    option (sebuf.http.config) = {
+      path: "/users/get"
     };
   }
-  
+
   // Login with different authentication methods
   rpc Login(LoginRequest) returns (LoginResponse) {
-    option (sebuf.http.config) = { 
-      path: "/auth/login" 
+    option (sebuf.http.config) = {
+      path: "/auth/login"
     };
     option (sebuf.http.method_headers) = {
       required_headers: [
@@ -61,8 +60,8 @@ service UserService {
 
 // AdminService manages administrative operations
 service AdminService {
-  option (sebuf.http.service_config) = { 
-    base_path: "/api/v1/admin" 
+  option (sebuf.http.service_config) = {
+    base_path: "/api/v1/admin"
   };
   option (sebuf.http.service_headers) = {
     required_headers: [
@@ -75,18 +74,18 @@ service AdminService {
       }
     ]
   };
-  
+
   // Get system statistics
   rpc GetStats(GetStatsRequest) returns (StatsResponse) {
-    option (sebuf.http.config) = { 
-      path: "/stats" 
+    option (sebuf.http.config) = {
+      path: "/stats"
     };
   }
-  
+
   // Delete a user from the system
   rpc DeleteUser(DeleteUserRequest) returns (DeleteUserResponse) {
-    option (sebuf.http.config) = { 
-      path: "/users/delete" 
+    option (sebuf.http.config) = {
+      path: "/users/delete"
     };
   }
 }
