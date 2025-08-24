@@ -1,11 +1,11 @@
 syntax = "proto3";
 
-package proto;
+package api.services;
 
 import "sebuf/http/annotations.proto";
 import "sebuf/http/headers.proto";
-import "proto/models.proto";
-
+import "proto/models/user.proto";
+import "proto/models/auth.proto";
 
 // UserService manages users in the system
 service UserService {
@@ -26,21 +26,21 @@ service UserService {
   };
 
   // Create a new user
-  rpc CreateUser(CreateUserRequest) returns (User) {
+  rpc CreateUser(api.models.CreateUserRequest) returns (api.models.User) {
     option (sebuf.http.config) = {
       path: "/users"
     };
   }
 
   // Get a user by ID
-  rpc GetUser(GetUserRequest) returns (User) {
+  rpc GetUser(api.models.GetUserRequest) returns (api.models.User) {
     option (sebuf.http.config) = {
       path: "/users/get"
     };
   }
 
   // Login with different authentication methods
-  rpc Login(LoginRequest) returns (LoginResponse) {
+  rpc Login(api.models.LoginRequest) returns (api.models.LoginResponse) {
     option (sebuf.http.config) = {
       path: "/auth/login"
     };
@@ -54,38 +54,6 @@ service UserService {
           format: "uuid"
         }
       ]
-    };
-  }
-}
-
-// AdminService manages administrative operations
-service AdminService {
-  option (sebuf.http.service_config) = {
-    base_path: "/api/v1/admin"
-  };
-  option (sebuf.http.service_headers) = {
-    required_headers: [
-      {
-        name: "X-Admin-Token"
-        description: "Admin authentication token"
-        type: "string"
-        required: true
-        format: "uuid"
-      }
-    ]
-  };
-
-  // Get system statistics
-  rpc GetStats(GetStatsRequest) returns (StatsResponse) {
-    option (sebuf.http.config) = {
-      path: "/stats"
-    };
-  }
-
-  // Delete a user from the system
-  rpc DeleteUser(DeleteUserRequest) returns (DeleteUserResponse) {
-    option (sebuf.http.config) = {
-      path: "/users/delete"
     };
   }
 }

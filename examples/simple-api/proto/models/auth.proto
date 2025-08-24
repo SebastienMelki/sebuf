@@ -1,0 +1,50 @@
+syntax = "proto3";
+
+package api.models;
+
+import "buf/validate/validate.proto";
+import "proto/models/user.proto";
+
+// Login request supporting multiple authentication methods
+message LoginRequest {
+  // Different ways to authenticate
+  oneof auth_method {
+    EmailAuth email = 1;
+    TokenAuth token = 2;
+    SocialAuth social = 3;
+  }
+}
+
+// Email and password authentication
+message EmailAuth {
+  // Email must be a valid email address
+  string email = 1 [(buf.validate.field).string.email = true];
+
+  // Password must be at least 8 characters
+  string password = 2 [(buf.validate.field).string.min_len = 8];
+}
+
+// Token-based authentication
+message TokenAuth {
+  // Token must be at least 10 characters and non-empty
+  string token = 1 [(buf.validate.field).string.min_len = 10];
+}
+
+// Social media authentication
+message SocialAuth {
+  // Provider must be one of the allowed values
+  string provider = 1 [(buf.validate.field).string = {
+    in: ["google", "github", "facebook", "apple"]
+  }];
+
+  // Access token must be non-empty and at least 20 characters
+  string access_token = 2 [(buf.validate.field).string.min_len = 20];
+}
+
+// Login response with access token
+message LoginResponse {
+  string access_token = 1;
+  string refresh_token = 2;
+  int64 expires_in = 3;
+  User user = 4;
+}
