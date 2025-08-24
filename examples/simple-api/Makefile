@@ -2,6 +2,7 @@
 
 # Complete demo workflow - installs tools, generates code, runs server
 demo:
+	@rm -rf api docs
 	@echo "🚀 Running sebuf demo..."
 #	@$(MAKE) install
 	@$(MAKE) generate
