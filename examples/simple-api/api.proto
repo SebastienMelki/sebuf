@@ -10,8 +10,8 @@ option go_package = "github.com/SebastienMelki/sebuf/examples/simple-api/api";
 
 // UserService manages users in the system
 service UserService {
-  option (sebuf.http.service_config) = { 
-    base_path: "/api/v1" 
+  option (sebuf.http.service_config) = {
+    base_path: "/api/v1"
   };
   option (sebuf.http.service_headers) = {
     required_headers: [
@@ -25,25 +25,29 @@ service UserService {
       }
     ]
   };
-  
+
   // Create a new user
   rpc CreateUser(CreateUserRequest) returns (User) {
-    option (sebuf.http.config) = { 
-      path: "/users" 
+    option (sebuf.http.error_config) = {
+      custom_error: true,
+    };
+
+    option (sebuf.http.config) = {
+      path: "/users"
     };
   }
-  
+
   // Get a user by ID
   rpc GetUser(GetUserRequest) returns (User) {
-    option (sebuf.http.config) = { 
-      path: "/users/get" 
+    option (sebuf.http.config) = {
+      path: "/users/get"
     };
   }
-  
+
   // Login with different authentication methods
   rpc Login(LoginRequest) returns (LoginResponse) {
-    option (sebuf.http.config) = { 
-      path: "/auth/login" 
+    option (sebuf.http.config) = {
+      path: "/auth/login"
     };
     option (sebuf.http.method_headers) = {
       required_headers: [
@@ -72,7 +76,7 @@ message User {
       ]
     }
   ];
-  
+
   // Name must be between 1 and 100 characters
   string name = 2 [
     (buf.validate.field).string = {
@@ -83,7 +87,7 @@ message User {
       values: ["Alice Johnson", "Bob Smith", "Charlie Davis", "Diana Wilson"]
     }
   ];
-  
+
   // Email must be a valid email address
   string email = 3 [
     (buf.validate.field).string.email = true,
@@ -96,11 +100,17 @@ message User {
       ]
     }
   ];
-  
+
   // Creation timestamp
   int64 created_at = 4 [(sebuf.http.field_examples) = {
     values: ["1704067200", "1704153600", "1704240000"]
   }];
+}
+
+
+message CreateUserError {
+  string bla = 1;
+  string error_message = 2;
 }
 
 // Request to create a new user
@@ -115,7 +125,7 @@ message CreateUserRequest {
       values: ["Alice Johnson", "Bob Smith", "Charlie Davis"]
     }
   ];
-  
+
   // Email is required and must be a valid email address
   string email = 2 [
     (buf.validate.field).string.email = true,
@@ -146,7 +156,7 @@ message LoginRequest {
 message EmailAuth {
   // Email must be a valid email address
   string email = 1 [(buf.validate.field).string.email = true];
-  
+
   // Password must be at least 8 characters
   string password = 2 [(buf.validate.field).string.min_len = 8];
 }
@@ -163,7 +173,7 @@ message SocialAuth {
   string provider = 1 [(buf.validate.field).string = {
     in: ["google", "github", "facebook", "apple"]
   }];
-  
+
   // Access token must be non-empty and at least 20 characters
   string access_token = 2 [(buf.validate.field).string.min_len = 20];
 }
@@ -178,8 +188,8 @@ message LoginResponse {
 
 // AdminService manages administrative operations
 service AdminService {
-  option (sebuf.http.service_config) = { 
-    base_path: "/api/v1/admin" 
+  option (sebuf.http.service_config) = {
+    base_path: "/api/v1/admin"
   };
   option (sebuf.http.service_headers) = {
     required_headers: [
@@ -192,18 +202,18 @@ service AdminService {
       }
     ]
   };
-  
+
   // Get system statistics
   rpc GetStats(GetStatsRequest) returns (StatsResponse) {
-    option (sebuf.http.config) = { 
-      path: "/stats" 
+    option (sebuf.http.config) = {
+      path: "/stats"
     };
   }
-  
+
   // Delete a user from the system
   rpc DeleteUser(DeleteUserRequest) returns (DeleteUserResponse) {
-    option (sebuf.http.config) = { 
-      path: "/users/delete" 
+    option (sebuf.http.config) = {
+      path: "/users/delete"
     };
   }
 }
@@ -227,7 +237,7 @@ message StatsResponse {
 message DeleteUserRequest {
   // User ID must be a valid UUID
   string id = 1 [(buf.validate.field).string.uuid = true];
-  
+
   // Reason for deletion
   string reason = 2 [(buf.validate.field).string.min_len = 5];
 }

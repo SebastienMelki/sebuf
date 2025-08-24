@@ -79,14 +79,34 @@ func (g *Generator) generateFile(file *protogen.File) error {
 	return nil
 }
 
+// fileNeedsFmtImport checks if the file needs fmt import for custom error implementations
+func (g *Generator) fileNeedsFmtImport(file *protogen.File) bool {
+	for _, service := range file.Services {
+		for _, method := range service.Methods {
+			if shouldUseCustomError(method) {
+				if customError := findCustomErrorMessage(method, file); customError != nil {
+					return true
+				}
+			}
+		}
+	}
+	return false
+}
+
 func (g *Generator) generateHTTPFile(file *protogen.File) error {
 	filename := file.GeneratedFilenamePrefix + "_http.pb.go"
 	gf := g.plugin.NewGeneratedFile(filename, file.GoImportPath)
 
 	g.writeHeader(gf, file)
 
+	// Check if any custom errors need to be generated
+	needsFmtImport := g.fileNeedsFmtImport(file)
+
 	gf.P("import (")
 	gf.P(`"context"`)
+	if needsFmtImport {
+		gf.P(`"fmt"`)
+	}
 	gf.P()
 	gf.P(`sebufhttp "github.com/SebastienMelki/sebuf/http"`)
 	gf.P(")")

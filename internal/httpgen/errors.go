@@ -302,11 +302,7 @@ func (g *Generator) generateCustomErrorImpl(gf *protogen.GeneratedFile, message 
 }
 
 // getErrorReturnType determines what error type a method should return
+// Always returns "error" for interface compatibility with genericHandler
 func getErrorReturnType(method *protogen.Method, file *protogen.File) string {
-	if shouldUseCustomError(method) {
-		if customError := findCustomErrorMessage(method, file); customError != nil {
-			return "*" + customError.GoIdent.GoName
-		}
-	}
 	return "error"
 }
