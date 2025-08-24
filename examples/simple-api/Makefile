@@ -3,8 +3,8 @@
 # Complete demo workflow - installs tools, generates code, runs server
 demo:
 	@echo "🚀 Running sebuf demo..."
-	@$(MAKE) install
-	@$(MAKE) generate  
+#	@$(MAKE) install
+	@$(MAKE) generate
 	@echo ""
 	@echo "✅ Demo ready! Starting server..."
 	@echo ""

@@ -1,0 +1,51 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(go get:*)",
+      "Bash(rm:*)",
+      "WebFetch(domain:pkg.go.dev)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(find:*)",
+      "Bash(go list:*)",
+      "Bash(go mod:*)",
+      "Bash(make:*)",
+      "Bash(go run:*)",
+      "Bash(git reset:*)",
+      "Bash(go doc:*)",
+      "Bash(mv:*)",
+      "WebSearch",
+      "Bash(mkdir:*)",
+      "WebFetch(domain:connectrpc.com)",
+      "WebFetch(domain:openrouter.ai)",
+      "Bash(go build:*)",
+      "Bash(go test:*)",
+      "Bash(PATH=$PATH:../.. buf generate)",
+      "WebFetch(domain:github.com)",
+      "Bash(buf generate:*)",
+      "Bash(grep:*)",
+      "Bash(gtimeout:*)",
+      "Bash(PATH=$PATH:../../bin buf generate)",
+      "Bash(cat:*)",
+      "Bash(gh run list:*)",
+      "Bash(gh run view:*)",
+      "Bash(gh pr view:*)",
+      "Bash(protoc:*)",
+      "Bash(chmod:*)",
+      "Bash(scripts/generate_openapi_golden_files.sh:*)",
+      "Bash(bash:*)",
+      "Bash(buf mod update:*)",
+      "Bash(UPDATE_GOLDEN=1 go test -run TestExhaustiveGoldenFiles ./internal/openapiv3)",
+      "Bash(./generate_golden.sh:*)",
+      "Bash(UPDATE_GOLDEN=1 go test -run TestExhaustiveGoldenFiles)",
+      "Bash(git restore:*)"
+    ],
+    "deny": [],
+    "ask": [],
+    "defaultMode": "acceptEdits",
+    "additionalDirectories": [
+      "/private/tmp",
+      "/Users/sebastienmelki/Documents/documents_sebastiens_macbook_air"
+    ]
+  }
+}
