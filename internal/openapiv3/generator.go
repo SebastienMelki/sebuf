@@ -136,37 +136,11 @@ func (g *Generator) collectMessageRecursive(message *protogen.Message, processed
 	}
 }
 
-// getSchemaName generates a unique schema name for a protobuf message.
-// It uses the package name as a prefix to avoid collisions between messages
-// with the same name in different packages.
+// getSchemaName generates a schema name for a protobuf message.
+// Since each service generates its own OpenAPI file, we can use simple message names
+// without package prefixes to avoid collisions.
 func (g *Generator) getSchemaName(message *protogen.Message) string {
-	packageName := string(message.Desc.ParentFile().Package())
-	messageName := string(message.Desc.Name())
-	
-	// If no package or simple package name, just use the message name
-	if packageName == "" {
-		return messageName
-	}
-	
-	// Convert package separators to underscores and capitalize for schema names
-	// e.g., "api.models.v1" -> "ApiModelsV1_MessageName"
-	packageParts := strings.Split(packageName, ".")
-	var formattedParts []string
-	for _, part := range packageParts {
-		if part != "" {
-			// Capitalize first letter of each part
-			if len(part) > 0 {
-				formatted := strings.ToUpper(part[:1]) + strings.ToLower(part[1:])
-				formattedParts = append(formattedParts, formatted)
-			}
-		}
-	}
-	
-	if len(formattedParts) > 0 {
-		return strings.Join(formattedParts, "") + "_" + messageName
-	}
-	
-	return messageName
+	return string(message.Desc.Name())
 }
 
 // processMessage converts a protobuf message to an OpenAPI schema.
