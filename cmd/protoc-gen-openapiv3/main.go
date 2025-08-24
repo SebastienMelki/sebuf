@@ -77,7 +77,7 @@ func processFileServices(plugin *protogen.Plugin, file *protogen.File, format op
 }
 
 func createServiceGenerator(
-	file *protogen.File,
+	_ *protogen.File,
 	service *protogen.Service,
 	format openapiv3.OutputFormat,
 ) *openapiv3.Generator {
