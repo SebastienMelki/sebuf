@@ -1,23 +1,52 @@
+# Buf code generation configuration v2
 version: v2
+
+# Managed mode - automatically manages go_package options
 managed:
   enabled: true
+  override:
+    # Set default Go package prefix for generated code
+    - file_option: go_package_prefix
+      value: github.com/SebastienMelki/sebuf/examples/simple-api/api
+    # Disable package prefix for Google APIs (use their standard packages)
+    - file_option: go_package_prefix
+      module: buf.build/googleapis/googleapis
+      value: ""
+    # Disable package prefix for protovalidate (use their standard packages)
+    - file_option: go_package_prefix
+      module: buf.build/bufbuild/protovalidate
+      value: ""
+    # Disable package prefix for sebuf (use standard import path)
+    - file_option: go_package_prefix
+      module: buf.build/sebmelki/sebuf
+      value: ""
+
+# Local protoc plugins (installed via make install)
 plugins:
-  - remote: buf.build/protocolbuffers/go
-    out: api
-    opt:
-      - paths=source_relative
+  # Standard Go protobuf code generation
+  - local: protoc-gen-go
+    out: ./api
+    opt: module=github.com/SebastienMelki/sebuf/examples/simple-api/api/proto
+
+  # Custom oneof helper utilities
   - local: ../../bin/protoc-gen-go-oneof-helper
     out: api
     opt:
-      - paths=source_relative
+      - module=github.com/SebastienMelki/sebuf/examples/simple-api/api/proto
+
+  # OpenAPI v3 documentation generation in YAML format
+  - local: ../../bin/protoc-gen-openapiv3
+    out: ./docs
+
+  # OpenAPI v3 documentation generation in JSON format
+  - local: ../../bin/protoc-gen-openapiv3
+    out: ./docs
+    opt:
+      - format=json
+
+  # HTTP service generation (custom)
   - local: ../../bin/protoc-gen-go-http
     out: api
     opt:
-      - paths=source_relative
+      - module=github.com/SebastienMelki/sebuf/examples/simple-api/api/proto
       - generate_mock=true
-  - local: ../../bin/protoc-gen-openapiv3
-    out: docs
-  - local: ../../bin/protoc-gen-openapiv3
-    out: docs
-    opt:
-      - format=json

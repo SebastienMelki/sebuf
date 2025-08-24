@@ -1,4 +1,15 @@
 version: v2
 deps:
-  - buf.build/sebmelki/sebuf
   - buf.build/bufbuild/protovalidate
+  - buf.build/sebmelki/sebuf
+lint:
+  use:
+    - DEFAULT
+    - COMMENTS
+  enum_zero_value_suffix: _UNSPECIFIED
+  service_suffix: Service
+breaking:
+  use:
+    - FILE
+    - PACKAGE
+    - WIRE_JSON
