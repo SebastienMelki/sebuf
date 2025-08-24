@@ -67,6 +67,16 @@ paths:
                                         type: integer
 components:
     schemas:
+        NestedRequest:
+            type: object
+            properties:
+                organization:
+                    $ref: '#/components/schemas/Organization'
+                projects:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/Project'
+            description: Request containing nested messages
         Organization:
             type: object
             properties:
@@ -312,16 +322,6 @@ components:
                         type: string
                         description: Task dependencies
             description: Tasks within phase
-        NestedRequest:
-            type: object
-            properties:
-                organization:
-                    $ref: '#/components/schemas/Organization'
-                projects:
-                    type: array
-                    items:
-                        $ref: '#/components/schemas/Project'
-            description: Request containing nested messages
         NestedResponse:
             type: object
             properties:

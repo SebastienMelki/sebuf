@@ -146,22 +146,6 @@ paths:
                                         type: integer
 components:
     schemas:
-        User:
-            type: object
-            properties:
-                id:
-                    type: string
-                    description: User ID
-                name:
-                    type: string
-                    description: User name
-                email:
-                    type: string
-                    description: User email
-                role:
-                    type: string
-                    description: User role
-            description: User message used by multiple services
         Request:
             type: object
             properties:
