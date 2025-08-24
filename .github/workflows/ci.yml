@@ -407,12 +407,12 @@ jobs:
       - name: Make binaries executable
         run: chmod +x bin/*
         
-      - name: Run integration test with sample proto
+      - name: Run integration test with sample proto files
         run: |
           # Ensure Go bin directory is in PATH for protoc-gen-go
           export PATH=$(go env GOPATH)/bin:$PATH
           
-          # Test all plugins with a sample proto file
+          # Test all plugins with sample proto files
           export PATH=$PWD/bin:$PATH
           
           # Verify protoc-gen-go is available
@@ -424,7 +424,19 @@ jobs:
           # Create test directory
           mkdir -p integration-test-output
           
-          # Run protoc with all plugins
+          echo "🔍 Testing oneof helper with simple_oneof.proto (no services)..."
+          # Test oneof helper with simple_oneof.proto (no services)
+          protoc \
+            --plugin=protoc-gen-go-oneof-helper=bin/protoc-gen-go-oneof-helper \
+            --go_out=integration-test-output \
+            --go_opt=module=github.com/SebastienMelki/sebuf \
+            --go-oneof-helper_out=integration-test-output \
+            --go-oneof-helper_opt=module=github.com/SebastienMelki/sebuf \
+            --proto_path=internal/oneofhelper/testdata/proto \
+            internal/oneofhelper/testdata/proto/simple_oneof.proto
+          
+          echo "🔍 Testing all plugins with simple_service.proto (has services)..."
+          # Test all plugins with simple_service.proto (has services)
           protoc \
             --plugin=protoc-gen-go-oneof-helper=bin/protoc-gen-go-oneof-helper \
             --plugin=protoc-gen-go-http=bin/protoc-gen-go-http \
@@ -436,15 +448,15 @@ jobs:
             --go-http_out=integration-test-output \
             --go-http_opt=module=github.com/SebastienMelki/sebuf \
             --openapiv3_out=integration-test-output \
-            --proto_path=internal/oneofhelper/testdata/proto \
-            internal/oneofhelper/testdata/proto/simple_oneof.proto
+            --proto_path=internal/openapiv3/testdata/proto \
+            internal/openapiv3/testdata/proto/simple_service.proto
           
           # Debug: List all generated files
-          echo "Generated files:"
+          echo "📁 Generated files:"
           find integration-test-output -type f -name "*.go" -o -name "*.yaml" | sort
           
-          # Verify outputs were generated
-          echo "Checking for required files..."
+          # Verify oneof helper output
+          echo "✅ Checking oneof helper outputs..."
           if [ -f "integration-test-output/internal/oneofhelper/testdata/simple_oneof_helpers.pb.go" ]; then
             echo "✅ simple_oneof_helpers.pb.go found"
           else
@@ -452,20 +464,23 @@ jobs:
             exit 1
           fi
           
-          if [ -f "integration-test-output/internal/oneofhelper/testdata/simple_oneof_http.pb.go" ]; then
-            echo "✅ simple_oneof_http.pb.go found"
+          # Verify HTTP handler output for service proto
+          echo "✅ Checking HTTP handler outputs..."
+          if [ -f "integration-test-output/internal/openapiv3/testdata/simple/simple_service_http.pb.go" ]; then
+            echo "✅ simple_service_http.pb.go found"
           else
-            echo "⚠️ simple_oneof_http.pb.go missing (may not be generated for this proto)"
-            # Don't fail for this file - it might not be generated for simple oneofs
+            echo "❌ simple_service_http.pb.go missing"
+            exit 1
           fi
           
-          # Check for service-specific OpenAPI files (one per service)
+          # Verify OpenAPI output for service proto (this should exist!)
+          echo "✅ Checking OpenAPI outputs..."
           openapi_files=$(find integration-test-output -name "*.openapi.yaml" | wc -l)
           if [ "$openapi_files" -gt 0 ]; then
             echo "✅ Found $openapi_files OpenAPI service file(s)"
-            find integration-test-output -name "*.openapi.yaml" | head -5
+            find integration-test-output -name "*.openapi.yaml"
           else
-            echo "❌ No service-specific OpenAPI files found (*.openapi.yaml)"
+            echo "❌ No OpenAPI files found - this should not happen with simple_service.proto"
             echo "Available YAML files:"
             find integration-test-output -name "*.yaml" -o -name "*.yml" || echo "No YAML files found"
             exit 1
