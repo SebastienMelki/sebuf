@@ -26,13 +26,13 @@ plugins:
   # Standard Go protobuf code generation
   - local: protoc-gen-go
     out: ./api
-    opt: module=github.com/SebastienMelki/sebuf/examples/simple-api/api/proto
+    opt: module=github.com/SebastienMelki/sebuf/examples/simple-api/api
 
   # Custom oneof helper utilities
   - local: ../../bin/protoc-gen-go-oneof-helper
     out: api
     opt:
-      - module=github.com/SebastienMelki/sebuf/examples/simple-api/api/proto
+      - module=github.com/SebastienMelki/sebuf/examples/simple-api/api
 
   # OpenAPI v3 documentation generation in YAML format
   - local: ../../bin/protoc-gen-openapiv3
@@ -48,5 +48,5 @@ plugins:
   - local: ../../bin/protoc-gen-go-http
     out: api
     opt:
-      - module=github.com/SebastienMelki/sebuf/examples/simple-api/api/proto
+      - module=github.com/SebastienMelki/sebuf/examples/simple-api/api
       - generate_mock=true
