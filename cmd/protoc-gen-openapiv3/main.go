@@ -83,10 +83,8 @@ func createServiceGenerator(
 ) *openapiv3.Generator {
 	generator := openapiv3.NewGenerator(format)
 
-	// Process all messages from the file (needed for schemas)
-	for _, message := range file.Messages {
-		generator.ProcessMessage(message)
-	}
+	// Collect all messages referenced by this service, including those from other files
+	generator.CollectReferencedMessages(service)
 
 	generator.ProcessService(service)
 	return generator
