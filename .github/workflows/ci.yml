@@ -459,10 +459,15 @@ jobs:
             # Don't fail for this file - it might not be generated for simple oneofs
           fi
           
-          if [ -f "integration-test-output/openapi.yaml" ]; then
-            echo "✅ openapi.yaml found"
+          # Check for service-specific OpenAPI files (one per service)
+          openapi_files=$(find integration-test-output -name "*.openapi.yaml" | wc -l)
+          if [ "$openapi_files" -gt 0 ]; then
+            echo "✅ Found $openapi_files OpenAPI service file(s)"
+            find integration-test-output -name "*.openapi.yaml" | head -5
           else
-            echo "❌ openapi.yaml missing"
+            echo "❌ No service-specific OpenAPI files found (*.openapi.yaml)"
+            echo "Available YAML files:"
+            find integration-test-output -name "*.yaml" -o -name "*.yml" || echo "No YAML files found"
             exit 1
           fi
           
