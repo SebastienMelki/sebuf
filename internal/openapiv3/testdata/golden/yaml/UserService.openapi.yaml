@@ -31,6 +31,12 @@ paths:
                         application/json:
                             schema:
                                 $ref: '#/components/schemas/User'
+                "400":
+                    description: Validation error
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ValidationError'
                 default:
                     description: Error response
                     content:
@@ -70,6 +76,12 @@ paths:
                         application/json:
                             schema:
                                 $ref: '#/components/schemas/User'
+                "400":
+                    description: Validation error
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ValidationError'
                 default:
                     description: Error response
                     content:
@@ -109,6 +121,12 @@ paths:
                         application/json:
                             schema:
                                 $ref: '#/components/schemas/User'
+                "400":
+                    description: Validation error
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ValidationError'
                 default:
                     description: Error response
                     content:
@@ -122,6 +140,30 @@ paths:
                                         type: integer
 components:
     schemas:
+        FieldViolation:
+            type: object
+            properties:
+                field:
+                    type: string
+                    description: The field path that failed validation (e.g., 'user.email' for nested fields). For header validation, this will be the header name (e.g., 'X-API-Key')
+                description:
+                    type: string
+                    description: Human-readable description of the validation violation (e.g., 'must be a valid email address', 'required field missing')
+            required:
+                - field
+                - description
+            description: FieldViolation describes a single validation error for a specific field.
+        ValidationError:
+            type: object
+            properties:
+                violations:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/FieldViolation'
+                    description: List of validation violations
+            required:
+                - violations
+            description: ValidationError is returned when request validation fails. It contains a list of field violations describing what went wrong.
         User:
             type: object
             properties:

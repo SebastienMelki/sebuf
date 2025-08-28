@@ -19,6 +19,7 @@ A user management API with:
 - ✅ **Mock server generation** with realistic data from field examples
 - ✅ **Header validation** with type checking and format validation (UUID, email, datetime)
 - ✅ **Automatic request validation** using buf.validate annotations
+- ✅ **Structured error responses** with field-level validation details
 - ✅ **Multiple auth methods** (email, token, social) using oneof fields
 - ✅ **Helper functions** that eliminate protobuf boilerplate  
 - ✅ **OpenAPI documentation** that stays in sync automatically, including header parameters and examples
@@ -136,8 +137,7 @@ This creates:
 - `api/api_http*.pb.go` - HTTP server code
 - `api/api_http_mock.pb.go` - Mock server implementation (if enabled)
 - `api/api_helpers.pb.go` - Helper functions for oneof fields
-- `docs/UserService.openapi.yaml` - User service API documentation
-- `docs/AdminService.openapi.yaml` - Admin service API documentation (if multiple services exist)
+- `docs/UserService.openapi.yaml` - Complete API documentation with examples
 
 ### 4. Run the server
 
@@ -176,7 +176,14 @@ curl -X POST http://localhost:8080/api/v1/users \
     "name": "John Doe",
     "email": "john@example.com"
   }'
-# Error: Missing required header: X-API-Key
+# Response: 400 Bad Request
+# Body:
+{
+  "violations": [{
+    "field": "X-API-Key",
+    "description": "required header 'X-API-Key' is missing"
+  }]
+}
 ```
 
 #### Invalid header format (returns 400)
@@ -188,14 +195,21 @@ curl -X POST http://localhost:8080/api/v1/users \
     "name": "John Doe",
     "email": "john@example.com"
   }'
-# Error: Invalid header X-API-Key: invalid UUID format
+# Response: 400 Bad Request
+# Body:
+{
+  "violations": [{
+    "field": "X-API-Key",
+    "description": "header 'X-API-Key' validation failed: invalid UUID format"
+  }]
+}
 ```
 
 ### Testing Body Validation
 Try creating a user with invalid data to see body validation in action (remember to include valid headers):
 
 ```bash
-# Invalid email (should return 400 Bad Request)
+# Invalid email (returns 400)
 curl -X POST http://localhost:8080/api/v1/users \
   -H "Content-Type: application/json" \
   -H "X-API-Key: 123e4567-e89b-12d3-a456-426614174000" \
@@ -203,8 +217,9 @@ curl -X POST http://localhost:8080/api/v1/users \
     "name": "John Doe",
     "email": "not-an-email"
   }'
+# Response: {"violations": [{"field": "email", "description": "value must be a valid email address"}]}
 
-# Name too short (should return 400 Bad Request)
+# Name too short (returns 400)
 curl -X POST http://localhost:8080/api/v1/users \
   -H "Content-Type: application/json" \
   -H "X-API-Key: 123e4567-e89b-12d3-a456-426614174000" \
@@ -212,15 +227,23 @@ curl -X POST http://localhost:8080/api/v1/users \
     "name": "J",
     "email": "john@example.com"
   }'
+# Response: {"violations": [{"field": "name", "description": "value length must be at least 2 runes"}]}
 
-# Empty name (should return 400 Bad Request)
+# Multiple validation failures (returns 400)
 curl -X POST http://localhost:8080/api/v1/users \
   -H "Content-Type: application/json" \
   -H "X-API-Key: 123e4567-e89b-12d3-a456-426614174000" \
   -d '{
-    "name": "",
-    "email": "john@example.com"
+    "name": "J",
+    "email": "invalid"
   }'
+# Response:
+{
+  "violations": [
+    {"field": "name", "description": "value length must be at least 2 runes"},
+    {"field": "email", "description": "value must be a valid email address"}
+  ]
+}
 ```
 
 ### Login with email (demonstrates oneof helpers and validation)
@@ -319,9 +342,8 @@ req := api.NewLoginRequestSocial("google", "oauth-token")
 
 ## View the API documentation
 
-After running `buf generate`, you'll find separate OpenAPI files for each service in the `docs/` directory:
-- `docs/UserService.openapi.yaml` - User management API documentation
-- `docs/AdminService.openapi.yaml` - Administrative API documentation
+After running `buf generate`, you'll find the OpenAPI documentation in the `docs/` directory:
+- `docs/UserService.openapi.yaml` - Complete API documentation with all endpoints
 
 The documentation includes:
 - All API endpoints with their paths
@@ -330,19 +352,17 @@ The documentation includes:
 - Validation constraints from buf.validate annotations
 
 ```bash
-# Quick view with Swagger UI (for UserService)
+# Quick view with Swagger UI
 docker run -p 8081:8080 -v $(pwd)/docs:/app swaggerapi/swagger-ui
 # Then visit http://localhost:8081/?url=/app/UserService.openapi.yaml
-
-# View AdminService documentation
-# Visit http://localhost:8081/?url=/app/AdminService.openapi.yaml
 ```
 
-Each OpenAPI spec will show:
-- Service-specific headers (e.g., `X-API-Key` for UserService, `X-Admin-Token` for AdminService)
-- Method-specific headers (e.g., `X-Request-ID` for certain endpoints)
+The OpenAPI spec shows:
+- Service-level headers (e.g., `X-API-Key` required for all endpoints)
+- Method-specific headers (e.g., `X-Request-ID` for CreateUser)
 - Complete validation rules for request bodies
 - Field examples for all fields with `(sebuf.http.field_examples)` annotations
+- Error response schemas for validation failures
 
 ## Explore the generated code
 

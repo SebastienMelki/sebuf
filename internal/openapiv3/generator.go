@@ -33,6 +33,9 @@ type Generator struct {
 func NewGenerator(format OutputFormat) *Generator {
 	schemas := orderedmap.New[string, *base.SchemaProxy]()
 
+	// Add built-in validation error schemas
+	addValidationErrorSchemas(schemas)
+
 	return &Generator{
 		format:  format,
 		schemas: schemas,
@@ -265,6 +268,16 @@ func (g *Generator) processMethod(service *protogen.Service, method *protogen.Me
 	})
 	responses.Set("200", successResponse)
 
+	// Add validation error response (400)
+	validationErrorResponse := &v3.Response{
+		Description: "Validation error",
+		Content:     orderedmap.New[string, *v3.MediaType](),
+	}
+	validationErrorResponse.Content.Set("application/json", &v3.MediaType{
+		Schema: base.CreateSchemaProxyRef("#/components/schemas/ValidationError"),
+	})
+	responses.Set("400", validationErrorResponse)
+
 	// Add default error response
 	errorSchema := base.CreateSchemaProxy(&base.Schema{
 		Type: []string{"object"},
@@ -299,6 +312,46 @@ func (g *Generator) processMethod(service *protogen.Service, method *protogen.Me
 	}
 
 	g.doc.Paths.PathItems.Set(path, pathItem)
+}
+
+// addValidationErrorSchemas adds the ValidationError and FieldViolation schemas to the components.
+func addValidationErrorSchemas(schemas *orderedmap.Map[string, *base.SchemaProxy]) {
+	// Add FieldViolation schema
+	fieldViolationProps := orderedmap.New[string, *base.SchemaProxy]()
+	fieldViolationProps.Set("field", base.CreateSchemaProxy(&base.Schema{
+		Type:        []string{"string"},
+		Description: "The field path that failed validation (e.g., 'user.email' for nested fields). For header validation, this will be the header name (e.g., 'X-API-Key')",
+	}))
+	fieldViolationProps.Set("description", base.CreateSchemaProxy(&base.Schema{
+		Type:        []string{"string"},
+		Description: "Human-readable description of the validation violation (e.g., 'must be a valid email address', 'required field missing')",
+	}))
+
+	fieldViolationSchema := base.CreateSchemaProxy(&base.Schema{
+		Type:        []string{"object"},
+		Description: "FieldViolation describes a single validation error for a specific field.",
+		Properties:  fieldViolationProps,
+		Required:    []string{"field", "description"},
+	})
+	schemas.Set("FieldViolation", fieldViolationSchema)
+
+	// Add ValidationError schema
+	validationErrorProps := orderedmap.New[string, *base.SchemaProxy]()
+	validationErrorProps.Set("violations", base.CreateSchemaProxy(&base.Schema{
+		Type:        []string{"array"},
+		Description: "List of validation violations",
+		Items: &base.DynamicValue[*base.SchemaProxy, bool]{
+			A: base.CreateSchemaProxyRef("#/components/schemas/FieldViolation"),
+		},
+	}))
+
+	validationErrorSchema := base.CreateSchemaProxy(&base.Schema{
+		Type:        []string{"object"},
+		Description: "ValidationError is returned when request validation fails. It contains a list of field violations describing what went wrong.",
+		Properties:  validationErrorProps,
+		Required:    []string{"violations"},
+	})
+	schemas.Set("ValidationError", validationErrorSchema)
 }
 
 // Render outputs the OpenAPI document in the specified format.

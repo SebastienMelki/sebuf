@@ -40,7 +40,6 @@ clean:
 	@rm -f *.pb.go
 	@rm -f *_helpers.pb.go
 	@rm -f *_http*.pb.go
-	@rm -f *.yaml *.json
 	@echo "✅ Cleaned generated files"
 
 # Test the API endpoints
