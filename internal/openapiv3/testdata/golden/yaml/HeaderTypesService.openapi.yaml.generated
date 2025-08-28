@@ -1,0 +1,143 @@
+openapi: 3.1.0
+info:
+    title: HeaderTypesService API
+    version: 1.0.0
+paths:
+    /types/formats:
+        post:
+            tags:
+                - HeaderTypesService
+            summary: TestHeaderFormats
+            description: Test different header formats
+            operationId: TestHeaderFormats
+            parameters:
+                - name: X-Array-Header
+                  in: header
+                  description: Array header
+                  required: false
+                  schema:
+                    type: array
+                - name: X-Boolean-Header
+                  in: header
+                  description: Boolean header
+                  required: false
+                  schema:
+                    type: boolean
+                - name: X-Date-Header
+                  in: header
+                  required: false
+                  schema:
+                    type: string
+                    format: date
+                - name: X-DateTime-Header
+                  in: header
+                  required: false
+                  schema:
+                    type: string
+                    format: date-time
+                - name: X-Email-Header
+                  in: header
+                  required: false
+                  schema:
+                    type: string
+                    format: email
+                - name: X-Integer-Header
+                  in: header
+                  description: Integer header
+                  required: true
+                  schema:
+                    type: integer
+                - name: X-Number-Header
+                  in: header
+                  description: Number header
+                  required: false
+                  schema:
+                    type: number
+                - name: X-String-Header
+                  in: header
+                  description: String header
+                  required: true
+                  schema:
+                    type: string
+                - name: X-Time-Header
+                  in: header
+                  required: false
+                  schema:
+                    type: string
+                    format: time
+                - name: X-UUID-Header
+                  in: header
+                  required: true
+                  schema:
+                    type: string
+                    format: uuid
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/HeaderRequest'
+                required: true
+            responses:
+                "200":
+                    description: Successful response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/HeaderResponse'
+                "400":
+                    description: Validation error
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ValidationError'
+                default:
+                    description: Error response
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    error:
+                                        type: string
+                                    code:
+                                        type: integer
+components:
+    schemas:
+        FieldViolation:
+            type: object
+            properties:
+                field:
+                    type: string
+                    description: The field path that failed validation (e.g., 'user.email' for nested fields). For header validation, this will be the header name (e.g., 'X-API-Key')
+                description:
+                    type: string
+                    description: Human-readable description of the validation violation (e.g., 'must be a valid email address', 'required field missing')
+            required:
+                - field
+                - description
+            description: FieldViolation describes a single validation error for a specific field.
+        ValidationError:
+            type: object
+            properties:
+                violations:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/FieldViolation'
+                    description: List of validation violations
+            required:
+                - violations
+            description: ValidationError is returned when request validation fails. It contains a list of field violations describing what went wrong.
+        HeaderRequest:
+            type: object
+            properties:
+                data:
+                    type: string
+                    description: Request data
+            description: Simple request message
+        HeaderResponse:
+            type: object
+            properties:
+                result:
+                    type: string
+                    description: Response data
+            description: Simple response message

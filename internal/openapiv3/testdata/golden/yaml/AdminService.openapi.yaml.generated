@@ -1,0 +1,213 @@
+openapi: 3.1.0
+info:
+    title: AdminService API
+    version: 1.0.0
+paths:
+    /api/v1/admin/users/list:
+        post:
+            tags:
+                - AdminService
+            summary: ListUsers
+            description: List all users (admin only)
+            operationId: ListUsers
+            parameters:
+                - name: X-Admin-Token
+                  in: header
+                  description: Admin authentication token
+                  required: true
+                  schema:
+                    type: string
+                    format: uuid
+                - name: X-Admin-Role
+                  in: header
+                  description: Admin role level
+                  required: true
+                  schema:
+                    type: string
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/Request'
+                required: true
+            responses:
+                "200":
+                    description: Successful response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Response'
+                "400":
+                    description: Validation error
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ValidationError'
+                default:
+                    description: Error response
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    error:
+                                        type: string
+                                    code:
+                                        type: integer
+    /api/v1/admin/users/delete:
+        post:
+            tags:
+                - AdminService
+            summary: DeleteUser
+            description: Delete user (admin only)
+            operationId: DeleteUser
+            parameters:
+                - name: X-Admin-Role
+                  in: header
+                  description: Admin role level
+                  required: true
+                  schema:
+                    type: string
+                - name: X-Admin-Token
+                  in: header
+                  description: Admin authentication token
+                  required: true
+                  schema:
+                    type: string
+                    format: uuid
+                - name: X-Confirmation-Token
+                  in: header
+                  description: Confirmation token for destructive operations
+                  required: true
+                  schema:
+                    type: string
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/Request'
+                required: true
+            responses:
+                "200":
+                    description: Successful response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Response'
+                "400":
+                    description: Validation error
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ValidationError'
+                default:
+                    description: Error response
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    error:
+                                        type: string
+                                    code:
+                                        type: integer
+    /api/v1/admin/stats:
+        post:
+            tags:
+                - AdminService
+            summary: GetSystemStats
+            description: Get system stats (admin only)
+            operationId: GetSystemStats
+            parameters:
+                - name: X-Admin-Token
+                  in: header
+                  description: Admin authentication token
+                  required: true
+                  schema:
+                    type: string
+                    format: uuid
+                - name: X-Admin-Role
+                  in: header
+                  description: Admin role level
+                  required: true
+                  schema:
+                    type: string
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/Request'
+                required: true
+            responses:
+                "200":
+                    description: Successful response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Response'
+                "400":
+                    description: Validation error
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ValidationError'
+                default:
+                    description: Error response
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    error:
+                                        type: string
+                                    code:
+                                        type: integer
+components:
+    schemas:
+        FieldViolation:
+            type: object
+            properties:
+                field:
+                    type: string
+                    description: The field path that failed validation (e.g., 'user.email' for nested fields). For header validation, this will be the header name (e.g., 'X-API-Key')
+                description:
+                    type: string
+                    description: Human-readable description of the validation violation (e.g., 'must be a valid email address', 'required field missing')
+            required:
+                - field
+                - description
+            description: FieldViolation describes a single validation error for a specific field.
+        ValidationError:
+            type: object
+            properties:
+                violations:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/FieldViolation'
+                    description: List of validation violations
+            required:
+                - violations
+            description: ValidationError is returned when request validation fails. It contains a list of field violations describing what went wrong.
+        Request:
+            type: object
+            properties:
+                id:
+                    type: string
+                    description: Request ID
+                data:
+                    type: string
+                    description: Request data
+            description: Generic request message
+        Response:
+            type: object
+            properties:
+                success:
+                    type: boolean
+                    description: Success indicator
+                message:
+                    type: string
+                    description: Response message
+                data:
+                    type: string
+                    description: Response data
+            description: Generic response message

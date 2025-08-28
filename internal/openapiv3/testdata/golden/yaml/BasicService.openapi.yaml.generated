@@ -1,0 +1,135 @@
+openapi: 3.1.0
+info:
+    title: BasicService API
+    version: 1.0.0
+paths:
+    /BasicService/SimpleMethod:
+        post:
+            tags:
+                - BasicService
+            summary: SimpleMethod
+            description: Simple method without HTTP config
+            operationId: SimpleMethod
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/CreateUserRequest'
+                required: true
+            responses:
+                "200":
+                    description: Successful response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/User'
+                "400":
+                    description: Validation error
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ValidationError'
+                default:
+                    description: Error response
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    error:
+                                        type: string
+                                    code:
+                                        type: integer
+    /configured:
+        post:
+            tags:
+                - BasicService
+            summary: ConfiguredMethod
+            description: Method with only path config
+            operationId: ConfiguredMethod
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/GetUserRequest'
+                required: true
+            responses:
+                "200":
+                    description: Successful response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/User'
+                "400":
+                    description: Validation error
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ValidationError'
+                default:
+                    description: Error response
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    error:
+                                        type: string
+                                    code:
+                                        type: integer
+components:
+    schemas:
+        FieldViolation:
+            type: object
+            properties:
+                field:
+                    type: string
+                    description: The field path that failed validation (e.g., 'user.email' for nested fields). For header validation, this will be the header name (e.g., 'X-API-Key')
+                description:
+                    type: string
+                    description: Human-readable description of the validation violation (e.g., 'must be a valid email address', 'required field missing')
+            required:
+                - field
+                - description
+            description: FieldViolation describes a single validation error for a specific field.
+        ValidationError:
+            type: object
+            properties:
+                violations:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/FieldViolation'
+                    description: List of validation violations
+            required:
+                - violations
+            description: ValidationError is returned when request validation fails. It contains a list of field violations describing what went wrong.
+        CreateUserRequest:
+            type: object
+            properties:
+                name:
+                    type: string
+                    description: User name
+                email:
+                    type: string
+                    description: User email
+            description: Simple request message
+        User:
+            type: object
+            properties:
+                id:
+                    type: string
+                    description: User ID
+                name:
+                    type: string
+                    description: User name
+                email:
+                    type: string
+                    description: User email
+            description: Simple response message
+        GetUserRequest:
+            type: object
+            properties:
+                id:
+                    type: string
+                    description: User ID to retrieve
+            description: Get user request
