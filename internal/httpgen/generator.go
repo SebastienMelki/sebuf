@@ -532,7 +532,12 @@ func camelToSnake(s string) string {
 
 // generateErrorResponseFunctions generates error response helper functions.
 func (g *Generator) generateErrorResponseFunctions(gf *protogen.GeneratedFile) {
-	// writeValidationErrorResponse function
+	g.generateWriteValidationErrorResponseFunc(gf)
+	g.generateWriteValidationErrorFunc(gf)
+}
+
+// generateWriteValidationErrorResponseFunc generates the writeValidationErrorResponse function.
+func (g *Generator) generateWriteValidationErrorResponseFunc(gf *protogen.GeneratedFile) {
 	gf.P("// writeValidationErrorResponse writes a ValidationError as a response")
 	gf.P(
 		"func writeValidationErrorResponse(w http.ResponseWriter, r *http.Request, validationErr *sebufhttp.ValidationError) {",
@@ -565,8 +570,10 @@ func (g *Generator) generateErrorResponseFunctions(gf *protogen.GeneratedFile) {
 	gf.P("_, _ = w.Write(responseBytes)")
 	gf.P("}")
 	gf.P()
+}
 
-	// writeValidationError function for protovalidate errors
+// generateWriteValidationErrorFunc generates the writeValidationError function for protovalidate errors.
+func (g *Generator) generateWriteValidationErrorFunc(gf *protogen.GeneratedFile) {
 	gf.P("// writeValidationError converts a protovalidate error to ValidationError and writes it as response")
 	gf.P("func writeValidationError(w http.ResponseWriter, r *http.Request, err error) {")
 	gf.P("validationErr := &sebufhttp.ValidationError{}")
@@ -575,21 +582,7 @@ func (g *Generator) generateErrorResponseFunctions(gf *protogen.GeneratedFile) {
 	gf.P("var valErr *protovalidate.ValidationError")
 	gf.P("if errors.As(err, &valErr) {")
 	gf.P("for _, violation := range valErr.Violations {")
-	gf.P("// Extract field path from violation")
-	gf.P("fieldPath := \"\"")
-	gf.P("if violation.Proto != nil && violation.Proto.GetField() != nil {")
-	gf.P("elements := violation.Proto.GetField().GetElements()")
-	gf.P("if len(elements) > 0 {")
-	gf.P("fieldPath = elements[0].GetFieldName()")
-	gf.P("for i := 1; i < len(elements); i++ {")
-	gf.P("fieldPath += \".\" + elements[i].GetFieldName()")
-	gf.P("}")
-	gf.P("}")
-	gf.P("}")
-	gf.P("if fieldPath == \"\" {")
-	gf.P("fieldPath = \"unknown\"")
-	gf.P("}")
-	gf.P()
+	g.generateFieldPathExtraction(gf)
 	gf.P("validationErr.Violations = append(validationErr.Violations, &sebufhttp.FieldViolation{")
 	gf.P("Field: fieldPath,")
 	gf.P("Description: violation.Proto.GetMessage(),")
@@ -604,6 +597,25 @@ func (g *Generator) generateErrorResponseFunctions(gf *protogen.GeneratedFile) {
 	gf.P("}")
 	gf.P()
 	gf.P("writeValidationErrorResponse(w, r, validationErr)")
+	gf.P("}")
+	gf.P()
+}
+
+// generateFieldPathExtraction generates the field path extraction logic.
+func (g *Generator) generateFieldPathExtraction(gf *protogen.GeneratedFile) {
+	gf.P("// Extract field path from violation")
+	gf.P("fieldPath := \"\"")
+	gf.P("if violation.Proto != nil && violation.Proto.GetField() != nil {")
+	gf.P("elements := violation.Proto.GetField().GetElements()")
+	gf.P("if len(elements) > 0 {")
+	gf.P("fieldPath = elements[0].GetFieldName()")
+	gf.P("for i := 1; i < len(elements); i++ {")
+	gf.P("fieldPath += \".\" + elements[i].GetFieldName()")
+	gf.P("}")
+	gf.P("}")
+	gf.P("}")
+	gf.P("if fieldPath == \"\" {")
+	gf.P("fieldPath = \"unknown\"")
 	gf.P("}")
 	gf.P()
 }
@@ -661,6 +673,15 @@ func (g *Generator) generateValidateHeadersFunction(gf *protogen.GeneratedFile) 
 	gf.P(
 		"func validateHeaders(r *http.Request, serviceHeaders, methodHeaders []*sebufhttp.Header) *sebufhttp.ValidationError {",
 	)
+	g.generateHeaderMergeLogic(gf)
+	g.generateHeaderValidationLoop(gf)
+	g.generateValidationErrorReturn(gf)
+	gf.P("}")
+	gf.P()
+}
+
+// generateHeaderMergeLogic generates the logic to merge service and method headers.
+func (g *Generator) generateHeaderMergeLogic(gf *protogen.GeneratedFile) {
 	gf.P("// Merge service and method headers, with method headers taking precedence")
 	gf.P("allHeaders := make(map[string]*sebufhttp.Header)")
 	gf.P()
@@ -678,6 +699,10 @@ func (g *Generator) generateValidateHeadersFunction(gf *protogen.GeneratedFile) 
 	gf.P("}")
 	gf.P("}")
 	gf.P()
+}
+
+// generateHeaderValidationLoop generates the main header validation loop.
+func (g *Generator) generateHeaderValidationLoop(gf *protogen.GeneratedFile) {
 	gf.P("// Collect all validation violations")
 	gf.P("var violations []*sebufhttp.FieldViolation")
 	gf.P()
@@ -700,6 +725,10 @@ func (g *Generator) generateValidateHeadersFunction(gf *protogen.GeneratedFile) 
 	gf.P("}")
 	gf.P("}")
 	gf.P()
+}
+
+// generateValidationErrorReturn generates the validation error return logic.
+func (g *Generator) generateValidationErrorReturn(gf *protogen.GeneratedFile) {
 	gf.P("// Return ValidationError if there are violations")
 	gf.P("if len(violations) > 0 {")
 	gf.P("return &sebufhttp.ValidationError{")
@@ -708,8 +737,6 @@ func (g *Generator) generateValidateHeadersFunction(gf *protogen.GeneratedFile) 
 	gf.P("}")
 	gf.P()
 	gf.P("return nil")
-	gf.P("}")
-	gf.P()
 }
 
 // generateValidateHeaderValueFunction generates the header value validation function.
