@@ -65,7 +65,8 @@ That's it! Both header and body validation happen automatically in your HTTP han
 - ✅ **Header type validation** - Support for string, integer, number, boolean, array types
 - ✅ **Header format validation** - Built-in validators for UUID, email, datetime formats
 - ✅ **Performance optimized** - Cached validator instances
-- ✅ **Clear error messages** - HTTP 400 with detailed validation errors
+- ✅ **Structured error responses** - JSON or protobuf ValidationError with field-level details
+- ✅ **Content-type aware** - Error format matches client's requested content type
 - ✅ **Fail-fast validation** - Headers validated before body for efficiency
 
 ## Request Body Validation Rules
@@ -291,30 +292,67 @@ service SecureAPI {
 
 ## Error Handling
 
-When validation fails, sebuf returns an HTTP 400 Bad Request with the validation error message. Headers are validated before the request body.
+When validation fails, sebuf returns an HTTP 400 Bad Request with a structured error response. The response format respects the client's `Content-Type` header, returning either JSON or protobuf. Headers are validated before the request body.
+
+### Structured Error Response Format
+
+Validation errors are returned as a `ValidationError` message containing field-level violations:
+
+```protobuf
+message ValidationError {
+  repeated FieldViolation violations = 1;
+}
+
+message FieldViolation {
+  string field = 1;       // Field that failed validation
+  string description = 2; // Description of the violation
+}
+```
 
 ### Header Validation Errors
 
 ```bash
 # Missing required header
-curl -X POST /api/users -d '{"name": "John"}'
+curl -X POST /api/users \
+  -H "Content-Type: application/json" \
+  -d '{"name": "John"}'
 # Returns: 400 Bad Request
-# Body: "Missing required header: X-API-Key"
+# Body: 
+{
+  "violations": [{
+    "field": "X-API-Key",
+    "description": "required header 'X-API-Key' is missing"
+  }]
+}
 
 # Invalid header format (UUID)
 curl -X POST /api/users \
+  -H "Content-Type: application/json" \
   -H "X-API-Key: not-a-uuid" \
   -d '{"name": "John"}'
 # Returns: 400 Bad Request
-# Body: "Invalid header X-API-Key: invalid UUID format"
+# Body:
+{
+  "violations": [{
+    "field": "X-API-Key",
+    "description": "header 'X-API-Key' validation failed: invalid UUID format"
+  }]
+}
 
 # Invalid header type (expecting integer)
 curl -X POST /api/users \
+  -H "Content-Type: application/json" \
   -H "X-API-Key: 123e4567-e89b-12d3-a456-426614174000" \
   -H "X-Tenant-ID: abc" \
   -d '{"name": "John"}'
 # Returns: 400 Bad Request
-# Body: "Invalid header X-Tenant-ID: must be an integer"
+# Body:
+{
+  "violations": [{
+    "field": "X-Tenant-ID",
+    "description": "header 'X-Tenant-ID' validation failed: value is not a valid integer"
+  }]
+}
 ```
 
 ### Body Validation Errors
@@ -322,17 +360,53 @@ curl -X POST /api/users \
 ```bash
 # Invalid email
 curl -X POST /api/users \
+  -H "Content-Type: application/json" \
   -H "X-API-Key: 123e4567-e89b-12d3-a456-426614174000" \
   -d '{"email": "invalid"}'
 # Returns: 400 Bad Request
-# Body: "validation error: field 'email' with value 'invalid' failed rule 'string.email'"
+# Body:
+{
+  "violations": [{
+    "field": "email",
+    "description": "value must be a valid email address"
+  }]
+}
 
-# Name too short  
+# Multiple validation failures
 curl -X POST /api/users \
+  -H "Content-Type: application/json" \
   -H "X-API-Key: 123e4567-e89b-12d3-a456-426614174000" \
-  -d '{"name": "J"}'
+  -d '{"name": "J", "email": "invalid", "age": 200}'
 # Returns: 400 Bad Request
-# Body: "validation error: field 'name' with value 'J' failed rule 'string.min_len'"
+# Body:
+{
+  "violations": [
+    {
+      "field": "name",
+      "description": "value length must be at least 2 runes"
+    },
+    {
+      "field": "email",
+      "description": "value must be a valid email address"
+    },
+    {
+      "field": "age",
+      "description": "value must be less than or equal to 120"
+    }
+  ]
+}
+```
+
+### Binary Response Format
+
+When using protobuf content type, errors are returned as binary protobuf:
+
+```bash
+curl -X POST /api/users \
+  -H "Content-Type: application/x-protobuf" \
+  -H "X-API-Key: invalid" \
+  --data-binary @request.pb
+# Returns: 400 Bad Request with binary ValidationError protobuf
 ```
 
 ## Advanced Usage
