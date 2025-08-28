@@ -608,33 +608,39 @@ service UserService {
 
 ### Generated Validation Code
 
-The plugin generates header validation middleware that's automatically applied:
+The plugin generates header validation that returns structured errors:
 
 ```go
-// Generated middleware validates headers before processing requests
-func validateHeaders(requiredHeaders []HeaderConfig) func(http.Handler) http.Handler {
-    return func(next http.Handler) http.Handler {
-        return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-            // Validate each required header
-            for _, header := range requiredHeaders {
-                value := r.Header.Get(header.Name)
-                
-                // Check required headers
-                if header.Required && value == "" {
-                    http.Error(w, fmt.Sprintf("Missing required header: %s", header.Name), 400)
-                    return
-                }
-                
-                // Validate type and format
-                if err := validateHeaderValue(value, header.Type, header.Format); err != nil {
-                    http.Error(w, fmt.Sprintf("Invalid header %s: %v", header.Name, err), 400)
-                    return
-                }
-            }
-            
-            next.ServeHTTP(w, r)
-        })
+// Generated validation returns ValidationError with field-level violations
+func validateHeaders(r *http.Request, serviceHeaders, methodHeaders []*Header) *ValidationError {
+    var violations []*FieldViolation
+    allHeaders := mergeHeaders(serviceHeaders, methodHeaders)
+    
+    for _, header := range allHeaders {
+        value := r.Header.Get(header.Name)
+        
+        // Check required headers
+        if header.Required && value == "" {
+            violations = append(violations, &FieldViolation{
+                Field: header.Name,
+                Description: fmt.Sprintf("required header '%s' is missing", header.Name),
+            })
+            continue
+        }
+        
+        // Validate type and format
+        if err := validateHeaderValue(header, value); err != nil {
+            violations = append(violations, &FieldViolation{
+                Field: header.Name,
+                Description: fmt.Sprintf("header '%s' validation failed: %v", header.Name, err),
+            })
+        }
     }
+    
+    if len(violations) > 0 {
+        return &ValidationError{Violations: violations}
+    }
+    return nil
 }
 ```
 
@@ -697,7 +703,14 @@ curl -X POST http://localhost:8080/api/v1/users \
 curl -X POST http://localhost:8080/api/v1/users \
   -H "Content-Type: application/json" \
   -d '{"name": "John", "email": "john@example.com"}'
-# Response: 400 Bad Request - Missing required header: X-API-Key
+# Response: 400 Bad Request
+# Body:
+{
+  "violations": [{
+    "field": "X-API-Key",
+    "description": "required header 'X-API-Key' is missing"
+  }]
+}
 
 # Invalid header format (returns 400)
 curl -X POST http://localhost:8080/api/v1/users \
@@ -705,7 +718,14 @@ curl -X POST http://localhost:8080/api/v1/users \
   -H "X-API-Key: not-a-uuid" \
   -H "X-Tenant-ID: 42" \
   -d '{"name": "John", "email": "john@example.com"}'
-# Response: 400 Bad Request - Invalid header X-API-Key: invalid UUID format
+# Response: 400 Bad Request
+# Body:
+{
+  "violations": [{
+    "field": "X-API-Key",
+    "description": "header 'X-API-Key' validation failed: invalid UUID format"
+  }]
+}
 ```
 
 ## Generated Code Structure
