@@ -534,7 +534,9 @@ func camelToSnake(s string) string {
 func (g *Generator) generateErrorResponseFunctions(gf *protogen.GeneratedFile) {
 	// writeValidationErrorResponse function
 	gf.P("// writeValidationErrorResponse writes a ValidationError as a response")
-	gf.P("func writeValidationErrorResponse(w http.ResponseWriter, r *http.Request, validationErr *sebufhttp.ValidationError) {")
+	gf.P(
+		"func writeValidationErrorResponse(w http.ResponseWriter, r *http.Request, validationErr *sebufhttp.ValidationError) {",
+	)
 	gf.P(`contentType := r.Header.Get("Content-Type")`)
 	gf.P("if contentType == \"\" {")
 	gf.P("contentType = JSONContentType")
@@ -656,7 +658,9 @@ func (g *Generator) generateHeaderValidationFunctions(gf *protogen.GeneratedFile
 func (g *Generator) generateValidateHeadersFunction(gf *protogen.GeneratedFile) {
 	gf.P("// validateHeaders validates required headers for a service and method")
 	gf.P("// Returns a ValidationError if any required headers are missing or invalid")
-	gf.P("func validateHeaders(r *http.Request, serviceHeaders, methodHeaders []*sebufhttp.Header) *sebufhttp.ValidationError {")
+	gf.P(
+		"func validateHeaders(r *http.Request, serviceHeaders, methodHeaders []*sebufhttp.Header) *sebufhttp.ValidationError {",
+	)
 	gf.P("// Merge service and method headers, with method headers taking precedence")
 	gf.P("allHeaders := make(map[string]*sebufhttp.Header)")
 	gf.P()
