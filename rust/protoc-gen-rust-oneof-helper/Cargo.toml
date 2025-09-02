@@ -1,0 +1,29 @@
+[package]
+name = "protoc-gen-rust-oneof-helper"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+description = "Protobuf plugin to generate Rust convenience constructors for oneof fields"
+
+[[bin]]
+name = "protoc-gen-rust-oneof-helper"
+path = "src/main.rs"
+
+[dependencies]
+sebuf-core = { path = "../sebuf-core" }
+prost = { workspace = true }
+prost-types = { workspace = true }
+protobuf = { workspace = true }
+anyhow = { workspace = true }
+heck = { workspace = true }
+quote = { workspace = true }
+proc-macro2 = { workspace = true }
+
+[dev-dependencies]
+tempfile = "3.14"
+pretty_assertions = "1.4"
+syn = { version = "2.0", features = ["full"] }
