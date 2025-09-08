@@ -309,7 +309,7 @@ jobs:
       - name: Update commit status
         if: github.event_name == 'pull_request'
         continue-on-error: true  # Don't fail on status update issues
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           script: |
             try {
@@ -504,7 +504,7 @@ jobs:
       checks: write
     steps:
       - name: Generate PR status summary
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           script: |
             const { data: checkRuns } = await github.rest.checks.listForRef({
