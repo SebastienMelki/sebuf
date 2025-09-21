@@ -5,10 +5,10 @@ import (
 	"strconv"
 
 	"github.com/pb33f/libopenapi/datamodel/high/base"
+	yaml "go.yaml.in/yaml/v4"
 	"google.golang.org/protobuf/compiler/protogen"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
-	yaml "go.yaml.in/yaml/v4"
 
 	validate "buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go/buf/validate"
 )
