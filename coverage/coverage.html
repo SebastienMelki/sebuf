@@ -55,9 +55,9 @@
 			<div id="nav">
 				<select id="files">
 				
-				<option value="file0">github.com/SebastienMelki/sebuf/internal/oneofhelper/generator.go (41.7%)</option>
+				<option value="file0">github.com/SebastienMelki/sebuf/internal/oneofhelper/generator.go (42.4%)</option>
 				
-				<option value="file1">github.com/SebastienMelki/sebuf/internal/openapiv3/generator.go (12.1%)</option>
+				<option value="file1">github.com/SebastienMelki/sebuf/internal/openapiv3/generator.go (19.5%)</option>
 				
 				<option value="file2">github.com/SebastienMelki/sebuf/internal/openapiv3/http_annotations.go (0.0%)</option>
 				
@@ -157,12 +157,27 @@ func GenerateOneofHelper(g *protogen.GeneratedFile, message *protogen.Message,
 
         // Check if this field is a message type that might have fields
         if field.Message != nil </span><span class="cov4" title="3">{
-                // Build parameter list from the nested message fields
+                // Build parameter list from both normal fields and nested message fields
                 var params []string
-
+                var normalFieldAssignments []string
                 var paramAssignments []string
 
-                for _, nestedField := range field.Message.Fields </span><span class="cov6" title="5">{
+                // First, collect all normal (non-oneof) fields from the parent message
+                for _, parentField := range message.Fields </span><span class="cov6" title="5">{
+                        // Skip if this field is part of a oneof
+                        if parentField.Oneof != nil </span><span class="cov6" title="5">{
+                                continue</span>
+                        }
+
+                        <span class="cov0" title="0">paramName := lowerFirst(parentField.GoName)
+                        paramType := GetFieldType(g, parentField)
+                        params = append(params, fmt.Sprintf("%s %s", paramName, paramType))
+                        normalFieldAssignments = append(normalFieldAssignments,
+                                fmt.Sprintf("\t\t%s: %s,", parentField.GoName, paramName))</span>
+                }
+
+                // Then collect fields from the nested message within the oneof
+                <span class="cov4" title="3">for _, nestedField := range field.Message.Fields </span><span class="cov6" title="5">{
                         paramName := lowerFirst(nestedField.GoName)
                         paramType := GetFieldType(g, nestedField)
                         params = append(params, fmt.Sprintf("%s %s", paramName, paramType))
@@ -176,7 +191,14 @@ func GenerateOneofHelper(g *protogen.GeneratedFile, message *protogen.Message,
                 g.P("func ", helperName, "(", strings.Join(params, ", "), ") *",
                         message.GoIdent.GoName, " {")
                 g.P("\treturn &amp;", message.GoIdent.GoName, "{")
-                g.P("\t\t", oneof.GoName, ": &amp;", wrapperType, "{")
+
+                // Add normal field assignments
+                for _, assignment := range normalFieldAssignments </span><span class="cov0" title="0">{
+                        g.P(assignment)
+                }</span>
+
+                // Add oneof field assignment
+                <span class="cov4" title="3">g.P("\t\t", oneof.GoName, ": &amp;", wrapperType, "{")
                 g.P("\t\t\t", field.GoName, ": &amp;", g.QualifiedGoIdent(field.Message.GoIdent), "{")
 
                 for _, assignment := range paramAssignments </span><span class="cov6" title="5">{
@@ -398,7 +420,7 @@ import (
         v3 "github.com/pb33f/libopenapi/datamodel/high/v3"
         "github.com/pb33f/libopenapi/orderedmap"
         "google.golang.org/protobuf/compiler/protogen"
-        "gopkg.in/yaml.v3"
+        yaml "go.yaml.in/yaml/v4"
         k8syaml "sigs.k8s.io/yaml"
 )
 
@@ -420,6 +442,9 @@ type Generator struct {
 // NewGenerator creates a new OpenAPI generator with the specified output format.
 func NewGenerator(format OutputFormat) *Generator <span class="cov5" title="4">{
         schemas := orderedmap.New[string, *base.SchemaProxy]()
+
+        // Add built-in validation error schemas
+        addValidationErrorSchemas(schemas)
 
         return &amp;Generator{
                 format:  format,
@@ -524,10 +549,17 @@ func (g *Generator) collectMessageRecursive(message *protogen.Message, processed
         }</span>
 }
 
+// getSchemaName generates a schema name for a protobuf message.
+// Since each service generates its own OpenAPI file, we can use simple message names
+// without package prefixes to avoid collisions.
+func (g *Generator) getSchemaName(message *protogen.Message) string <span class="cov0" title="0">{
+        return string(message.Desc.Name())
+}</span>
+
 // processMessage converts a protobuf message to an OpenAPI schema.
 func (g *Generator) processMessage(message *protogen.Message) <span class="cov0" title="0">{
         schema := g.buildObjectSchema(message)
-        schemaName := string(message.Desc.Name())
+        schemaName := g.getSchemaName(message)
         g.schemas.Set(schemaName, schema)
 
         // Process nested messages recursively
@@ -624,7 +656,7 @@ func (g *Generator) processMethod(service *protogen.Service, method *protogen.Me
         }</span>
 
         // Add request body for the input message
-        <span class="cov0" title="0">inputSchemaRef := fmt.Sprintf("#/components/schemas/%s", method.Input.Desc.Name())
+        <span class="cov0" title="0">inputSchemaRef := fmt.Sprintf("#/components/schemas/%s", g.getSchemaName(method.Input))
         operation.RequestBody = &amp;v3.RequestBody{
                 Required: proto.Bool(true), // Convert bool to *bool
                 Content:  orderedmap.New[string, *v3.MediaType](),
@@ -634,7 +666,7 @@ func (g *Generator) processMethod(service *protogen.Service, method *protogen.Me
         })
 
         // Add response for the output message
-        outputSchemaRef := fmt.Sprintf("#/components/schemas/%s", method.Output.Desc.Name())
+        outputSchemaRef := fmt.Sprintf("#/components/schemas/%s", g.getSchemaName(method.Output))
         responses := orderedmap.New[string, *v3.Response]()
 
         successResponse := &amp;v3.Response{
@@ -645,6 +677,16 @@ func (g *Generator) processMethod(service *protogen.Service, method *protogen.Me
                 Schema: base.CreateSchemaProxyRef(outputSchemaRef),
         })
         responses.Set("200", successResponse)
+
+        // Add validation error response (400)
+        validationErrorResponse := &amp;v3.Response{
+                Description: "Validation error",
+                Content:     orderedmap.New[string, *v3.MediaType](),
+        }
+        validationErrorResponse.Content.Set("application/json", &amp;v3.MediaType{
+                Schema: base.CreateSchemaProxyRef("#/components/schemas/ValidationError"),
+        })
+        responses.Set("400", validationErrorResponse)
 
         // Add default error response
         errorSchema := base.CreateSchemaProxy(&amp;base.Schema{
@@ -682,6 +724,46 @@ func (g *Generator) processMethod(service *protogen.Service, method *protogen.Me
         g.doc.Paths.PathItems.Set(path, pathItem)</span>
 }
 
+// addValidationErrorSchemas adds the ValidationError and FieldViolation schemas to the components.
+func addValidationErrorSchemas(schemas *orderedmap.Map[string, *base.SchemaProxy]) <span class="cov5" title="4">{
+        // Add FieldViolation schema
+        fieldViolationProps := orderedmap.New[string, *base.SchemaProxy]()
+        fieldViolationProps.Set("field", base.CreateSchemaProxy(&amp;base.Schema{
+                Type:        []string{"string"},
+                Description: "The field path that failed validation (e.g., 'user.email' for nested fields). For header validation, this will be the header name (e.g., 'X-API-Key')",
+        }))
+        fieldViolationProps.Set("description", base.CreateSchemaProxy(&amp;base.Schema{
+                Type:        []string{"string"},
+                Description: "Human-readable description of the validation violation (e.g., 'must be a valid email address', 'required field missing')",
+        }))
+
+        fieldViolationSchema := base.CreateSchemaProxy(&amp;base.Schema{
+                Type:        []string{"object"},
+                Description: "FieldViolation describes a single validation error for a specific field.",
+                Properties:  fieldViolationProps,
+                Required:    []string{"field", "description"},
+        })
+        schemas.Set("FieldViolation", fieldViolationSchema)
+
+        // Add ValidationError schema
+        validationErrorProps := orderedmap.New[string, *base.SchemaProxy]()
+        validationErrorProps.Set("violations", base.CreateSchemaProxy(&amp;base.Schema{
+                Type:        []string{"array"},
+                Description: "List of validation violations",
+                Items: &amp;base.DynamicValue[*base.SchemaProxy, bool]{
+                        A: base.CreateSchemaProxyRef("#/components/schemas/FieldViolation"),
+                },
+        }))
+
+        validationErrorSchema := base.CreateSchemaProxy(&amp;base.Schema{
+                Type:        []string{"object"},
+                Description: "ValidationError is returned when request validation fails. It contains a list of field violations describing what went wrong.",
+                Properties:  validationErrorProps,
+                Required:    []string{"violations"},
+        })
+        schemas.Set("ValidationError", validationErrorSchema)
+}</span>
+
 // Render outputs the OpenAPI document in the specified format.
 func (g *Generator) Render() ([]byte, error) <span class="cov3" title="2">{
         switch g.format </span>{
@@ -715,7 +797,7 @@ import (
         "google.golang.org/protobuf/compiler/protogen"
         "google.golang.org/protobuf/proto"
         "google.golang.org/protobuf/types/descriptorpb"
-        "gopkg.in/yaml.v3"
+        yaml "go.yaml.in/yaml/v4"
 
         "github.com/SebastienMelki/sebuf/http"
 )
@@ -1014,7 +1096,7 @@ import (
         "google.golang.org/protobuf/proto"
         "google.golang.org/protobuf/reflect/protoreflect"
         "google.golang.org/protobuf/types/descriptorpb"
-        "gopkg.in/yaml.v3"
+        yaml "go.yaml.in/yaml/v4"
 
         "github.com/SebastienMelki/sebuf/http"
 )
@@ -1101,12 +1183,12 @@ func (g *Generator) convertScalarField(field *protogen.Field) *base.SchemaProxy 
 
         case protoreflect.MessageKind:<span class="cov0" title="0">
                 // Reference to another message
-                return base.CreateSchemaProxyRef(fmt.Sprintf("#/components/schemas/%s", field.Message.Desc.Name()))</span>
+                return base.CreateSchemaProxyRef(fmt.Sprintf("#/components/schemas/%s", g.getSchemaName(field.Message)))</span>
 
         case protoreflect.GroupKind:<span class="cov0" title="0">
                 // Groups are deprecated but still supported
                 if field.Message != nil </span><span class="cov0" title="0">{
-                        return base.CreateSchemaProxyRef(fmt.Sprintf("#/components/schemas/%s", field.Message.Desc.Name()))
+                        return base.CreateSchemaProxyRef(fmt.Sprintf("#/components/schemas/%s", g.getSchemaName(field.Message)))
                 }</span>
                 <span class="cov0" title="0">schema.Type = []string{"object"}</span>
 
@@ -1256,7 +1338,7 @@ import (
         "google.golang.org/protobuf/compiler/protogen"
         "google.golang.org/protobuf/proto"
         "google.golang.org/protobuf/reflect/protoreflect"
-        "gopkg.in/yaml.v3"
+        yaml "go.yaml.in/yaml/v4"
 
         validate "buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go/buf/validate"
 )
