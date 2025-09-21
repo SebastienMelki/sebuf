@@ -1,0 +1,57 @@
+syntax = "proto3";
+
+package testdata;
+
+option go_package = "github.com/SebastienMelki/sebuf/internal/oneofhelper/testdata";
+
+// Message with both oneof and normal fields
+message LoginRequest {
+  // Normal fields that should be included in helper functions
+  int32 retry_count = 1;
+  string client_id = 2;
+  int64 timestamp = 3;
+
+  // Authentication method oneof
+  oneof auth_method {
+    EmailAuth email = 4;
+    TokenAuth token = 5;
+  }
+
+  // Another normal field after the oneof
+  bool remember_me = 6;
+}
+
+// Email authentication details
+message EmailAuth {
+  string email = 1;
+  string password = 2;
+}
+
+// Token authentication details
+message TokenAuth {
+  string token = 1;
+  string token_type = 2;
+}
+
+// Another test case with multiple oneofs and normal fields
+message ConfigMessage {
+  string name = 1;
+  int32 version = 2;
+
+  oneof storage_config {
+    DatabaseConfig database = 3;
+    FileConfig file = 4;
+  }
+
+  bool enabled = 5;
+  repeated string tags = 6;
+}
+
+message DatabaseConfig {
+  string host = 1;
+  int32 port = 2;
+}
+
+message FileConfig {
+  string path = 1;
+}
