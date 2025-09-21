@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	v3 "github.com/pb33f/libopenapi/datamodel/high/v3"
-	"gopkg.in/yaml.v3"
+	yaml "go.yaml.in/yaml/v4"
 
 	"github.com/SebastienMelki/sebuf/internal/openapiv3"
 )

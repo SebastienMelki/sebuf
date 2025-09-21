@@ -1,6 +1,6 @@
 module github.com/SebastienMelki/sebuf/examples/simple-api
 
-go 1.24.4
+go 1.24.7
 
 require (
 	buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go v1.36.8-20250717185734-6c6e0d3c608e.1

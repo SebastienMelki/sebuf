@@ -8,7 +8,7 @@ import (
 	"google.golang.org/protobuf/compiler/protogen"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
-	"gopkg.in/yaml.v3"
+	yaml "go.yaml.in/yaml/v4"
 
 	validate "buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go/buf/validate"
 )
