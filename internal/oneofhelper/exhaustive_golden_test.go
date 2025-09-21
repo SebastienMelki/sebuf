@@ -138,6 +138,11 @@ func TestExhaustiveGoldenFiles(t *testing.T) {
 			protoFile:  "testdata/proto/no_oneof.proto",
 			goldenFile: "testdata/golden/no_oneof_helpers.pb.go",
 		},
+		{
+			name:       "mixed_fields",
+			protoFile:  "testdata/proto/mixed_fields.proto",
+			goldenFile: "testdata/golden/mixed_fields_helpers.pb.go",
+		},
 	}
 
 	for _, tc := range testCases {
@@ -176,6 +181,14 @@ func TestExhaustiveGoldenFiles(t *testing.T) {
 			// Read golden file content
 			goldenContent, err := os.ReadFile(tc.goldenFile)
 			if err != nil {
+				if os.IsNotExist(err) && os.Getenv("UPDATE_GOLDEN") == "1" {
+					// Golden file doesn't exist, create it
+					if writeErr := os.WriteFile(tc.goldenFile, generatedContent, 0o644); writeErr != nil {
+						t.Fatalf("Failed to create golden file %s: %v", tc.goldenFile, writeErr)
+					}
+					t.Logf("Created new golden file: %s (%d bytes)", tc.goldenFile, len(generatedContent))
+					return
+				}
 				t.Fatalf("Failed to read golden file %s: %v", tc.goldenFile, err)
 			}
 

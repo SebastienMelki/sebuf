@@ -69,11 +69,26 @@ func GenerateOneofHelper(g *protogen.GeneratedFile, message *protogen.Message,
 
 	// Check if this field is a message type that might have fields
 	if field.Message != nil {
-		// Build parameter list from the nested message fields
+		// Build parameter list from both normal fields and nested message fields
 		var params []string
-
+		var normalFieldAssignments []string
 		var paramAssignments []string
 
+		// First, collect all normal (non-oneof) fields from the parent message
+		for _, parentField := range message.Fields {
+			// Skip if this field is part of a oneof
+			if parentField.Oneof != nil {
+				continue
+			}
+
+			paramName := lowerFirst(parentField.GoName)
+			paramType := GetFieldType(g, parentField)
+			params = append(params, fmt.Sprintf("%s %s", paramName, paramType))
+			normalFieldAssignments = append(normalFieldAssignments,
+				fmt.Sprintf("\t\t%s: %s,", parentField.GoName, paramName))
+		}
+
+		// Then collect fields from the nested message within the oneof
 		for _, nestedField := range field.Message.Fields {
 			paramName := lowerFirst(nestedField.GoName)
 			paramType := GetFieldType(g, nestedField)
@@ -88,6 +103,13 @@ func GenerateOneofHelper(g *protogen.GeneratedFile, message *protogen.Message,
 		g.P("func ", helperName, "(", strings.Join(params, ", "), ") *",
 			message.GoIdent.GoName, " {")
 		g.P("\treturn &", message.GoIdent.GoName, "{")
+
+		// Add normal field assignments
+		for _, assignment := range normalFieldAssignments {
+			g.P(assignment)
+		}
+
+		// Add oneof field assignment
 		g.P("\t\t", oneof.GoName, ": &", wrapperType, "{")
 		g.P("\t\t\t", field.GoName, ": &", g.QualifiedGoIdent(field.Message.GoIdent), "{")
 

@@ -9,8 +9,8 @@ import (
 	"github.com/pb33f/libopenapi/datamodel/high/base"
 	v3 "github.com/pb33f/libopenapi/datamodel/high/v3"
 	"github.com/pb33f/libopenapi/orderedmap"
+	yaml "go.yaml.in/yaml/v4"
 	"google.golang.org/protobuf/compiler/protogen"
-	"gopkg.in/yaml.v3"
 	k8syaml "sigs.k8s.io/yaml"
 )
 

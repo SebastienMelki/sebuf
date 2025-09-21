@@ -7,12 +7,24 @@ import "proto/models/user.proto";
 
 // Login request supporting multiple authentication methods
 message LoginRequest {
+  // Normal fields that should be included in helper functions
+  string device_id = 1;        // Device identifier for tracking
+  string ip_address = 2;        // Client IP for security logging
+  int32 retry_count = 3;        // Number of login attempts
+  string user_agent = 4;        // Browser/app user agent string
+
   // Different ways to authenticate
   oneof auth_method {
-    EmailAuth email = 1;
-    TokenAuth token = 2;
-    SocialAuth social = 3;
+    EmailAuth email = 5;
+    TokenAuth token = 6;
+    SocialAuth social = 7;
   }
+
+  // More normal fields after the oneof
+  bool remember_me = 8;         // Keep user logged in
+  string session_id = 9;         // Optional existing session to upgrade
+  int64 timestamp = 10;          // Unix timestamp of request
+  repeated string scopes = 11;  // OAuth scopes requested
 }
 
 // Email and password authentication
@@ -22,12 +34,20 @@ message EmailAuth {
 
   // Password must be at least 8 characters
   string password = 2 [(buf.validate.field).string.min_len = 8];
+
+  // Additional nested fields for testing
+  bool use_two_factor = 3;      // Whether 2FA is enabled
+  string two_factor_code = 4;   // Optional 2FA code
 }
 
 // Token-based authentication
 message TokenAuth {
   // Token must be at least 10 characters and non-empty
   string token = 1 [(buf.validate.field).string.min_len = 10];
+
+  // Additional nested fields
+  string token_type = 2;         // Bearer, Basic, etc.
+  int64 issued_at = 3;          // When token was issued
 }
 
 // Social media authentication
@@ -39,6 +59,11 @@ message SocialAuth {
 
   // Access token must be non-empty and at least 20 characters
   string access_token = 2 [(buf.validate.field).string.min_len = 20];
+
+  // Additional nested fields
+  string redirect_uri = 3;       // OAuth redirect URI
+  string state = 4;              // OAuth state parameter for CSRF
+  repeated string permissions = 5; // Requested permissions
 }
 
 // Login response with access token

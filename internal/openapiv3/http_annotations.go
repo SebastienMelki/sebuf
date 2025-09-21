@@ -5,10 +5,10 @@ import (
 
 	"github.com/pb33f/libopenapi/datamodel/high/base"
 	v3 "github.com/pb33f/libopenapi/datamodel/high/v3"
+	yaml "go.yaml.in/yaml/v4"
 	"google.golang.org/protobuf/compiler/protogen"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/descriptorpb"
-	"gopkg.in/yaml.v3"
 
 	"github.com/SebastienMelki/sebuf/http"
 )
