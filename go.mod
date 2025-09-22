@@ -4,7 +4,7 @@ go 1.24.7
 
 require (
 	buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go v1.36.8-20250717185734-6c6e0d3c608e.1
-	github.com/pb33f/libopenapi v0.27.0
+	github.com/pb33f/libopenapi v0.28.0
 	go.yaml.in/yaml/v4 v4.0.0-rc.2
 	google.golang.org/protobuf v1.36.8
 	sigs.k8s.io/yaml v1.6.0
