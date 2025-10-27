@@ -146,7 +146,7 @@ jobs:
         
       - name: Upload test results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: test-results-${{ matrix.os }}-go${{ matrix.go-version }}
           path: |
@@ -254,7 +254,7 @@ jobs:
           coverage-file-name: coverage/coverage.out
           
       - name: Upload coverage reports
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: coverage-reports
           path: |
@@ -355,7 +355,7 @@ jobs:
           ./bin/protoc-gen-openapiv3 --version || true
           
       - name: Upload binaries
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: plugin-binaries
           path: bin/
