@@ -11,6 +11,13 @@ message ValidationError {
   repeated FieldViolation violations = 1;
 }
 
+// Error is returned when a handler encounters an error.
+// It contains a simple error message that the developer can customize.
+message Error {
+  // Error message (e.g., "user not found", "database connection failed")
+  string message = 1;
+}
+
 // FieldViolation describes a single validation error for a specific field.
 message FieldViolation {
   // The field path that failed validation (e.g., "user.email" for nested fields)
