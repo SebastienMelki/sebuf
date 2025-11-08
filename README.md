@@ -4,7 +4,7 @@
   
   > **Build HTTP APIs from protobuf definitions**
   
-  Transform your protobuf services into production-ready HTTP APIs with automatic documentation and helper functions.
+  Transform your protobuf services into production-ready HTTP APIs with automatic documentation and validation.
 </div>
 
 <div align="center">
@@ -25,7 +25,7 @@ cd sebuf/examples/simple-api
 make demo
 ```
 
-This starts a working HTTP API with JSON endpoints, OpenAPI docs, and helper functions - all generated from a simple `.proto` file.
+This starts a working HTTP API with JSON endpoints and OpenAPI docs - all generated from a simple `.proto` file.
 
 ## What you get
 
@@ -35,7 +35,6 @@ This starts a working HTTP API with JSON endpoints, OpenAPI docs, and helper fun
 - **HTTP header validation** with type checking and format validation (UUID, email, datetime)
 - **Structured error responses** with field-level validation details in JSON or protobuf
 - **OpenAPI v3.1 docs** that stay in sync with your code, one file per service for better organization
-- **Helper functions** that eliminate protobuf boilerplate
 - **Zero runtime dependencies** - works with any Go HTTP framework
 
 ## How it works
@@ -89,10 +88,6 @@ api.RegisterUserServiceServer(userService, api.WithMux(mux))
 mockService := api.NewMockUserServiceServer()
 api.RegisterUserServiceServer(mockService, api.WithMux(mux))
 
-// Helper functions  
-req := api.NewCreateUserRequestEmail("user@example.com", "secret")
-req := api.NewCreateUserRequestToken("auth-token")
-
 // Validation happens automatically:
 // - Headers validated first (returns HTTP 400 for missing/invalid headers)
 // - Then request body validated (returns HTTP 400 for invalid requests)
@@ -103,7 +98,6 @@ req := api.NewCreateUserRequestToken("auth-token")
 
 ```bash
 # Install the tools
-go install github.com/SebastienMelki/sebuf/cmd/protoc-gen-go-oneof-helper@latest
 go install github.com/SebastienMelki/sebuf/cmd/protoc-gen-go-http@latest  
 go install github.com/SebastienMelki/sebuf/cmd/protoc-gen-openapiv3@latest
 
