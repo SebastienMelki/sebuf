@@ -72,7 +72,7 @@ func BindingMiddleware[Req any](next http.Handler) http.Handler {
     // Automatic body validation happens here
     if msg, ok := any(toBind).(proto.Message); ok {
       if err := ValidateMessage(msg); err != nil {
-        http.Error(w, err.Error(), http.StatusBadRequest)
+        writeValidationError(w, r, err)
         return
       }
     }
@@ -86,17 +86,9 @@ func HeaderValidationMiddleware(requiredHeaders []HeaderConfig) func(http.Handle
   return func(next http.Handler) http.Handler {
     return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
       // Validate required headers
-      for _, header := range requiredHeaders {
-        value := r.Header.Get(header.Name)
-        if header.Required && value == "" {
-          http.Error(w, fmt.Sprintf("Missing required header: %s", header.Name), http.StatusBadRequest)
-          return
-        }
-        // Type and format validation
-        if err := validateHeaderValue(value, header.Type, header.Format); err != nil {
-          http.Error(w, err.Error(), http.StatusBadRequest)
-          return
-        }
+      if validationErr := validateHeaders(r, serviceHeaders, methodHeaders); validationErr != nil {
+        writeValidationErrorResponse(w, r, validationErr)
+        return
       }
       next.ServeHTTP(w, r)
     })
@@ -265,9 +257,12 @@ service UserService {
 ```
 
 ### Error Handling
-- **HTTP 400 responses**: Validation errors return Bad Request with error message for both body and header validation failures
-- **Detailed errors**: Full validation error details from protovalidate for body validation
-- **Header errors**: Clear messages indicating which header failed validation and why
+- **Structured Error Responses**: All errors use protobuf messages for consistent API responses
+- **Validation Errors (HTTP 400)**: ValidationError with field-level violations for body and header validation failures
+- **Handler Errors (HTTP 500)**: Error messages for service implementation failures with custom messages
+- **Content-Type Aware**: Error responses serialized as JSON or protobuf based on request Content-Type
+- **Detailed validation errors**: Full validation error details from protovalidate for body validation
+- **Header validation errors**: Clear messages indicating which header failed validation and why
 - **Fail-fast**: Validation stops request processing immediately on failure (headers validated before body)
 
 ## Type System
