@@ -17,22 +17,22 @@ This document provides a comprehensive technical overview of sebuf's architectur
 
 ## System Overview
 
-sebuf is a collection of three specialized protoc plugins that work together to enable modern HTTP API development from protobuf definitions:
+sebuf is a collection of two specialized protoc plugins that work together to enable modern HTTP API development from protobuf definitions:
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │                        sebuf Toolkit                            │
-├─────────────────┬─────────────────┬─────────────────────────────┤
-│  protoc-gen-    │  protoc-gen-    │    protoc-gen-              │
-│  go-oneof-      │  go-http        │    openapiv3                │
-│  helper         │                 │                             │
-│                 │                 │                             │
-│ ┌─────────────┐ │ ┌─────────────┐ │ ┌─────────────────────────┐ │
-│ │ Convenience │ │ │HTTP Handlers│ │ │   OpenAPI v3.1          │ │
-│ │Constructors │ │ │   + Binding │ │ │  Specifications         │ │
-│ │             │ │ │   + Routing │ │ │                         │ │
-│ └─────────────┘ │ └─────────────┘ │ └─────────────────────────┘ │
-└─────────────────┴─────────────────┴─────────────────────────────┘
+├─────────────────────────────┬───────────────────────────────────┤
+│  protoc-gen-go-http         │    protoc-gen-openapiv3           │
+│                             │                                   │
+│                             │                                   │
+│ ┌─────────────────────────┐ │ ┌─────────────────────────────────┐ │
+│ │HTTP Handlers            │ │ │   OpenAPI v3.1                 │ │
+│ │  + Binding              │ │ │  Specifications                 │ │
+│ │  + Routing              │ │ │  + Validation Rules             │ │
+│ │  + Validation           │ │ │  + Header Parameters            │ │
+│ └─────────────────────────┘ │ └─────────────────────────────────┘ │
+└─────────────────────────────┴───────────────────────────────────┘
                               │
                               ▼
 ┌─────────────────────────────────────────────────────────────────┐
@@ -72,8 +72,7 @@ func main() {
 
 | Plugin | Primary Function | Output | Dependencies |
 |--------|-----------------|---------|--------------|
-| `protoc-gen-go-oneof-helper` | Generate convenience constructors | `*_helpers.pb.go` | `protoc-gen-go` |
-| `protoc-gen-go-http` | Generate HTTP handlers & routing | `*_http*.pb.go` | `protoc-gen-go`, sebuf annotations |
+| `protoc-gen-go-http` | Generate HTTP handlers, routing & validation | `*_http*.pb.go` | `protoc-gen-go`, sebuf annotations |
 | `protoc-gen-openapiv3` | Generate OpenAPI specifications | `*.yaml`, `*.json` | None (standalone) |
 
 ## Code Generation Pipeline
@@ -85,12 +84,10 @@ graph TD
     A[.proto files] --> B[protoc compiler]
     B --> C[CodeGeneratorRequest]
     C --> D[protoc-gen-go]
-    C --> E[protoc-gen-go-oneof-helper]
     C --> F[protoc-gen-go-http]
     C --> G[protoc-gen-openapiv3]
     
     D --> H[.pb.go files]
-    E --> I[*_helpers.pb.go]
     F --> J[*_http*.pb.go]
     G --> K[OpenAPI specs]
 ```
@@ -136,50 +133,7 @@ func (p *GenerationPipeline) processFile(file *protogen.File) error {
 
 ## Component Deep Dive
 
-### 1. Oneof Helper Generator
-
-**Location**: `internal/oneofhelper/`
-
-**Core Algorithm**:
-```go
-func GenerateHelpers(plugin *protogen.Plugin, file *protogen.File) {
-    // 1. Traverse all messages in file
-    for _, message := range file.Messages {
-        // 2. Find oneof fields
-        for _, oneof := range message.Oneofs {
-            // 3. Process each oneof field
-            for _, field := range oneof.Fields {
-                // 4. Generate helper only for message types
-                if field.Message != nil {
-                    GenerateOneofHelper(message, oneof, field)
-                }
-            }
-        }
-        
-        // 5. Recurse into nested messages
-        for _, nested := range message.Messages {
-            // Process recursively...
-        }
-    }
-}
-```
-
-**Helper Generation Pattern**:
-```go
-// Generated function pattern: New{MessageName}{FieldName}
-func NewLoginRequestEmail(email string, password string) *LoginRequest {
-    return &LoginRequest{
-        AuthMethod: &LoginRequest_Email{
-            Email: &LoginRequest_EmailAuth{
-                Email:    email,
-                Password: password,
-            },
-        },
-    }
-}
-```
-
-### 2. HTTP Handler Generator
+### 1. HTTP Handler Generator
 
 **Location**: `internal/httpgen/`
 
@@ -216,7 +170,7 @@ func (g *HTTPGenerator) Generate() error {
 HTTP Request → Content-Type Detection → Binding Middleware → Service Method → Response Marshaling → HTTP Response
 ```
 
-### 3. OpenAPI Generator
+### 2. OpenAPI Generator
 
 **Location**: `internal/openapiv3/`
 
@@ -312,9 +266,10 @@ oneof auth_method {
 }
 ```
 ```go
-// Generated helpers:
-func NewLoginRequestEmail(email, password string) *LoginRequest
-func NewLoginRequestToken(token string) *LoginRequest
+// Manual construction:
+req := &LoginRequest{
+  AuthMethod: &LoginRequest_Email{Email: &EmailAuth{...}},
+}
 ```
 
 ## Testing Strategy
@@ -329,9 +284,9 @@ sebuf employs a multi-layered testing approach to ensure reliability:
 ```go
 func TestExhaustiveGoldenFiles(t *testing.T) {
     testCases := []string{
-        "simple_oneof",
-        "complex_types", 
-        "nested_messages",
+        "simple_service",
+        "complex_service", 
+        "nested_types",
     }
     
     for _, testCase := range testCases {
@@ -340,7 +295,7 @@ func TestExhaustiveGoldenFiles(t *testing.T) {
             generated := generateCode(testCase + ".proto")
             
             // Compare with golden file
-            golden := readGoldenFile(testCase + "_helpers.pb.go")
+            golden := readGoldenFile(testCase + ".openapi.yaml")
             assert.Equal(t, golden, generated)
         })
     }
@@ -389,15 +344,15 @@ func TestHTTPGenerationWorkflow(t *testing.T) {
 ### Test Data Organization
 
 ```
-internal/oneofhelper/testdata/
+internal/openapiv3/testdata/
 ├── proto/                    # Input proto files
-│   ├── simple_oneof.proto
-│   ├── complex_types.proto
-│   └── nested_messages.proto
+│   ├── simple_service.proto
+│   ├── complex_service.proto
+│   └── nested_types.proto
 └── golden/                   # Expected outputs
-    ├── simple_oneof_helpers.pb.go
-    ├── complex_types_helpers.pb.go
-    └── nested_messages_helpers.pb.go
+    ├── SimpleService.openapi.yaml
+    ├── ComplexService.openapi.yaml
+    └── NestedTypesService.openapi.yaml
 ```
 
 ## Performance Considerations
@@ -509,8 +464,7 @@ const (
 ### 1. Separation of Concerns
 
 Each plugin has a single, well-defined responsibility:
-- **Oneof Helper**: Convenience constructors only
-- **HTTP Generator**: HTTP protocol handling only  
+- **HTTP Generator**: HTTP protocol handling and validation
 - **OpenAPI Generator**: Documentation generation only
 
 ### 2. Zero Runtime Dependencies
