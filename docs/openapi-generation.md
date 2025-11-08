@@ -1213,5 +1213,5 @@ npx redoc-cli bundle docs/api.yaml --output docs/index.html
 
 **See also:**
 - [HTTP Generation](./http-generation.md) - Generate HTTP handlers that match your OpenAPI spec
-- [Oneof Helpers](./oneof-helpers.md) - Simplify complex protobuf message construction
+- [Validation Guide](./validation.md) - Comprehensive request validation
 - [Simple Demo](./examples/) - Quick tutorial to get started
