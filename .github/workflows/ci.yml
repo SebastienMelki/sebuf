@@ -350,7 +350,6 @@ jobs:
           
       - name: Test plugin execution
         run: |
-          ./bin/protoc-gen-go-oneof-helper --version || true
           ./bin/protoc-gen-go-http --version || true
           ./bin/protoc-gen-openapiv3 --version || true
           
@@ -424,27 +423,13 @@ jobs:
           # Create test directory
           mkdir -p integration-test-output
           
-          echo "🔍 Testing oneof helper with simple_oneof.proto (no services)..."
-          # Test oneof helper with simple_oneof.proto (no services)
-          protoc \
-            --plugin=protoc-gen-go-oneof-helper=bin/protoc-gen-go-oneof-helper \
-            --go_out=integration-test-output \
-            --go_opt=module=github.com/SebastienMelki/sebuf \
-            --go-oneof-helper_out=integration-test-output \
-            --go-oneof-helper_opt=module=github.com/SebastienMelki/sebuf \
-            --proto_path=internal/oneofhelper/testdata/proto \
-            internal/oneofhelper/testdata/proto/simple_oneof.proto
-          
-          echo "🔍 Testing all plugins with simple_service.proto (has services)..."
+          echo "🔍 Testing plugins with simple_service.proto (has services)..."
           # Test all plugins with simple_service.proto (has services)
           protoc \
-            --plugin=protoc-gen-go-oneof-helper=bin/protoc-gen-go-oneof-helper \
             --plugin=protoc-gen-go-http=bin/protoc-gen-go-http \
             --plugin=protoc-gen-openapiv3=bin/protoc-gen-openapiv3 \
             --go_out=integration-test-output \
             --go_opt=module=github.com/SebastienMelki/sebuf \
-            --go-oneof-helper_out=integration-test-output \
-            --go-oneof-helper_opt=module=github.com/SebastienMelki/sebuf \
             --go-http_out=integration-test-output \
             --go-http_opt=module=github.com/SebastienMelki/sebuf \
             --openapiv3_out=integration-test-output \
@@ -454,15 +439,6 @@ jobs:
           # Debug: List all generated files
           echo "📁 Generated files:"
           find integration-test-output -type f -name "*.go" -o -name "*.yaml" | sort
-          
-          # Verify oneof helper output
-          echo "✅ Checking oneof helper outputs..."
-          if [ -f "integration-test-output/internal/oneofhelper/testdata/simple_oneof_helpers.pb.go" ]; then
-            echo "✅ simple_oneof_helpers.pb.go found"
-          else
-            echo "❌ simple_oneof_helpers.pb.go missing"
-            exit 1
-          fi
           
           # Verify HTTP handler output for service proto
           echo "✅ Checking HTTP handler outputs..."
