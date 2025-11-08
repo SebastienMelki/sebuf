@@ -21,7 +21,7 @@ A user management API with:
 - ✅ **Automatic request validation** using buf.validate annotations
 - ✅ **Structured error responses** with field-level validation details
 - ✅ **Multiple auth methods** (email, token, social) using oneof fields
-- ✅ **Helper functions** that eliminate protobuf boilerplate  
+- ✅ **Type-safe request construction** with protobuf structs  
 - ✅ **OpenAPI documentation** that stays in sync automatically, including header parameters and examples
 - ✅ **JSON and binary** protobuf support
 
@@ -34,7 +34,6 @@ A user management API with:
 brew install bufbuild/buf/buf
 
 # Install sebuf tools
-go install github.com/SebastienMelki/sebuf/cmd/protoc-gen-go-oneof-helper@latest
 go install github.com/SebastienMelki/sebuf/cmd/protoc-gen-go-http@latest
 go install github.com/SebastienMelki/sebuf/cmd/protoc-gen-openapiv3@latest
 ```
@@ -136,7 +135,6 @@ go mod tidy
 This creates:
 - `api/api_http*.pb.go` - HTTP server code
 - `api/api_http_mock.pb.go` - Mock server implementation (if enabled)
-- `api/api_helpers.pb.go` - Helper functions for oneof fields
 - `docs/UserService.openapi.yaml` - Complete API documentation with examples
 
 ### 4. Run the server
@@ -246,7 +244,7 @@ curl -X POST http://localhost:8080/api/v1/users \
 }
 ```
 
-### Login with email (demonstrates oneof helpers and validation)
+### Login with email (demonstrates validation)
 ```bash
 # Valid login request
 curl -X POST http://localhost:8080/api/v1/auth/login \
@@ -367,7 +365,6 @@ The OpenAPI spec shows:
 ## Explore the generated code
 
 - **`api/api.pb.go`** - Standard protobuf structs
-- **`api/api_helpers.pb.go`** - Helper functions for oneof fields
 - **`api/api_http.pb.go`** - HTTP server interface and registration
 - **`api/api_http_binding.pb.go`** - Request/response binding logic
 - **`api/api_http_config.pb.go`** - Configuration options

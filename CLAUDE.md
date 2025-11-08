@@ -4,9 +4,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is `sebuf`, a comprehensive Go protobuf toolkit for building HTTP APIs. It consists of three complementary protoc plugins that together enable modern, type-safe API development:
+This is `sebuf`, a specialized Go protobuf toolkit for building HTTP APIs. It consists of two complementary protoc plugins that together enable modern, type-safe API development:
 
-- **`protoc-gen-go-oneof-helper`**: Creates convenience constructors for protobuf oneof fields
 - **`protoc-gen-go-http`**: Generates HTTP handlers, routing, request/response binding, and automatic validation
 - **`protoc-gen-openapiv3`**: Creates comprehensive OpenAPI v3.1 specifications
 
@@ -14,13 +13,11 @@ The toolkit enables developers to build HTTP APIs directly from protobuf definit
 
 ## Architecture
 
-The project follows a clean Go protoc plugin architecture with separated concerns across three main components:
+The project follows a clean Go protoc plugin architecture with separated concerns across two main components:
 
 ### Plugin Structure
-- **cmd/protoc-gen-go-oneof-helper/**: Oneof helper generator entry point
 - **cmd/protoc-gen-go-http/**: HTTP handler generator entry point
 - **cmd/protoc-gen-openapiv3/**: OpenAPI specification generator entry point
-- **internal/oneofhelper/**: Oneof helper generation logic and tests
 - **internal/httpgen/**: HTTP handler generation logic, annotations, and header validation middleware
 - **internal/openapiv3/**: OpenAPI generation logic, type mapping, and header parameter generation
 - **proto/sebuf/http/**: HTTP annotation definitions including headers.proto for header validation
@@ -28,29 +25,13 @@ The project follows a clean Go protoc plugin architecture with separated concern
 
 ### Core Components
 
-1. **Oneof Helper Generator** (`internal/oneofhelper/generator.go:27`): Creates convenience constructors for oneof fields containing message types
-2. **HTTP Handler Generator** (`internal/httpgen/generator.go:22`): Generates HTTP handlers, request binding, routing configuration, automatic body validation, and header validation middleware
-3. **OpenAPI Generator** (`internal/openapiv3/generator.go:53`): Creates comprehensive OpenAPI v3.1 specifications from protobuf definitions with full header parameter support, generating one file per service for better organization
-4. **HTTP Annotations** (`proto/sebuf/http/annotations.proto`): Custom protobuf extensions for HTTP configuration
-5. **Header Validation** (`proto/sebuf/http/headers.proto`): Protobuf definitions for service and method-level header validation
-6. **Validation System**: Automatic request body validation via buf.validate/protovalidate and header validation middleware
+1. **HTTP Handler Generator** (`internal/httpgen/generator.go:22`): Generates HTTP handlers, request binding, routing configuration, automatic body validation, and header validation middleware
+2. **OpenAPI Generator** (`internal/openapiv3/generator.go:53`): Creates comprehensive OpenAPI v3.1 specifications from protobuf definitions with full header parameter support, generating one file per service for better organization
+3. **HTTP Annotations** (`proto/sebuf/http/annotations.proto`): Custom protobuf extensions for HTTP configuration
+4. **Header Validation** (`proto/sebuf/http/headers.proto`): Protobuf definitions for service and method-level header validation
+5. **Validation System**: Automatic request body validation via buf.validate/protovalidate and header validation middleware
 
 ### Generated Output Examples
-
-**Oneof Helpers** - Convenience constructors:
-```go
-// NewLoginRequestEmail creates a new LoginRequest with Email set
-func NewLoginRequestEmail(email string, password string) *LoginRequest {
-    return &LoginRequest{
-        AuthMethod: &LoginRequest_Email{
-            Email: &LoginRequest_EmailAuth{
-                Email:    email,
-                Password: password,
-            },
-        },
-    }
-}
-```
 
 **HTTP Handlers** - Complete HTTP server infrastructure:
 ```go
@@ -180,7 +161,6 @@ go test -v -run TestExhaustiveGoldenFiles   # Golden file tests
 make build
 
 # Build individual plugins
-go build -o protoc-gen-go-oneof-helper ./cmd/protoc-gen-go-oneof-helper
 go build -o protoc-gen-go-http ./cmd/protoc-gen-go-http
 go build -o protoc-gen-openapiv3 ./cmd/protoc-gen-openapiv3
 
@@ -190,18 +170,12 @@ go fmt ./...
 
 ### Manual Testing
 ```bash
-# Test all plugins with sample proto file
+# Test plugins with sample proto file
 protoc --go_out=. --go_opt=module=github.com/SebastienMelki/sebuf \
-       --go-oneof-helper_out=. \
        --go-http_out=. \
        --openapiv3_out=./docs \
-       --proto_path=internal/oneofhelper/testdata/proto \
-       internal/oneofhelper/testdata/proto/simple_oneof.proto
-
-# Test specific plugin
-protoc --go-oneof-helper_out=. \
-       --proto_path=internal/oneofhelper/testdata/proto \
-       internal/oneofhelper/testdata/proto/simple_oneof.proto
+       --proto_path=examples/simple-api/proto \
+       examples/simple-api/proto/services/user_service.proto
 ```
 
 ## Testing Strategy
@@ -211,13 +185,13 @@ The project uses a comprehensive two-tier testing approach:
 ### Golden File Tests (Primary)
 - **Exhaustive regression detection**: Catches ANY change in generated output down to single characters
 - **Real protoc execution**: Tests actual plugin behavior, not mocked components
-- **File locations**: internal/oneofhelper/exhaustive_golden_test.go, internal/oneofhelper/golden_test.go
-- **Test data**: internal/oneofhelper/testdata/proto/*.proto → internal/oneofhelper/testdata/golden/*_helpers.pb.go
+- **File locations**: internal/openapiv3/exhaustive_golden_test.go
+- **Test data**: internal/openapiv3/testdata/ for OpenAPI generation testing
 
 ### Unit Tests (Secondary)
-- **Function-level testing**: Tests individual functions like `lowerFirst()`, `getFieldType()`
+- **Function-level testing**: Tests individual functions for HTTP and OpenAPI generators
 - **Mocked components**: Uses protogen mocks for isolated testing
-- **File locations**: internal/oneofhelper/simple_test.go, internal/oneofhelper/comprehensive_test.go
+- **File locations**: internal/httpgen/ and internal/openapiv3/ test files
 
 ## Validation System
 
@@ -307,15 +281,15 @@ The plugin handles comprehensive protobuf-to-Go type mapping in `getFieldType()`
 
 ## Key Implementation Details
 
-### Oneof Detection Logic
-- Only generates helpers for oneof fields that contain message types (not scalar types)
-- Recursively processes nested messages to find all oneofs (internal/oneofhelper/generator.go:26)
-- Uses protogen reflection to inspect field properties
+### HTTP Handler Generation
+- Generates complete HTTP handlers with automatic request/response binding
+- Implements comprehensive validation for both headers and request bodies
+- Uses protogen reflection to generate type-safe handlers
 
-### Parameter Generation  
-- Flattens nested message fields into function parameters
-- Converts protobuf field names to Go parameter names using `lowerFirst()` (generator.go:118)
-- Maintains type safety through protogen's type system
+### OpenAPI Generation
+- Creates comprehensive OpenAPI v3.1 specifications
+- Supports header parameter generation and validation rules
+- Generates one file per service for better organization
 
 ### Import Management
 - Uses protogen.GeneratedFile's automatic import handling
@@ -324,8 +298,10 @@ The plugin handles comprehensive protobuf-to-Go type mapping in `getFieldType()`
 ## Project Structure
 
 The repository contains:
-- **cmd/protoc-gen-go-oneof-helper/**: Minimal plugin entry point (47 lines)
-- **internal/oneofhelper/**: Core generation logic and comprehensive test suite
+- **cmd/protoc-gen-go-http/**: HTTP handler plugin entry point
+- **cmd/protoc-gen-openapiv3/**: OpenAPI generation plugin entry point
+- **internal/httpgen/**: HTTP handler generation logic and tests
+- **internal/openapiv3/**: OpenAPI generation logic and comprehensive test suite
 - **scripts/run_tests.sh**: Advanced test runner with coverage analysis and reporting
 
 ## Acknowledgments & Ecosystem

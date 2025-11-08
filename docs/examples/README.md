@@ -16,7 +16,7 @@ make demo
 This starts a working HTTP API with:
 - User management and authentication
 - Multiple auth methods (email, token, social)
-- Generated helper functions for oneof fields
+- Type-safe request construction
 - OpenAPI documentation
 - JSON and binary protobuf support
 

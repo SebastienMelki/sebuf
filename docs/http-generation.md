@@ -1192,24 +1192,6 @@ option (sebuf.http.config) = { path: "/users/" };  // Conflicts
 
 ## Integration with Other sebuf Tools
 
-### With Oneof Helpers
-
-```go
-// Use oneof helpers in HTTP handlers
-func (s *AuthService) Login(ctx context.Context, req *LoginRequest) (*LoginResponse, error) {
-    // Create requests easily with generated helpers
-    var authReq *AuthRequest
-    
-    if email := getEmailFromHTTPContext(ctx); email != "" {
-        authReq = NewAuthRequestEmail(email.Email, email.Password)
-    } else if token := getTokenFromHTTPContext(ctx); token != "" {
-        authReq = NewAuthRequestToken(token.Token)
-    }
-    
-    return s.authenticate(authReq)
-}
-```
-
 ### With OpenAPI Generation
 
 Generate both HTTP handlers and OpenAPI documentation:
@@ -1253,5 +1235,5 @@ The OpenAPI spec will automatically reflect your HTTP annotations and routing.
 
 **See also:**
 - [Getting Started Guide](./getting-started.md)
-- [Oneof Helpers](./oneof-helpers.md)
+- [Validation Guide](./validation.md)
 - [Simple Demo](./examples/)

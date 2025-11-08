@@ -9,34 +9,6 @@ before:
     - ./scripts/run_tests.sh --fast
 
 builds:
-  - id: protoc-gen-go-oneof-helper
-    binary: protoc-gen-go-oneof-helper
-    main: ./cmd/protoc-gen-go-oneof-helper
-    env:
-      - CGO_ENABLED=0
-    goos:
-      - linux
-      - darwin
-      - windows
-    goarch:
-      - amd64
-      - arm64
-      - arm
-    goarm:
-      - "7"
-    ignore:
-      - goos: windows
-        goarch: arm64
-      - goos: windows
-        goarch: arm
-    ldflags:
-      - -s -w
-      - -X main.version={{.Version}}
-      - -X main.commit={{.Commit}}
-      - -X main.date={{.Date}}
-      - -X main.builtBy=goreleaser
-    mod_timestamp: '{{ .CommitTimestamp }}'
-
   - id: protoc-gen-go-http
     binary: protoc-gen-go-http
     main: ./cmd/protoc-gen-go-http
@@ -94,25 +66,6 @@ builds:
     mod_timestamp: '{{ .CommitTimestamp }}'
 
 archives:
-  - id: protoc-gen-go-oneof-helper
-    builds:
-      - protoc-gen-go-oneof-helper
-    name_template: >-
-      protoc-gen-go-oneof-helper_
-      {{- .Version }}_
-      {{- title .Os }}_
-      {{- if eq .Arch "amd64" }}x86_64
-      {{- else if eq .Arch "386" }}i386
-      {{- else }}{{ .Arch }}{{ end }}
-      {{- if .Arm }}v{{ .Arm }}{{ end }}
-    format_overrides:
-      - goos: windows
-        format: zip
-    files:
-      - LICENSE*
-      - README.md
-      - docs/oneof-helper.md
-
   - id: protoc-gen-go-http
     builds:
       - protoc-gen-go-http
@@ -130,7 +83,7 @@ archives:
     files:
       - LICENSE*
       - README.md
-      - docs/http-generator.md
+      - docs/http-generation.md
 
   - id: protoc-gen-openapiv3
     builds:
@@ -149,7 +102,7 @@ archives:
     files:
       - LICENSE*
       - README.md
-      - docs/openapi-generator.md
+      - docs/openapi-generation.md
 
 checksum:
   name_template: 'checksums.txt'
@@ -212,8 +165,7 @@ release:
     
     Welcome to the {{.Version}} release of sebuf! 🎉
     
-    This release includes all three protoc plugins:
-    - `protoc-gen-go-oneof-helper`: Oneof field constructor generator
+    This release includes specialized server/client protoc plugins:
     - `protoc-gen-go-http`: HTTP handler and routing generator
     - `protoc-gen-openapiv3`: OpenAPI v3.1 specification generator
     
@@ -222,7 +174,6 @@ release:
     
     ### Using Go Install
     ```bash
-    go install github.com/SebastienMelki/sebuf/cmd/protoc-gen-go-oneof-helper@v{{.Version}}
     go install github.com/SebastienMelki/sebuf/cmd/protoc-gen-go-http@v{{.Version}}
     go install github.com/SebastienMelki/sebuf/cmd/protoc-gen-openapiv3@v{{.Version}}
     ```
@@ -235,7 +186,6 @@ release:
     
     ### Using Docker
     ```bash
-    docker pull ghcr.io/sebastienmelki/protoc-gen-go-oneof-helper:{{.Version}}
     docker pull ghcr.io/sebastienmelki/protoc-gen-go-http:{{.Version}}
     docker pull ghcr.io/sebastienmelki/protoc-gen-openapiv3:{{.Version}}
     ```
@@ -300,12 +250,10 @@ brews:
         type: optional
     
     test: |
-      system "#{bin}/protoc-gen-go-oneof-helper", "--version"
       system "#{bin}/protoc-gen-go-http", "--version"
       system "#{bin}/protoc-gen-openapiv3", "--version"
     
     install: |
-      bin.install "protoc-gen-go-oneof-helper"
       bin.install "protoc-gen-go-http"
       bin.install "protoc-gen-openapiv3"
 
@@ -332,22 +280,6 @@ nfpms:
         dst: /usr/share/doc/sebuf/README.md
 
 dockers:
-  - id: protoc-gen-go-oneof-helper
-    ids:
-      - protoc-gen-go-oneof-helper
-    image_templates:
-      - "ghcr.io/sebastienmelki/protoc-gen-go-oneof-helper:{{ .Version }}-amd64"
-      - "ghcr.io/sebastienmelki/protoc-gen-go-oneof-helper:latest-amd64"
-    dockerfile: docker/Dockerfile.oneof
-    use: buildx
-    build_flag_templates:
-      - "--platform=linux/amd64"
-      - "--label=org.opencontainers.image.created={{.Date}}"
-      - "--label=org.opencontainers.image.title=protoc-gen-go-oneof-helper"
-      - "--label=org.opencontainers.image.revision={{.FullCommit}}"
-      - "--label=org.opencontainers.image.version={{.Version}}"
-      - "--label=org.opencontainers.image.source={{.GitURL}}"
-    
   - id: protoc-gen-go-http
     ids:
       - protoc-gen-go-http
@@ -381,14 +313,6 @@ dockers:
       - "--label=org.opencontainers.image.source={{.GitURL}}"
 
 docker_manifests:
-  - name_template: "ghcr.io/sebastienmelki/protoc-gen-go-oneof-helper:{{ .Version }}"
-    image_templates:
-      - "ghcr.io/sebastienmelki/protoc-gen-go-oneof-helper:{{ .Version }}-amd64"
-  
-  - name_template: "ghcr.io/sebastienmelki/protoc-gen-go-oneof-helper:latest"
-    image_templates:
-      - "ghcr.io/sebastienmelki/protoc-gen-go-oneof-helper:latest-amd64"
-  
   - name_template: "ghcr.io/sebastienmelki/protoc-gen-go-http:{{ .Version }}"
     image_templates:
       - "ghcr.io/sebastienmelki/protoc-gen-go-http:{{ .Version }}-amd64"

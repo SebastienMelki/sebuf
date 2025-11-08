@@ -28,12 +28,6 @@ plugins:
     out: ./api
     opt: module=github.com/SebastienMelki/sebuf/examples/simple-api/api
 
-  # Custom oneof helper utilities
-  - local: ../../bin/protoc-gen-go-oneof-helper
-    out: api
-    opt:
-      - module=github.com/SebastienMelki/sebuf/examples/simple-api/api
-
   # OpenAPI v3 documentation generation in YAML format
   - local: ../../bin/protoc-gen-openapiv3
     out: ./docs
