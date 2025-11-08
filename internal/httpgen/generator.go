@@ -342,19 +342,28 @@ func (g *Generator) generateBindingFile(file *protogen.File) error {
 	gf.P()
 	gf.P("response, err := serve(r.Context(), request)")
 	gf.P("if err != nil {")
-	gf.P(`http.Error(w, fmt.Sprintf("internal server error: %v", err), http.StatusInternalServerError)`)
+	gf.P("errorMsg := &sebufhttp.Error{")
+	gf.P("Message: err.Error(),")
+	gf.P("}")
+	gf.P("writeErrorResponse(w, r, errorMsg)")
 	gf.P("return")
 	gf.P("}")
 	gf.P()
 	gf.P("responseBytes, err := marshalResponse(r, response)")
 	gf.P("if err != nil {")
-	gf.P(`http.Error(w, fmt.Sprintf("failed to marshal response: %v", err), http.StatusInternalServerError)`)
+	gf.P("errorMsg := &sebufhttp.Error{")
+	gf.P("Message: fmt.Sprintf(\"failed to marshal response: %v\", err),")
+	gf.P("}")
+	gf.P("writeErrorResponse(w, r, errorMsg)")
 	gf.P("return")
 	gf.P("}")
 	gf.P()
 	gf.P("_, err = w.Write(responseBytes)")
 	gf.P("if err != nil {")
-	gf.P(`http.Error(w, fmt.Sprintf("failed to write response: %v", err), http.StatusInternalServerError)`)
+	gf.P("errorMsg := &sebufhttp.Error{")
+	gf.P("Message: fmt.Sprintf(\"failed to write response: %v\", err),")
+	gf.P("}")
+	gf.P("writeErrorResponse(w, r, errorMsg)")
 	gf.P("return")
 	gf.P("}")
 	gf.P("}")
@@ -532,15 +541,17 @@ func camelToSnake(s string) string {
 
 // generateErrorResponseFunctions generates error response helper functions.
 func (g *Generator) generateErrorResponseFunctions(gf *protogen.GeneratedFile) {
+	g.generateWriteProtoMessageResponseFunc(gf)
 	g.generateWriteValidationErrorResponseFunc(gf)
 	g.generateWriteValidationErrorFunc(gf)
+	g.generateWriteErrorResponseFunc(gf)
 }
 
-// generateWriteValidationErrorResponseFunc generates the writeValidationErrorResponse function.
-func (g *Generator) generateWriteValidationErrorResponseFunc(gf *protogen.GeneratedFile) {
-	gf.P("// writeValidationErrorResponse writes a ValidationError as a response")
+// generateWriteProtoMessageResponseFunc generates a helper function for writing protobuf messages as responses.
+func (g *Generator) generateWriteProtoMessageResponseFunc(gf *protogen.GeneratedFile) {
+	gf.P("// writeProtoMessageResponse writes a protobuf message as an HTTP response")
 	gf.P(
-		"func writeValidationErrorResponse(w http.ResponseWriter, r *http.Request, validationErr *sebufhttp.ValidationError) {",
+		"func writeProtoMessageResponse(w http.ResponseWriter, r *http.Request, msg proto.Message, statusCode int, fallbackMsg string) {",
 	)
 	gf.P(`contentType := r.Header.Get("Content-Type")`)
 	gf.P("if contentType == \"\" {")
@@ -552,22 +563,33 @@ func (g *Generator) generateWriteValidationErrorResponseFunc(gf *protogen.Genera
 	gf.P()
 	gf.P("switch filterFlags(contentType) {")
 	gf.P("case JSONContentType:")
-	gf.P("responseBytes, err = protojson.Marshal(validationErr)")
+	gf.P("responseBytes, err = protojson.Marshal(msg)")
 	gf.P("case BinaryContentType, ProtoContentType:")
-	gf.P("responseBytes, err = proto.Marshal(validationErr)")
+	gf.P("responseBytes, err = proto.Marshal(msg)")
 	gf.P("default:")
 	gf.P("// Default to JSON for error responses")
-	gf.P("responseBytes, err = protojson.Marshal(validationErr)")
+	gf.P("responseBytes, err = protojson.Marshal(msg)")
 	gf.P("}")
 	gf.P()
 	gf.P("if err != nil {")
 	gf.P("// Fallback to plain text error if marshaling fails")
-	gf.P(`http.Error(w, "validation failed", http.StatusBadRequest)`)
+	gf.P("http.Error(w, fallbackMsg, statusCode)")
 	gf.P("return")
 	gf.P("}")
 	gf.P()
-	gf.P("w.WriteHeader(http.StatusBadRequest)")
+	gf.P("w.WriteHeader(statusCode)")
 	gf.P("_, _ = w.Write(responseBytes)")
+	gf.P("}")
+	gf.P()
+}
+
+// generateWriteValidationErrorResponseFunc generates the writeValidationErrorResponse function.
+func (g *Generator) generateWriteValidationErrorResponseFunc(gf *protogen.GeneratedFile) {
+	gf.P("// writeValidationErrorResponse writes a ValidationError as a response")
+	gf.P(
+		"func writeValidationErrorResponse(w http.ResponseWriter, r *http.Request, validationErr *sebufhttp.ValidationError) {",
+	)
+	gf.P(`writeProtoMessageResponse(w, r, validationErr, http.StatusBadRequest, "validation failed")`)
 	gf.P("}")
 	gf.P()
 }
@@ -597,6 +619,15 @@ func (g *Generator) generateWriteValidationErrorFunc(gf *protogen.GeneratedFile)
 	gf.P("}")
 	gf.P()
 	gf.P("writeValidationErrorResponse(w, r, validationErr)")
+	gf.P("}")
+	gf.P()
+}
+
+// generateWriteErrorResponseFunc generates the writeErrorResponse function.
+func (g *Generator) generateWriteErrorResponseFunc(gf *protogen.GeneratedFile) {
+	gf.P("// writeErrorResponse writes an Error as a response")
+	gf.P("func writeErrorResponse(w http.ResponseWriter, r *http.Request, errorMsg *sebufhttp.Error) {")
+	gf.P(`writeProtoMessageResponse(w, r, errorMsg, http.StatusInternalServerError, "internal server error")`)
 	gf.P("}")
 	gf.P()
 }

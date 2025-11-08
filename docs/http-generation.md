@@ -34,6 +34,7 @@ The HTTP generation plugin creates three main components from your protobuf serv
 - **Multiple Content Types** - Automatic JSON and binary protobuf support
 - **Framework Agnostic** - Works with any Go HTTP framework or standard library
 - **Type Safe** - Full protobuf type checking and validation
+- **Structured Error Responses** - Consistent protobuf-based error handling for all error types
 - **Customizable Routing** - Control HTTP paths through annotations
 - **Mock Server Generation** - Generate mock implementations with realistic data based on field examples
 - **Header Validation** - Automatic validation of HTTP headers with type and format checking
@@ -759,7 +760,7 @@ Contains middleware and request/response handling:
 - **Response Marshaling** - Automatic serialization to HTTP responses
 - **Header Validation** - Automatic header validation middleware
 - **Body Validation** - Automatic request body validation via buf.validate
-- **Error Handling** - Structured error responses
+- **Structured Error Handling** - Consistent protobuf-based error responses for validation and handler errors
 
 ### 3. Config File (`*_http_config.pb.go`)
 
@@ -868,10 +869,37 @@ curl -X POST /api/v1/users \
 
 ### Error Handling
 
-Generated handlers provide structured error responses:
+Generated handlers provide comprehensive structured error responses for both validation failures and service implementation errors.
+
+#### Error Types
+
+**1. Validation Errors** - Missing or invalid headers and request body validation:
+```json
+{
+  "violations": [
+    {
+      "field": "X-API-Key", 
+      "description": "required header 'X-API-Key' is missing"
+    },
+    {
+      "field": "email",
+      "description": "must be a valid email address"
+    }
+  ]
+}
+```
+
+**2. Handler Errors** - Service implementation errors with structured messages:
+```json
+{
+  "message": "user not found: 123"
+}
+```
+
+#### Service Implementation Error Handling
 
 ```go
-// Service implementation error
+// Service implementation with error handling
 func (s *UserService) GetUser(ctx context.Context, req *GetUserRequest) (*User, error) {
     if req.Id == "" {
         return nil, fmt.Errorf("user ID is required")
@@ -886,11 +914,64 @@ func (s *UserService) GetUser(ctx context.Context, req *GetUserRequest) (*User, 
 }
 ```
 
-**Error Response (JSON):**
-```json
+#### Error Response Format
+
+All errors are returned as protobuf messages serialized according to the request's `Content-Type`:
+
+**JSON Format (application/json):**
+```bash
+curl -X POST /api/v1/users \
+  -H "Content-Type: application/json" \
+  -d '{"name": "", "email": "invalid"}'
+
+# Response: HTTP 400 Bad Request
 {
-  "error": "user not found: 123",
-  "status": 500
+  "violations": [
+    {
+      "field": "name",
+      "description": "field is required"
+    },
+    {
+      "field": "email", 
+      "description": "must be a valid email address"
+    }
+  ]
+}
+```
+
+**Protobuf Format (application/x-protobuf):**
+```bash
+curl -X POST /api/v1/users/get \
+  -H "Content-Type: application/x-protobuf" \
+  --data-binary @invalid_request.pb
+
+# Response: HTTP 500 Internal Server Error (binary protobuf Error message)
+```
+
+#### Error Hierarchy
+
+1. **Header Validation** (HTTP 400) - Validated first, before request body processing
+2. **Body Validation** (HTTP 400) - buf.validate rules for request messages
+3. **Handler Errors** (HTTP 500) - Service implementation errors
+
+#### Structured Error Messages
+
+Both validation and handler errors use protobuf messages defined in `sebuf/http/errors.proto`:
+
+```protobuf
+// Validation errors with field-level detail
+message ValidationError {
+  repeated FieldViolation violations = 1;
+}
+
+message FieldViolation {
+  string field = 1;         // Field name or header name
+  string description = 2;   // Human-readable error description
+}
+
+// Handler errors with custom messages  
+message Error {
+  string message = 1;  // Error message from service implementation
 }
 ```
 
