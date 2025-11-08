@@ -541,16 +541,17 @@ func camelToSnake(s string) string {
 
 // generateErrorResponseFunctions generates error response helper functions.
 func (g *Generator) generateErrorResponseFunctions(gf *protogen.GeneratedFile) {
+	g.generateWriteProtoMessageResponseFunc(gf)
 	g.generateWriteValidationErrorResponseFunc(gf)
 	g.generateWriteValidationErrorFunc(gf)
 	g.generateWriteErrorResponseFunc(gf)
 }
 
-// generateWriteValidationErrorResponseFunc generates the writeValidationErrorResponse function.
-func (g *Generator) generateWriteValidationErrorResponseFunc(gf *protogen.GeneratedFile) {
-	gf.P("// writeValidationErrorResponse writes a ValidationError as a response")
+// generateWriteProtoMessageResponseFunc generates a helper function for writing protobuf messages as responses.
+func (g *Generator) generateWriteProtoMessageResponseFunc(gf *protogen.GeneratedFile) {
+	gf.P("// writeProtoMessageResponse writes a protobuf message as an HTTP response")
 	gf.P(
-		"func writeValidationErrorResponse(w http.ResponseWriter, r *http.Request, validationErr *sebufhttp.ValidationError) {",
+		"func writeProtoMessageResponse(w http.ResponseWriter, r *http.Request, msg proto.Message, statusCode int, fallbackMsg string) {",
 	)
 	gf.P(`contentType := r.Header.Get("Content-Type")`)
 	gf.P("if contentType == \"\" {")
@@ -562,22 +563,33 @@ func (g *Generator) generateWriteValidationErrorResponseFunc(gf *protogen.Genera
 	gf.P()
 	gf.P("switch filterFlags(contentType) {")
 	gf.P("case JSONContentType:")
-	gf.P("responseBytes, err = protojson.Marshal(validationErr)")
+	gf.P("responseBytes, err = protojson.Marshal(msg)")
 	gf.P("case BinaryContentType, ProtoContentType:")
-	gf.P("responseBytes, err = proto.Marshal(validationErr)")
+	gf.P("responseBytes, err = proto.Marshal(msg)")
 	gf.P("default:")
 	gf.P("// Default to JSON for error responses")
-	gf.P("responseBytes, err = protojson.Marshal(validationErr)")
+	gf.P("responseBytes, err = protojson.Marshal(msg)")
 	gf.P("}")
 	gf.P()
 	gf.P("if err != nil {")
 	gf.P("// Fallback to plain text error if marshaling fails")
-	gf.P(`http.Error(w, "validation failed", http.StatusBadRequest)`)
+	gf.P("http.Error(w, fallbackMsg, statusCode)")
 	gf.P("return")
 	gf.P("}")
 	gf.P()
-	gf.P("w.WriteHeader(http.StatusBadRequest)")
+	gf.P("w.WriteHeader(statusCode)")
 	gf.P("_, _ = w.Write(responseBytes)")
+	gf.P("}")
+	gf.P()
+}
+
+// generateWriteValidationErrorResponseFunc generates the writeValidationErrorResponse function.
+func (g *Generator) generateWriteValidationErrorResponseFunc(gf *protogen.GeneratedFile) {
+	gf.P("// writeValidationErrorResponse writes a ValidationError as a response")
+	gf.P(
+		"func writeValidationErrorResponse(w http.ResponseWriter, r *http.Request, validationErr *sebufhttp.ValidationError) {",
+	)
+	gf.P(`writeProtoMessageResponse(w, r, validationErr, http.StatusBadRequest, "validation failed")`)
 	gf.P("}")
 	gf.P()
 }
@@ -615,32 +627,7 @@ func (g *Generator) generateWriteValidationErrorFunc(gf *protogen.GeneratedFile)
 func (g *Generator) generateWriteErrorResponseFunc(gf *protogen.GeneratedFile) {
 	gf.P("// writeErrorResponse writes an Error as a response")
 	gf.P("func writeErrorResponse(w http.ResponseWriter, r *http.Request, errorMsg *sebufhttp.Error) {")
-	gf.P(`contentType := r.Header.Get("Content-Type")`)
-	gf.P("if contentType == \"\" {")
-	gf.P("contentType = JSONContentType")
-	gf.P("}")
-	gf.P()
-	gf.P("var responseBytes []byte")
-	gf.P("var err error")
-	gf.P()
-	gf.P("switch filterFlags(contentType) {")
-	gf.P("case JSONContentType:")
-	gf.P("responseBytes, err = protojson.Marshal(errorMsg)")
-	gf.P("case BinaryContentType, ProtoContentType:")
-	gf.P("responseBytes, err = proto.Marshal(errorMsg)")
-	gf.P("default:")
-	gf.P("// Default to JSON for error responses")
-	gf.P("responseBytes, err = protojson.Marshal(errorMsg)")
-	gf.P("}")
-	gf.P()
-	gf.P("if err != nil {")
-	gf.P("// Fallback to plain text error if marshaling fails")
-	gf.P(`http.Error(w, "internal server error", http.StatusInternalServerError)`)
-	gf.P("return")
-	gf.P("}")
-	gf.P()
-	gf.P("w.WriteHeader(http.StatusInternalServerError)")
-	gf.P("_, _ = w.Write(responseBytes)")
+	gf.P(`writeProtoMessageResponse(w, r, errorMsg, http.StatusInternalServerError, "internal server error")`)
 	gf.P("}")
 	gf.P()
 }
