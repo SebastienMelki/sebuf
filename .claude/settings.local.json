@@ -39,7 +39,8 @@
       "Bash(./generate_golden.sh:*)",
       "Bash(UPDATE_GOLDEN=1 go test -run TestExhaustiveGoldenFiles)",
       "Bash(git restore:*)",
-      "Bash(git checkout:*)"
+      "Bash(git checkout:*)",
+      "Bash(./scripts/run_tests.sh:*)"
     ],
     "deny": [],
     "ask": [],
