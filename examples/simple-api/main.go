@@ -120,15 +120,13 @@ func main() {
 	fmt.Println("    -H 'Content-Type: application/json' \\")
 	fmt.Println("    -d '{\"name\": \"John Doe\", \"email\": \"john@example.com\"}'")
 	fmt.Println("")
-	fmt.Println("Login with email (using oneof helper):")
+	fmt.Println("Login with email:")
 	fmt.Println("  curl -X POST http://localhost:8080/api/v1/auth/login \\")
 	fmt.Println("    -H 'Content-Type: application/json' \\")
 	fmt.Println("    -d '{\"email\": {\"email\": \"john@example.com\", \"password\": \"secret\"}}'")
 	fmt.Println("")
-	fmt.Println("Or in Go code, use the generated helpers:")
-	fmt.Println("  loginReq := models.NewLoginRequestEmail(\"john@example.com\", \"secret\")")
-	fmt.Println("  loginReq := models.NewLoginRequestToken(\"my-auth-token\")")
-	fmt.Println("  loginReq := models.NewLoginRequestSocial(\"google\", \"oauth-token\")")
+	fmt.Println("In Go code, you can construct the request manually:")
+	fmt.Println("  loginReq := &models.LoginRequest{AuthMethod: &models.LoginRequest_Email{Email: &models.LoginRequest_EmailAuth{Email: \"john@example.com\", Password: \"secret\"}}}")
 
 	log.Fatal(http.ListenAndServe(":8080", mux))
 }

@@ -3,10 +3,10 @@ module github.com/SebastienMelki/sebuf/examples/simple-api
 go 1.24.7
 
 require (
-	buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go v1.36.8-20250717185734-6c6e0d3c608e.1
+	buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go v1.36.10-20250912141014-52f32327d4b0.1
 	buf.build/go/protovalidate v0.14.0
 	github.com/SebastienMelki/sebuf v0.0.0-20250818125809-ff61bcf670dd
-	google.golang.org/protobuf v1.36.8
+	google.golang.org/protobuf v1.36.10
 )
 
 replace github.com/SebastienMelki/sebuf => ../..
