@@ -2,7 +2,7 @@
 
 > **Build your first HTTP API from protobuf in under 5 minutes**
 
-This guide shows you how to transform protobuf service definitions into production-ready HTTP APIs with automatic documentation and helper functions.
+This guide shows you how to transform protobuf service definitions into production-ready HTTP APIs with automatic documentation and validation.
 
 ## 🚀 Quick start
 
@@ -15,7 +15,7 @@ cd sebuf/examples/simple-api
 make demo
 ```
 
-This starts a complete HTTP API with authentication, oneof helpers, and OpenAPI docs.
+This starts a complete HTTP API with authentication, validation, and OpenAPI docs.
 
 ## Step-by-step tutorial
 
@@ -26,7 +26,6 @@ This starts a complete HTTP API with authentication, oneof helpers, and OpenAPI 
 brew install bufbuild/buf/buf
 
 # Install sebuf
-go install github.com/SebastienMelki/sebuf/cmd/protoc-gen-go-oneof-helper@latest
 go install github.com/SebastienMelki/sebuf/cmd/protoc-gen-go-http@latest
 go install github.com/SebastienMelki/sebuf/cmd/protoc-gen-openapiv3@latest
 ```
@@ -84,8 +83,6 @@ plugins:
   - remote: buf.build/protocolbuffers/go
     out: .
     opt: paths=source_relative
-  - local: protoc-gen-go-oneof-helper
-    out: .
   - local: protoc-gen-go-http
     out: .
   - local: protoc-gen-openapiv3
@@ -102,8 +99,7 @@ go mod tidy
 
 This creates:
 - `api.pb.go` - Protobuf structs
-- `api_http*.pb.go` - HTTP handlers  
-- `api_helpers.pb.go` - Helper functions
+- `api_http*.pb.go` - HTTP handlers
 - `api.yaml` - OpenAPI documentation
 
 ### 6. Write your server
@@ -171,10 +167,10 @@ curl -X POST http://localhost:8080/api/v1/users \
 
 ## Next steps
 
-- **[Complete Tutorial](../examples/simple-api/)** - See authentication, oneof helpers, and more
+- **[Complete Tutorial](../examples/simple-api/)** - See authentication, validation, and more
 - **[HTTP Generation Guide](./http-generation.md)** - Advanced HTTP features
 - **[OpenAPI Guide](./openapi-generation.md)** - Documentation customization
-- **[Oneof Helpers Guide](./oneof-helpers.md)** - Simplify complex protobuf types
+- **[Validation Guide](./validation.md)** - Automatic request validation
 
 ## Need help?
 
