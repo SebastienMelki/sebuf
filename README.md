@@ -34,6 +34,7 @@ This starts a working HTTP API with JSON endpoints and OpenAPI docs - all genera
 - **Automatic request validation** using protovalidate with buf.validate annotations
 - **HTTP header validation** with type checking and format validation (UUID, email, datetime)
 - **Structured error responses** with field-level validation details in JSON or protobuf
+- **Automatic Go error interface** for any message ending with "Error", enabling `errors.As()` and `errors.Is()`
 - **OpenAPI v3.1 docs** that stay in sync with your code, one file per service for better organization
 - **Zero runtime dependencies** - works with any Go HTTP framework
 

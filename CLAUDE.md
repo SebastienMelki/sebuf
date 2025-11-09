@@ -258,9 +258,11 @@ service UserService {
 
 ### Error Handling
 - **Structured Error Responses**: All errors use protobuf messages for consistent API responses
+- **Automatic Go Error Interface**: Any protobuf message ending with "Error" automatically implements Go's error interface for `errors.As()` and `errors.Is()` support
 - **Validation Errors (HTTP 400)**: ValidationError with field-level violations for body and header validation failures
 - **Handler Errors (HTTP 500)**: Error messages for service implementation failures with custom messages
 - **Content-Type Aware**: Error responses serialized as JSON or protobuf based on request Content-Type
+- **Client-side Error Handling**: Error types can be unmarshaled from HTTP responses and used with standard Go error patterns
 - **Detailed validation errors**: Full validation error details from protovalidate for body validation
 - **Header validation errors**: Clear messages indicating which header failed validation and why
 - **Fail-fast**: Validation stops request processing immediately on failure (headers validated before body)
