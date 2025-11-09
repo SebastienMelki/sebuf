@@ -11,22 +11,22 @@ func (e *ValidationError) Error() string {
 	if e == nil {
 		return "validation error: <nil>"
 	}
-	
-	if len(e.Violations) == 0 {
+
+	if len(e.GetViolations()) == 0 {
 		return "validation error: no violations"
 	}
-	
-	if len(e.Violations) == 1 {
-		v := e.Violations[0]
-		return fmt.Sprintf("validation error: %s: %s", v.Field, v.Description)
+
+	if len(e.GetViolations()) == 1 {
+		v := e.GetViolations()[0]
+		return fmt.Sprintf("validation error: %s: %s", v.GetField(), v.GetDescription())
 	}
-	
+
 	// Multiple violations
 	var violations []string
-	for _, v := range e.Violations {
-		violations = append(violations, fmt.Sprintf("%s: %s", v.Field, v.Description))
+	for _, v := range e.GetViolations() {
+		violations = append(violations, fmt.Sprintf("%s: %s", v.GetField(), v.GetDescription()))
 	}
-	
+
 	return fmt.Sprintf("validation error: [%s]", strings.Join(violations, ", "))
 }
 
@@ -36,10 +36,10 @@ func (e *Error) Error() string {
 	if e == nil {
 		return "error: <nil>"
 	}
-	
-	if e.Message == "" {
+
+	if e.GetMessage() == "" {
 		return "error: empty message"
 	}
-	
-	return e.Message
+
+	return e.GetMessage()
 }
