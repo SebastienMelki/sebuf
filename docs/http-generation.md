@@ -975,6 +975,51 @@ message Error {
 }
 ```
 
+#### Client Error Handling
+
+sebuf error types implement Go's standard `error` interface, enabling seamless error handling for client applications:
+
+```go
+import (
+    "errors"
+    sebufhttp "github.com/SebastienMelki/sebuf/http"
+)
+
+func handleAPIResponse(err error) {
+    // Check for validation errors specifically
+    var validationErr *sebufhttp.ValidationError
+    if errors.As(err, &validationErr) {
+        fmt.Printf("Validation failed: %s\n", validationErr.Error())
+        // Output: "validation error: email: must be a valid email address"
+        
+        for _, violation := range validationErr.Violations {
+            fmt.Printf("  - %s: %s\n", violation.Field, violation.Description)
+        }
+        return
+    }
+    
+    // Check for service errors
+    var sebufErr *sebufhttp.Error
+    if errors.As(err, &sebufErr) {
+        fmt.Printf("Service error: %s\n", sebufErr.Error())
+        // Output: "user not found: 123"
+        return
+    }
+}
+
+// Works with standard error wrapping
+func processData() error {
+    if err := callAPI(); err != nil {
+        var validationErr *sebufhttp.ValidationError
+        if errors.As(err, &validationErr) {
+            return fmt.Errorf("validation failed: %w", validationErr)
+        }
+        return fmt.Errorf("API call failed: %w", err)
+    }
+    return nil
+}
+```
+
 ## Configuration Options
 
 ### Server Options

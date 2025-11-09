@@ -409,6 +409,87 @@ curl -X POST /api/users \
 # Returns: 400 Bad Request with binary ValidationError protobuf
 ```
 
+## Client Error Handling
+
+sebuf error types implement Go's standard `error` interface, enabling seamless error handling when using sebuf as a client library.
+
+### Error Interface Implementation
+
+Both `ValidationError` and `Error` types provide `Error()` methods that return formatted error messages:
+
+```go
+import (
+    "errors"
+    sebufhttp "github.com/SebastienMelki/sebuf/http"
+)
+
+// After receiving an error response from a sebuf API
+func handleAPIError(err error) {
+    // Check for validation errors specifically
+    var validationErr *sebufhttp.ValidationError
+    if errors.As(err, &validationErr) {
+        fmt.Printf("Validation failed: %s\n", validationErr.Error())
+        // Output: "validation error: email: must be a valid email address"
+        
+        // Access individual violations
+        for _, violation := range validationErr.Violations {
+            fmt.Printf("  - %s: %s\n", violation.Field, violation.Description)
+        }
+        return
+    }
+    
+    // Check for general sebuf errors
+    var sebufErr *sebufhttp.Error
+    if errors.As(err, &sebufErr) {
+        fmt.Printf("Service error: %s\n", sebufErr.Error())
+        // Output: "user not found"
+        return
+    }
+    
+    // Handle other error types
+    fmt.Printf("Unknown error: %s\n", err.Error())
+}
+```
+
+### Error Message Formatting
+
+**ValidationError messages:**
+- Single violation: `"validation error: field: description"`
+- Multiple violations: `"validation error: [field1: desc1, field2: desc2]"`
+- No violations: `"validation error: no violations"`
+
+**Error messages:**
+- Returns the `Message` field directly
+- Empty message: `"error: empty message"`
+
+### Integration with Standard Go Error Handling
+
+```go
+// Works with all standard Go error patterns
+func processUserData(data UserData) error {
+    resp, err := apiClient.CreateUser(ctx, data)
+    if err != nil {
+        // Standard error handling
+        var validationErr *sebufhttp.ValidationError
+        if errors.As(err, &validationErr) {
+            // Handle validation errors specifically
+            return fmt.Errorf("invalid user data: %w", validationErr)
+        }
+        
+        // Can be wrapped with additional context
+        return fmt.Errorf("failed to create user: %w", err)
+    }
+    
+    return nil
+}
+
+// Error comparison with errors.Is
+func isValidationError(err error) bool {
+    var validationErr *sebufhttp.ValidationError
+    return errors.As(err, &validationErr)
+}
+```
+
 ## Advanced Usage
 
 ### Custom Error Messages
