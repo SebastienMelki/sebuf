@@ -1,14 +1,16 @@
-package http
+package http_test
 
 import (
 	"errors"
 	"testing"
+
+	"github.com/SebastienMelki/sebuf/http"
 )
 
 func TestValidationError_Error(t *testing.T) {
 	tests := []struct {
 		name     string
-		err      *ValidationError
+		err      *http.ValidationError
 		expected string
 	}{
 		{
@@ -18,13 +20,13 @@ func TestValidationError_Error(t *testing.T) {
 		},
 		{
 			name:     "empty violations",
-			err:      &ValidationError{Violations: []*FieldViolation{}},
+			err:      &http.ValidationError{Violations: []*http.FieldViolation{}},
 			expected: "validation error: no violations",
 		},
 		{
 			name: "single violation",
-			err: &ValidationError{
-				Violations: []*FieldViolation{
+			err: &http.ValidationError{
+				Violations: []*http.FieldViolation{
 					{Field: "email", Description: "must be a valid email address"},
 				},
 			},
@@ -32,8 +34,8 @@ func TestValidationError_Error(t *testing.T) {
 		},
 		{
 			name: "multiple violations",
-			err: &ValidationError{
-				Violations: []*FieldViolation{
+			err: &http.ValidationError{
+				Violations: []*http.FieldViolation{
 					{Field: "email", Description: "must be a valid email address"},
 					{Field: "name", Description: "required field missing"},
 				},
@@ -55,7 +57,7 @@ func TestValidationError_Error(t *testing.T) {
 func TestError_Error(t *testing.T) {
 	tests := []struct {
 		name     string
-		err      *Error
+		err      *http.Error
 		expected string
 	}{
 		{
@@ -65,12 +67,12 @@ func TestError_Error(t *testing.T) {
 		},
 		{
 			name:     "empty message",
-			err:      &Error{Message: ""},
+			err:      &http.Error{Message: ""},
 			expected: "error: empty message",
 		},
 		{
 			name:     "with message",
-			err:      &Error{Message: "user not found"},
+			err:      &http.Error{Message: "user not found"},
 			expected: "user not found",
 		},
 	}
@@ -87,38 +89,38 @@ func TestError_Error(t *testing.T) {
 
 func TestErrorInterface_Implementation(t *testing.T) {
 	// Test that ValidationError implements error interface
-	var validationErr error = &ValidationError{
-		Violations: []*FieldViolation{
+	var validationErr error = &http.ValidationError{
+		Violations: []*http.FieldViolation{
 			{Field: "email", Description: "invalid format"},
 		},
 	}
 
 	// Test that Error implements error interface
-	var sebufErr error = &Error{Message: "something went wrong"}
+	var sebufErr error = &http.Error{Message: "something went wrong"}
 
 	// Test errors.As functionality
 	t.Run("errors.As with ValidationError", func(t *testing.T) {
-		var target *ValidationError
+		var target *http.ValidationError
 		if !errors.As(validationErr, &target) {
 			t.Error("errors.As should work with ValidationError")
 		}
 		if target == nil {
 			t.Error("target should not be nil")
 		}
-		if len(target.Violations) != 1 || target.Violations[0].Field != "email" {
+		if len(target.GetViolations()) != 1 || target.GetViolations()[0].GetField() != "email" {
 			t.Error("target should contain the original violation")
 		}
 	})
 
 	t.Run("errors.As with Error", func(t *testing.T) {
-		var target *Error
+		var target *http.Error
 		if !errors.As(sebufErr, &target) {
 			t.Error("errors.As should work with Error")
 		}
 		if target == nil {
 			t.Error("target should not be nil")
 		}
-		if target.Message != "something went wrong" {
+		if target.GetMessage() != "something went wrong" {
 			t.Error("target should contain the original message")
 		}
 	})
@@ -136,34 +138,34 @@ func TestErrorInterface_Implementation(t *testing.T) {
 
 func TestErrorInterface_Wrapping(t *testing.T) {
 	// Test that our errors work when wrapped
-	originalValidationErr := &ValidationError{
-		Violations: []*FieldViolation{
+	originalValidationErr := &http.ValidationError{
+		Violations: []*http.FieldViolation{
 			{Field: "name", Description: "required"},
 		},
 	}
-	
+
 	wrappedErr := errors.New("wrapped: " + originalValidationErr.Error())
-	
+
 	// Should be able to extract from error message
 	expectedMsg := "validation error: name: required"
 	if originalValidationErr.Error() != expectedMsg {
 		t.Errorf("ValidationError.Error() = %q, want %q", originalValidationErr.Error(), expectedMsg)
 	}
-	
+
 	// Test Error type as well
-	originalErr := &Error{Message: "database connection failed"}
+	originalErr := &http.Error{Message: "database connection failed"}
 	wrappedSebufErr := errors.New("service failed: " + originalErr.Error())
-	
+
 	if originalErr.Error() != "database connection failed" {
 		t.Errorf("Error.Error() = %q, want %q", originalErr.Error(), "database connection failed")
 	}
-	
+
 	// Verify wrapped errors contain our error messages
 	expectedWrapped := "wrapped: validation error: name: required"
 	if wrappedErr.Error() != expectedWrapped {
 		t.Errorf("wrappedErr.Error() = %q, want %q", wrappedErr.Error(), expectedWrapped)
 	}
-	
+
 	expectedWrappedSebuf := "service failed: database connection failed"
 	if wrappedSebufErr.Error() != expectedWrappedSebuf {
 		t.Errorf("wrappedSebufErr.Error() = %q, want %q", wrappedSebufErr.Error(), expectedWrappedSebuf)
