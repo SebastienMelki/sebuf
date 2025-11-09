@@ -50,6 +50,11 @@ func (g *Generator) Generate() error {
 }
 
 func (g *Generator) generateFile(file *protogen.File) error {
+	// Generate error implementation file if there are messages ending with Error
+	if err := g.generateErrorImplFile(file); err != nil {
+		return err
+	}
+
 	if len(file.Services) == 0 {
 		return nil
 	}
@@ -1018,4 +1023,59 @@ func (g *Generator) generateHeaderLiteral(gf *protogen.GeneratedFile, header *ht
 	gf.P(`Example: "`, header.GetExample(), `",`)
 	gf.P(`Deprecated: `, strconv.FormatBool(header.GetDeprecated()), `,`)
 	gf.P("},")
+}
+
+func (g *Generator) generateErrorImplFile(file *protogen.File) error {
+	// Find messages ending with "Error"
+	var errorMessages []*protogen.Message
+	for _, message := range file.Messages {
+		if strings.HasSuffix(message.GoIdent.GoName, "Error") {
+			errorMessages = append(errorMessages, message)
+		}
+	}
+
+	// If no error messages found, skip generation
+	if len(errorMessages) == 0 {
+		return nil
+	}
+
+	// Generate error implementation file
+	filename := file.GeneratedFilenamePrefix + "_error_impl.pb.go"
+	gf := g.plugin.NewGeneratedFile(filename, file.GoImportPath)
+
+	g.writeHeader(gf, file)
+
+	gf.P("import (")
+	gf.P(`"fmt"`)
+	gf.P()
+	gf.P(`"google.golang.org/protobuf/encoding/protojson"`)
+	gf.P(")")
+	gf.P()
+
+	// Generate Error() methods for each error message
+	for _, message := range errorMessages {
+		g.generateErrorMethod(gf, message)
+		gf.P()
+	}
+
+	return nil
+}
+
+func (g *Generator) generateErrorMethod(gf *protogen.GeneratedFile, message *protogen.Message) {
+	typeName := message.GoIdent.GoName
+
+	gf.P("// Error implements the error interface for ", typeName, ".")
+	gf.P("// This allows ", typeName, " to be used with errors.As() and errors.Is().")
+	gf.P("func (e *", typeName, ") Error() string {")
+	gf.P("if e == nil {")
+	gf.P(`return "`, strings.ToLower(typeName), `: <nil>"`)
+	gf.P("}")
+	gf.P()
+	gf.P("jsonBytes, err := protojson.Marshal(e)")
+	gf.P("if err != nil {")
+	gf.P(`return fmt.Sprintf("`, strings.ToLower(typeName), `: failed to serialize (%v)", err)`)
+	gf.P("}")
+	gf.P()
+	gf.P("return string(jsonBytes)")
+	gf.P("}")
 }
