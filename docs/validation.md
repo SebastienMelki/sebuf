@@ -413,9 +413,30 @@ curl -X POST /api/users \
 
 sebuf error types implement Go's standard `error` interface, enabling seamless error handling when using sebuf as a client library.
 
-### Error Interface Implementation
+### Automatic Error Interface Implementation
 
-Both `ValidationError` and `Error` types provide `Error()` methods that return formatted error messages:
+The HTTP generator **automatically implements the Go `error` interface** for any protobuf message whose name ends with "Error". This includes the built-in `ValidationError` and `Error` types, as well as any custom error types you define.
+
+**Built-in Error Types:**
+- `ValidationError` - Validation failures with field-level details
+- `Error` - General service errors with custom messages  
+
+**Custom Error Types:**
+You can define your own error types in protobuf and they automatically get error interface support:
+
+```protobuf
+message AuthenticationError {
+  string token = 1;
+  string reason = 2;
+}
+
+message RateLimitError {
+  int32 requests_remaining = 1;
+  int64 reset_time = 2;
+}
+```
+
+All error types provide `Error()` methods that return formatted error messages:
 
 ```go
 import (

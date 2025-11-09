@@ -975,6 +975,40 @@ message Error {
 }
 ```
 
+#### Automatic Error Interface Implementation
+
+The HTTP generator **automatically implements the Go `error` interface** for any protobuf message whose name ends with "Error". This means you can define custom error types in your protobuf files and they'll automatically work with Go's standard error handling patterns.
+
+**Built-in Error Types:**
+- `ValidationError` - For validation failures
+- `Error` - For general service errors
+
+**Custom Error Types:**
+```protobuf
+// Custom error types - automatically get error interface implementation
+message UserNotFoundError {
+  string user_id = 1;
+  string message = 2;
+}
+
+message PermissionDeniedError {
+  string resource = 1;
+  string action = 2;
+  string reason = 3;
+}
+
+message DatabaseError {
+  string query = 1;
+  string error_code = 2;
+  string details = 3;
+}
+```
+
+All of these will automatically implement `error` interface with:
+- `Error() string` method that returns a formatted error message
+- Support for `errors.As()` and `errors.Is()` patterns
+- JSON serialization for HTTP responses
+
 #### Client Error Handling
 
 sebuf error types implement Go's standard `error` interface, enabling seamless error handling for client applications:
@@ -1015,6 +1049,29 @@ func processData() error {
             return fmt.Errorf("validation failed: %w", validationErr)
         }
         return fmt.Errorf("API call failed: %w", err)
+    }
+    return nil
+}
+
+// Custom error type handling
+func handleUserOperation() error {
+    resp, err := userService.GetUser(ctx, req)
+    if err != nil {
+        // Check for custom error types
+        var userNotFoundErr *UserNotFoundError
+        if errors.As(err, &userNotFoundErr) {
+            fmt.Printf("User not found: %s\n", userNotFoundErr.Error())
+            // Output: "usernotfounderror: user ID '123' not found"
+            return fmt.Errorf("user operation failed: %w", userNotFoundErr)
+        }
+        
+        var permissionErr *PermissionDeniedError  
+        if errors.As(err, &permissionErr) {
+            fmt.Printf("Permission denied: %s\n", permissionErr.Error())
+            return fmt.Errorf("access denied: %w", permissionErr)
+        }
+        
+        return fmt.Errorf("unexpected error: %w", err)
     }
     return nil
 }
