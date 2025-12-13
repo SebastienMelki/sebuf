@@ -35,21 +35,19 @@ public struct ConfigurationValues: Sendable {
 	}
 }
 
-// TODO: Add the base configuration
-extension ConfigurationValues {
+@propertyWrapper public struct Configurations: Sendable {
 	
-	// TODO: Finalize SebufClient protocol and default implementation
-	public var client: any SebufClient {
-		get {
-			self[ClientConfigurationKey.self]
-		}
-		set {
-			self[ClientConfigurationKey.self] = newValue
-		}
+	private var values: ConfigurationValues
+	
+	public init() {
+		self.values = .init()
 	}
-}
-
-private struct ClientConfigurationKey: ConfigurationKey {
 	
-	fileprivate static let defaultValue: any SebufClient = DefaultSebufClient()
+	public var wrappedValue: ConfigurationValues {
+		values
+	}
+	
+	mutating func update<V>(_ value: V, for keyPath: WritableKeyPath<ConfigurationValues, V>) {
+		self.values[keyPath: keyPath] = value
+	}
 }

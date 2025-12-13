@@ -18,11 +18,11 @@ public struct DataTask<Client: SebufClient, Route: SebufRoute> {
 		self.route = route
 	}
 	
-	public func data() async throws(SebufError) -> (Data, URLResponse) {
+//	public func data() async throws(SebufError) -> (Data, URLResponse) {
 //		guard let url: URL = URL(string: <#T##String#>)
 		
 //		let urlRequest = route.request
 		
 //		let result = client.data(for: urlRequest)
-	}
+//	}
 }
