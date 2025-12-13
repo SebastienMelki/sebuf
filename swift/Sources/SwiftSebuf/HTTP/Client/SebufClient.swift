@@ -10,10 +10,14 @@ import Foundation
 
 public protocol SebufClient: Actor {
 	
-	associatedtype ClientError: Error
-	
 	var session: URLSession { get }
 	
-	func data(for request: URLRequest) async throws(ClientError) -> (Data, URLResponse)
-	func dataTask<Route: SebufRoute>(for route: Route) async throws(ClientError) -> DataTask<Self, Route>
+	func networkTask<Route: SebufRoute>(for route: Route) async throws(SebufError) -> NetworkTask<Self, Route>
+}
+
+extension SebufClient {
+	
+	func data(for request: URLRequest) async throws -> (Data, URLResponse) {
+		try await session.data(for: request)
+	}
 }

@@ -24,7 +24,9 @@ actor DefaultSebufClient: SebufClient {
 		}
 	}
 	
-	func dataTask<Route: SebufRoute>(for route: Route) async throws(SebufError) -> DataTask<DefaultSebufClient, Route> {
-		DataTask(client: self, route: route)
+	func networkTask<Route: SebufRoute>(
+		for route: Route
+	) async throws(SebufError) -> NetworkTask<DefaultSebufClient, Route> {
+		NetworkTask(configurations: ConfigurationValues(), client: self, route: route)
 	}
 }
