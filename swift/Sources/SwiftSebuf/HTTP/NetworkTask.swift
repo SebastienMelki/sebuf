@@ -1,5 +1,5 @@
 //
-//  DataTask.swift
+//  NetworkTask.swift
 //  SwiftSebuf
 //
 //  Created by Khaled Chehabeddine on 11/12/2025.
@@ -8,21 +8,34 @@
 
 import Foundation
 
-public struct DataTask<Client: SebufClient, Route: SebufRoute> {
+public struct NetworkTask<Client: SebufClient, Route: SebufRoute>: Sendable {
 	
+	private let configurations: ConfigurationValues
 	private let client: Client
 	private let route: Route
 	
-	init(client: Client, route: Route) {
+	init(configurations: ConfigurationValues, client: Client, route: Route) {
+		self.configurations = configurations
 		self.client = client
 		self.route = route
 	}
 	
-//	public func data() async throws(SebufError) -> (Data, URLResponse) {
-//		guard let url: URL = URL(string: <#T##String#>)
-		
-//		let urlRequest = route.request
-		
-//		let result = client.data(for: urlRequest)
-//	}
+	public func data() async throws -> (Data, URLResponse) {
+		let urlRequest: URLRequest = try route.makeURLRequest(configurations: configurations)
+		let result: (Data, URLResponse) = try await client.data(for: urlRequest)
+		return result
+	}
+}
+
+extension SebufRoute {
+	
+	fileprivate func makeURLRequest(configurations: ConfigurationValues) throws -> URLRequest {
+		guard let baseURLString = configurations.baseURLString,
+			  let url: URL = .init(string: baseURLString + route) else {
+			throw SebufError.invalidURLRequest
+		}
+		var request = URLRequest(url: url)
+		request.httpMethod = "POST"
+		return request
+	}
 }
