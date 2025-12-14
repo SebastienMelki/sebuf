@@ -7,7 +7,6 @@
 //
 
 import Foundation
-import SwiftUI
 
 public protocol ConfigurationKey: Sendable {
 	
@@ -18,19 +17,21 @@ public protocol ConfigurationKey: Sendable {
 
 public struct ConfigurationValues: Sendable {
 	
-	private var values: [ObjectIdentifier: any Sendable] = [:]
-	
+	private var values: [String: any Sendable] = [:]
+
 	public init() {
 	}
 	
 	public subscript<K: ConfigurationKey>(key: K.Type) -> K.Value {
 		get {
-			guard let value: K.Value = values[ObjectIdentifier(key)] as? K.Value else { return K.defaultValue }
-			
+			let keyString: String = .init(reflecting: key)
+			guard let value: K.Value = values[keyString] as? K.Value else { return K.defaultValue }
+
 			return value
 		}
 		set {
-			values[ObjectIdentifier(key)] = newValue
+			let keyString: String = .init(reflecting: key)
+			values[keyString] = newValue
 		}
 	}
 }
