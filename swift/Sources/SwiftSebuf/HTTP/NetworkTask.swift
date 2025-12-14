@@ -7,23 +7,26 @@
 //
 
 import Foundation
+import SwiftProtobuf
 
-public struct NetworkTask<Client: SebufClient, Route: SebufRoute>: Sendable {
+public struct NetworkTask<Route: SebufRoute>: Sendable {
 	
 	private let configurations: ConfigurationValues
-	private let client: Client
+	private let client: any SebufClient
 	private let route: Route
 	
-	init(configurations: ConfigurationValues, client: Client, route: Route) {
+	init(configurations: ConfigurationValues, client: any SebufClient, route: Route) {
 		self.configurations = configurations
 		self.client = client
 		self.route = route
 	}
 	
-	public func data() async throws -> (Data, URLResponse) {
-		let urlRequest: URLRequest = try route.makeURLRequest(configurations: configurations)
-		let result: (Data, URLResponse) = try await client.data(for: urlRequest)
-		return result
+	public var value: (Data, URLResponse) {
+		get async throws {
+			let urlRequest: URLRequest = try route.makeURLRequest(configurations: configurations)
+			let result: (Data, URLResponse) = try await client.session.data(for: urlRequest)
+			return result
+		}
 	}
 }
 
@@ -34,8 +37,13 @@ extension SebufRoute {
 			  let url: URL = .init(string: baseURLString + route) else {
 			throw SebufError.invalidURLRequest
 		}
-		var request = URLRequest(url: url)
-		request.httpMethod = "POST"
-		return request
+		var urlRequest: URLRequest = .init(url: url)
+		urlRequest.httpMethod = "POST"
+		
+		var options: JSONEncodingOptions = .init()
+		options.preserveProtoFieldNames = true
+		urlRequest.httpBody = try request.jsonUTF8Data(options: options)
+		
+		return urlRequest
 	}
 }
