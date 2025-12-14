@@ -12,21 +12,14 @@ actor DefaultSebufClient: SebufClient {
 	
 	let session: URLSession
 	
+	private let configurations: ConfigurationValues
+	
 	init(session: URLSession = .shared) {
 		self.session = session
+		self.configurations = .init()
 	}
 	
-	func data(for request: URLRequest) async throws(SebufError) -> (Data, URLResponse) {
-		do {
-			return try await session.data(for: request)
-		} catch {
-			throw SebufError(error)
-		}
-	}
-	
-	func networkTask<Route: SebufRoute>(
-		for route: Route
-	) async throws(SebufError) -> NetworkTask<DefaultSebufClient, Route> {
-		NetworkTask(configurations: ConfigurationValues(), client: self, route: route)
+	func networkTask<Route: SebufRoute>(for route: Route) -> NetworkTask<Route> {
+		NetworkTask(configurations: configurations, client: self, route: route)
 	}
 }
