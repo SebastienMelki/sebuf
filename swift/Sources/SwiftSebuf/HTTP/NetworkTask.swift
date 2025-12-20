@@ -9,40 +9,46 @@
 import Foundation
 import SwiftProtobuf
 
-public struct NetworkTask<Route: SebufRoute>: Sendable {
+internal struct NetworkTask<Client: SebufClient, Route: SebufRoute>: Sendable {
 	
 	private let configurations: ConfigurationValues
-	private let client: any SebufClient
+	private let client: Client
 	private let route: Route
 	
-	init(configurations: ConfigurationValues, client: any SebufClient, route: Route) {
+	internal init(configurations: ConfigurationValues, client: Client, route: Route) {
 		self.configurations = configurations
 		self.client = client
 		self.route = route
 	}
 	
-	public var value: (Data, URLResponse) {
-		get async throws {
+	internal var value: (Data, URLResponse) {
+		get async throws(SebufError) {
 			let urlRequest: URLRequest = try route.makeURLRequest(configurations: configurations)
-			let result: (Data, URLResponse) = try await client.session.data(for: urlRequest)
-			return result
+			do {
+				let result: (Data, URLResponse) = try await client.session.data(for: urlRequest)
+				return result
+			} catch {
+				throw SebufError(error)
+			}
 		}
 	}
 }
 
 extension SebufRoute {
 	
-	fileprivate func makeURLRequest(configurations: ConfigurationValues) throws -> URLRequest {
-		guard let baseURLString = configurations.baseURLString,
-			  let url: URL = .init(string: baseURLString + route) else {
-			throw SebufError.invalidURLRequest
-		}
+	fileprivate func makeURLRequest(configurations: ConfigurationValues) throws(SebufError) -> URLRequest {
+		guard let url: URL = .init(string: configurations.baseURLString + route) else { throw .invalidURLRequest }
+		
 		var urlRequest: URLRequest = .init(url: url)
 		urlRequest.httpMethod = "POST"
 		
 		var options: JSONEncodingOptions = .init()
 		options.preserveProtoFieldNames = true
-		urlRequest.httpBody = try request.jsonUTF8Data(options: options)
+		do {
+			urlRequest.httpBody = try request.jsonUTF8Data(options: options)
+		} catch {
+			throw .messageEncoding(error)
+		}
 		
 		return urlRequest
 	}

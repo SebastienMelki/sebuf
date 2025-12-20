@@ -13,6 +13,8 @@ public enum SebufError: Error {
 	case cancelled
 	case invalidURLRequest
 	case urlError(URLError)
+	case messageEncoding(any Error)
+	case messageDecoding(any Error)
 	case undefined(any Error)
 	
 	init(_ error: any Error) {

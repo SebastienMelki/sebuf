@@ -20,10 +20,14 @@ public protocol SebufRoute: Sendable {
 
 extension SebufRoute {
 	
-	public func resolve(in configuration: ConfigurationValues) async throws -> Response {
-		let (data, _): (Data, URLResponse) = try await configuration.client.networkTask(for: self).value
-		var options: JSONDecodingOptions = .init()
+	public func response(from client: some SebufClient) async throws(SebufError) -> Response {
+		let (data, _): (Data, URLResponse) = try await client.networkTask(for: self).value
+		var options = JSONDecodingOptions()
 		options.ignoreUnknownFields = true
-		return try Response(jsonUTF8Bytes: data, options: options)
+		do {
+			return try Response(jsonUTF8Bytes: data, options: options)
+		} catch {
+			throw .messageDecoding(error)
+		}
 	}
 }
