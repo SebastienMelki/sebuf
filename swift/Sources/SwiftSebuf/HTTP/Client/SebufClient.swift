@@ -10,7 +10,15 @@ import Foundation
 
 public protocol SebufClient: Actor {
 	
+	var configurations: ConfigurationValues { get }
 	var session: URLSession { get }
 	
-	func networkTask<Route: SebufRoute>(for route: Route) -> NetworkTask<Route>
+	nonisolated func service<S: SebufService>(_ type: S.Type) -> S where S.Client == Self
+}
+
+extension SebufClient {
+	
+	internal func networkTask<Route: SebufRoute>(for route: Route) -> NetworkTask<Self, Route> {
+		NetworkTask(configurations: configurations, client: self, route: route)
+	}
 }

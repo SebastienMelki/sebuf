@@ -10,5 +10,7 @@ import Foundation
 
 public protocol SebufService: Sendable {
 	
-	var headers: [String: String] { get }
+	associatedtype Client: SebufClient
+	
+	init(client: Client)
 }

@@ -8,18 +8,27 @@
 
 import Foundation
 
-actor DefaultSebufClient: SebufClient {
+public actor DefaultSebufClient: SebufClient {
 	
-	let session: URLSession
+	public let configurations: ConfigurationValues
+	public let session: URLSession
 	
-	private let configurations: ConfigurationValues
-	
-	init(session: URLSession = .shared) {
+	public init(configurations: ConfigurationValues = ConfigurationValues(), session: URLSession = .shared) {
 		self.session = session
-		self.configurations = .init()
+		self.configurations = configurations
 	}
 	
-	func networkTask<Route: SebufRoute>(for route: Route) -> NetworkTask<Route> {
-		NetworkTask(configurations: configurations, client: self, route: route)
+	public nonisolated func service<S: SebufService>(_ type: S.Type) -> S where S.Client == DefaultSebufClient {
+		S(client: self)
+	}
+}
+
+extension SebufClient where Self == DefaultSebufClient {
+	
+	public static func `default`(
+		configurations: ConfigurationValues = ConfigurationValues(),
+		session: URLSession = .shared
+	) -> Self {
+		DefaultSebufClient(configurations: configurations, session: session)
 	}
 }
