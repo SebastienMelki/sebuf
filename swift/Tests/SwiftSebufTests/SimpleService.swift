@@ -10,13 +10,14 @@ import Foundation
 import SwiftProtobuf
 @testable import SwiftSebuf
 
-public struct SimpleService: SebufService {
+public struct SimpleService<Client: SebufClient>: SebufService {
 	
-	@Configurations private var configurations: ConfigurationValues
+	private let client: Client
 	
-	public let headers: [String : String] = ["X-API-Key": "123e4567-e89b-12d3-a456-426614174000"]
+	private let headers: [String: String] = ["X-API-Key": "123e4567-e89b-12d3-a456-426614174000"]
 	
-	private init() {
+	public init(client: Client) {
+		self.client = client
 	}
 	
 	private struct GetSimple: SebufRoute {
@@ -32,8 +33,8 @@ public struct SimpleService: SebufService {
 		}
 	}
 	
-	public func getSimple(_ request: GetSimpleRequest) async throws -> GetSimpleResponse {
-		try await GetSimple(request).resolve(in: configurations)
+	public func getSimple(_ request: GetSimpleRequest) async throws(SebufError) -> GetSimpleResponse {
+		try await GetSimple(request).response(from: client)
 	}
 }
 
