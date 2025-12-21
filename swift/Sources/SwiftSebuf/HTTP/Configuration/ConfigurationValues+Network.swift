@@ -19,9 +19,23 @@ extension ConfigurationValues {
 			self[BaseURLStringConfigurationKey.self] = newValue
 		}
 	}
+	
+	public var session: URLSession {
+		get {
+			self[SessionConfigurationKey.self]
+		}
+		set {
+			self[SessionConfigurationKey.self] = newValue
+		}
+	}
 }
 
 private struct BaseURLStringConfigurationKey: ConfigurationKey {
 	
 	fileprivate static let defaultValue: String = ""
+}
+
+private struct SessionConfigurationKey: ConfigurationKey {
+	
+	fileprivate static let defaultValue: URLSession = .shared
 }
