@@ -26,7 +26,7 @@ public struct SimpleService<Client: SebufClient>: SebufService {
 		typealias Response = GetSimpleResponse
 		
 		let request: Request
-		let route: String = "example/v1/simple/get"
+		let path: String = "example/v1/simple/get"
 		
 		init(_ request: Request) {
 			self.request = request
@@ -34,7 +34,7 @@ public struct SimpleService<Client: SebufClient>: SebufService {
 	}
 	
 	public func getSimple(_ request: GetSimpleRequest) async throws(SebufError) -> GetSimpleResponse {
-		try await GetSimple(request).response(from: client)
+		try await GetSimple(request).makeResponse(client: client)
 	}
 }
 
