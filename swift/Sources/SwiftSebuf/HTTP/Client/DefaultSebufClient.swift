@@ -10,25 +10,20 @@ import Foundation
 
 public actor DefaultSebufClient: SebufClient {
 	
-	public let configurations: ConfigurationValues
-	public let session: URLSession
+	public let configuration: ConfigurationValues
 	
-	public init(configurations: ConfigurationValues = ConfigurationValues(), session: URLSession = .shared) {
-		self.session = session
-		self.configurations = configurations
+	public init(configuration: ConfigurationValues = ConfigurationValues()) {
+		self.configuration = configuration
 	}
 	
-	public nonisolated func service<S: SebufService>(_ type: S.Type) -> S where S.Client == DefaultSebufClient {
+	public nonisolated func makeService<S: SebufService>(_ type: S.Type) -> S where S.Client == DefaultSebufClient {
 		S(client: self)
 	}
 }
 
 extension SebufClient where Self == DefaultSebufClient {
 	
-	public static func `default`(
-		configurations: ConfigurationValues = ConfigurationValues(),
-		session: URLSession = .shared
-	) -> Self {
-		DefaultSebufClient(configurations: configurations, session: session)
+	public static func `default`(configuration: ConfigurationValues = ConfigurationValues()) -> Self {
+		DefaultSebufClient(configuration: configuration)
 	}
 }

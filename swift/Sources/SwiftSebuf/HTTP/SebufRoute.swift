@@ -1,5 +1,5 @@
 //
-//  Api.swift
+//  SebufRoute.swift
 //  SwiftSebuf
 //
 //  Created by Khaled Chehabeddine on 11/12/2025.
@@ -15,13 +15,13 @@ public protocol SebufRoute: Sendable {
 	associatedtype Response: Message
 	
 	var request: Request { get }
-	var route: String { get }
+	var path: String { get }
 }
 
 extension SebufRoute {
 	
-	public func response(from client: some SebufClient) async throws(SebufError) -> Response {
-		let (data, _): (Data, URLResponse) = try await client.networkTask(for: self).value
+	internal func makeResponse(client: some SebufClient) async throws(SebufError) -> Response {
+		let (data, _): (Data, URLResponse) = try await client.makeTask(route: self).value
 		var options = JSONDecodingOptions()
 		options.ignoreUnknownFields = true
 		do {
