@@ -11,6 +11,7 @@ import Foundation
 public enum SebufError: Error {
 	
 	case cancelled
+	case invalidURL
 	case invalidURLRequest
 	case urlError(URLError)
 	case messageEncoding(any Error)
