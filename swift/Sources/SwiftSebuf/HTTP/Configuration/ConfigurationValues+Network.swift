@@ -8,34 +8,34 @@
 
 import Foundation
 
-// TODO: Add the base configuration values
+// TODO: Add remaining configuration values
 extension ConfigurationValues {
 	
-	public var baseURLString: String {
+	public var baseURL: URL? {
 		get {
-			self[BaseURLStringConfigurationKey.self]
+			self[BaseURLConfigurationKey.self]
 		}
 		set {
-			self[BaseURLStringConfigurationKey.self] = newValue
+			self[BaseURLConfigurationKey.self] = newValue
 		}
 	}
 	
-	public var session: URLSession {
+	public var requestModifiers: [any RequestModifier] {
 		get {
-			self[SessionConfigurationKey.self]
+			self[RequestModifiersConfigurationKey.self]
 		}
 		set {
-			self[SessionConfigurationKey.self] = newValue
+			self[RequestModifiersConfigurationKey.self] = newValue
 		}
 	}
 }
 
-private struct BaseURLStringConfigurationKey: ConfigurationKey {
+private struct BaseURLConfigurationKey: ConfigurationKey {
 	
-	fileprivate static let defaultValue: String = ""
+	fileprivate static let defaultValue: URL? = nil
 }
 
-private struct SessionConfigurationKey: ConfigurationKey {
+private struct RequestModifiersConfigurationKey: ConfigurationKey {
 	
-	fileprivate static let defaultValue: URLSession = .shared
+	fileprivate static let defaultValue: [any RequestModifier] = []
 }
