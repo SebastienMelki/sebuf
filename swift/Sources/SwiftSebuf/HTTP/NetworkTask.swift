@@ -9,39 +9,45 @@
 import Foundation
 import SwiftProtobuf
 
-internal struct NetworkTask<Client: SebufClient, Route: SebufRoute>: Sendable {
+internal struct NetworkTask<Client: HTTPClient, E: Endpoint>: Sendable {
 	
 	private let client: Client
-	private let route: Route
+	private let endpoint: E
 	
-	internal init(client: Client, route: Route) {
+	internal init(client: Client, endpoint: E) {
 		self.client = client
-		self.route = route
+		self.endpoint = endpoint
 	}
 	
-	internal var value: (Data, URLResponse) {
+	internal var value: E.Response {
 		get async throws(SebufError) {
-			let urlRequest = try await makeURLRequest()
+			let urlRequest = try makeURLRequest()
 			do {
-				let result: (Data, URLResponse) = try await client.configuration.session.data(for: urlRequest)
-				return result
+				let (data, _): (Data, URLResponse) = try await client.session.data(for: urlRequest)
+				var options = JSONDecodingOptions()
+				options.ignoreUnknownFields = true
+				return try E.Response(jsonUTF8Bytes: data, options: options)
 			} catch {
 				throw SebufError(error)
 			}
 		}
 	}
 	
-	private func makeURLRequest() async throws(SebufError) -> URLRequest {
-		let configuration = await client.configuration
-		guard let url = URL(string: configuration.baseURLString + route.path) else { throw .invalidURL }
+	private func makeURLRequest() throws(SebufError) -> URLRequest {
+		let configuration = endpoint.configuration
+		guard let url = configuration.baseURL?.appending(path: endpoint.path) else { throw .invalidURL }
 		
 		var urlRequest = URLRequest(url: url)
 		urlRequest.httpMethod = "POST"
 		
+		for modifier in configuration.requestModifiers {
+			modifier.modify(&urlRequest)
+		}
+		
 		var options = JSONEncodingOptions()
 		options.preserveProtoFieldNames = true
 		do {
-			urlRequest.httpBody = try route.request.jsonUTF8Data(options: options)
+			urlRequest.httpBody = try endpoint.request.jsonUTF8Data(options: options)
 		} catch {
 			throw .messageEncoding(error)
 		}
