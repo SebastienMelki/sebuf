@@ -20,12 +20,6 @@ public struct UserService<Client: HTTPClient>: Service {
 		self.configuration = client.configuration
 		self.client = client
 	}
-	
-	public func configuration<V>(_ keyPath: WritableKeyPath<ConfigurationValues, V>, _ value: V) -> Self {
-		var copy = self
-		copy.configuration[keyPath: keyPath] = value
-		return copy
-	}
 }
 
 extension UserService {
@@ -48,14 +42,10 @@ extension UserService {
 			self.client = client
 		}
 		
-		func makeResponse() async throws(SebufError) -> CreateUserResponse {
-			try await client.makeTask(endpoint: self).value
-		}
-		
-		func configuration<V>(_ keyPath: WritableKeyPath<ConfigurationValues, V>, _ value: V) -> Self {
-			var copy = self
-			copy.configuration[keyPath: keyPath] = value
-			return copy
+		var response: Response {
+			get async throws(SebufError) {
+				try await client.makeTask(endpoint: self).value
+			}
 		}
 	}
 	
