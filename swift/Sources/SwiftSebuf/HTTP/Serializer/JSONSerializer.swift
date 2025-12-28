@@ -11,7 +11,7 @@ import SwiftProtobuf
 
 public struct JSONSerializer: Serializer {
 	
-//	public let contentType = "application/json"
+	public let contentType = "application/json"
 	
 	private let encodingOptions: JSONEncodingOptions
 	private let decodingOptions: JSONDecodingOptions

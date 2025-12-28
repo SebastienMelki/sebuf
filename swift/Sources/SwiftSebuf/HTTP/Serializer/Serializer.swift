@@ -11,18 +11,8 @@ import SwiftProtobuf
 
 public protocol Serializer: Sendable {
 	
+	var contentType: String { get }
+	
 	func serialize<M: Message>(_ message: M) throws(SebufError) -> Data
 	func deserialize<M: Message>(_ data: Data, as type: M.Type) throws(SebufError) -> M
 }
-
-//public protocol ContentSerializer: Sendable {
-//
-//	 /// The Content-Type header value for this serializer
-//	 var contentType: String { get }
-//
-//	 /// Serialize a protobuf message to Data
-//	 func serialize<M: Message>(_ message: M) throws -> Data
-//
-//	 /// Deserialize Data to a protobuf message
-//	 func deserialize<M: Message>(_ data: Data, as type: M.Type) throws -> M
-// }

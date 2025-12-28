@@ -41,6 +41,7 @@ internal struct NetworkTask<E: Endpoint>: Sendable {
 		for modifier in configuration.requestModifiers {
 			modifier.modify(&urlRequest)
 		}
+		urlRequest.setValue(configuration.serializer.contentType, forHTTPHeaderField: "Content-Type")
 		urlRequest.httpBody = try configuration.serializer.serialize(endpoint.request)
 		urlRequest.httpMethod = "POST"
 		return urlRequest

@@ -11,7 +11,7 @@ import SwiftProtobuf
 
 public struct BinarySerializer: Serializer {
 	
-//	public let contentType = "application/x-protobuf"
+	public let contentType = "application/x-protobuf"
 	
 	private let encodingOptions: BinaryEncodingOptions
 	private let decodingOptions: BinaryDecodingOptions
