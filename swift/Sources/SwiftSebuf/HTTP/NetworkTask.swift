@@ -9,24 +9,25 @@
 import Foundation
 import SwiftProtobuf
 
-internal struct NetworkTask<Client: HTTPClient, E: Endpoint>: Sendable {
+internal struct NetworkTask<E: Endpoint>: Sendable {
 	
-	private let client: Client
+	private let configuration: ConfigurationValues
+	
 	private let endpoint: E
+	private let session: URLSession
 	
-	internal init(client: Client, endpoint: E) {
-		self.client = client
+	internal init(endpoint: E, session: URLSession) {
+		self.configuration = endpoint.configuration
 		self.endpoint = endpoint
+		self.session = session
 	}
 	
 	internal var value: E.Response {
 		get async throws(SebufError) {
-			let urlRequest = try makeURLRequest()
 			do {
-				let (data, _): (Data, URLResponse) = try await client.session.data(for: urlRequest)
-				var options = JSONDecodingOptions()
-				options.ignoreUnknownFields = true
-				return try E.Response(jsonUTF8Bytes: data, options: options)
+				let urlRequest = try makeURLRequest()
+				let (data, _): (Data, URLResponse) = try await session.data(for: urlRequest)
+				return try configuration.serializer.deserialize(data, as: E.Response.self)
 			} catch {
 				throw SebufError(error)
 			}
@@ -34,23 +35,14 @@ internal struct NetworkTask<Client: HTTPClient, E: Endpoint>: Sendable {
 	}
 	
 	private func makeURLRequest() throws(SebufError) -> URLRequest {
-		let configuration = endpoint.configuration
 		guard let url = configuration.baseURL?.appending(path: endpoint.path) else { throw .invalidURL }
 		
 		var urlRequest = URLRequest(url: url)
-		urlRequest.httpMethod = "POST"
-		
 		for modifier in configuration.requestModifiers {
 			modifier.modify(&urlRequest)
 		}
-		
-		var options = JSONEncodingOptions()
-		options.preserveProtoFieldNames = true
-		do {
-			urlRequest.httpBody = try endpoint.request.jsonUTF8Data(options: options)
-		} catch {
-			throw .messageEncoding(error)
-		}
+		urlRequest.httpBody = try configuration.serializer.serialize(endpoint.request)
+		urlRequest.httpMethod = "POST"
 		return urlRequest
 	}
 }

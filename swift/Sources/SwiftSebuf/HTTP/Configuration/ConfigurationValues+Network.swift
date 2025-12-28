@@ -28,6 +28,15 @@ extension ConfigurationValues {
 			self[RequestModifiersConfigurationKey.self] = newValue
 		}
 	}
+	
+	public var serializer: any Serializer {
+		get {
+			self[SerializerConfigurationKey.self]
+		}
+		set {
+			self[SerializerConfigurationKey.self] = newValue
+		}
+	}
 }
 
 private struct BaseURLConfigurationKey: ConfigurationKey {
@@ -38,4 +47,9 @@ private struct BaseURLConfigurationKey: ConfigurationKey {
 private struct RequestModifiersConfigurationKey: ConfigurationKey {
 	
 	fileprivate static let defaultValue: [any RequestModifier] = []
+}
+
+private struct SerializerConfigurationKey: ConfigurationKey {
+	
+	fileprivate static let defaultValue: any Serializer = .json()
 }
