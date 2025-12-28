@@ -10,8 +10,6 @@ import Foundation
 
 public protocol HTTPClient: Actor, Configurable {
 	
-	nonisolated var configuration: ConfigurationValues { get }
-	
 	var session: URLSession { get }
 }
 
@@ -21,7 +19,7 @@ extension HTTPClient {
 		S(client: self)
 	}
 	
-	internal func makeTask<E: Endpoint>(endpoint: E) -> NetworkTask<Self, E> {
-		NetworkTask(client: self, endpoint: endpoint)
+	internal func makeTask<E: Endpoint>(endpoint: E) -> NetworkTask<E> {
+		NetworkTask(endpoint: endpoint, session: session)
 	}
 }

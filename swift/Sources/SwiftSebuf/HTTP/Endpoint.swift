@@ -14,10 +14,8 @@ public protocol Endpoint: Configurable, Sendable {
 	associatedtype Request: Message
 	associatedtype Response: Message
 	
-	var configuration: ConfigurationValues { get }
-	
 	var path: String { get }
 	var request: Request { get }
 	
-	func makeResponse() async throws(SebufError) -> Response
+	var response: Response { get async throws(SebufError) }
 }

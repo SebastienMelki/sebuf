@@ -12,8 +12,6 @@ public protocol Service: Configurable, Sendable {
 	
 	associatedtype Client: HTTPClient
 	
-	var configuration: ConfigurationValues { get }
-	
 	var client: Client { get }
 	
 	init(client: Client)
