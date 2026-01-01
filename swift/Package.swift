@@ -4,7 +4,7 @@
 
 let package = Package(
 	name: .name,
-	platforms: [.macOS(.v14)],
+	platforms: [.macOS(.v15)],
 	products: [
 		.bufGenSwift,
 		.swiftSebuf
