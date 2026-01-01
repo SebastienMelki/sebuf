@@ -18,7 +18,7 @@ public enum SebufError: Error {
 	case messageDecoding(any Error)
 	case undefined(any Error)
 	
-	init(_ error: any Error) {
+	init(_ error: some Error) {
 		if error is CancellationError {
 			self = .cancelled
 		} else if let error = error as? Self {
