@@ -27,9 +27,13 @@ extension Configurable {
 		configuration(\.baseURL, url)
 	}
 	
-	public func requestModifiers(_ modifiers: [any RequestModifier]) -> Self {
-		configuration(\.requestModifiers, modifiers)
+	public func headers(_ headers: [String: String]) -> Self {
+		configuration(\.headers, headers)
 	}
+	
+//	public func requestModifiers(_ modifiers: [any RequestModifier]) -> Self {
+//		configuration(\.requestModifiers, modifiers)
+//	}
 	
 	public func serializer(_ serializer: some Serializer) -> Self {
 		configuration(\.serializer, serializer)
