@@ -10,47 +10,55 @@ import Foundation
 import SwiftProtobuf
 @testable import SwiftSebuf
 
-public struct UserService<Client: HTTPClient>: Service {
+public struct UserService: Configurable {
 	
-	public var configuration: ConfigurationValues
+	private var configuration: ConfigurationValues
 	
-	public let client: Client
+	public init(configuration: ConfigurationValues = .init()) {
+		self.configuration = configuration
+	}
 	
-	public init(client: Client) {
-		self.configuration = client.configuration
-		self.client = client
+	public func configuration<V: Sendable>(_ keyPath: WritableKeyPath<ConfigurationValues, V>, _ value: V) -> Self {
+		var modified = self
+		modified.configuration[keyPath: keyPath] = value
+		return modified
 	}
 }
 
 extension UserService {
 	
-	private struct CreateUserEndpoint: Endpoint {
+	public struct CreateUserEndpoint: Endpoint {
 		
-		typealias Request = CreateUserRequest
-		typealias Response = CreateUserResponse
+		public typealias Request = CreateUserRequest
+		public typealias Response = CreateUserResponse
 		
-		var configuration: ConfigurationValues
+		private var configuration: ConfigurationValues
 		
-		let path: String = "/user/create"
-		let request: Request
+		public let id: String = "UserService-CreateUserEndpoint"
 		
-		private let client: Client
+		public let path: String = "/user/create"
+		public let request: Request
 		
-		fileprivate init(configuration: ConfigurationValues, request: Request, client: Client) {
+		fileprivate init(configuration: ConfigurationValues, request: Request) {
 			self.configuration = configuration
 			self.request = request
-			self.client = client
 		}
 		
-		var response: Response {
+		public var response: Response {
 			get async throws(SebufError) {
-				try await client.makeTask(endpoint: self).value
+				try await makeTask(configuration: configuration).value
 			}
+		}
+		
+		public func configuration<V: Sendable>(_ keyPath: WritableKeyPath<ConfigurationValues, V>, _ value: V) -> Self {
+			var modified = self
+			modified.configuration[keyPath: keyPath] = value
+			return modified
 		}
 	}
 	
-	public func createUser(_ request: CreateUserRequest) async throws(SebufError) -> some Endpoint {
-		CreateUserEndpoint(configuration: configuration, request: request, client: client)
+	public func createUser(_ request: CreateUserRequest) async throws(SebufError) -> CreateUserEndpoint {
+		CreateUserEndpoint(configuration: configuration, request: request)
 	}
 }
 
@@ -81,6 +89,8 @@ public struct CreateUserResponse: Message {
 	public static let protoMessageName = "CreateUserResponse"
 	
 	public var unknownFields = UnknownStorage()
+	
+	let myCustomParameter = 3
 	
 	public init() {
 	}
