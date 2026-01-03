@@ -8,18 +8,7 @@
 
 import Foundation
 
-public protocol HTTPClient: Actor, Configurable {
+public protocol HTTPClient: Actor {
 	
 	var session: URLSession { get }
-}
-
-extension HTTPClient {
-	
-	public func makeService<S: Service>(_ type: S.Type) -> S where S.Client == Self {
-		S(client: self)
-	}
-	
-	internal func makeTask<E: Endpoint>(endpoint: E) -> NetworkTask<E> {
-		NetworkTask(endpoint: endpoint, session: session)
-	}
 }
