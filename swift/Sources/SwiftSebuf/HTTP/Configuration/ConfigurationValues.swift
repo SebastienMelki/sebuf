@@ -64,9 +64,7 @@ extension ConfigurationValues {
 		
 		private func withLock<R: Sendable>(_ body: () -> R) -> R {
 			os_unfair_lock_lock(&lock)
-			defer {
-				os_unfair_lock_unlock(&lock)
-			}
+			defer { os_unfair_lock_unlock(&lock) }
 			return body()
 		}
 	}

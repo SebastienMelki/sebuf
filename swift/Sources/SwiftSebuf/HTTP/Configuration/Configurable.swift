@@ -8,32 +8,24 @@
 
 import Foundation
 
-public protocol Configurable {
+public protocol Configurable: Sendable {
 	
-	var configuration: ConfigurationValues { get set }
-	
-	func configuration<V>(_ keyPath: WritableKeyPath<ConfigurationValues, V>, _ value: V) -> Self
+	func configuration<V: Sendable>(_ keyPath: WritableKeyPath<ConfigurationValues, V>, _ value: V) -> Self
 }
 
 extension Configurable {
-	
-	public func configuration<V>(_ keyPath: WritableKeyPath<ConfigurationValues, V>, _ value: V) -> Self {
-		var modified = self
-		modified.configuration[keyPath: keyPath] = value
-		return modified
-	}
 	
 	public func baseURL(_ url: URL?) -> Self {
 		configuration(\.baseURL, url)
 	}
 	
+	public func client(_ client: some HTTPClient) -> Self {
+		configuration(\.client, client)
+	}
+	
 	public func headers(_ headers: [String: String]) -> Self {
 		configuration(\.headers, headers)
 	}
-	
-//	public func requestModifiers(_ modifiers: [any RequestModifier]) -> Self {
-//		configuration(\.requestModifiers, modifiers)
-//	}
 	
 	public func serializer(_ serializer: some Serializer) -> Self {
 		configuration(\.serializer, serializer)

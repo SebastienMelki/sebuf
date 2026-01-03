@@ -8,10 +8,9 @@
 
 import Foundation
 
-// TODO: Add remaining configuration values
 extension ConfigurationValues {
 	
-	public internal(set) var baseURL: URL? {
+	internal var baseURL: URL? {
 		get {
 			self[BaseURLConfigurationKey.self]
 		}
@@ -20,7 +19,7 @@ extension ConfigurationValues {
 		}
 	}
 	
-	public internal(set) var cachePolicy: URLRequest.CachePolicy {
+	internal var cachePolicy: URLRequest.CachePolicy {
 		get {
 			self[CachePolicyConfigurationKey.self]
 		}
@@ -29,7 +28,16 @@ extension ConfigurationValues {
 		}
 	}
 	
-	public internal(set) var headers: [String: String] {
+	internal var client: any HTTPClient {
+		get {
+			self[ClientConfigurationKey.self]
+		}
+		set {
+			self[ClientConfigurationKey.self] = newValue
+		}
+	}
+	
+	internal var headers: [String: String] {
 		get {
 			self[HeadersConfigurationKey.self]
 		}
@@ -38,7 +46,7 @@ extension ConfigurationValues {
 		}
 	}
 	
-	public internal(set) var logger: (any NetworkLogger)? {
+	internal var logger: (any NetworkLogger)? {
 		get {
 			self[LoggerConfigurationKey.self]
 		}
@@ -47,7 +55,7 @@ extension ConfigurationValues {
 		}
 	}
 	
-	public internal(set) var responseValidator: ResponseValidator {
+	internal var responseValidator: ResponseValidator {
 		get {
 			self[ResponseValidatorConfigurationKey.self]
 		}
@@ -56,7 +64,7 @@ extension ConfigurationValues {
 		}
 	}
 	
-	public internal(set) var retryPolicy: RetryPolicy {
+	internal var retryPolicy: RetryPolicy {
 		get {
 			self[RetryPolicyConfigurationKey.self]
 		}
@@ -65,7 +73,7 @@ extension ConfigurationValues {
 		}
 	}
 	
-	public internal(set) var serializer: any Serializer {
+	internal var serializer: any Serializer {
 		get {
 			self[SerializerConfigurationKey.self]
 		}
@@ -74,7 +82,7 @@ extension ConfigurationValues {
 		}
 	}
 	
-	public internal(set) var timeoutInterval: TimeInterval {
+	internal var timeoutInterval: TimeInterval {
 		get {
 			self[TimeoutIntervalConfigurationKey.self]
 		}
@@ -92,6 +100,11 @@ private struct BaseURLConfigurationKey: ConfigurationKey {
 private struct CachePolicyConfigurationKey: ConfigurationKey {
 	
 	fileprivate static let defaultValue: URLRequest.CachePolicy = .useProtocolCachePolicy
+}
+
+private struct ClientConfigurationKey: ConfigurationKey {
+	
+	fileprivate static let defaultValue: any HTTPClient = .default()
 }
 
 private struct HeadersConfigurationKey: ConfigurationKey {
