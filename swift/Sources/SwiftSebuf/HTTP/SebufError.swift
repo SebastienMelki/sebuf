@@ -10,6 +10,7 @@ import Foundation
 
 public enum SebufError: Error {
 	
+	case retry
 	case cancelled
 	case invalidURL
 	case invalidURLRequest
