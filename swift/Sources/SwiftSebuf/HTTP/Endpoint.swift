@@ -9,13 +9,22 @@
 import Foundation
 import SwiftProtobuf
 
-public protocol Endpoint: Configurable, Sendable {
+public protocol Endpoint: Configurable, Identifiable, Sendable {
 	
 	associatedtype Request: Message
 	associatedtype Response: Message
+	
+	var id: String { get }
 	
 	var path: String { get }
 	var request: Request { get }
 	
 	var response: Response { get async throws(SebufError) }
+}
+
+extension Endpoint {
+	
+	internal func makeTask(configuration: ConfigurationValues) -> NetworkTask<Self> {
+		NetworkTask(configuration: configuration, endpoint: self)
+	}
 }
