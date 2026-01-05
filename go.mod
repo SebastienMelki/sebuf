@@ -3,10 +3,10 @@ module github.com/SebastienMelki/sebuf
 go 1.24.7
 
 require (
-	buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go v1.36.10-20250912141014-52f32327d4b0.1
+	buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go v1.36.11-20251209175733-2a1774d88802.1
 	github.com/pb33f/libopenapi v0.28.1
 	go.yaml.in/yaml/v4 v4.0.0-rc.3
-	google.golang.org/protobuf v1.36.10
+	google.golang.org/protobuf v1.36.11
 	sigs.k8s.io/yaml v1.6.0
 )
 
