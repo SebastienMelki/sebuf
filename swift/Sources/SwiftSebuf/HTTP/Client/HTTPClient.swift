@@ -12,3 +12,10 @@ public protocol HTTPClient: Actor {
 	
 	var session: URLSession { get }
 }
+
+//extension HTTPClient {
+//	
+//	public func makeTask<E: Endpoint>(endpoint: E) -> _DataTask<E> {
+//		_DataTask(configuration: <#T##ConfigurationValues#>, success: endpoint)
+//	}
+//}

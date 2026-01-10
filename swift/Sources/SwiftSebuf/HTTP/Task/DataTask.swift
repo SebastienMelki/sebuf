@@ -57,3 +57,20 @@ internal struct DataTask<E: Endpoint>: Sendable {
 		return urlRequest
 	}
 }
+
+public struct _DataTask<Success: Endpoint>: Sendable {
+	
+	private let configuration: ConfigurationValues
+	private let success: Success
+	
+	internal init(configuration: ConfigurationValues, success: Success) {
+		self.configuration = configuration
+		self.success = success
+	}
+	
+//	public var value: Success.Response {
+//		get async throws(SebufError) {
+//
+//		}
+//	}
+}
