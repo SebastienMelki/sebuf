@@ -5,36 +5,37 @@
 
 let package = Package(
 	name: .name,
-	platforms: [.macOS(.v15)],
     products: [
         // Products define the executables and libraries a package produces, making them visible to other packages.
-		.bufGenSwift
+		.bufGenSwift,
+		.swiftSebuf
     ],
 	dependencies: [
-		.swiftArgumentParser,
 		.swiftProtobuf
 	],
     targets: [
         // Targets are the basic building blocks of a package, defining a module or a test suite.
         // Targets can depend on other targets in this package and products from dependencies.
 		.bufGenSwift,
-		.bufGenSwiftTest
+		.bufGenSwiftTest,
+		
+		.swiftSebuf,
+		.swiftSebufTest
     ]
 )
 
 extension String {
 	
-	fileprivate static let name: Self = "SwiftSebuf"
+	fileprivate static let name = "SwiftSebuf"
 	
 	// Modules
-	fileprivate static let bufGenSwift: Self = "buf-gen-swift"
+	fileprivate static let bufGenSwift = "buf-gen-swift"
+	fileprivate static let swiftSebuf = "SwiftSebuf"
 	
 	// Packages
-	fileprivate static let swiftArgumentParser: Self = "ArgumentParser"
-	fileprivate static let swiftArgumentParserPackage: Self = "swift-argument-parser"
-	fileprivate static let swiftProtobuf: Self = "SwiftProtobuf"
-	fileprivate static let swiftProtobufPluginLibrary: Self = "SwiftProtobufPluginLibrary"
-	fileprivate static let swiftProtobufPackage: Self = "swift-protobuf"
+	fileprivate static let swiftProtobuf = "SwiftProtobuf"
+	fileprivate static let swiftProtobufPluginLibrary = "SwiftProtobufPluginLibrary"
+	fileprivate static let swiftProtobufPackage = "swift-protobuf"
 
 	fileprivate var test: Self {
 		"\(self)Tests"
@@ -42,44 +43,57 @@ extension String {
 }
 
 extension Product {
-	
-	fileprivate static let bufGenSwift: Product = library(
+
+	fileprivate static let bufGenSwift: Product = executable(
 		name: .bufGenSwift,
-		targets: [.bufGenSwift]
+		targets: [
+			.bufGenSwift,
+			.swiftSebuf
+		]
+	)
+	fileprivate static let swiftSebuf: Product = library(
+		name: .swiftSebuf,
+		targets: [.swiftSebuf]
 	)
 }
 
 extension Target {
-	
-	fileprivate static let bufGenSwift: Target = target(
+
+	fileprivate static let bufGenSwift: Target = executableTarget(
 		name: .bufGenSwift,
 		dependencies: [
-			.swiftArgumentParser,
 			.swiftProtobuf,
 			.swiftProtobufPluginLibrary
 		]
 	)
 	fileprivate static let bufGenSwiftTest: Target = testTarget(
 		name: .bufGenSwift.test,
-		dependencies: [.bufGenSwift]
+		dependencies: [.bufGenSwift],
+		exclude: ["Golden/SimpleService/simple_user_service.proto"]
+	)
+	
+	fileprivate static let swiftSebuf: Target = target(
+		name: .swiftSebuf,
+		dependencies: [.swiftProtobuf]
+	)
+	fileprivate static let swiftSebufTest: Target = testTarget(
+		name: .swiftSebuf.test,
+		dependencies: [.swiftSebuf]
 	)
 }
 
 extension Target.Dependency {
 	
 	// Modules
-	fileprivate static let bufGenSwift: Self = byName(name: .bufGenSwift)
+	fileprivate static let bufGenSwift: Target.Dependency = byName(name: .bufGenSwift)
+	fileprivate static let swiftSebuf: Target.Dependency = byName(name: .swiftSebuf)
 	
 	// Packages
-	fileprivate static let swiftArgumentParser: Self = product(
-		name: .swiftArgumentParser,
-		package: .swiftArgumentParserPackage
-	)
-	fileprivate static let swiftProtobuf: Self = product(
+	fileprivate static let swiftProtobuf: Target.Dependency = product(
 		name: .swiftProtobuf,
 		package: .swiftProtobufPackage
 	)
-	fileprivate static let swiftProtobufPluginLibrary: Self = product(
+	fileprivate static let swiftProtobufPluginLibrary: Target.Dependency = product(
 		name: .swiftProtobufPluginLibrary,
 		package: .swiftProtobufPackage
 	)
@@ -87,10 +101,6 @@ extension Target.Dependency {
 
 extension Package.Dependency {
 	
-	fileprivate static let swiftArgumentParser: Package.Dependency = package(
-		url: "https://github.com/apple/swift-argument-parser.git",
-		exact: "1.6.2"
-	)
 	fileprivate static let swiftProtobuf: Package.Dependency = package(
 		url: "https://github.com/apple/swift-protobuf.git",
 		exact: "1.33.3"
