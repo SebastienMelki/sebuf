@@ -1,7 +1,7 @@
 //
-//  buf-gen-swiftTests.swift
+//  SwiftSebufTest.swift
 //  SwiftSebuf
 //
-//  Created by Khaled Chehabeddine on 12/01/2026.
+//  Created by Khaled Chehabeddine on 11/01/2026.
 //  Copyright © 2026 SwiftSebuf. All rights reserved.
 //
