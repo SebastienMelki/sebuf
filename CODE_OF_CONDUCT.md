@@ -24,7 +24,7 @@ Unacceptable behaviors include:
 Project maintainers are responsible for enforcing this Code of Conduct.
 
 ### 1. Reporting
-If you witness or experience a violation, please email: **YOUR_EMAIL@domain.com**. Reports will be handled confidentially.
+If you witness or experience a violation, please email: **seb@sebuf.com**. Reports will be handled confidentially.
 
 ### 2. Response
 Depending on severity, consequences may include:
