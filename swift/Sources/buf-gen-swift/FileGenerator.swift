@@ -6,21 +6,32 @@
 //  Copyright © 2026 Sebuf. All rights reserved.
 //
 
+import Foundation
+import SwiftProtobuf
 import SwiftProtobufPluginLibrary
 
 internal final class FileGenerator {
 	
 	private let descriptor: FileDescriptor
 	private let options: GeneratorOptions
+	private let namer: SwiftProtobufNamer
 	
 	internal init(descriptor: FileDescriptor, options: GeneratorOptions) {
 		self.descriptor = descriptor
 		self.options = options
+		self.namer = SwiftProtobufNamer(currentFile: descriptor, protoFileToModuleMappings: options.protoToModuleMappings)
 	}
 	
 	internal var name: String {
-		let baseName = descriptor.name.replacingOccurrences(of: ".proto", with: "")
-		return "\(baseName).sebuf.swift"
+		let ext = ".sebuf.swift"
+		let pathComponents = descriptor.name.pathComponents
+		switch options.fileNaming {
+		case .fullPath: return pathComponents.directory + pathComponents.base + ext
+		case .pathToUnderscores:
+			let directoryUnderscored = pathComponents.directory.replacingOccurrences(of: "/", with: "_")
+			return directoryUnderscored + pathComponents.base + ext
+		case .dropPath: return pathComponents.base + ext
+		}
 	}
 	
 	internal func generate(printer p: inout CodePrinter) throws(GeneratorError) {
@@ -42,25 +53,49 @@ internal final class FileGenerator {
 			
 			"""
 		)
-		p.print(
-			"""
-			import SwiftProtobuf
-			
-			"""
-		)
 		
-		guard !descriptor.services.isEmpty else {
+		// Generate the comments from the top of the .proto file as they may contain copyrights/preamble/etc.
+		if options.experimentalStripNonfunctionalCodegen {
+			let editionPath = IndexPath(index: Google_Protobuf_FileDescriptorProto.FieldNumbers.edition)
+			let syntaxPath = IndexPath(index: Google_Protobuf_FileDescriptorProto.FieldNumbers.syntax)
+			let commentLocation: Google_Protobuf_SourceCodeInfo.Location? = if let location = descriptor.sourceCodeInfoLocation(
+				path: editionPath
+			) {
+				location
+			} else if let location = descriptor.sourceCodeInfoLocation(path: syntaxPath) {
+				location
+			} else {
+				nil
+			}
+			if let commentLocation {
+				let comments = commentLocation.asSourceComment(commentPrefix: "///", leadingDetachedPrefix: "//")
+				if !comments.isEmpty {
+					// Ensure there is a blank line between the .proto comments and generated code
+					p.print(comments, newlines: !comments.hasSuffix("\n\n"))
+				}
+			}
+		}
+		
+		let fileDefinesTypes = !descriptor.services.isEmpty
+		
+		if SwiftProtobufInfo.isBundledProto(file: descriptor) {
+			p.print(
+				"// 'import \(namer.swiftProtobufModuleName)' suppressed, this proto file is meant to be bundled in the runtime.\n"
+			)
+		} else if fileDefinesTypes {
+			p.print("\(options.importDirective.snippet) \(namer.swiftProtobufModuleName)\n")
+		}
+		
+		guard fileDefinesTypes else {
 			p.print("// This file contained no services.")
 			return
 		}
 		
 		generateVersionCheck(printer: &p)
 		
-		let services = descriptor.services.map { descriptor in
-			ServiceGenerator(descriptor: descriptor, options: options)
-		}
-		for service in services {
-			service.generate(printer: &p)
+		for serviceDescriptor in descriptor.services {
+			let serviceGenerator = ServiceGenerator(descriptor: serviceDescriptor, options: options)
+			serviceGenerator.generate(printer: &p)
 		}
 	}
 	
