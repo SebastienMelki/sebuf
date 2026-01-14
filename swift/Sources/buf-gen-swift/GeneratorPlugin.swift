@@ -8,6 +8,7 @@
 
 import SwiftProtobuf
 import SwiftProtobufPluginLibrary
+import SwiftSebuf
 
 @main
 internal struct GeneratorPlugin: CodeGenerator {
@@ -20,13 +21,15 @@ internal struct GeneratorPlugin: CodeGenerator {
 	) throws {
 		let options = try GeneratorOptions(parameter: parameter)
 		for fileDescriptor in files {
-			let fileGenerator = FileGenerator(descriptor: fileDescriptor, options: options)
 			do {
+				let fileGenerator = FileGenerator(descriptor: fileDescriptor, options: options)
 				var printer = CodePrinter(addNewlines: true)
 				try fileGenerator.generate(printer: &printer)
 				try generatorOutputs.add(fileName: fileGenerator.name, contents: printer.content)
+			} catch let error as GeneratorError {
+				throw GenerationError.generator(error)
 			} catch {
-				throw GenerationError(error)
+				throw error
 			}
 		}
 	}
@@ -37,7 +40,7 @@ internal struct GeneratorPlugin: CodeGenerator {
 	]
 	// MARK: Confirm with Codeowner on the supported range
 	internal let supportedEditionRange: ClosedRange<Google_Protobuf_Edition> = .proto3 ... .edition2024
-	internal let version: String? = SwiftProtobuf.Version.versionString
+	internal let version: String? = SwiftSebuf.Version.description
 	internal let projectURL: String? = "https://github.com/SebastienMelki/sebuf"
 	internal let copyrightLine: String? = Version.copyright
 	
