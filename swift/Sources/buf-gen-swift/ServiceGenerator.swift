@@ -11,31 +11,37 @@ import SwiftProtobufPluginLibrary
 internal final class ServiceGenerator {
 	
 	private let descriptor: ServiceDescriptor
+	private let options: GeneratorOptions
 	private let visibility: String
 	
 	internal init(descriptor: ServiceDescriptor, options: GeneratorOptions) {
 		self.descriptor = descriptor
-		self.visibility = options.visibility.sourceSnippet
+		self.options = options
+		self.visibility = options.visibility.snippet
 	}
 	
 	internal func generate(printer p: inout CodePrinter) {
 		p.print()
-		p.print("\(visibility)protocol \(descriptor.name): Sendable {")
+		let commentsWithDeprecation = descriptor.protoSourceCommentsWithDeprecation(generatorOptions: options)
+		p.print("\(commentsWithDeprecation)\(visibility)protocol \(descriptor.name): Sendable {")
 		p.print()
 		
 		p.withIndentation { p in
 			for method in descriptor.methods {
-				generate(method: method, printer: &p)
+				method.generate(printer: &p)
 			}
 		}
 		
 		p.print("}")
 	}
+}
+
+extension MethodDescriptor {
 	
-	private func generate(method: MethodDescriptor, printer p: inout CodePrinter) {
-		let inputType = method.inputType.name
-		let outputType = method.outputType.name
-		let name = method.name.camelCased()
+	fileprivate func generate(printer p: inout CodePrinter) {
+		let inputType = self.inputType.name
+		let outputType = self.outputType.name
+		let name = self.name.camelCased()
 		p.print("func \(name)(_ request: \(inputType)) async throws -> \(outputType)")
 	}
 }
