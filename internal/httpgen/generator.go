@@ -147,7 +147,7 @@ func (g *Generator) generateService(gf *protogen.GeneratedFile, file *protogen.F
 			gf.P("methodHeaders = get", method.GoName, "Headers()")
 		}
 		gf.P(handlerName, " := BindingMiddleware[", method.Input.GoIdent, "](")
-		gf.P("genericHandler(server.", method.GoName, "), serviceHeaders, methodHeaders,")
+		gf.P("genericHandler(server.", method.GoName, ", config.errorHandler), serviceHeaders, methodHeaders,")
 		gf.P(")")
 		gf.P()
 		gf.P(`config.mux.Handle("POST `, httpPath, `", `, handlerName, `)`)
@@ -341,12 +341,18 @@ func (g *Generator) generateBindingFile(file *protogen.File) error {
 	gf.P()
 
 	// genericHandler function
-	gf.P("func genericHandler[Req any, Res any](serve func(context.Context, Req) (Res, error)) http.HandlerFunc {")
+	gf.P(
+		"func genericHandler[Req any, Res any](serve func(context.Context, Req) (Res, error), errorHandler ErrorHandler) http.HandlerFunc {",
+	)
 	gf.P("return func(w http.ResponseWriter, r *http.Request) {")
 	gf.P("request := getRequest[Req](r.Context())")
 	gf.P()
 	gf.P("response, err := serve(r.Context(), request)")
 	gf.P("if err != nil {")
+	gf.P("if errorHandler != nil {")
+	gf.P("errorHandler(w, r, err)")
+	gf.P("return")
+	gf.P("}")
 	gf.P("errorMsg := &sebufhttp.Error{")
 	gf.P("Message: err.Error(),")
 	gf.P("}")
@@ -356,6 +362,10 @@ func (g *Generator) generateBindingFile(file *protogen.File) error {
 	gf.P()
 	gf.P("responseBytes, err := marshalResponse(r, response)")
 	gf.P("if err != nil {")
+	gf.P("if errorHandler != nil {")
+	gf.P("errorHandler(w, r, err)")
+	gf.P("return")
+	gf.P("}")
 	gf.P("errorMsg := &sebufhttp.Error{")
 	gf.P("Message: fmt.Sprintf(\"failed to marshal response: %v\", err),")
 	gf.P("}")
@@ -365,6 +375,10 @@ func (g *Generator) generateBindingFile(file *protogen.File) error {
 	gf.P()
 	gf.P("_, err = w.Write(responseBytes)")
 	gf.P("if err != nil {")
+	gf.P("if errorHandler != nil {")
+	gf.P("errorHandler(w, r, err)")
+	gf.P("return")
+	gf.P("}")
 	gf.P("errorMsg := &sebufhttp.Error{")
 	gf.P("Message: fmt.Sprintf(\"failed to write response: %v\", err),")
 	gf.P("}")
@@ -421,6 +435,13 @@ func (g *Generator) generateConfigFile(file *protogen.File) error {
 	gf.P(")")
 	gf.P()
 
+	// ErrorHandler type
+	gf.P("// ErrorHandler is a function that handles errors from service methods.")
+	gf.P("// It receives the ResponseWriter, Request, and the error returned by the handler.")
+	gf.P("// When set, this handler is called instead of the default error response behavior.")
+	gf.P("type ErrorHandler func(w http.ResponseWriter, r *http.Request, err error)")
+	gf.P()
+
 	// ServerOption type
 	gf.P("// ServerOption configures a Server")
 	gf.P("type ServerOption func(c *serverConfiguration)")
@@ -430,6 +451,7 @@ func (g *Generator) generateConfigFile(file *protogen.File) error {
 	gf.P("type serverConfiguration struct {")
 	gf.P("mux *http.ServeMux")
 	gf.P("withMux bool")
+	gf.P("errorHandler ErrorHandler")
 	gf.P("}")
 	gf.P()
 
@@ -438,6 +460,7 @@ func (g *Generator) generateConfigFile(file *protogen.File) error {
 	gf.P("return &serverConfiguration{")
 	gf.P("mux: http.DefaultServeMux,")
 	gf.P("withMux: false,")
+	gf.P("errorHandler: nil,")
 	gf.P("}")
 	gf.P("}")
 	gf.P()
@@ -458,6 +481,17 @@ func (g *Generator) generateConfigFile(file *protogen.File) error {
 	gf.P("return func(c *serverConfiguration) {")
 	gf.P("c.mux = mux")
 	gf.P("c.withMux = true")
+	gf.P("}")
+	gf.P("}")
+	gf.P()
+
+	// WithErrorHandler option
+	gf.P("// WithErrorHandler configures a custom error handler for the server.")
+	gf.P("// The handler will be called for errors returned by service method implementations.")
+	gf.P("// If not set, errors are wrapped in sebufhttp.Error and returned as HTTP 500.")
+	gf.P("func WithErrorHandler(handler ErrorHandler) ServerOption {")
+	gf.P("return func(c *serverConfiguration) {")
+	gf.P("c.errorHandler = handler")
 	gf.P("}")
 	gf.P("}")
 	gf.P()
