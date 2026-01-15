@@ -63,13 +63,21 @@
 				
 				<option value="file3">github.com/SebastienMelki/sebuf/http/headers.pb.go (9.1%)</option>
 				
-				<option value="file4">github.com/SebastienMelki/sebuf/internal/openapiv3/generator.go (13.0%)</option>
+				<option value="file4">github.com/SebastienMelki/sebuf/internal/httpgen/annotations.go (14.9%)</option>
 				
-				<option value="file5">github.com/SebastienMelki/sebuf/internal/openapiv3/http_annotations.go (0.0%)</option>
+				<option value="file5">github.com/SebastienMelki/sebuf/internal/httpgen/generator.go (1.4%)</option>
 				
-				<option value="file6">github.com/SebastienMelki/sebuf/internal/openapiv3/types.go (0.0%)</option>
+				<option value="file6">github.com/SebastienMelki/sebuf/internal/httpgen/mock_generator.go (0.0%)</option>
 				
-				<option value="file7">github.com/SebastienMelki/sebuf/internal/openapiv3/validation.go (0.0%)</option>
+				<option value="file7">github.com/SebastienMelki/sebuf/internal/httpgen/validation.go (0.0%)</option>
+				
+				<option value="file8">github.com/SebastienMelki/sebuf/internal/openapiv3/generator.go (13.0%)</option>
+				
+				<option value="file9">github.com/SebastienMelki/sebuf/internal/openapiv3/http_annotations.go (39.7%)</option>
+				
+				<option value="file10">github.com/SebastienMelki/sebuf/internal/openapiv3/types.go (0.0%)</option>
+				
+				<option value="file11">github.com/SebastienMelki/sebuf/internal/openapiv3/validation.go (0.0%)</option>
 				
 				</select>
 			</div>
@@ -1154,7 +1162,2169 @@ func file_proto_sebuf_http_headers_proto_init() <span class="cov8" title="1">{
 }
 </pre>
 		
-		<pre class="file" id="file4" style="display: none">package openapiv3
+		<pre class="file" id="file4" style="display: none">package httpgen
+
+import (
+        "regexp"
+
+        "google.golang.org/protobuf/compiler/protogen"
+        "google.golang.org/protobuf/proto"
+        "google.golang.org/protobuf/types/descriptorpb"
+
+        "github.com/SebastienMelki/sebuf/http"
+)
+
+// pathParamRegex matches path variables like {user_id} or {id}
+var pathParamRegex = regexp.MustCompile(`\{([^}]+)\}`)
+
+// HTTPConfig represents the HTTP configuration for a method.
+type HTTPConfig struct {
+        Path       string
+        Method     string   // "GET", "POST", "PUT", "DELETE", "PATCH"
+        PathParams []string // Path variable names extracted from path
+}
+
+// QueryParam represents a query parameter configuration extracted from a field.
+type QueryParam struct {
+        FieldName  string // Proto field name
+        FieldGoName string // Go field name
+        ParamName  string // Query parameter name
+        Required   bool
+}
+
+// ServiceConfigImpl represents the HTTP configuration for a service.
+type ServiceConfigImpl struct {
+        BasePath string
+}
+
+// getMethodHTTPConfig extracts HTTP configuration from method options.
+func getMethodHTTPConfig(method *protogen.Method) *HTTPConfig <span class="cov0" title="0">{
+        options := method.Desc.Options()
+        if options == nil </span><span class="cov0" title="0">{
+                return nil
+        }</span>
+
+        // Get the raw options
+        <span class="cov0" title="0">methodOptions, ok := options.(*descriptorpb.MethodOptions)
+        if !ok </span><span class="cov0" title="0">{
+                return nil
+        }</span>
+
+        // Extract our custom extension using the generated code
+        <span class="cov0" title="0">ext := proto.GetExtension(methodOptions, http.E_Config)
+        if ext == nil </span><span class="cov0" title="0">{
+                return nil
+        }</span>
+
+        <span class="cov0" title="0">httpConfig, ok := ext.(*http.HttpConfig)
+        if !ok || httpConfig == nil </span><span class="cov0" title="0">{
+                return nil
+        }</span>
+
+        <span class="cov0" title="0">path := httpConfig.GetPath()
+
+        return &amp;HTTPConfig{
+                Path:       path,
+                Method:     httpMethodToString(httpConfig.GetMethod()),
+                PathParams: extractPathParams(path),
+        }</span>
+}
+
+// httpMethodToString converts HttpMethod enum to string. Returns "POST" for unspecified (backward compatibility).
+func httpMethodToString(m http.HttpMethod) string <span class="cov6" title="8">{
+        switch m </span>{
+        case http.HttpMethod_HTTP_METHOD_GET:<span class="cov1" title="1">
+                return "GET"</span>
+        case http.HttpMethod_HTTP_METHOD_POST:<span class="cov1" title="1">
+                return "POST"</span>
+        case http.HttpMethod_HTTP_METHOD_PUT:<span class="cov1" title="1">
+                return "PUT"</span>
+        case http.HttpMethod_HTTP_METHOD_DELETE:<span class="cov1" title="1">
+                return "DELETE"</span>
+        case http.HttpMethod_HTTP_METHOD_PATCH:<span class="cov1" title="1">
+                return "PATCH"</span>
+        default:<span class="cov4" title="3">
+                // HTTP_METHOD_UNSPECIFIED or any unknown value defaults to POST for backward compatibility
+                return "POST"</span>
+        }
+}
+
+// extractPathParams parses path variables from a path string.
+// Example: "/users/{user_id}/posts/{post_id}" -&gt; ["user_id", "post_id"]
+func extractPathParams(path string) []string <span class="cov9" title="22">{
+        matches := pathParamRegex.FindAllStringSubmatch(path, -1)
+        if len(matches) == 0 </span><span class="cov6" title="7">{
+                return nil
+        }</span>
+
+        <span class="cov8" title="15">params := make([]string, 0, len(matches))
+        for _, match := range matches </span><span class="cov10" title="23">{
+                if len(match) &gt; 1 </span><span class="cov10" title="23">{
+                        params = append(params, match[1])
+                }</span>
+        }
+        <span class="cov8" title="15">return params</span>
+}
+
+// getServiceHTTPConfig extracts HTTP configuration from service options.
+func getServiceHTTPConfig(service *protogen.Service) *ServiceConfigImpl <span class="cov0" title="0">{
+        options := service.Desc.Options()
+        if options == nil </span><span class="cov0" title="0">{
+                return nil
+        }</span>
+
+        // Get the raw options
+        <span class="cov0" title="0">serviceOptions, ok := options.(*descriptorpb.ServiceOptions)
+        if !ok </span><span class="cov0" title="0">{
+                return nil
+        }</span>
+
+        // Extract our custom extension using the generated code
+        <span class="cov0" title="0">ext := proto.GetExtension(serviceOptions, http.E_ServiceConfig)
+        if ext == nil </span><span class="cov0" title="0">{
+                return nil
+        }</span>
+
+        <span class="cov0" title="0">serviceConfig, ok := ext.(*http.ServiceConfig)
+        if !ok || serviceConfig == nil </span><span class="cov0" title="0">{
+                return nil
+        }</span>
+
+        <span class="cov0" title="0">return &amp;ServiceConfigImpl{
+                BasePath: serviceConfig.GetBasePath(),
+        }</span>
+}
+
+// getServiceHeaders extracts header configuration from service options.
+func getServiceHeaders(service *protogen.Service) []*http.Header <span class="cov0" title="0">{
+        options := service.Desc.Options()
+        if options == nil </span><span class="cov0" title="0">{
+                return nil
+        }</span>
+
+        // Get the raw options
+        <span class="cov0" title="0">serviceOptions, ok := options.(*descriptorpb.ServiceOptions)
+        if !ok </span><span class="cov0" title="0">{
+                return nil
+        }</span>
+
+        // Extract our custom extension using the generated code
+        <span class="cov0" title="0">ext := proto.GetExtension(serviceOptions, http.E_ServiceHeaders)
+        if ext == nil </span><span class="cov0" title="0">{
+                return nil
+        }</span>
+
+        <span class="cov0" title="0">serviceHeaders, ok := ext.(*http.ServiceHeaders)
+        if !ok || serviceHeaders == nil </span><span class="cov0" title="0">{
+                return nil
+        }</span>
+
+        <span class="cov0" title="0">return serviceHeaders.GetRequiredHeaders()</span>
+}
+
+// getMethodHeaders extracts header configuration from method options.
+func getMethodHeaders(method *protogen.Method) []*http.Header <span class="cov0" title="0">{
+        options := method.Desc.Options()
+        if options == nil </span><span class="cov0" title="0">{
+                return nil
+        }</span>
+
+        // Get the raw options
+        <span class="cov0" title="0">methodOptions, ok := options.(*descriptorpb.MethodOptions)
+        if !ok </span><span class="cov0" title="0">{
+                return nil
+        }</span>
+
+        // Extract our custom extension using the generated code
+        <span class="cov0" title="0">ext := proto.GetExtension(methodOptions, http.E_MethodHeaders)
+        if ext == nil </span><span class="cov0" title="0">{
+                return nil
+        }</span>
+
+        <span class="cov0" title="0">methodHeaders, ok := ext.(*http.MethodHeaders)
+        if !ok || methodHeaders == nil </span><span class="cov0" title="0">{
+                return nil
+        }</span>
+
+        <span class="cov0" title="0">return methodHeaders.GetRequiredHeaders()</span>
+}
+
+// For now, let's add a helper to parse paths from the existing authv1 proto format.
+func parseExistingAnnotation(_ *protogen.Method) string <span class="cov0" title="0">{
+        // This is a temporary parser for the existing sebuf.http.config format
+        // that's used in authv1/service.proto
+
+        // In the actual implementation, this would properly parse the extension
+        // For now, we'll return empty and use default paths
+        return ""
+}</span>
+
+// getFieldExamples extracts example values from field options.
+func getFieldExamples(field *protogen.Field) []string <span class="cov0" title="0">{
+        options := field.Desc.Options()
+        if options == nil </span><span class="cov0" title="0">{
+                return nil
+        }</span>
+
+        // Get the raw options
+        <span class="cov0" title="0">fieldOptions, ok := options.(*descriptorpb.FieldOptions)
+        if !ok </span><span class="cov0" title="0">{
+                return nil
+        }</span>
+
+        // Extract our custom extension using the generated code
+        <span class="cov0" title="0">ext := proto.GetExtension(fieldOptions, http.E_FieldExamples)
+        if ext == nil </span><span class="cov0" title="0">{
+                return nil
+        }</span>
+
+        <span class="cov0" title="0">fieldExamples, ok := ext.(*http.FieldExamples)
+        if !ok || fieldExamples == nil </span><span class="cov0" title="0">{
+                return nil
+        }</span>
+
+        <span class="cov0" title="0">return fieldExamples.GetValues()</span>
+}
+
+// getQueryParams extracts query parameter configurations from message fields.
+func getQueryParams(message *protogen.Message) []QueryParam <span class="cov0" title="0">{
+        var params []QueryParam
+
+        for _, field := range message.Fields </span><span class="cov0" title="0">{
+                options := field.Desc.Options()
+                if options == nil </span><span class="cov0" title="0">{
+                        continue</span>
+                }
+
+                <span class="cov0" title="0">fieldOptions, ok := options.(*descriptorpb.FieldOptions)
+                if !ok </span><span class="cov0" title="0">{
+                        continue</span>
+                }
+
+                <span class="cov0" title="0">ext := proto.GetExtension(fieldOptions, http.E_Query)
+                if ext == nil </span><span class="cov0" title="0">{
+                        continue</span>
+                }
+
+                <span class="cov0" title="0">queryConfig, ok := ext.(*http.QueryConfig)
+                if !ok || queryConfig == nil </span><span class="cov0" title="0">{
+                        continue</span>
+                }
+
+                // Use the configured name, or default to the proto field name
+                <span class="cov0" title="0">paramName := queryConfig.GetName()
+                if paramName == "" </span><span class="cov0" title="0">{
+                        paramName = string(field.Desc.Name())
+                }</span>
+
+                <span class="cov0" title="0">params = append(params, QueryParam{
+                        FieldName:   string(field.Desc.Name()),
+                        FieldGoName: field.GoName,
+                        ParamName:   paramName,
+                        Required:    queryConfig.GetRequired(),
+                })</span>
+        }
+
+        <span class="cov0" title="0">return params</span>
+}
+</pre>
+		
+		<pre class="file" id="file5" style="display: none">package httpgen
+
+import (
+        "fmt"
+        "strconv"
+        "strings"
+
+        "google.golang.org/protobuf/compiler/protogen"
+
+        "github.com/SebastienMelki/sebuf/http"
+)
+
+// Generator handles HTTP code generation for protobuf services.
+type Generator struct {
+        plugin       *protogen.Plugin
+        generateMock bool
+}
+
+// Options configures the generator.
+type Options struct {
+        GenerateMock bool
+}
+
+// New creates a new HTTP generator.
+func New(plugin *protogen.Plugin) *Generator <span class="cov1" title="1">{
+        return &amp;Generator{
+                plugin: plugin,
+        }
+}</span>
+
+// NewWithOptions creates a new HTTP generator with options.
+func NewWithOptions(plugin *protogen.Plugin, opts Options) *Generator <span class="cov2" title="3">{
+        return &amp;Generator{
+                plugin:       plugin,
+                generateMock: opts.GenerateMock,
+        }
+}</span>
+
+// Generate processes all files and generates HTTP handlers.
+func (g *Generator) Generate() error <span class="cov0" title="0">{
+        for _, file := range g.plugin.Files </span><span class="cov0" title="0">{
+                if !file.Generate </span><span class="cov0" title="0">{
+                        continue</span>
+                }
+                <span class="cov0" title="0">if err := g.generateFile(file); err != nil </span><span class="cov0" title="0">{
+                        return err
+                }</span>
+        }
+        <span class="cov0" title="0">return nil</span>
+}
+
+func (g *Generator) generateFile(file *protogen.File) error <span class="cov0" title="0">{
+        // Generate error implementation file if there are messages ending with Error
+        if err := g.generateErrorImplFile(file); err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        <span class="cov0" title="0">if len(file.Services) == 0 </span><span class="cov0" title="0">{
+                return nil
+        }</span>
+
+        // Validate HTTP configurations - fail fast on any errors
+        <span class="cov0" title="0">for _, service := range file.Services </span><span class="cov0" title="0">{
+                if err := ValidateService(service); err != nil </span><span class="cov0" title="0">{
+                        return fmt.Errorf("validation error: %w", err)
+                }</span>
+        }
+
+        // Generate main HTTP file
+        <span class="cov0" title="0">if err := g.generateHTTPFile(file); err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        // Generate binding file
+        <span class="cov0" title="0">if err := g.generateBindingFile(file); err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        // Generate config file
+        <span class="cov0" title="0">if err := g.generateConfigFile(file); err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        // Generate mock file if requested
+        <span class="cov0" title="0">if g.generateMock </span><span class="cov0" title="0">{
+                if err := g.generateMockFile(file); err != nil </span><span class="cov0" title="0">{
+                        return err
+                }</span>
+        }
+
+        <span class="cov0" title="0">return nil</span>
+}
+
+func (g *Generator) generateHTTPFile(file *protogen.File) error <span class="cov0" title="0">{
+        filename := file.GeneratedFilenamePrefix + "_http.pb.go"
+        gf := g.plugin.NewGeneratedFile(filename, file.GoImportPath)
+
+        g.writeHeader(gf, file)
+
+        gf.P("import (")
+        gf.P(`"context"`)
+        gf.P()
+        gf.P(`sebufhttp "github.com/SebastienMelki/sebuf/http"`)
+        gf.P(")")
+        gf.P()
+
+        for _, service := range file.Services </span><span class="cov0" title="0">{
+                if err := g.generateService(gf, file, service); err != nil </span><span class="cov0" title="0">{
+                        return err
+                }</span>
+        }
+
+        <span class="cov0" title="0">return nil</span>
+}
+
+func (g *Generator) generateService(gf *protogen.GeneratedFile, file *protogen.File, service *protogen.Service) error <span class="cov0" title="0">{
+        serviceName := service.GoName
+
+        // Generate service interface
+        gf.P("// ", serviceName, "Server is the server API for ", serviceName, " service.")
+        gf.P("type ", serviceName, "Server interface {")
+        for _, method := range service.Methods </span><span class="cov0" title="0">{
+                gf.P(method.GoName, "(context.Context, *", method.Input.GoIdent, ") (*", method.Output.GoIdent, ", error)")
+        }</span>
+        <span class="cov0" title="0">gf.P("}")
+        gf.P()
+
+        // Generate registration function
+        gf.P(
+                "// Register",
+                serviceName,
+                "Server registers the HTTP handlers for service ",
+                serviceName,
+                " to the given mux.",
+        )
+        gf.P("func Register", serviceName, "Server(server ", serviceName, "Server, opts ...ServerOption) error {")
+        gf.P("config := getConfiguration(opts...)")
+        gf.P()
+
+        // Get service-level base path if configured
+        basePath := g.getServiceBasePath(service)
+
+        // Get service-level headers
+        gf.P("serviceHeaders := get", serviceName, "Headers()")
+        gf.P()
+
+        for i, method := range service.Methods </span><span class="cov0" title="0">{
+                httpPath := g.getMethodPath(method, basePath, file.GoPackageName)
+                httpMethod := g.getHTTPMethod(method)
+
+                handlerName := fmt.Sprintf("%sHandler", lowerFirst(method.GoName))
+                if i == 0 </span><span class="cov0" title="0">{
+                        gf.P("methodHeaders := get", method.GoName, "Headers()")
+                }</span> else<span class="cov0" title="0"> {
+                        gf.P("methodHeaders = get", method.GoName, "Headers()")
+                }</span>
+                <span class="cov0" title="0">gf.P(handlerName, " := BindingMiddleware[", method.Input.GoIdent, "](")
+                gf.P("genericHandler(server.", method.GoName, "), serviceHeaders, methodHeaders,")
+                gf.P(lowerFirst(method.GoName), "PathParams, ", lowerFirst(method.GoName), "QueryParams,")
+                gf.P(`"`, httpMethod, `",`)
+                gf.P(")")
+                gf.P()
+                gf.P(`config.mux.Handle("`, httpMethod, ` `, httpPath, `", `, handlerName, `)`)
+                gf.P()</span>
+        }
+
+        <span class="cov0" title="0">gf.P("return nil")
+        gf.P("}")
+        gf.P()
+
+        // Generate header getter functions
+        if err := g.generateHeaderGetters(gf, service); err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        // Generate path and query param configs
+        <span class="cov0" title="0">if err := g.generateParamConfigs(gf, service); err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        <span class="cov0" title="0">return nil</span>
+}
+
+//nolint:funlen // This function generates a lot of boilerplate code
+func (g *Generator) generateBindingFile(file *protogen.File) error <span class="cov0" title="0">{
+        filename := file.GeneratedFilenamePrefix + "_http_binding.pb.go"
+        gf := g.plugin.NewGeneratedFile(filename, file.GoImportPath)
+
+        g.writeHeader(gf, file)
+
+        gf.P("import (")
+        gf.P(`"bytes"`)
+        gf.P(`"context"`)
+        gf.P(`"errors"`)
+        gf.P(`"fmt"`)
+        gf.P(`"io"`)
+        gf.P(`"net/http"`)
+        gf.P(`"strconv"`)
+        gf.P(`"strings"`)
+        gf.P(`"sync"`)
+        gf.P(`"time"`)
+        gf.P(`"unicode/utf8"`)
+        gf.P()
+        gf.P(`protovalidate "buf.build/go/protovalidate"`)
+        gf.P(`"google.golang.org/protobuf/encoding/protojson"`)
+        gf.P(`"google.golang.org/protobuf/proto"`)
+        gf.P(`"google.golang.org/protobuf/reflect/protoreflect"`)
+        gf.P()
+        gf.P(`sebufhttp "github.com/SebastienMelki/sebuf/http"`)
+        gf.P(")")
+        gf.P()
+
+        // Content type constants
+        gf.P("const (")
+        gf.P(`// JSONContentType is the content type for JSON`)
+        gf.P(`JSONContentType = "application/json"`)
+        gf.P(`// BinaryContentType is the content type for binary protobuf`)
+        gf.P(`BinaryContentType = "application/octet-stream"`)
+        gf.P(`// ProtoContentType is the content type for protobuf`)
+        gf.P(`ProtoContentType = "application/x-protobuf"`)
+        gf.P(")")
+        gf.P()
+
+        // Context key for request storage
+        gf.P("type bodyCtxKey struct{}")
+        gf.P()
+
+        // PathParamConfig type
+        gf.P("// PathParamConfig defines configuration for a path parameter.")
+        gf.P("type PathParamConfig struct {")
+        gf.P("URLParam  string // Parameter name in URL path")
+        gf.P("FieldName string // Proto field name to bind to")
+        gf.P("}")
+        gf.P()
+
+        // QueryParamConfig type
+        gf.P("// QueryParamConfig defines configuration for a query parameter.")
+        gf.P("type QueryParamConfig struct {")
+        gf.P("QueryName string // Parameter name in query string")
+        gf.P("FieldName string // Proto field name to bind to")
+        gf.P("Required  bool   // Whether this parameter is required")
+        gf.P("}")
+        gf.P()
+
+        // getRequest function
+        gf.P("func getRequest[Req any](ctx context.Context) Req {")
+        gf.P("val := ctx.Value(bodyCtxKey{})")
+        gf.P("request, ok := val.(Req)")
+        gf.P("if ok {")
+        gf.P("return request")
+        gf.P("}")
+        gf.P("return *new(Req)")
+        gf.P("}")
+        gf.P()
+
+        // BindingMiddleware function
+        gf.P("// BindingMiddleware creates a middleware that binds HTTP requests to protobuf messages")
+        gf.P("// and validates them using protovalidate and header validation.")
+        gf.P("// It supports path parameters, query parameters, and request body binding.")
+        gf.P("func BindingMiddleware[Req any](next http.Handler, serviceHeaders, methodHeaders []*sebufhttp.Header,")
+        gf.P("pathParams []PathParamConfig, queryParams []QueryParamConfig, httpMethod string) http.Handler {")
+        gf.P("return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {")
+        gf.P("// Validate headers first")
+        gf.P("if validationErr := validateHeaders(r, serviceHeaders, methodHeaders); validationErr != nil {")
+        gf.P("writeValidationErrorResponse(w, r, validationErr)")
+        gf.P("return")
+        gf.P("}")
+        gf.P()
+        gf.P("toBind := new(Req)")
+        gf.P()
+        gf.P("// Bind path parameters")
+        gf.P("if msg, ok := any(toBind).(proto.Message); ok {")
+        gf.P("if err := bindPathParams(r, msg, pathParams); err != nil {")
+        gf.P("writeValidationErrorResponse(w, r, err)")
+        gf.P("return")
+        gf.P("}")
+        gf.P()
+        gf.P("// Bind query parameters")
+        gf.P("if err := bindQueryParams(r, msg, queryParams); err != nil {")
+        gf.P("writeValidationErrorResponse(w, r, err)")
+        gf.P("return")
+        gf.P("}")
+        gf.P("}")
+        gf.P()
+        gf.P("// Bind body only for POST, PUT, PATCH methods")
+        gf.P(`if httpMethod == "POST" || httpMethod == "PUT" || httpMethod == "PATCH" {`)
+        gf.P("err := bindDataBasedOnContentType(r, toBind)")
+        gf.P("if err != nil {")
+        gf.P("// For binding errors, return a simple validation error")
+        gf.P("validationErr := &amp;sebufhttp.ValidationError{")
+        gf.P("Violations: []*sebufhttp.FieldViolation{")
+        gf.P("{")
+        gf.P(`Field: "body",`)
+        gf.P(`Description: fmt.Sprintf("failed to parse request body: %v", err),`)
+        gf.P("},")
+        gf.P("},")
+        gf.P("}")
+        gf.P("writeValidationErrorResponse(w, r, validationErr)")
+        gf.P("return")
+        gf.P("}")
+        gf.P("}")
+        gf.P()
+        gf.P("// Validate the complete message")
+        gf.P("if msg, ok := any(toBind).(proto.Message); ok {")
+        gf.P("if err := ValidateMessage(msg); err != nil {")
+        gf.P("writeValidationError(w, r, err)")
+        gf.P("return")
+        gf.P("}")
+        gf.P("}")
+        gf.P()
+        gf.P("ctx := context.WithValue(r.Context(), bodyCtxKey{}, toBind)")
+        gf.P("next.ServeHTTP(w, r.WithContext(ctx))")
+        gf.P("})")
+        gf.P("}")
+        gf.P()
+
+        // filterFlags helper
+        gf.P("func filterFlags(content string) string {")
+        gf.P("for i, char := range content {")
+        gf.P("if char == ' ' || char == ';' {")
+        gf.P("return content[:i]")
+        gf.P("}")
+        gf.P("}")
+        gf.P("return content")
+        gf.P("}")
+        gf.P()
+
+        // bindDataBasedOnContentType function
+        gf.P("func bindDataBasedOnContentType[Req any](r *http.Request, toBind *Req) error {")
+        gf.P(`contentType := filterFlags(r.Header.Get("Content-Type"))`)
+        gf.P("switch contentType {")
+        gf.P("case JSONContentType:")
+        gf.P("return bindDataFromJSONRequest(r, toBind)")
+        gf.P("case BinaryContentType, ProtoContentType:")
+        gf.P("return bindDataFromBinaryRequest(r, toBind)")
+        gf.P("default:")
+        gf.P("return bindDataFromBinaryRequest(r, toBind)")
+        gf.P("}")
+        gf.P("}")
+        gf.P()
+
+        // bindDataFromJSONRequest function
+        gf.P("func bindDataFromJSONRequest[Req any](r *http.Request, toBind *Req) error {")
+        gf.P("bodyBytes, err := io.ReadAll(r.Body)")
+        gf.P("r.Body = io.NopCloser(bytes.NewReader(bodyBytes))")
+        gf.P("if err != nil {")
+        gf.P(`return fmt.Errorf("could not read request body: %w", err)`)
+        gf.P("}")
+        gf.P()
+        gf.P("if len(bodyBytes) == 0 {")
+        gf.P("return nil")
+        gf.P("}")
+        gf.P()
+        gf.P("protoRequest, ok := any(toBind).(proto.Message)")
+        gf.P("if !ok {")
+        gf.P(`return errors.New("JSON request is not a protocol buffer message")`)
+        gf.P("}")
+        gf.P()
+        gf.P("err = protojson.Unmarshal(bodyBytes, protoRequest)")
+        gf.P("if err != nil {")
+        gf.P(`return fmt.Errorf("could not unmarshal request JSON: %w", err)`)
+        gf.P("}")
+        gf.P("return nil")
+        gf.P("}")
+        gf.P()
+
+        // bindDataFromBinaryRequest function
+        gf.P("func bindDataFromBinaryRequest[Req any](r *http.Request, toBind *Req) error {")
+        gf.P("bodyBytes, err := io.ReadAll(r.Body)")
+        gf.P("r.Body = io.NopCloser(bytes.NewReader(bodyBytes))")
+        gf.P()
+        gf.P("if len(bodyBytes) == 0 {")
+        gf.P("return nil")
+        gf.P("}")
+        gf.P()
+        gf.P("if err != nil &amp;&amp; !errors.Is(err, io.ErrUnexpectedEOF) {")
+        gf.P(`return fmt.Errorf("could not read request body: %w", err)`)
+        gf.P("}")
+        gf.P()
+        gf.P("protoRequest, ok := any(toBind).(proto.Message)")
+        gf.P("if !ok {")
+        gf.P(`return errors.New("binary request is not a protocol buffer message")`)
+        gf.P("}")
+        gf.P()
+        gf.P("err = proto.Unmarshal(bodyBytes, protoRequest)")
+        gf.P("if err != nil {")
+        gf.P(`return fmt.Errorf("could not unmarshal binary request: %w", err)`)
+        gf.P("}")
+        gf.P("return nil")
+        gf.P("}")
+        gf.P()
+
+        // bindPathParams function - binds URL path parameters to proto message fields
+        gf.P("// bindPathParams binds URL path parameters to proto message fields using Go 1.22+ PathValue.")
+        gf.P("func bindPathParams(r *http.Request, msg proto.Message, params []PathParamConfig) *sebufhttp.ValidationError {")
+        gf.P("if len(params) == 0 {")
+        gf.P("return nil")
+        gf.P("}")
+        gf.P()
+        gf.P("reflectMsg := msg.ProtoReflect()")
+        gf.P("fields := reflectMsg.Descriptor().Fields()")
+        gf.P()
+        gf.P("for _, param := range params {")
+        gf.P("value := r.PathValue(param.URLParam)")
+        gf.P("if value == \"\" {")
+        gf.P("return &amp;sebufhttp.ValidationError{")
+        gf.P("Violations: []*sebufhttp.FieldViolation{{")
+        gf.P(`Field: param.FieldName,`)
+        gf.P(`Description: fmt.Sprintf("missing required path parameter: %s", param.URLParam),`)
+        gf.P("}},")
+        gf.P("}")
+        gf.P("}")
+        gf.P()
+        gf.P("field := fields.ByName(protoreflect.Name(param.FieldName))")
+        gf.P("if field == nil {")
+        gf.P("continue // Field not found, skip")
+        gf.P("}")
+        gf.P()
+        gf.P("convertedValue, err := convertStringToFieldValue(value, field.Kind())")
+        gf.P("if err != nil {")
+        gf.P("return &amp;sebufhttp.ValidationError{")
+        gf.P("Violations: []*sebufhttp.FieldViolation{{")
+        gf.P(`Field: param.FieldName,`)
+        gf.P(`Description: fmt.Sprintf("invalid value for path parameter %s: %v", param.URLParam, err),`)
+        gf.P("}},")
+        gf.P("}")
+        gf.P("}")
+        gf.P()
+        gf.P("reflectMsg.Set(field, convertedValue)")
+        gf.P("}")
+        gf.P()
+        gf.P("return nil")
+        gf.P("}")
+        gf.P()
+
+        // bindQueryParams function - binds URL query parameters to proto message fields
+        gf.P("// bindQueryParams binds URL query parameters to proto message fields.")
+        gf.P("func bindQueryParams(r *http.Request, msg proto.Message, params []QueryParamConfig) *sebufhttp.ValidationError {")
+        gf.P("if len(params) == 0 {")
+        gf.P("return nil")
+        gf.P("}")
+        gf.P()
+        gf.P("query := r.URL.Query()")
+        gf.P("reflectMsg := msg.ProtoReflect()")
+        gf.P("fields := reflectMsg.Descriptor().Fields()")
+        gf.P()
+        gf.P("for _, param := range params {")
+        gf.P("values := query[param.QueryName]")
+        gf.P("if len(values) == 0 {")
+        gf.P("if param.Required {")
+        gf.P("return &amp;sebufhttp.ValidationError{")
+        gf.P("Violations: []*sebufhttp.FieldViolation{{")
+        gf.P(`Field: param.FieldName,`)
+        gf.P(`Description: fmt.Sprintf("missing required query parameter: %s", param.QueryName),`)
+        gf.P("}},")
+        gf.P("}")
+        gf.P("}")
+        gf.P("continue")
+        gf.P("}")
+        gf.P()
+        gf.P("field := fields.ByName(protoreflect.Name(param.FieldName))")
+        gf.P("if field == nil {")
+        gf.P("continue // Field not found, skip")
+        gf.P("}")
+        gf.P()
+        gf.P("// Handle repeated fields (arrays)")
+        gf.P("if field.IsList() {")
+        gf.P("list := reflectMsg.Mutable(field).List()")
+        gf.P("for _, v := range values {")
+        gf.P("converted, err := convertStringToFieldValue(v, field.Kind())")
+        gf.P("if err != nil {")
+        gf.P("return &amp;sebufhttp.ValidationError{")
+        gf.P("Violations: []*sebufhttp.FieldViolation{{")
+        gf.P(`Field: param.FieldName,`)
+        gf.P(`Description: fmt.Sprintf("invalid value for query parameter %s: %v", param.QueryName, err),`)
+        gf.P("}},")
+        gf.P("}")
+        gf.P("}")
+        gf.P("list.Append(converted)")
+        gf.P("}")
+        gf.P("} else {")
+        gf.P("converted, err := convertStringToFieldValue(values[0], field.Kind())")
+        gf.P("if err != nil {")
+        gf.P("return &amp;sebufhttp.ValidationError{")
+        gf.P("Violations: []*sebufhttp.FieldViolation{{")
+        gf.P(`Field: param.FieldName,`)
+        gf.P(`Description: fmt.Sprintf("invalid value for query parameter %s: %v", param.QueryName, err),`)
+        gf.P("}},")
+        gf.P("}")
+        gf.P("}")
+        gf.P("reflectMsg.Set(field, converted)")
+        gf.P("}")
+        gf.P("}")
+        gf.P()
+        gf.P("return nil")
+        gf.P("}")
+        gf.P()
+
+        // convertStringToFieldValue function - converts string values to protoreflect.Value
+        gf.P("// convertStringToFieldValue converts a string value to the appropriate protoreflect.Value.")
+        gf.P("func convertStringToFieldValue(value string, kind protoreflect.Kind) (protoreflect.Value, error) {")
+        gf.P("switch kind {")
+        gf.P("case protoreflect.StringKind:")
+        gf.P("return protoreflect.ValueOfString(value), nil")
+        gf.P("case protoreflect.Int32Kind, protoreflect.Sint32Kind, protoreflect.Sfixed32Kind:")
+        gf.P("v, err := strconv.ParseInt(value, 10, 32)")
+        gf.P("if err != nil {")
+        gf.P("return protoreflect.Value{}, err")
+        gf.P("}")
+        gf.P("return protoreflect.ValueOfInt32(int32(v)), nil")
+        gf.P("case protoreflect.Int64Kind, protoreflect.Sint64Kind, protoreflect.Sfixed64Kind:")
+        gf.P("v, err := strconv.ParseInt(value, 10, 64)")
+        gf.P("if err != nil {")
+        gf.P("return protoreflect.Value{}, err")
+        gf.P("}")
+        gf.P("return protoreflect.ValueOfInt64(v), nil")
+        gf.P("case protoreflect.Uint32Kind, protoreflect.Fixed32Kind:")
+        gf.P("v, err := strconv.ParseUint(value, 10, 32)")
+        gf.P("if err != nil {")
+        gf.P("return protoreflect.Value{}, err")
+        gf.P("}")
+        gf.P("return protoreflect.ValueOfUint32(uint32(v)), nil")
+        gf.P("case protoreflect.Uint64Kind, protoreflect.Fixed64Kind:")
+        gf.P("v, err := strconv.ParseUint(value, 10, 64)")
+        gf.P("if err != nil {")
+        gf.P("return protoreflect.Value{}, err")
+        gf.P("}")
+        gf.P("return protoreflect.ValueOfUint64(v), nil")
+        gf.P("case protoreflect.BoolKind:")
+        gf.P("v, err := strconv.ParseBool(value)")
+        gf.P("if err != nil {")
+        gf.P("return protoreflect.Value{}, err")
+        gf.P("}")
+        gf.P("return protoreflect.ValueOfBool(v), nil")
+        gf.P("case protoreflect.FloatKind:")
+        gf.P("v, err := strconv.ParseFloat(value, 32)")
+        gf.P("if err != nil {")
+        gf.P("return protoreflect.Value{}, err")
+        gf.P("}")
+        gf.P("return protoreflect.ValueOfFloat32(float32(v)), nil")
+        gf.P("case protoreflect.DoubleKind:")
+        gf.P("v, err := strconv.ParseFloat(value, 64)")
+        gf.P("if err != nil {")
+        gf.P("return protoreflect.Value{}, err")
+        gf.P("}")
+        gf.P("return protoreflect.ValueOfFloat64(v), nil")
+        gf.P("default:")
+        gf.P(`return protoreflect.Value{}, fmt.Errorf("unsupported field type: %v", kind)`)
+        gf.P("}")
+        gf.P("}")
+        gf.P()
+
+        // genericHandler function
+        gf.P("func genericHandler[Req any, Res any](serve func(context.Context, Req) (Res, error)) http.HandlerFunc {")
+        gf.P("return func(w http.ResponseWriter, r *http.Request) {")
+        gf.P("request := getRequest[Req](r.Context())")
+        gf.P()
+        gf.P("response, err := serve(r.Context(), request)")
+        gf.P("if err != nil {")
+        gf.P("errorMsg := &amp;sebufhttp.Error{")
+        gf.P("Message: err.Error(),")
+        gf.P("}")
+        gf.P("writeErrorResponse(w, r, errorMsg)")
+        gf.P("return")
+        gf.P("}")
+        gf.P()
+        gf.P("responseBytes, err := marshalResponse(r, response)")
+        gf.P("if err != nil {")
+        gf.P("errorMsg := &amp;sebufhttp.Error{")
+        gf.P("Message: fmt.Sprintf(\"failed to marshal response: %v\", err),")
+        gf.P("}")
+        gf.P("writeErrorResponse(w, r, errorMsg)")
+        gf.P("return")
+        gf.P("}")
+        gf.P()
+        gf.P("_, err = w.Write(responseBytes)")
+        gf.P("if err != nil {")
+        gf.P("errorMsg := &amp;sebufhttp.Error{")
+        gf.P("Message: fmt.Sprintf(\"failed to write response: %v\", err),")
+        gf.P("}")
+        gf.P("writeErrorResponse(w, r, errorMsg)")
+        gf.P("return")
+        gf.P("}")
+        gf.P("}")
+        gf.P("}")
+        gf.P()
+
+        // marshalResponse function
+        gf.P("func marshalResponse(r *http.Request, response any) ([]byte, error) {")
+        gf.P(`contentType := r.Header.Get("Content-Type")`)
+        gf.P("if contentType == \"\" {")
+        gf.P("contentType = JSONContentType")
+        gf.P("}")
+        gf.P()
+        gf.P("msg, ok := response.(proto.Message)")
+        gf.P("if !ok {")
+        gf.P(`return nil, fmt.Errorf("response is not a protocol buffer message")`)
+        gf.P("}")
+        gf.P()
+        gf.P("switch filterFlags(contentType) {")
+        gf.P("case JSONContentType:")
+        gf.P("return protojson.Marshal(msg)")
+        gf.P("case BinaryContentType, ProtoContentType:")
+        gf.P("return proto.Marshal(msg)")
+        gf.P("default:")
+        gf.P(`return nil, fmt.Errorf("unsupported content type: %s", contentType)`)
+        gf.P("}")
+        gf.P("}")
+        gf.P()
+
+        // Generate error response helpers
+        g.generateErrorResponseFunctions(gf)
+
+        // Generate validation support
+        g.generateValidationFunctions(gf)
+
+        // Generate header validation support
+        g.generateHeaderValidationFunctions(gf)
+
+        return nil
+}</span>
+
+func (g *Generator) generateConfigFile(file *protogen.File) error <span class="cov0" title="0">{
+        filename := file.GeneratedFilenamePrefix + "_http_config.pb.go"
+        gf := g.plugin.NewGeneratedFile(filename, file.GoImportPath)
+
+        g.writeHeader(gf, file)
+
+        gf.P("import (")
+        gf.P(`"net/http"`)
+        gf.P(")")
+        gf.P()
+
+        // ServerOption type
+        gf.P("// ServerOption configures a Server")
+        gf.P("type ServerOption func(c *serverConfiguration)")
+        gf.P()
+
+        // serverConfiguration struct
+        gf.P("type serverConfiguration struct {")
+        gf.P("mux *http.ServeMux")
+        gf.P("withMux bool")
+        gf.P("}")
+        gf.P()
+
+        // getDefaultConfiguration function
+        gf.P("func getDefaultConfiguration() *serverConfiguration {")
+        gf.P("return &amp;serverConfiguration{")
+        gf.P("mux: http.DefaultServeMux,")
+        gf.P("withMux: false,")
+        gf.P("}")
+        gf.P("}")
+        gf.P()
+
+        // getConfiguration function
+        gf.P("func getConfiguration(options ...ServerOption) *serverConfiguration {")
+        gf.P("configuration := getDefaultConfiguration()")
+        gf.P("for _, option := range options {")
+        gf.P("option(configuration)")
+        gf.P("}")
+        gf.P("return configuration")
+        gf.P("}")
+        gf.P()
+
+        // WithMux option
+        gf.P("// WithMux configures the Server to use the given ServeMux")
+        gf.P("func WithMux(mux *http.ServeMux) ServerOption {")
+        gf.P("return func(c *serverConfiguration) {")
+        gf.P("c.mux = mux")
+        gf.P("c.withMux = true")
+        gf.P("}")
+        gf.P("}")
+        gf.P()
+
+        return nil
+}</span>
+
+func (g *Generator) writeHeader(gf *protogen.GeneratedFile, file *protogen.File) <span class="cov0" title="0">{
+        gf.P("// Code generated by protoc-gen-go-http. DO NOT EDIT.")
+        gf.P("// source: ", file.Desc.Path())
+        gf.P()
+        gf.P("package ", file.GoPackageName)
+        gf.P()
+}</span>
+
+// getMethodPath determines the HTTP path for a method.
+func (g *Generator) getMethodPath(method *protogen.Method, basePath string, packageName protogen.GoPackageName) string <span class="cov0" title="0">{
+        // Try to get custom path from options
+        customPath := g.getCustomPath(method)
+
+        // If we have both base path and custom path, combine them
+        if basePath != "" &amp;&amp; customPath != "" </span><span class="cov0" title="0">{
+                // Ensure proper path joining
+                basePath = strings.TrimSuffix(basePath, "/")
+                if !strings.HasPrefix(customPath, "/") </span><span class="cov0" title="0">{
+                        customPath = "/" + customPath
+                }</span>
+                <span class="cov0" title="0">return basePath + customPath</span>
+        }
+
+        // If only custom path, use it
+        <span class="cov0" title="0">if customPath != "" </span><span class="cov0" title="0">{
+                return customPath
+        }</span>
+
+        // Generate default path
+        <span class="cov0" title="0">if basePath != "" </span><span class="cov0" title="0">{
+                return fmt.Sprintf("%s/%s", strings.TrimSuffix(basePath, "/"), camelToSnake(method.GoName))
+        }</span>
+
+        <span class="cov0" title="0">return fmt.Sprintf("/%s/%s", packageName, camelToSnake(method.GoName))</span>
+}
+
+// getCustomPath extracts custom HTTP path from method options.
+func (g *Generator) getCustomPath(method *protogen.Method) string <span class="cov0" title="0">{
+        config := getMethodHTTPConfig(method)
+        if config != nil &amp;&amp; config.Path != "" </span><span class="cov0" title="0">{
+                return config.Path
+        }</span>
+
+        // Try to parse existing annotation format (temporary)
+        <span class="cov0" title="0">return parseExistingAnnotation(method)</span>
+}
+
+// getServiceBasePath extracts base path from service options.
+func (g *Generator) getServiceBasePath(service *protogen.Service) string <span class="cov0" title="0">{
+        config := getServiceHTTPConfig(service)
+        if config != nil &amp;&amp; config.BasePath != "" </span><span class="cov0" title="0">{
+                return config.BasePath
+        }</span>
+        <span class="cov0" title="0">return ""</span>
+}
+
+// getHTTPMethod returns the HTTP method for a method. Defaults to POST for backward compatibility.
+func (g *Generator) getHTTPMethod(method *protogen.Method) string <span class="cov0" title="0">{
+        config := getMethodHTTPConfig(method)
+        if config != nil &amp;&amp; config.Method != "" </span><span class="cov0" title="0">{
+                return config.Method
+        }</span>
+        <span class="cov0" title="0">return "POST"</span>
+}
+
+// getPathParams extracts path parameter names from method configuration.
+func (g *Generator) getPathParams(method *protogen.Method) []string <span class="cov0" title="0">{
+        config := getMethodHTTPConfig(method)
+        if config != nil </span><span class="cov0" title="0">{
+                return config.PathParams
+        }</span>
+        <span class="cov0" title="0">return nil</span>
+}
+
+// Helper functions.
+func lowerFirst(s string) string <span class="cov5" title="13">{
+        if s == "" </span><span class="cov1" title="1">{
+                return ""
+        }</span>
+        <span class="cov5" title="12">return strings.ToLower(s[:1]) + s[1:]</span>
+}
+
+func camelToSnake(s string) string <span class="cov6" title="17">{
+        var result []byte
+        for i, r := range s </span><span class="cov10" title="155">{
+                if r &gt;= 'A' &amp;&amp; r &lt;= 'Z' </span><span class="cov7" title="35">{
+                        if i &gt; 0 </span><span class="cov6" title="23">{
+                                result = append(result, '_')
+                        }</span>
+                        <span class="cov7" title="35">result = append(result, byte(r+'a'-'A'))</span>
+                } else<span class="cov9" title="120"> {
+                        result = append(result, byte(r))
+                }</span>
+        }
+        <span class="cov6" title="17">return string(result)</span>
+}
+
+// generateErrorResponseFunctions generates error response helper functions.
+func (g *Generator) generateErrorResponseFunctions(gf *protogen.GeneratedFile) <span class="cov0" title="0">{
+        g.generateWriteProtoMessageResponseFunc(gf)
+        g.generateWriteValidationErrorResponseFunc(gf)
+        g.generateWriteValidationErrorFunc(gf)
+        g.generateWriteErrorResponseFunc(gf)
+}</span>
+
+// generateWriteProtoMessageResponseFunc generates a helper function for writing protobuf messages as responses.
+func (g *Generator) generateWriteProtoMessageResponseFunc(gf *protogen.GeneratedFile) <span class="cov0" title="0">{
+        gf.P("// writeProtoMessageResponse writes a protobuf message as an HTTP response")
+        gf.P(
+                "func writeProtoMessageResponse(w http.ResponseWriter, r *http.Request, msg proto.Message, statusCode int, fallbackMsg string) {",
+        )
+        gf.P(`contentType := r.Header.Get("Content-Type")`)
+        gf.P("if contentType == \"\" {")
+        gf.P("contentType = JSONContentType")
+        gf.P("}")
+        gf.P()
+        gf.P("var responseBytes []byte")
+        gf.P("var err error")
+        gf.P()
+        gf.P("switch filterFlags(contentType) {")
+        gf.P("case JSONContentType:")
+        gf.P("responseBytes, err = protojson.Marshal(msg)")
+        gf.P("case BinaryContentType, ProtoContentType:")
+        gf.P("responseBytes, err = proto.Marshal(msg)")
+        gf.P("default:")
+        gf.P("// Default to JSON for error responses")
+        gf.P("responseBytes, err = protojson.Marshal(msg)")
+        gf.P("}")
+        gf.P()
+        gf.P("if err != nil {")
+        gf.P("// Fallback to plain text error if marshaling fails")
+        gf.P("http.Error(w, fallbackMsg, statusCode)")
+        gf.P("return")
+        gf.P("}")
+        gf.P()
+        gf.P("w.WriteHeader(statusCode)")
+        gf.P("_, _ = w.Write(responseBytes)")
+        gf.P("}")
+        gf.P()
+}</span>
+
+// generateWriteValidationErrorResponseFunc generates the writeValidationErrorResponse function.
+func (g *Generator) generateWriteValidationErrorResponseFunc(gf *protogen.GeneratedFile) <span class="cov0" title="0">{
+        gf.P("// writeValidationErrorResponse writes a ValidationError as a response")
+        gf.P(
+                "func writeValidationErrorResponse(w http.ResponseWriter, r *http.Request, validationErr *sebufhttp.ValidationError) {",
+        )
+        gf.P(`writeProtoMessageResponse(w, r, validationErr, http.StatusBadRequest, "validation failed")`)
+        gf.P("}")
+        gf.P()
+}</span>
+
+// generateWriteValidationErrorFunc generates the writeValidationError function for protovalidate errors.
+func (g *Generator) generateWriteValidationErrorFunc(gf *protogen.GeneratedFile) <span class="cov0" title="0">{
+        gf.P("// writeValidationError converts a protovalidate error to ValidationError and writes it as response")
+        gf.P("func writeValidationError(w http.ResponseWriter, r *http.Request, err error) {")
+        gf.P("validationErr := &amp;sebufhttp.ValidationError{}")
+        gf.P()
+        gf.P("// Handle protovalidate.ValidationError")
+        gf.P("var valErr *protovalidate.ValidationError")
+        gf.P("if errors.As(err, &amp;valErr) {")
+        gf.P("for _, violation := range valErr.Violations {")
+        g.generateFieldPathExtraction(gf)
+        gf.P("validationErr.Violations = append(validationErr.Violations, &amp;sebufhttp.FieldViolation{")
+        gf.P("Field: fieldPath,")
+        gf.P("Description: violation.Proto.GetMessage(),")
+        gf.P("})")
+        gf.P("}")
+        gf.P("} else {")
+        gf.P("// Shouldn't happen, but handle as generic error")
+        gf.P("validationErr.Violations = append(validationErr.Violations, &amp;sebufhttp.FieldViolation{")
+        gf.P(`Field: "unknown",`)
+        gf.P("Description: err.Error(),")
+        gf.P("})")
+        gf.P("}")
+        gf.P()
+        gf.P("writeValidationErrorResponse(w, r, validationErr)")
+        gf.P("}")
+        gf.P()
+}</span>
+
+// generateWriteErrorResponseFunc generates the writeErrorResponse function.
+func (g *Generator) generateWriteErrorResponseFunc(gf *protogen.GeneratedFile) <span class="cov0" title="0">{
+        gf.P("// writeErrorResponse writes an Error as a response")
+        gf.P("func writeErrorResponse(w http.ResponseWriter, r *http.Request, errorMsg *sebufhttp.Error) {")
+        gf.P(`writeProtoMessageResponse(w, r, errorMsg, http.StatusInternalServerError, "internal server error")`)
+        gf.P("}")
+        gf.P()
+}</span>
+
+// generateFieldPathExtraction generates the field path extraction logic.
+func (g *Generator) generateFieldPathExtraction(gf *protogen.GeneratedFile) <span class="cov0" title="0">{
+        gf.P("// Extract field path from violation")
+        gf.P("fieldPath := \"\"")
+        gf.P("if violation.Proto != nil &amp;&amp; violation.Proto.GetField() != nil {")
+        gf.P("elements := violation.Proto.GetField().GetElements()")
+        gf.P("if len(elements) &gt; 0 {")
+        gf.P("fieldPath = elements[0].GetFieldName()")
+        gf.P("for i := 1; i &lt; len(elements); i++ {")
+        gf.P("fieldPath += \".\" + elements[i].GetFieldName()")
+        gf.P("}")
+        gf.P("}")
+        gf.P("}")
+        gf.P("if fieldPath == \"\" {")
+        gf.P("fieldPath = \"unknown\"")
+        gf.P("}")
+        gf.P()
+}</span>
+
+// generateValidationFunctions generates the validation support code.
+func (g *Generator) generateValidationFunctions(gf *protogen.GeneratedFile) <span class="cov0" title="0">{
+        // Global validator instance
+        gf.P("var (")
+        gf.P("// Global validator instance - created once and reused")
+        gf.P("validatorOnce sync.Once")
+        gf.P("validator protovalidate.Validator")
+        gf.P("validatorErr error")
+        gf.P(")")
+        gf.P()
+
+        // getValidator function
+        gf.P("// getValidator returns a cached validator instance")
+        gf.P("func getValidator() (protovalidate.Validator, error) {")
+        gf.P("validatorOnce.Do(func() {")
+        gf.P("validator, validatorErr = protovalidate.New()")
+        gf.P("})")
+        gf.P("return validator, validatorErr")
+        gf.P("}")
+        gf.P()
+
+        // ValidateMessage function
+        gf.P("// ValidateMessage validates a protobuf message using protovalidate")
+        gf.P("func ValidateMessage(msg proto.Message) error {")
+        gf.P("// Get cached validator")
+        gf.P("v, err := getValidator()")
+        gf.P("if err != nil {")
+        gf.P("// If we can't create a validator, log and continue")
+        gf.P("// This allows the service to run even if validation setup fails")
+        gf.P("return nil")
+        gf.P("}")
+        gf.P()
+        gf.P("// Validate the message and return any error")
+        gf.P("return v.Validate(msg)")
+        gf.P("}")
+        gf.P()
+}</span>
+
+// generateHeaderValidationFunctions generates header validation support code.
+func (g *Generator) generateHeaderValidationFunctions(gf *protogen.GeneratedFile) <span class="cov0" title="0">{
+        g.generateValidateHeadersFunction(gf)
+        g.generateValidateHeaderValueFunction(gf)
+        g.generateTypeValidators(gf)
+        g.generateFormatValidators(gf)
+}</span>
+
+// generateValidateHeadersFunction generates the main header validation function.
+func (g *Generator) generateValidateHeadersFunction(gf *protogen.GeneratedFile) <span class="cov0" title="0">{
+        gf.P("// validateHeaders validates required headers for a service and method")
+        gf.P("// Returns a ValidationError if any required headers are missing or invalid")
+        gf.P(
+                "func validateHeaders(r *http.Request, serviceHeaders, methodHeaders []*sebufhttp.Header) *sebufhttp.ValidationError {",
+        )
+        g.generateHeaderMergeLogic(gf)
+        g.generateHeaderValidationLoop(gf)
+        g.generateValidationErrorReturn(gf)
+        gf.P("}")
+        gf.P()
+}</span>
+
+// generateHeaderMergeLogic generates the logic to merge service and method headers.
+func (g *Generator) generateHeaderMergeLogic(gf *protogen.GeneratedFile) <span class="cov0" title="0">{
+        gf.P("// Merge service and method headers, with method headers taking precedence")
+        gf.P("allHeaders := make(map[string]*sebufhttp.Header)")
+        gf.P()
+        gf.P("// Add service headers first")
+        gf.P("for _, header := range serviceHeaders {")
+        gf.P("if header.GetRequired() {")
+        gf.P("allHeaders[strings.ToLower(header.GetName())] = header")
+        gf.P("}")
+        gf.P("}")
+        gf.P()
+        gf.P("// Add method headers (override service headers if same name)")
+        gf.P("for _, header := range methodHeaders {")
+        gf.P("if header.GetRequired() {")
+        gf.P("allHeaders[strings.ToLower(header.GetName())] = header")
+        gf.P("}")
+        gf.P("}")
+        gf.P()
+}</span>
+
+// generateHeaderValidationLoop generates the main header validation loop.
+func (g *Generator) generateHeaderValidationLoop(gf *protogen.GeneratedFile) <span class="cov0" title="0">{
+        gf.P("// Collect all validation violations")
+        gf.P("var violations []*sebufhttp.FieldViolation")
+        gf.P()
+        gf.P("// Validate each required header")
+        gf.P("for _, headerSpec := range allHeaders {")
+        gf.P("value := r.Header.Get(headerSpec.GetName())")
+        gf.P("if value == \"\" {")
+        gf.P("violations = append(violations, &amp;sebufhttp.FieldViolation{")
+        gf.P("Field: headerSpec.GetName(),")
+        gf.P(`Description: fmt.Sprintf("required header '%s' is missing", headerSpec.GetName()),`)
+        gf.P("})")
+        gf.P("continue")
+        gf.P("}")
+        gf.P()
+        gf.P("if err := validateHeaderValue(headerSpec, value); err != nil {")
+        gf.P("violations = append(violations, &amp;sebufhttp.FieldViolation{")
+        gf.P("Field: headerSpec.GetName(),")
+        gf.P(`Description: fmt.Sprintf("header '%s' validation failed: %v", headerSpec.GetName(), err),`)
+        gf.P("})")
+        gf.P("}")
+        gf.P("}")
+        gf.P()
+}</span>
+
+// generateValidationErrorReturn generates the validation error return logic.
+func (g *Generator) generateValidationErrorReturn(gf *protogen.GeneratedFile) <span class="cov0" title="0">{
+        gf.P("// Return ValidationError if there are violations")
+        gf.P("if len(violations) &gt; 0 {")
+        gf.P("return &amp;sebufhttp.ValidationError{")
+        gf.P("Violations: violations,")
+        gf.P("}")
+        gf.P("}")
+        gf.P()
+        gf.P("return nil")
+}</span>
+
+// generateValidateHeaderValueFunction generates the header value validation function.
+func (g *Generator) generateValidateHeaderValueFunction(gf *protogen.GeneratedFile) <span class="cov0" title="0">{
+        gf.P("// validateHeaderValue validates a single header value against its specification")
+        gf.P("func validateHeaderValue(headerSpec *sebufhttp.Header, value string) error {")
+        gf.P("headerType := headerSpec.GetType()")
+        gf.P("format := headerSpec.GetFormat()")
+        gf.P()
+        gf.P("// Validate based on type")
+        gf.P("switch headerType {")
+        gf.P("case \"string\":")
+        gf.P("return validateStringHeader(value, format)")
+        gf.P("case \"integer\":")
+        gf.P("return validateIntegerHeader(value)")
+        gf.P("case \"number\":")
+        gf.P("return validateNumberHeader(value)")
+        gf.P("case \"boolean\":")
+        gf.P("return validateBooleanHeader(value)")
+        gf.P("case \"array\":")
+        gf.P("return validateArrayHeader(value)")
+        gf.P("default:")
+        gf.P("// Default to string validation if type is not specified")
+        gf.P("return validateStringHeader(value, format)")
+        gf.P("}")
+        gf.P("}")
+        gf.P()
+}</span>
+
+// generateTypeValidators generates type-specific validation functions.
+func (g *Generator) generateTypeValidators(gf *protogen.GeneratedFile) <span class="cov0" title="0">{
+        g.generateStringValidator(gf)
+        g.generateNumericValidators(gf)
+        g.generateArrayValidator(gf)
+}</span>
+
+// generateStringValidator generates string header validation function.
+func (g *Generator) generateStringValidator(gf *protogen.GeneratedFile) <span class="cov0" title="0">{
+        gf.P("// validateStringHeader validates string headers with optional format validation")
+        gf.P("func validateStringHeader(value, format string) error {")
+        gf.P("if !utf8.ValidString(value) {")
+        gf.P(`return fmt.Errorf("value is not valid UTF-8")`)
+        gf.P("}")
+        gf.P()
+        gf.P("// Apply format-specific validation")
+        gf.P("switch format {")
+        gf.P("case \"uuid\":")
+        gf.P("return validateUUIDFormat(value)")
+        gf.P("case \"email\":")
+        gf.P("return validateEmailFormat(value)")
+        gf.P("case \"date-time\":")
+        gf.P("return validateDateTimeFormat(value)")
+        gf.P("case \"date\":")
+        gf.P("return validateDateFormat(value)")
+        gf.P("case \"time\":")
+        gf.P("return validateTimeFormat(value)")
+        gf.P("}")
+        gf.P()
+        gf.P("return nil")
+        gf.P("}")
+        gf.P()
+}</span>
+
+// generateNumericValidators generates numeric header validation functions.
+//
+//nolint:dupl // Code generation patterns naturally have similar structure
+func (g *Generator) generateNumericValidators(gf *protogen.GeneratedFile) <span class="cov0" title="0">{
+        // Integer header validation
+        gf.P("// validateIntegerHeader validates integer headers")
+        gf.P("func validateIntegerHeader(value string) error {")
+        gf.P("_, err := strconv.ParseInt(value, 10, 64)")
+        gf.P("if err != nil {")
+        gf.P(`return fmt.Errorf("value is not a valid integer: %w", err)`)
+        gf.P("}")
+        gf.P("return nil")
+        gf.P("}")
+        gf.P()
+
+        // Number header validation
+        gf.P("// validateNumberHeader validates numeric headers (float)")
+        gf.P("func validateNumberHeader(value string) error {")
+        gf.P("_, err := strconv.ParseFloat(value, 64)")
+        gf.P("if err != nil {")
+        gf.P(`return fmt.Errorf("value is not a valid number: %w", err)`)
+        gf.P("}")
+        gf.P("return nil")
+        gf.P("}")
+        gf.P()
+
+        // Boolean header validation
+        gf.P("// validateBooleanHeader validates boolean headers")
+        gf.P("func validateBooleanHeader(value string) error {")
+        gf.P("_, err := strconv.ParseBool(value)")
+        gf.P("if err != nil {")
+        gf.P(`return fmt.Errorf("value is not a valid boolean: %w", err)`)
+        gf.P("}")
+        gf.P("return nil")
+        gf.P("}")
+        gf.P()
+}</span>
+
+// generateArrayValidator generates array header validation function.
+func (g *Generator) generateArrayValidator(gf *protogen.GeneratedFile) <span class="cov0" title="0">{
+        gf.P("// validateArrayHeader validates array headers (comma-separated values)")
+        gf.P("func validateArrayHeader(value string) error {")
+        gf.P("// Arrays are typically comma-separated values")
+        gf.P("// Basic validation: ensure it's not empty")
+        gf.P("if strings.TrimSpace(value) == \"\" {")
+        gf.P(`return fmt.Errorf("array value cannot be empty")`)
+        gf.P("}")
+        gf.P("return nil")
+        gf.P("}")
+        gf.P()
+}</span>
+
+// generateFormatValidators generates format-specific validation functions.
+func (g *Generator) generateFormatValidators(gf *protogen.GeneratedFile) <span class="cov0" title="0">{
+        g.generateUUIDValidator(gf)
+        g.generateEmailValidator(gf)
+        g.generateDateTimeValidators(gf)
+}</span>
+
+// generateUUIDValidator generates UUID format validation function.
+func (g *Generator) generateUUIDValidator(gf *protogen.GeneratedFile) <span class="cov0" title="0">{
+        gf.P("// validateUUIDFormat validates UUID format (basic check)")
+        gf.P("func validateUUIDFormat(value string) error {")
+        gf.P("// Basic UUID format check: 8-4-4-4-12 hex digits")
+        gf.P("if len(value) != 36 {")
+        gf.P(`return fmt.Errorf("UUID must be 36 characters long")`)
+        gf.P("}")
+        gf.P()
+        gf.P("// Check for correct dash positions")
+        gf.P("if value[8] != '-' || value[13] != '-' || value[18] != '-' || value[23] != '-' {")
+        gf.P(`return fmt.Errorf("invalid UUID format")`)
+        gf.P("}")
+        gf.P()
+        gf.P("return nil")
+        gf.P("}")
+        gf.P()
+}</span>
+
+// generateEmailValidator generates email format validation function.
+func (g *Generator) generateEmailValidator(gf *protogen.GeneratedFile) <span class="cov0" title="0">{
+        gf.P("// validateEmailFormat validates email format (basic check)")
+        gf.P("func validateEmailFormat(value string) error {")
+        gf.P("// Basic email format check")
+        gf.P("if !strings.Contains(value, \"@\") {")
+        gf.P(`return fmt.Errorf("invalid email format: missing @")`)
+        gf.P("}")
+        gf.P()
+        gf.P("parts := strings.Split(value, \"@\")")
+        gf.P("if len(parts) != 2 || parts[0] == \"\" || parts[1] == \"\" {")
+        gf.P(`return fmt.Errorf("invalid email format")`)
+        gf.P("}")
+        gf.P()
+        gf.P("return nil")
+        gf.P("}")
+        gf.P()
+}</span>
+
+// generateDateTimeValidators generates date/time format validation functions.
+//
+//nolint:dupl // Code generation patterns naturally have similar structure
+func (g *Generator) generateDateTimeValidators(gf *protogen.GeneratedFile) <span class="cov0" title="0">{
+        gf.P("// validateDateTimeFormat validates RFC3339 date-time format")
+        gf.P("func validateDateTimeFormat(value string) error {")
+        gf.P("_, err := time.Parse(time.RFC3339, value)")
+        gf.P("if err != nil {")
+        gf.P(`return fmt.Errorf("invalid date-time format, expected RFC3339: %w", err)`)
+        gf.P("}")
+        gf.P("return nil")
+        gf.P("}")
+        gf.P()
+
+        gf.P("// validateDateFormat validates date format (YYYY-MM-DD)")
+        gf.P("func validateDateFormat(value string) error {")
+        gf.P("_, err := time.Parse(\"2006-01-02\", value)")
+        gf.P("if err != nil {")
+        gf.P(`return fmt.Errorf("invalid date format, expected YYYY-MM-DD: %w", err)`)
+        gf.P("}")
+        gf.P("return nil")
+        gf.P("}")
+        gf.P()
+
+        gf.P("// validateTimeFormat validates time format (HH:MM:SS)")
+        gf.P("func validateTimeFormat(value string) error {")
+        gf.P("_, err := time.Parse(\"15:04:05\", value)")
+        gf.P("if err != nil {")
+        gf.P(`return fmt.Errorf("invalid time format, expected HH:MM:SS: %w", err)`)
+        gf.P("}")
+        gf.P("return nil")
+        gf.P("}")
+        gf.P()
+}</span>
+
+// generateHeaderGetters generates functions to get headers for service and methods.
+func (g *Generator) generateHeaderGetters(gf *protogen.GeneratedFile, service *protogen.Service) error <span class="cov0" title="0">{
+        // Generate service headers getter function
+        serviceName := service.GoName
+        gf.P("// get", serviceName, "Headers returns the service-level required headers for ", serviceName)
+        gf.P("func get", serviceName, "Headers() []*sebufhttp.Header {")
+
+        // Get actual service headers if they exist
+        serviceHeaders := getServiceHeaders(service)
+        if len(serviceHeaders) &gt; 0 </span><span class="cov0" title="0">{
+                gf.P("return []*sebufhttp.Header{")
+                for _, header := range serviceHeaders </span><span class="cov0" title="0">{
+                        g.generateHeaderLiteral(gf, header)
+                }</span>
+                <span class="cov0" title="0">gf.P("}")</span>
+        } else<span class="cov0" title="0"> {
+                gf.P("return nil")
+        }</span>
+        <span class="cov0" title="0">gf.P("}")
+        gf.P()
+
+        // Generate method headers getter functions
+        for _, method := range service.Methods </span><span class="cov0" title="0">{
+                gf.P("// get", method.GoName, "Headers returns the method-level required headers for ", method.GoName)
+                gf.P("func get", method.GoName, "Headers() []*sebufhttp.Header {")
+
+                // Get actual method headers if they exist
+                methodHeaders := getMethodHeaders(method)
+                if len(methodHeaders) &gt; 0 </span><span class="cov0" title="0">{
+                        gf.P("return []*sebufhttp.Header{")
+                        for _, header := range methodHeaders </span><span class="cov0" title="0">{
+                                g.generateHeaderLiteral(gf, header)
+                        }</span>
+                        <span class="cov0" title="0">gf.P("}")</span>
+                } else<span class="cov0" title="0"> {
+                        gf.P("return nil")
+                }</span>
+                <span class="cov0" title="0">gf.P("}")
+                gf.P()</span>
+        }
+
+        <span class="cov0" title="0">return nil</span>
+}
+
+// generateHeaderLiteral generates a header literal in Go code.
+func (g *Generator) generateHeaderLiteral(gf *protogen.GeneratedFile, header *http.Header) <span class="cov0" title="0">{
+        gf.P("{")
+        gf.P(`Name: "`, header.GetName(), `",`)
+        gf.P(`Description: "`, header.GetDescription(), `",`)
+        gf.P(`Type: "`, header.GetType(), `",`)
+        gf.P(`Required: `, strconv.FormatBool(header.GetRequired()), `,`)
+        gf.P(`Format: "`, header.GetFormat(), `",`)
+        gf.P(`Example: "`, header.GetExample(), `",`)
+        gf.P(`Deprecated: `, strconv.FormatBool(header.GetDeprecated()), `,`)
+        gf.P("},")
+}</span>
+
+// generateParamConfigs generates path and query parameter configurations for each method.
+func (g *Generator) generateParamConfigs(gf *protogen.GeneratedFile, service *protogen.Service) error <span class="cov0" title="0">{
+        for _, method := range service.Methods </span><span class="cov0" title="0">{
+                methodName := lowerFirst(method.GoName)
+
+                // Generate path params config
+                pathParams := g.getPathParams(method)
+                gf.P("// ", methodName, "PathParams contains path parameter configuration for ", method.GoName)
+                gf.P("var ", methodName, "PathParams = []PathParamConfig{")
+                for _, param := range pathParams </span><span class="cov0" title="0">{
+                        gf.P("{URLParam: \"", param, "\", FieldName: \"", param, "\"},")
+                }</span>
+                <span class="cov0" title="0">gf.P("}")
+                gf.P()
+
+                // Generate query params config
+                queryParams := getQueryParams(method.Input)
+                gf.P("// ", methodName, "QueryParams contains query parameter configuration for ", method.GoName)
+                gf.P("var ", methodName, "QueryParams = []QueryParamConfig{")
+                for _, qp := range queryParams </span><span class="cov0" title="0">{
+                        gf.P("{QueryName: \"", qp.ParamName, "\", FieldName: \"", qp.FieldName, "\", Required: ", strconv.FormatBool(qp.Required), "},")
+                }</span>
+                <span class="cov0" title="0">gf.P("}")
+                gf.P()</span>
+        }
+
+        <span class="cov0" title="0">return nil</span>
+}
+
+func (g *Generator) generateErrorImplFile(file *protogen.File) error <span class="cov0" title="0">{
+        // Find messages ending with "Error"
+        var errorMessages []*protogen.Message
+        for _, message := range file.Messages </span><span class="cov0" title="0">{
+                if strings.HasSuffix(message.GoIdent.GoName, "Error") </span><span class="cov0" title="0">{
+                        errorMessages = append(errorMessages, message)
+                }</span>
+        }
+
+        // If no error messages found, skip generation
+        <span class="cov0" title="0">if len(errorMessages) == 0 </span><span class="cov0" title="0">{
+                return nil
+        }</span>
+
+        // Generate error implementation file
+        <span class="cov0" title="0">filename := file.GeneratedFilenamePrefix + "_error_impl.pb.go"
+        gf := g.plugin.NewGeneratedFile(filename, file.GoImportPath)
+
+        g.writeHeader(gf, file)
+
+        gf.P("import (")
+        gf.P(`"fmt"`)
+        gf.P()
+        gf.P(`"google.golang.org/protobuf/encoding/protojson"`)
+        gf.P(")")
+        gf.P()
+
+        // Generate Error() methods for each error message
+        for _, message := range errorMessages </span><span class="cov0" title="0">{
+                g.generateErrorMethod(gf, message)
+                gf.P()
+        }</span>
+
+        <span class="cov0" title="0">return nil</span>
+}
+
+func (g *Generator) generateErrorMethod(gf *protogen.GeneratedFile, message *protogen.Message) <span class="cov0" title="0">{
+        typeName := message.GoIdent.GoName
+
+        gf.P("// Error implements the error interface for ", typeName, ".")
+        gf.P("// This allows ", typeName, " to be used with errors.As() and errors.Is().")
+        gf.P("func (e *", typeName, ") Error() string {")
+        gf.P("if e == nil {")
+        gf.P(`return "`, strings.ToLower(typeName), `: &lt;nil&gt;"`)
+        gf.P("}")
+        gf.P()
+        gf.P("jsonBytes, err := protojson.Marshal(e)")
+        gf.P("if err != nil {")
+        gf.P(`return fmt.Sprintf("`, strings.ToLower(typeName), `: failed to serialize (%v)", err)`)
+        gf.P("}")
+        gf.P()
+        gf.P("return string(jsonBytes)")
+        gf.P("}")
+}</span>
+</pre>
+		
+		<pre class="file" id="file6" style="display: none">package httpgen
+
+import (
+        "strings"
+
+        "google.golang.org/protobuf/compiler/protogen"
+        "google.golang.org/protobuf/reflect/protoreflect"
+)
+
+// generateMockFile generates a mock server implementation file.
+func (g *Generator) generateMockFile(file *protogen.File) error <span class="cov0" title="0">{
+        filename := file.GeneratedFilenamePrefix + "_http_mock.pb.go"
+        gf := g.plugin.NewGeneratedFile(filename, file.GoImportPath)
+
+        g.writeHeader(gf, file)
+
+        // Imports
+        gf.P("import (")
+        gf.P(`"context"`)
+        gf.P(`cryptorand "crypto/rand"`)
+        gf.P(`"fmt"`)
+        gf.P(`"math/rand"`)
+        gf.P(`"strconv"`)
+        gf.P(`"time"`)
+        gf.P()
+        gf.P(`"google.golang.org/protobuf/proto"`)
+        gf.P(")")
+        gf.P()
+
+        // Generate field examples storage
+        if err := g.generateFieldExamplesStorage(gf, file); err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        // Generate mock servers for each service
+        <span class="cov0" title="0">for _, service := range file.Services </span><span class="cov0" title="0">{
+                if err := g.generateMockService(gf, file, service); err != nil </span><span class="cov0" title="0">{
+                        return err
+                }</span>
+        }
+
+        // Generate helper functions
+        <span class="cov0" title="0">g.generateMockHelpers(gf)
+
+        return nil</span>
+}
+
+// generateFieldExamplesStorage generates storage for field examples.
+func (g *Generator) generateFieldExamplesStorage(gf *protogen.GeneratedFile, file *protogen.File) error <span class="cov0" title="0">{
+        gf.P("// Field examples extracted from proto definitions")
+        gf.P("var fieldExamples = map[string][]string{")
+
+        // Collect all field examples from all messages
+        for _, message := range file.Messages </span><span class="cov0" title="0">{
+                g.collectMessageFieldExamples(gf, message, "")
+        }</span>
+
+        <span class="cov0" title="0">gf.P("}")
+        gf.P()
+
+        return nil</span>
+}
+
+// collectMessageFieldExamples recursively collects field examples.
+func (g *Generator) collectMessageFieldExamples(gf *protogen.GeneratedFile, message *protogen.Message, prefix string) <span class="cov0" title="0">{
+        messagePath := prefix + string(message.Desc.Name())
+
+        for _, field := range message.Fields </span><span class="cov0" title="0">{
+                examples := getFieldExamples(field)
+                if len(examples) &gt; 0 </span><span class="cov0" title="0">{
+                        fieldPath := messagePath + "." + string(field.Desc.Name())
+                        gf.P(`"`, fieldPath, `": {`)
+                        for _, example := range examples </span><span class="cov0" title="0">{
+                                gf.P(`"`, example, `",`)
+                        }</span>
+                        <span class="cov0" title="0">gf.P("},")</span>
+                }
+        }
+
+        // Process nested messages
+        <span class="cov0" title="0">for _, nested := range message.Messages </span><span class="cov0" title="0">{
+                g.collectMessageFieldExamples(gf, nested, messagePath+".")
+        }</span>
+}
+
+// generateMockService generates a mock implementation for a service.
+func (g *Generator) generateMockService(
+        gf *protogen.GeneratedFile,
+        _ *protogen.File,
+        service *protogen.Service,
+) error <span class="cov0" title="0">{
+        serviceName := service.GoName
+
+        // Mock server struct
+        gf.P("// Mock", serviceName, "Server is a mock implementation of ", serviceName, "Server.")
+        gf.P("type Mock", serviceName, "Server struct {")
+        gf.P("// Add any mock-specific fields here")
+        gf.P("}")
+        gf.P()
+
+        // Constructor
+        gf.P("// NewMock", serviceName, "Server creates a new mock server for ", serviceName, ".")
+        gf.P("func NewMock", serviceName, "Server() *Mock", serviceName, "Server {")
+        gf.P("return &amp;Mock", serviceName, "Server{}")
+        gf.P("}")
+        gf.P()
+
+        // Generate mock methods
+        for _, method := range service.Methods </span><span class="cov0" title="0">{
+                if err := g.generateMockMethod(gf, service, method); err != nil </span><span class="cov0" title="0">{
+                        return err
+                }</span>
+        }
+
+        <span class="cov0" title="0">return nil</span>
+}
+
+// generateMockMethod generates a mock implementation for an RPC method.
+func (g *Generator) generateMockMethod(
+        gf *protogen.GeneratedFile,
+        service *protogen.Service,
+        method *protogen.Method,
+) error <span class="cov0" title="0">{
+        methodName := method.GoName
+        inputType := method.Input.GoIdent
+        outputType := method.Output.GoIdent
+
+        gf.P("// ", methodName, " is a mock implementation of ", service.GoName, "Server.", methodName, ".")
+        gf.P(
+                "func (m *Mock",
+                service.GoName,
+                "Server) ",
+                methodName,
+                "(ctx context.Context, req *",
+                inputType,
+                ") (*",
+                outputType,
+                ", error) {",
+        )
+
+        // Validate request
+        gf.P("// Validate the request")
+        gf.P("if msg, ok := any(req).(proto.Message); ok {")
+        gf.P("if err := ValidateMessage(msg); err != nil {")
+        gf.P("return nil, err")
+        gf.P("}")
+        gf.P("}")
+        gf.P()
+
+        // Generate response
+        gf.P("// Generate mock response")
+        gf.P("resp := &amp;", outputType, "{}")
+        gf.P()
+
+        // Fill response fields
+        g.generateMockFieldAssignments(gf, method.Output, "resp")
+
+        gf.P("return resp, nil")
+        gf.P("}")
+        gf.P()
+
+        return nil
+}</span>
+
+// generateMockFieldAssignments generates field assignments for a message.
+func (g *Generator) generateMockFieldAssignments(
+        gf *protogen.GeneratedFile,
+        message *protogen.Message,
+        varName string,
+) <span class="cov0" title="0">{
+        messageName := string(message.Desc.Name())
+
+        for _, field := range message.Fields </span><span class="cov0" title="0">{
+                fieldName := field.GoName
+                fieldPath := messageName + "." + string(field.Desc.Name())
+
+                // Generate assignment based on field type
+                switch field.Desc.Kind() </span>{
+                case protoreflect.StringKind:<span class="cov0" title="0">
+                        gf.P(
+                                varName,
+                                ".",
+                                fieldName,
+                                " = selectStringExample(\"",
+                                fieldPath,
+                                "\", ",
+                                g.getDefaultGenerator(field),
+                                ")",
+                        )</span>
+                case protoreflect.Int32Kind, protoreflect.Int64Kind:<span class="cov0" title="0">
+                        gf.P(varName, ".", fieldName, " = selectIntExample(\"", fieldPath, "\", ", g.getDefaultValue(field), ")")</span>
+                case protoreflect.BoolKind:<span class="cov0" title="0">
+                        gf.P(varName, ".", fieldName, " = selectBoolExample(\"", fieldPath, "\", ", g.getDefaultValue(field), ")")</span>
+                case protoreflect.FloatKind, protoreflect.DoubleKind:<span class="cov0" title="0">
+                        gf.P(varName, ".", fieldName, " = selectFloatExample(\"", fieldPath, "\", ", g.getDefaultValue(field), ")")</span>
+                case protoreflect.MessageKind:<span class="cov0" title="0">
+                        if field.Desc.IsList() </span><span class="cov0" title="0">{
+                                gf.P("// TODO: Handle repeated message field ", fieldName)
+                        }</span> else<span class="cov0" title="0"> {
+                                gf.P(varName, ".", fieldName, " = &amp;", field.Message.GoIdent, "{}")
+                                g.generateMockFieldAssignments(gf, field.Message, varName+"."+fieldName)
+                        }</span>
+                case protoreflect.EnumKind,
+                        protoreflect.Sint32Kind,
+                        protoreflect.Uint32Kind,
+                        protoreflect.Sint64Kind,
+                        protoreflect.Uint64Kind,
+                        protoreflect.Sfixed32Kind,
+                        protoreflect.Fixed32Kind,
+                        protoreflect.Sfixed64Kind,
+                        protoreflect.Fixed64Kind,
+                        protoreflect.BytesKind,
+                        protoreflect.GroupKind:<span class="cov0" title="0">
+                        gf.P("// TODO: Handle field ", fieldName, " of type ", field.Desc.Kind())</span>
+                default:<span class="cov0" title="0">
+                        gf.P("// TODO: Handle field ", fieldName, " of type ", field.Desc.Kind())</span>
+                }
+        }
+}
+
+// getDefaultGenerator returns a function name for generating default values.
+func (g *Generator) getDefaultGenerator(field *protogen.Field) string <span class="cov0" title="0">{
+        fieldName := strings.ToLower(string(field.Desc.Name()))
+
+        // Check for common field names
+        switch </span>{
+        case strings.Contains(fieldName, "id"):<span class="cov0" title="0">
+                return "generateUUID"</span>
+        case strings.Contains(fieldName, "email"):<span class="cov0" title="0">
+                return "generateEmail"</span>
+        case strings.Contains(fieldName, "name"):<span class="cov0" title="0">
+                return "generateName"</span>
+        case strings.Contains(fieldName, "phone"):<span class="cov0" title="0">
+                return "generatePhone"</span>
+        case strings.Contains(fieldName, "address"):<span class="cov0" title="0">
+                return "generateAddress"</span>
+        case strings.Contains(fieldName, "url"):<span class="cov0" title="0">
+                return "generateURL"</span>
+        default:<span class="cov0" title="0">
+                return "generateString"</span>
+        }
+}
+
+// getDefaultValue returns a default value for a field.
+func (g *Generator) getDefaultValue(field *protogen.Field) string <span class="cov0" title="0">{
+        switch field.Desc.Kind() </span>{
+        case protoreflect.Int32Kind, protoreflect.Int64Kind:<span class="cov0" title="0">
+                return "42"</span>
+        case protoreflect.BoolKind:<span class="cov0" title="0">
+                return "true"</span>
+        case protoreflect.FloatKind, protoreflect.DoubleKind:<span class="cov0" title="0">
+                return "3.14"</span>
+        case protoreflect.EnumKind,
+                protoreflect.Sint32Kind,
+                protoreflect.Uint32Kind,
+                protoreflect.Sint64Kind,
+                protoreflect.Uint64Kind,
+                protoreflect.Sfixed32Kind,
+                protoreflect.Fixed32Kind,
+                protoreflect.Sfixed64Kind,
+                protoreflect.Fixed64Kind,
+                protoreflect.StringKind,
+                protoreflect.BytesKind,
+                protoreflect.MessageKind,
+                protoreflect.GroupKind:<span class="cov0" title="0">
+                return `""`</span>
+        default:<span class="cov0" title="0">
+                return `""`</span>
+        }
+}
+
+// generateMockHelpers generates helper functions for mock data generation.
+func (g *Generator) generateMockHelpers(gf *protogen.GeneratedFile) <span class="cov0" title="0">{
+        g.generateExampleSelectors(gf)
+        g.generateDefaultGenerators(gf)
+        g.generateInitFunction(gf)
+}</span>
+
+// generateExampleSelectors generates functions to select examples from predefined values.
+func (g *Generator) generateExampleSelectors(gf *protogen.GeneratedFile) <span class="cov0" title="0">{
+        // String example selector
+        gf.P("// selectStringExample selects a random example or generates a default value.")
+        gf.P("func selectStringExample(fieldPath string, defaultGenerator func() string) string {")
+        gf.P("if examples, ok := fieldExamples[fieldPath]; ok &amp;&amp; len(examples) &gt; 0 {")
+        gf.P("return examples[rand.Intn(len(examples))]")
+        gf.P("}")
+        gf.P("return defaultGenerator()")
+        gf.P("}")
+        gf.P()
+
+        // Int example selector
+        gf.P("// selectIntExample selects a random example or returns a default value.")
+        gf.P("func selectIntExample(fieldPath string, defaultValue int64) int64 {")
+        gf.P("if examples, ok := fieldExamples[fieldPath]; ok &amp;&amp; len(examples) &gt; 0 {")
+        gf.P("example := examples[rand.Intn(len(examples))]")
+        gf.P("if v, err := strconv.ParseInt(example, 10, 64); err == nil {")
+        gf.P("return v")
+        gf.P("}")
+        gf.P("}")
+        gf.P("return defaultValue")
+        gf.P("}")
+        gf.P()
+
+        // Bool example selector
+        gf.P("// selectBoolExample selects a random example or returns a default value.")
+        gf.P("func selectBoolExample(fieldPath string, defaultValue bool) bool {")
+        gf.P("if examples, ok := fieldExamples[fieldPath]; ok &amp;&amp; len(examples) &gt; 0 {")
+        gf.P("example := examples[rand.Intn(len(examples))]")
+        gf.P("if v, err := strconv.ParseBool(example); err == nil {")
+        gf.P("return v")
+        gf.P("}")
+        gf.P("}")
+        gf.P("return defaultValue")
+        gf.P("}")
+        gf.P()
+
+        // Float example selector
+        gf.P("// selectFloatExample selects a random example or returns a default value.")
+        gf.P("func selectFloatExample(fieldPath string, defaultValue float64) float64 {")
+        gf.P("if examples, ok := fieldExamples[fieldPath]; ok &amp;&amp; len(examples) &gt; 0 {")
+        gf.P("example := examples[rand.Intn(len(examples))]")
+        gf.P("if v, err := strconv.ParseFloat(example, 64); err == nil {")
+        gf.P("return v")
+        gf.P("}")
+        gf.P("}")
+        gf.P("return defaultValue")
+        gf.P("}")
+        gf.P()
+}</span>
+
+// generateDefaultGenerators generates default value generator functions.
+func (g *Generator) generateDefaultGenerators(gf *protogen.GeneratedFile) <span class="cov0" title="0">{
+        gf.P("// Default value generators")
+        gf.P("func generateUUID() string {")
+        gf.P("var b [16]byte")
+        gf.P("_, err := cryptorand.Read(b[:])")
+        gf.P("if err != nil {")
+        gf.P(`return "550e8400-e29b-41d4-a716-446655440000" // fallback`)
+        gf.P("}")
+        gf.P("b[6] = (b[6] &amp; 0x0f) | 0x40 // Version 4")
+        gf.P("b[8] = (b[8] &amp; 0x3f) | 0x80 // Variant bits")
+        gf.P("return fmt.Sprintf(\"%x-%x-%x-%x-%x\", b[0:4], b[4:6], b[6:8], b[8:10], b[10:16])")
+        gf.P("}")
+        gf.P()
+
+        gf.P("func generateEmail() string {")
+        gf.P(`return "user@example.com"`)
+        gf.P("}")
+        gf.P()
+
+        gf.P("func generateName() string {")
+        gf.P(`names := []string{"Alice Johnson", "Bob Smith", "Charlie Davis", "Diana Wilson"}`)
+        gf.P("return names[rand.Intn(len(names))]")
+        gf.P("}")
+        gf.P()
+
+        gf.P("func generatePhone() string {")
+        gf.P(`return "+1-555-0123"`)
+        gf.P("}")
+        gf.P()
+
+        gf.P("func generateAddress() string {")
+        gf.P(`return "123 Main Street, Anytown, USA"`)
+        gf.P("}")
+        gf.P()
+
+        gf.P("func generateURL() string {")
+        gf.P(`return "https://example.com"`)
+        gf.P("}")
+        gf.P()
+
+        gf.P("func generateString() string {")
+        gf.P(`return "example string"`)
+        gf.P("}")
+        gf.P()
+}</span>
+
+// generateInitFunction generates the init function for seeding random number generator.
+func (g *Generator) generateInitFunction(gf *protogen.GeneratedFile) <span class="cov0" title="0">{
+        gf.P("func init() {")
+        gf.P("rand.Seed(time.Now().UnixNano())")
+        gf.P("}")
+}</span>
+</pre>
+		
+		<pre class="file" id="file7" style="display: none">package httpgen
+
+import (
+        "fmt"
+
+        "google.golang.org/protobuf/compiler/protogen"
+        "google.golang.org/protobuf/reflect/protoreflect"
+)
+
+// ValidationError represents a generation-time validation error.
+type ValidationError struct {
+        Service string
+        Method  string
+        Message string
+}
+
+// ValidateMethodConfig validates HTTP configuration for a method.
+// Returns a list of validation errors found.
+func ValidateMethodConfig(service *protogen.Service, method *protogen.Method) []ValidationError <span class="cov0" title="0">{
+        var errors []ValidationError
+
+        config := getMethodHTTPConfig(method)
+        if config == nil </span><span class="cov0" title="0">{
+                return nil
+        }</span>
+
+        <span class="cov0" title="0">serviceName := string(service.Desc.Name())
+        methodName := string(method.Desc.Name())
+        inputMsgName := string(method.Input.Desc.Name())
+
+        // 1. Validate path variables have corresponding fields
+        for _, param := range config.PathParams </span><span class="cov0" title="0">{
+                field := findFieldByProtoName(method.Input, param)
+                if field == nil </span><span class="cov0" title="0">{
+                        errors = append(errors, ValidationError{
+                                Service: serviceName,
+                                Method:  methodName,
+                                Message: fmt.Sprintf(
+                                        "path variable '{%s}' in path '%s' has no matching field in message '%s'. "+
+                                                "Add a field named '%s' to the request message, or fix the path variable name.",
+                                        param, config.Path, inputMsgName, param),
+                        })
+                        continue</span>
+                }
+
+                // 2. Validate path variable field types (must be scalar)
+                <span class="cov0" title="0">if !isPathParamCompatible(field) </span><span class="cov0" title="0">{
+                        errors = append(errors, ValidationError{
+                                Service: serviceName,
+                                Method:  methodName,
+                                Message: fmt.Sprintf(
+                                        "path variable '{%s}' is bound to field '%s' of type '%s', but path parameters must be scalar types "+
+                                                "(string, int32, int64, uint32, uint64, bool, float, double). "+
+                                                "Change the field type or remove it from the path.",
+                                        param, param, field.Desc.Kind()),
+                        })
+                }</span>
+        }
+
+        // 3. Validate query parameter fields don't conflict with path params
+        <span class="cov0" title="0">queryParams := getQueryParams(method.Input)
+        for _, qp := range queryParams </span><span class="cov0" title="0">{
+                for _, pathParam := range config.PathParams </span><span class="cov0" title="0">{
+                        if qp.FieldName == pathParam </span><span class="cov0" title="0">{
+                                errors = append(errors, ValidationError{
+                                        Service: serviceName,
+                                        Method:  methodName,
+                                        Message: fmt.Sprintf(
+                                                "field '%s' is used both as a path variable in '%s' and as a query parameter. "+
+                                                        "A field can only be bound to one parameter type. "+
+                                                        "Remove either the path variable or the query annotation.",
+                                                qp.FieldName, config.Path),
+                                })
+                        }</span>
+                }
+        }
+
+        // 4. Error on GET/DELETE with unbound body fields
+        <span class="cov0" title="0">httpMethod := config.Method
+        if httpMethod == "" </span><span class="cov0" title="0">{
+                httpMethod = "POST"
+        }</span>
+
+        <span class="cov0" title="0">if httpMethod == "GET" || httpMethod == "DELETE" </span><span class="cov0" title="0">{
+                bodyFields := getBodyFields(method.Input, config.PathParams, queryParams)
+                if len(bodyFields) &gt; 0 </span><span class="cov0" title="0">{
+                        fieldNames := make([]string, 0, len(bodyFields))
+                        for _, f := range bodyFields </span><span class="cov0" title="0">{
+                                fieldNames = append(fieldNames, string(f.Desc.Name()))
+                        }</span>
+                        <span class="cov0" title="0">errors = append(errors, ValidationError{
+                                Service: serviceName,
+                                Method:  methodName,
+                                Message: fmt.Sprintf(
+                                        "%s request has fields that are not bound to path or query parameters: %v. "+
+                                                "%s requests cannot have a request body. "+
+                                                "Either add [(sebuf.http.query)] annotations to these fields, "+
+                                                "include them in the path as variables, or change the HTTP method to POST/PUT/PATCH.",
+                                        httpMethod, fieldNames, httpMethod),
+                        })</span>
+                }
+        }
+
+        <span class="cov0" title="0">return errors</span>
+}
+
+// findFieldByProtoName finds a field in a message by its proto name.
+func findFieldByProtoName(message *protogen.Message, fieldName string) *protogen.Field <span class="cov0" title="0">{
+        for _, field := range message.Fields </span><span class="cov0" title="0">{
+                if string(field.Desc.Name()) == fieldName </span><span class="cov0" title="0">{
+                        return field
+                }</span>
+        }
+        <span class="cov0" title="0">return nil</span>
+}
+
+// isPathParamCompatible checks if a field type can be used as a path parameter.
+func isPathParamCompatible(field *protogen.Field) bool <span class="cov0" title="0">{
+        switch field.Desc.Kind() </span>{
+        case protoreflect.StringKind,
+                protoreflect.Int32Kind, protoreflect.Sint32Kind, protoreflect.Sfixed32Kind,
+                protoreflect.Int64Kind, protoreflect.Sint64Kind, protoreflect.Sfixed64Kind,
+                protoreflect.Uint32Kind, protoreflect.Fixed32Kind,
+                protoreflect.Uint64Kind, protoreflect.Fixed64Kind,
+                protoreflect.BoolKind,
+                protoreflect.FloatKind, protoreflect.DoubleKind:<span class="cov0" title="0">
+                return true</span>
+        default:<span class="cov0" title="0">
+                return false</span>
+        }
+}
+
+// getBodyFields returns fields that are not bound to path or query parameters.
+func getBodyFields(message *protogen.Message, pathParams []string, queryParams []QueryParam) []*protogen.Field <span class="cov0" title="0">{
+        pathParamSet := make(map[string]bool)
+        for _, p := range pathParams </span><span class="cov0" title="0">{
+                pathParamSet[p] = true
+        }</span>
+
+        <span class="cov0" title="0">queryParamSet := make(map[string]bool)
+        for _, qp := range queryParams </span><span class="cov0" title="0">{
+                queryParamSet[qp.FieldName] = true
+        }</span>
+
+        <span class="cov0" title="0">var bodyFields []*protogen.Field
+        for _, field := range message.Fields </span><span class="cov0" title="0">{
+                fieldName := string(field.Desc.Name())
+                if !pathParamSet[fieldName] &amp;&amp; !queryParamSet[fieldName] </span><span class="cov0" title="0">{
+                        bodyFields = append(bodyFields, field)
+                }</span>
+        }
+
+        <span class="cov0" title="0">return bodyFields</span>
+}
+
+// ValidateService validates all methods in a service.
+// Returns an error if any validation issues are found, stopping code generation.
+func ValidateService(service *protogen.Service) error <span class="cov0" title="0">{
+        for _, method := range service.Methods </span><span class="cov0" title="0">{
+                errors := ValidateMethodConfig(service, method)
+                if len(errors) &gt; 0 </span><span class="cov0" title="0">{
+                        // Return the first error to fail fast
+                        err := errors[0]
+                        return fmt.Errorf("%s.%s: %s", err.Service, err.Method, err.Message)
+                }</span>
+        }
+        <span class="cov0" title="0">return nil</span>
+}
+</pre>
+		
+		<pre class="file" id="file8" style="display: none">package openapiv3
 
 import (
         "fmt"
@@ -1650,7 +3820,7 @@ func (g *Generator) Render() ([]byte, error) <span class="cov3" title="2">{
 }
 </pre>
 		
-		<pre class="file" id="file5" style="display: none">package openapiv3
+		<pre class="file" id="file9" style="display: none">package openapiv3
 
 import (
         "regexp"
@@ -1723,19 +3893,19 @@ func getMethodHTTPConfig(method *protogen.Method) *HTTPConfig <span class="cov0"
 }
 
 // httpMethodToString converts HttpMethod enum to lowercase string for OpenAPI. Returns "post" for unspecified.
-func httpMethodToString(m http.HttpMethod) string <span class="cov0" title="0">{
+func httpMethodToString(m http.HttpMethod) string <span class="cov7" title="8">{
         switch m </span>{
-        case http.HttpMethod_HTTP_METHOD_GET:<span class="cov0" title="0">
+        case http.HttpMethod_HTTP_METHOD_GET:<span class="cov1" title="1">
                 return "get"</span>
-        case http.HttpMethod_HTTP_METHOD_POST:<span class="cov0" title="0">
+        case http.HttpMethod_HTTP_METHOD_POST:<span class="cov1" title="1">
                 return "post"</span>
-        case http.HttpMethod_HTTP_METHOD_PUT:<span class="cov0" title="0">
+        case http.HttpMethod_HTTP_METHOD_PUT:<span class="cov1" title="1">
                 return "put"</span>
-        case http.HttpMethod_HTTP_METHOD_DELETE:<span class="cov0" title="0">
+        case http.HttpMethod_HTTP_METHOD_DELETE:<span class="cov1" title="1">
                 return "delete"</span>
-        case http.HttpMethod_HTTP_METHOD_PATCH:<span class="cov0" title="0">
+        case http.HttpMethod_HTTP_METHOD_PATCH:<span class="cov1" title="1">
                 return "patch"</span>
-        default:<span class="cov0" title="0">
+        default:<span class="cov4" title="3">
                 // HTTP_METHOD_UNSPECIFIED defaults to POST for backward compatibility
                 return "post"</span>
         }
@@ -1743,19 +3913,19 @@ func httpMethodToString(m http.HttpMethod) string <span class="cov0" title="0">{
 
 // extractPathParams parses path variables from a path string.
 // Example: "/users/{user_id}/posts/{post_id}" -&gt; ["user_id", "post_id"]
-func extractPathParams(path string) []string <span class="cov0" title="0">{
+func extractPathParams(path string) []string <span class="cov8" title="11">{
         matches := pathParamRegex.FindAllStringSubmatch(path, -1)
-        if len(matches) == 0 </span><span class="cov0" title="0">{
+        if len(matches) == 0 </span><span class="cov5" title="5">{
                 return nil
         }</span>
 
-        <span class="cov0" title="0">params := make([]string, 0, len(matches))
-        for _, match := range matches </span><span class="cov0" title="0">{
-                if len(match) &gt; 1 </span><span class="cov0" title="0">{
+        <span class="cov6" title="6">params := make([]string, 0, len(matches))
+        for _, match := range matches </span><span class="cov7" title="10">{
+                if len(match) &gt; 1 </span><span class="cov7" title="10">{
                         params = append(params, match[1])
                 }</span>
         }
-        <span class="cov0" title="0">return params</span>
+        <span class="cov6" title="6">return params</span>
 }
 
 // getQueryParams extracts query parameter configurations from message fields.
@@ -1830,34 +4000,34 @@ func getServiceHTTPConfig(service *protogen.Service) *ServiceHTTPConfig <span cl
 }
 
 // buildHTTPPath combines service base path with method path.
-func buildHTTPPath(servicePath, methodPath string) string <span class="cov0" title="0">{
+func buildHTTPPath(servicePath, methodPath string) string <span class="cov8" title="14">{
         // Handle empty paths
-        if servicePath == "" &amp;&amp; methodPath == "" </span><span class="cov0" title="0">{
+        if servicePath == "" &amp;&amp; methodPath == "" </span><span class="cov1" title="1">{
                 return "/"
         }</span>
-        <span class="cov0" title="0">if servicePath == "" </span><span class="cov0" title="0">{
+        <span class="cov8" title="13">if servicePath == "" </span><span class="cov3" title="2">{
                 return ensureLeadingSlash(methodPath)
         }</span>
-        <span class="cov0" title="0">if methodPath == "" </span><span class="cov0" title="0">{
+        <span class="cov8" title="11">if methodPath == "" </span><span class="cov3" title="2">{
                 return ensureLeadingSlash(servicePath)
         }</span>
 
         // Clean and combine paths
-        <span class="cov0" title="0">servicePath = strings.TrimSuffix(ensureLeadingSlash(servicePath), "/")
+        <span class="cov7" title="9">servicePath = strings.TrimSuffix(ensureLeadingSlash(servicePath), "/")
         methodPath = strings.TrimPrefix(methodPath, "/")
 
         return servicePath + "/" + methodPath</span>
 }
 
 // ensureLeadingSlash ensures a path starts with "/".
-func ensureLeadingSlash(path string) string <span class="cov0" title="0">{
-        if path == "" </span><span class="cov0" title="0">{
+func ensureLeadingSlash(path string) string <span class="cov9" title="19">{
+        if path == "" </span><span class="cov1" title="1">{
                 return "/"
         }</span>
-        <span class="cov0" title="0">if !strings.HasPrefix(path, "/") </span><span class="cov0" title="0">{
+        <span class="cov9" title="18">if !strings.HasPrefix(path, "/") </span><span class="cov5" title="5">{
                 return "/" + path
         }</span>
-        <span class="cov0" title="0">return path</span>
+        <span class="cov8" title="13">return path</span>
 }
 
 // getServiceHeaders extracts header configuration from service options.
@@ -1915,55 +4085,55 @@ func getMethodHeaders(method *protogen.Method) []*http.Header <span class="cov0"
 }
 
 // combineHeaders merges service headers with method headers, with method headers taking precedence.
-func combineHeaders(serviceHeaders, methodHeaders []*http.Header) []*http.Header <span class="cov0" title="0">{
-        if len(serviceHeaders) == 0 </span><span class="cov0" title="0">{
+func combineHeaders(serviceHeaders, methodHeaders []*http.Header) []*http.Header <span class="cov7" title="8">{
+        if len(serviceHeaders) == 0 </span><span class="cov3" title="2">{
                 return methodHeaders
         }</span>
-        <span class="cov0" title="0">if len(methodHeaders) == 0 </span><span class="cov0" title="0">{
+        <span class="cov6" title="6">if len(methodHeaders) == 0 </span><span class="cov1" title="1">{
                 return serviceHeaders
         }</span>
 
         // Create a map to track headers by name for deduplication
-        <span class="cov0" title="0">headerMap := make(map[string]*http.Header)
+        <span class="cov5" title="5">headerMap := make(map[string]*http.Header)
 
         // Add service headers first
-        for _, header := range serviceHeaders </span><span class="cov0" title="0">{
-                if header.GetName() != "" </span><span class="cov0" title="0">{
+        for _, header := range serviceHeaders </span><span class="cov6" title="7">{
+                if header.GetName() != "" </span><span class="cov6" title="6">{
                         headerMap[header.GetName()] = header
                 }</span>
         }
 
         // Add method headers, overriding service headers with same name
-        <span class="cov0" title="0">for _, header := range methodHeaders </span><span class="cov0" title="0">{
-                if header.GetName() != "" </span><span class="cov0" title="0">{
+        <span class="cov5" title="5">for _, header := range methodHeaders </span><span class="cov5" title="5">{
+                if header.GetName() != "" </span><span class="cov5" title="5">{
                         headerMap[header.GetName()] = header
                 }</span>
         }
 
         // Convert back to slice, sorted by header name for deterministic output
-        <span class="cov0" title="0">result := make([]*http.Header, 0, len(headerMap))
+        <span class="cov5" title="5">result := make([]*http.Header, 0, len(headerMap))
 
         // Get sorted header names
         headerNames := make([]string, 0, len(headerMap))
-        for name := range headerMap </span><span class="cov0" title="0">{
+        for name := range headerMap </span><span class="cov7" title="9">{
                 headerNames = append(headerNames, name)
         }</span>
 
         // Sort header names to ensure deterministic order
-        <span class="cov0" title="0">for i := 0; i &lt; len(headerNames); i++ </span><span class="cov0" title="0">{
-                for j := i + 1; j &lt; len(headerNames); j++ </span><span class="cov0" title="0">{
-                        if headerNames[i] &gt; headerNames[j] </span><span class="cov0" title="0">{
+        <span class="cov5" title="5">for i := 0; i &lt; len(headerNames); i++ </span><span class="cov7" title="9">{
+                for j := i + 1; j &lt; len(headerNames); j++ </span><span class="cov5" title="5">{
+                        if headerNames[i] &gt; headerNames[j] </span><span class="cov4" title="3">{
                                 headerNames[i], headerNames[j] = headerNames[j], headerNames[i]
                         }</span>
                 }
         }
 
         // Add headers in sorted order
-        <span class="cov0" title="0">for _, name := range headerNames </span><span class="cov0" title="0">{
+        <span class="cov5" title="5">for _, name := range headerNames </span><span class="cov7" title="9">{
                 result = append(result, headerMap[name])
         }</span>
 
-        <span class="cov0" title="0">return result</span>
+        <span class="cov5" title="5">return result</span>
 }
 
 // convertHeadersToParameters converts proto headers to OpenAPI parameters.
@@ -2025,26 +4195,26 @@ const (
 )
 
 // mapHeaderTypeToOpenAPI maps proto header types to OpenAPI schema types.
-func mapHeaderTypeToOpenAPI(headerType string) string <span class="cov0" title="0">{
+func mapHeaderTypeToOpenAPI(headerType string) string <span class="cov10" title="21">{
         switch strings.ToLower(headerType) </span>{
-        case headerTypeString, "":<span class="cov0" title="0">
+        case headerTypeString, "":<span class="cov5" title="4">
                 return headerTypeString</span>
-        case headerTypeInteger, "int", headerTypeInt32, headerTypeInt64:<span class="cov0" title="0">
+        case headerTypeInteger, "int", headerTypeInt32, headerTypeInt64:<span class="cov5" title="5">
                 return headerTypeInteger</span>
-        case "number", "float", "double":<span class="cov0" title="0">
+        case "number", "float", "double":<span class="cov5" title="4">
                 return "number"</span>
-        case "boolean", "bool":<span class="cov0" title="0">
+        case "boolean", "bool":<span class="cov4" title="3">
                 return "boolean"</span>
-        case "array":<span class="cov0" title="0">
+        case "array":<span class="cov3" title="2">
                 return "array"</span>
-        default:<span class="cov0" title="0">
+        default:<span class="cov4" title="3">
                 // Default to string for unknown types
                 return headerTypeString</span>
         }
 }
 </pre>
 		
-		<pre class="file" id="file6" style="display: none">package openapiv3
+		<pre class="file" id="file10" style="display: none">package openapiv3
 
 import (
         "fmt"
@@ -2287,7 +4457,7 @@ func getFieldExamples(field *protogen.Field) []string <span class="cov0" title="
 }
 </pre>
 		
-		<pre class="file" id="file7" style="display: none">package openapiv3
+		<pre class="file" id="file11" style="display: none">package openapiv3
 
 import (
         "fmt"
