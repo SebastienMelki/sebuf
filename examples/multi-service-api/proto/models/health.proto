@@ -1,0 +1,30 @@
+syntax = "proto3";
+
+package multi_service.models;
+
+import "sebuf/http/annotations.proto";
+
+option go_package = "github.com/SebastienMelki/sebuf/examples/multi-service-api/api/proto/models;models";
+
+// GetHealthRequest for health check (no parameters needed).
+message GetHealthRequest {}
+
+// GetHealthResponse with health status.
+message GetHealthResponse {
+  string status = 1 [(sebuf.http.field_examples) = { values: ["healthy"] }];
+  string version = 2 [(sebuf.http.field_examples) = { values: ["1.0.0"] }];
+  int64 uptime_seconds = 3 [(sebuf.http.field_examples) = { values: ["86400"] }];
+  map<string, string> components = 4;
+}
+
+// GetAPIInfoRequest for API information (no parameters needed).
+message GetAPIInfoRequest {}
+
+// GetAPIInfoResponse with API metadata.
+message GetAPIInfoResponse {
+  string name = 1 [(sebuf.http.field_examples) = { values: ["Multi-Service API"] }];
+  string version = 2 [(sebuf.http.field_examples) = { values: ["1.0.0"] }];
+  string description = 3 [(sebuf.http.field_examples) = { values: ["Multi-tenant API with role-based access control"] }];
+  repeated string available_services = 4;
+  string documentation_url = 5 [(sebuf.http.field_examples) = { values: ["https://docs.example.com"] }];
+}

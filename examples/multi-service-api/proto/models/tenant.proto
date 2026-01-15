@@ -1,0 +1,75 @@
+syntax = "proto3";
+
+package multi_service.models;
+
+import "buf/validate/validate.proto";
+import "sebuf/http/annotations.proto";
+import "proto/models/shared.proto";
+
+option go_package = "github.com/SebastienMelki/sebuf/examples/multi-service-api/api/proto/models;models";
+
+// Tenant represents a multi-tenant organization.
+message Tenant {
+  string id = 1 [(sebuf.http.field_examples) = { values: ["tenant-abc123"] }];
+  string name = 2 [(sebuf.http.field_examples) = { values: ["Acme Corp"] }];
+  string domain = 3 [(sebuf.http.field_examples) = { values: ["acme.example.com"] }];
+  bool active = 4 [(sebuf.http.field_examples) = { values: ["true"] }];
+  string plan = 5 [(sebuf.http.field_examples) = { values: ["enterprise"] }];
+  map<string, string> settings = 6;
+  AuditInfo audit = 7;
+}
+
+// ListTenantsRequest for listing all tenants (admin only).
+message ListTenantsRequest {
+  int32 page = 1 [
+    (sebuf.http.query) = { name: "page" },
+    (buf.validate.field).int32 = { gte: 1 },
+    (sebuf.http.field_examples) = { values: ["1"] }
+  ];
+  int32 limit = 2 [
+    (sebuf.http.query) = { name: "limit" },
+    (buf.validate.field).int32 = { gte: 1, lte: 100 },
+    (sebuf.http.field_examples) = { values: ["20"] }
+  ];
+  bool include_inactive = 3 [
+    (sebuf.http.query) = { name: "include_inactive" },
+    (sebuf.http.field_examples) = { values: ["false"] }
+  ];
+}
+
+// ListTenantsResponse contains paginated tenants.
+message ListTenantsResponse {
+  repeated Tenant tenants = 1;
+  Pagination pagination = 2;
+}
+
+// CreateTenantRequest for creating a new tenant.
+message CreateTenantRequest {
+  string name = 1 [
+    (buf.validate.field).string = { min_len: 2, max_len: 100 },
+    (sebuf.http.field_examples) = { values: ["New Tenant"] }
+  ];
+  string domain = 2 [
+    (buf.validate.field).string.pattern = "^[a-z0-9.-]+\\.[a-z]{2,}$",
+    (sebuf.http.field_examples) = { values: ["newtenant.example.com"] }
+  ];
+  string plan = 3 [
+    (buf.validate.field).string = { in: ["free", "starter", "professional", "enterprise"] },
+    (sebuf.http.field_examples) = { values: ["professional"] }
+  ];
+  map<string, string> settings = 4;
+}
+
+// DeleteTenantRequest for deleting a tenant (requires confirmation).
+message DeleteTenantRequest {
+  string tenant_id = 1 [
+    (buf.validate.field).string = { min_len: 1 },
+    (sebuf.http.field_examples) = { values: ["tenant-abc123"] }
+  ];
+}
+
+// DeleteTenantResponse after tenant deletion.
+message DeleteTenantResponse {
+  bool success = 1;
+  string message = 2;
+}

@@ -1,0 +1,46 @@
+# Buf code generation configuration v2
+version: v2
+
+# Managed mode - automatically manages go_package options
+managed:
+  enabled: true
+  override:
+    # Set default Go package prefix for generated code
+    - file_option: go_package_prefix
+      value: github.com/SebastienMelki/sebuf/examples/restful-crud/api
+    # Disable package prefix for Google APIs (use their standard packages)
+    - file_option: go_package_prefix
+      module: buf.build/googleapis/googleapis
+      value: ""
+    # Disable package prefix for protovalidate (use their standard packages)
+    - file_option: go_package_prefix
+      module: buf.build/bufbuild/protovalidate
+      value: ""
+    # Disable package prefix for sebuf (use standard import path)
+    - file_option: go_package_prefix
+      module: buf.build/sebmelki/sebuf
+      value: ""
+
+# Local protoc plugins (installed via make install)
+plugins:
+  # Standard Go protobuf code generation
+  - local: protoc-gen-go
+    out: ./api
+    opt: module=github.com/SebastienMelki/sebuf/examples/restful-crud/api
+
+  # OpenAPI v3 documentation generation in YAML format
+  - local: ../../bin/protoc-gen-openapiv3
+    out: ./docs
+
+  # OpenAPI v3 documentation generation in JSON format
+  - local: ../../bin/protoc-gen-openapiv3
+    out: ./docs
+    opt:
+      - format=json
+
+  # HTTP service generation (custom)
+  - local: ../../bin/protoc-gen-go-http
+    out: api
+    opt:
+      - module=github.com/SebastienMelki/sebuf/examples/restful-crud/api
+      - generate_mock=false

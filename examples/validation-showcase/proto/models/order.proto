@@ -1,0 +1,382 @@
+syntax = "proto3";
+
+package validation_showcase.models;
+
+import "buf/validate/validate.proto";
+import "sebuf/http/annotations.proto";
+
+option go_package = "github.com/SebastienMelki/sebuf/examples/validation-showcase/api/proto/models;models";
+
+// OrderStatus represents the lifecycle state of an order.
+enum OrderStatus {
+  ORDER_STATUS_UNSPECIFIED = 0;
+  ORDER_STATUS_PENDING = 1;
+  ORDER_STATUS_CONFIRMED = 2;
+  ORDER_STATUS_PROCESSING = 3;
+  ORDER_STATUS_SHIPPED = 4;
+  ORDER_STATUS_DELIVERED = 5;
+  ORDER_STATUS_CANCELLED = 6;
+}
+
+// PaymentMethod represents supported payment options.
+enum PaymentMethod {
+  PAYMENT_METHOD_UNSPECIFIED = 0;
+  PAYMENT_METHOD_CREDIT_CARD = 1;
+  PAYMENT_METHOD_DEBIT_CARD = 2;
+  PAYMENT_METHOD_PAYPAL = 3;
+  PAYMENT_METHOD_BANK_TRANSFER = 4;
+}
+
+// Address demonstrates nested message validation with pattern-based constraints.
+message Address {
+  // Street address (5-200 characters).
+  string street = 1 [
+    (buf.validate.field).string = { min_len: 5, max_len: 200 },
+    (sebuf.http.field_examples) = { values: ["123 Main Street, Apt 4B"] }
+  ];
+
+  // City name (2-100 characters).
+  string city = 2 [
+    (buf.validate.field).string = { min_len: 2, max_len: 100 },
+    (sebuf.http.field_examples) = { values: ["San Francisco"] }
+  ];
+
+  // US state code (2 uppercase letters).
+  string state = 3 [
+    (buf.validate.field).string.pattern = "^[A-Z]{2}$",
+    (sebuf.http.field_examples) = { values: ["CA"] }
+  ];
+
+  // US ZIP code (5 digits, optionally with 4-digit extension).
+  string postal_code = 4 [
+    (buf.validate.field).string.pattern = "^\\d{5}(-\\d{4})?$",
+    (sebuf.http.field_examples) = { values: ["94102", "94102-1234"] }
+  ];
+
+  // Country code (ISO 3166-1 alpha-2, constrained to supported countries).
+  string country = 5 [
+    (buf.validate.field).string = { in: ["US", "CA", "MX", "GB", "DE", "FR"] },
+    (sebuf.http.field_examples) = { values: ["US"] }
+  ];
+}
+
+// ContactInfo demonstrates email and phone validation.
+message ContactInfo {
+  // Email address (required, validated format).
+  string email = 1 [
+    (buf.validate.field).string.email = true,
+    (sebuf.http.field_examples) = { values: ["john.doe@example.com"] }
+  ];
+
+  // Phone number in E.164 format (optional).
+  string phone = 2 [
+    (buf.validate.field).string.pattern = "^\\+[1-9]\\d{6,14}$",
+    (sebuf.http.field_examples) = { values: ["+14155551234"] }
+  ];
+
+  // Alternative contact name (optional, 2-100 chars if provided).
+  optional string alternative_name = 3 [
+    (buf.validate.field).string = { min_len: 2, max_len: 100 },
+    (sebuf.http.field_examples) = { values: ["Jane Doe"] }
+  ];
+}
+
+// ProductOption demonstrates map validation with key/value constraints.
+message ProductOption {
+  // Option name (lowercase with underscores).
+  string name = 1 [
+    (buf.validate.field).string.pattern = "^[a-z][a-z0-9_]{0,49}$",
+    (sebuf.http.field_examples) = { values: ["color", "size", "material"] }
+  ];
+
+  // Option value (1-100 characters).
+  string value = 2 [
+    (buf.validate.field).string = { min_len: 1, max_len: 100 },
+    (sebuf.http.field_examples) = { values: ["blue", "large", "cotton"] }
+  ];
+}
+
+// OrderItem demonstrates numeric range validation and nested validation.
+message OrderItem {
+  // Product UUID (required).
+  string product_id = 1 [
+    (buf.validate.field).string.uuid = true,
+    (sebuf.http.field_examples) = { values: ["123e4567-e89b-12d3-a456-426614174000"] }
+  ];
+
+  // Product name for display (1-200 characters).
+  string product_name = 2 [
+    (buf.validate.field).string = { min_len: 1, max_len: 200 },
+    (sebuf.http.field_examples) = { values: ["Wireless Bluetooth Headphones"] }
+  ];
+
+  // SKU code pattern validation.
+  string sku = 3 [
+    (buf.validate.field).string.pattern = "^SKU-[A-Z0-9]{6,12}$",
+    (sebuf.http.field_examples) = { values: ["SKU-ABC123DEF"] }
+  ];
+
+  // Quantity (1-100 items per line).
+  int32 quantity = 4 [
+    (buf.validate.field).int32 = { gte: 1, lte: 100 },
+    (sebuf.http.field_examples) = { values: ["2"] }
+  ];
+
+  // Unit price (positive, max $10,000).
+  double unit_price = 5 [
+    (buf.validate.field).double = { gt: 0, lte: 10000 },
+    (sebuf.http.field_examples) = { values: ["99.99"] }
+  ];
+
+  // Discount percentage (0-100).
+  float discount_percent = 6 [
+    (buf.validate.field).float = { gte: 0, lte: 100 },
+    (sebuf.http.field_examples) = { values: ["10.0"] }
+  ];
+
+  // Product options as a map with key/value validation.
+  map<string, string> options = 7 [
+    (buf.validate.field).map = {
+      max_pairs: 10,
+      keys: { string: { pattern: "^[a-z_]{1,30}$" } },
+      values: { string: { min_len: 1, max_len: 100 } }
+    },
+    (sebuf.http.field_examples) = { values: ["{\"color\": \"blue\", \"size\": \"large\"}"] }
+  ];
+
+  // Gift wrap requested.
+  bool gift_wrap = 8 [(sebuf.http.field_examples) = { values: ["false"] }];
+
+  // Gift message (if gift_wrap is true, max 500 chars).
+  optional string gift_message = 9 [
+    (buf.validate.field).string = { max_len: 500 },
+    (sebuf.http.field_examples) = { values: ["Happy Birthday!"] }
+  ];
+}
+
+// Order demonstrates comprehensive validation including arrays, maps, and nested messages.
+message Order {
+  // Order UUID.
+  string id = 1 [
+    (buf.validate.field).string.uuid = true,
+    (sebuf.http.field_examples) = { values: ["550e8400-e29b-41d4-a716-446655440000"] }
+  ];
+
+  // Order number (alphanumeric, 8-20 chars).
+  string order_number = 2 [
+    (buf.validate.field).string.pattern = "^ORD-[A-Z0-9]{8,16}$",
+    (sebuf.http.field_examples) = { values: ["ORD-2024ABC12345"] }
+  ];
+
+  // Customer contact information (required).
+  ContactInfo contact = 3 [(buf.validate.field).required = true];
+
+  // Shipping address (required).
+  Address shipping_address = 4 [(buf.validate.field).required = true];
+
+  // Billing address (optional, defaults to shipping if not provided).
+  Address billing_address = 5;
+
+  // Order items (1-50 items required).
+  repeated OrderItem items = 6 [
+    (buf.validate.field).repeated = {
+      min_items: 1,
+      max_items: 50
+    }
+  ];
+
+  // Applied coupon codes (unique, max 5, pattern validated).
+  repeated string coupon_codes = 7 [
+    (buf.validate.field).repeated = {
+      max_items: 5,
+      unique: true,
+      items: { string: { pattern: "^[A-Z0-9]{6,12}$" } }
+    },
+    (sebuf.http.field_examples) = { values: ["SAVE20", "FREESHIP"] }
+  ];
+
+  // Order tags (unique, 1-10 items).
+  repeated string tags = 8 [
+    (buf.validate.field).repeated = {
+      min_items: 0,
+      max_items: 10,
+      unique: true
+    },
+    (sebuf.http.field_examples) = { values: ["priority", "fragile"] }
+  ];
+
+  // Order metadata (key-value pairs with validation).
+  map<string, string> metadata = 9 [
+    (buf.validate.field).map = {
+      max_pairs: 20,
+      keys: { string: { min_len: 1, max_len: 50 } },
+      values: { string: { max_len: 500 } }
+    }
+  ];
+
+  // Subtotal before discounts (calculated, positive).
+  double subtotal = 10 [
+    (buf.validate.field).double = { gt: 0 },
+    (sebuf.http.field_examples) = { values: ["199.98"] }
+  ];
+
+  // Discount amount applied.
+  double discount_amount = 11 [
+    (buf.validate.field).double = { gte: 0 },
+    (sebuf.http.field_examples) = { values: ["20.00"] }
+  ];
+
+  // Tax amount.
+  double tax_amount = 12 [
+    (buf.validate.field).double = { gte: 0 },
+    (sebuf.http.field_examples) = { values: ["15.00"] }
+  ];
+
+  // Shipping cost.
+  double shipping_cost = 13 [
+    (buf.validate.field).double = { gte: 0 },
+    (sebuf.http.field_examples) = { values: ["9.99"] }
+  ];
+
+  // Final total (must be positive).
+  double total = 14 [
+    (buf.validate.field).double = { gt: 0 },
+    (sebuf.http.field_examples) = { values: ["204.97"] }
+  ];
+
+  // Order status.
+  OrderStatus status = 15;
+
+  // Payment method.
+  PaymentMethod payment_method = 16;
+
+  // Special instructions (max 1000 chars).
+  optional string special_instructions = 17 [
+    (buf.validate.field).string = { max_len: 1000 },
+    (sebuf.http.field_examples) = { values: ["Please leave at front door"] }
+  ];
+
+  // Creation timestamp (Unix epoch, must be positive).
+  int64 created_at = 18 [
+    (buf.validate.field).int64 = { gte: 0 },
+    (sebuf.http.field_examples) = { values: ["1699900000"] }
+  ];
+
+  // Last update timestamp.
+  int64 updated_at = 19 [
+    (buf.validate.field).int64 = { gte: 0 },
+    (sebuf.http.field_examples) = { values: ["1699900000"] }
+  ];
+}
+
+// CreateOrderRequest demonstrates required fields and nested validation.
+message CreateOrderRequest {
+  // Customer contact info (required).
+  ContactInfo contact = 1 [
+    (buf.validate.field).required = true
+  ];
+
+  // Shipping address (required).
+  Address shipping_address = 2 [
+    (buf.validate.field).required = true
+  ];
+
+  // Billing address (optional).
+  Address billing_address = 3;
+
+  // Order items (at least 1, max 50).
+  repeated OrderItem items = 4 [
+    (buf.validate.field).repeated = {
+      min_items: 1,
+      max_items: 50
+    }
+  ];
+
+  // Coupon codes to apply (optional, max 5, unique).
+  repeated string coupon_codes = 5 [
+    (buf.validate.field).repeated = {
+      max_items: 5,
+      unique: true,
+      items: { string: { pattern: "^[A-Z0-9]{6,12}$" } }
+    }
+  ];
+
+  // Payment method (required, cannot be unspecified).
+  PaymentMethod payment_method = 6 [
+    (buf.validate.field).enum = { not_in: [0] }
+  ];
+
+  // Special delivery instructions.
+  optional string special_instructions = 7 [
+    (buf.validate.field).string = { max_len: 1000 }
+  ];
+
+  // Order metadata.
+  map<string, string> metadata = 8 [
+    (buf.validate.field).map = {
+      max_pairs: 20,
+      keys: { string: { min_len: 1, max_len: 50 } },
+      values: { string: { max_len: 500 } }
+    }
+  ];
+}
+
+// GetOrderRequest for retrieving an order by ID.
+message GetOrderRequest {
+  // Order UUID (required).
+  string order_id = 1 [
+    (buf.validate.field).string.uuid = true,
+    (sebuf.http.field_examples) = { values: ["550e8400-e29b-41d4-a716-446655440000"] }
+  ];
+}
+
+// ValidateAddressRequest for address validation endpoint.
+message ValidateAddressRequest {
+  // Address to validate (required).
+  Address address = 1 [(buf.validate.field).required = true];
+}
+
+// ValidateAddressResponse for address validation result.
+message ValidateAddressResponse {
+  // Whether the address is valid.
+  bool valid = 1;
+
+  // Normalized/corrected address (if valid).
+  Address normalized_address = 2;
+
+  // Validation errors (if invalid).
+  repeated string errors = 3;
+
+  // Suggestions for correction.
+  repeated Address suggestions = 4;
+}
+
+// CouponValidationRequest for validating coupon codes.
+message CouponValidationRequest {
+  // Coupon code to validate.
+  string code = 1 [
+    (buf.validate.field).string.pattern = "^[A-Z0-9]{6,12}$",
+    (sebuf.http.field_examples) = { values: ["SAVE20"] }
+  ];
+
+  // Order subtotal for percentage calculation.
+  double subtotal = 2 [
+    (buf.validate.field).double = { gt: 0 },
+    (sebuf.http.field_examples) = { values: ["99.99"] }
+  ];
+}
+
+// CouponValidationResponse for coupon validation result.
+message CouponValidationResponse {
+  // Whether the coupon is valid.
+  bool valid = 1;
+
+  // Discount amount if valid.
+  double discount_amount = 2;
+
+  // Discount type (percentage, fixed_amount).
+  string discount_type = 3;
+
+  // Error message if invalid.
+  string error_message = 4;
+}

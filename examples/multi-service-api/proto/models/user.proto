@@ -1,0 +1,103 @@
+syntax = "proto3";
+
+package multi_service.models;
+
+import "buf/validate/validate.proto";
+import "sebuf/http/annotations.proto";
+import "proto/models/shared.proto";
+
+option go_package = "github.com/SebastienMelki/sebuf/examples/multi-service-api/api/proto/models;models";
+
+// User represents a user within a tenant.
+message User {
+  string id = 1 [(sebuf.http.field_examples) = { values: ["user-xyz789"] }];
+  string tenant_id = 2 [(sebuf.http.field_examples) = { values: ["tenant-abc123"] }];
+  string email = 3 [(sebuf.http.field_examples) = { values: ["john@example.com"] }];
+  string name = 4 [(sebuf.http.field_examples) = { values: ["John Doe"] }];
+  string avatar_url = 5 [(sebuf.http.field_examples) = { values: ["https://example.com/avatar.png"] }];
+  Role role = 6;
+  bool active = 7 [(sebuf.http.field_examples) = { values: ["true"] }];
+  int64 last_login_at = 8 [(sebuf.http.field_examples) = { values: ["1699900000"] }];
+  AuditInfo audit = 9;
+}
+
+// GetCurrentUserRequest for getting the authenticated user (empty, uses auth token).
+message GetCurrentUserRequest {}
+
+// UpdateProfileRequest for updating the current user's profile.
+message UpdateProfileRequest {
+  optional string name = 1 [
+    (buf.validate.field).string = { min_len: 2, max_len: 100 },
+    (sebuf.http.field_examples) = { values: ["Updated Name"] }
+  ];
+  optional string avatar_url = 2 [
+    (sebuf.http.field_examples) = { values: ["https://example.com/new-avatar.png"] }
+  ];
+}
+
+// ListUsersRequest for listing users in a tenant.
+message ListUsersRequest {
+  int32 page = 1 [
+    (sebuf.http.query) = { name: "page" },
+    (buf.validate.field).int32 = { gte: 1 },
+    (sebuf.http.field_examples) = { values: ["1"] }
+  ];
+  int32 limit = 2 [
+    (sebuf.http.query) = { name: "limit" },
+    (buf.validate.field).int32 = { gte: 1, lte: 100 },
+    (sebuf.http.field_examples) = { values: ["20"] }
+  ];
+  string role_filter = 3 [
+    (sebuf.http.query) = { name: "role" },
+    (sebuf.http.field_examples) = { values: ["admin"] }
+  ];
+  bool include_inactive = 4 [
+    (sebuf.http.query) = { name: "include_inactive" },
+    (sebuf.http.field_examples) = { values: ["false"] }
+  ];
+}
+
+// ListUsersResponse contains paginated users.
+message ListUsersResponse {
+  repeated User users = 1;
+  Pagination pagination = 2;
+}
+
+// ListAllUsersRequest for admin to list all users across tenants.
+message ListAllUsersRequest {
+  int32 page = 1 [
+    (sebuf.http.query) = { name: "page" },
+    (buf.validate.field).int32 = { gte: 1 },
+    (sebuf.http.field_examples) = { values: ["1"] }
+  ];
+  int32 limit = 2 [
+    (sebuf.http.query) = { name: "limit" },
+    (buf.validate.field).int32 = { gte: 1, lte: 100 },
+    (sebuf.http.field_examples) = { values: ["20"] }
+  ];
+  string tenant_filter = 3 [
+    (sebuf.http.query) = { name: "tenant" },
+    (sebuf.http.field_examples) = { values: ["tenant-abc123"] }
+  ];
+}
+
+// ListAllUsersResponse contains users across all tenants.
+message ListAllUsersResponse {
+  repeated User users = 1;
+  Pagination pagination = 2;
+}
+
+// ImpersonateUserRequest for admin to impersonate a user.
+message ImpersonateUserRequest {
+  string user_id = 1 [
+    (buf.validate.field).string = { min_len: 1 },
+    (sebuf.http.field_examples) = { values: ["user-xyz789"] }
+  ];
+}
+
+// ImpersonateUserResponse with impersonation token.
+message ImpersonateUserResponse {
+  string impersonation_token = 1;
+  User user = 2;
+  int64 expires_at = 3;
+}

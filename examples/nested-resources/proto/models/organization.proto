@@ -1,0 +1,502 @@
+syntax = "proto3";
+
+package nested_resources.models;
+
+import "buf/validate/validate.proto";
+import "sebuf/http/annotations.proto";
+
+option go_package = "github.com/SebastienMelki/sebuf/examples/nested-resources/api/proto/models;models";
+
+// MemberRole represents the role of a team member.
+enum MemberRole {
+  MEMBER_ROLE_UNSPECIFIED = 0;
+  MEMBER_ROLE_MEMBER = 1;
+  MEMBER_ROLE_ADMIN = 2;
+  MEMBER_ROLE_OWNER = 3;
+}
+
+// ProjectStatus represents the lifecycle state of a project.
+enum ProjectStatus {
+  PROJECT_STATUS_UNSPECIFIED = 0;
+  PROJECT_STATUS_PLANNING = 1;
+  PROJECT_STATUS_ACTIVE = 2;
+  PROJECT_STATUS_ON_HOLD = 3;
+  PROJECT_STATUS_COMPLETED = 4;
+  PROJECT_STATUS_ARCHIVED = 5;
+}
+
+// Organization represents a top-level organization entity.
+message Organization {
+  // Unique organization identifier.
+  string id = 1 [(sebuf.http.field_examples) = { values: ["org-abc123"] }];
+
+  // Organization name.
+  string name = 2 [(sebuf.http.field_examples) = { values: ["Acme Corporation"] }];
+
+  // URL-friendly slug.
+  string slug = 3 [(sebuf.http.field_examples) = { values: ["acme-corp"] }];
+
+  // Organization description.
+  string description = 4 [(sebuf.http.field_examples) = { values: ["Leading provider of innovative solutions"] }];
+
+  // Website URL.
+  string website = 5 [(sebuf.http.field_examples) = { values: ["https://acme.example.com"] }];
+
+  // Number of teams in this organization.
+  int32 team_count = 6 [(sebuf.http.field_examples) = { values: ["5"] }];
+
+  // Number of members across all teams.
+  int32 member_count = 7 [(sebuf.http.field_examples) = { values: ["42"] }];
+
+  // Creation timestamp.
+  int64 created_at = 8 [(sebuf.http.field_examples) = { values: ["1699900000"] }];
+}
+
+// Team represents a team within an organization.
+message Team {
+  // Unique team identifier.
+  string id = 1 [(sebuf.http.field_examples) = { values: ["team-xyz789"] }];
+
+  // Parent organization ID.
+  string org_id = 2 [(sebuf.http.field_examples) = { values: ["org-abc123"] }];
+
+  // Team name.
+  string name = 3 [(sebuf.http.field_examples) = { values: ["Engineering"] }];
+
+  // Team description.
+  string description = 4 [(sebuf.http.field_examples) = { values: ["Core engineering team"] }];
+
+  // Whether the team is private.
+  bool private = 5 [(sebuf.http.field_examples) = { values: ["false"] }];
+
+  // Number of members in this team.
+  int32 member_count = 6 [(sebuf.http.field_examples) = { values: ["8"] }];
+
+  // Number of projects owned by this team.
+  int32 project_count = 7 [(sebuf.http.field_examples) = { values: ["3"] }];
+
+  // Creation timestamp.
+  int64 created_at = 8 [(sebuf.http.field_examples) = { values: ["1699900000"] }];
+}
+
+// Member represents a team membership.
+message Member {
+  // Unique member record identifier.
+  string id = 1 [(sebuf.http.field_examples) = { values: ["member-456"] }];
+
+  // User ID of the member.
+  string user_id = 2 [(sebuf.http.field_examples) = { values: ["user-john123"] }];
+
+  // User display name.
+  string user_name = 3 [(sebuf.http.field_examples) = { values: ["John Doe"] }];
+
+  // User email.
+  string user_email = 4 [(sebuf.http.field_examples) = { values: ["john@example.com"] }];
+
+  // Team ID this membership belongs to.
+  string team_id = 5 [(sebuf.http.field_examples) = { values: ["team-xyz789"] }];
+
+  // Organization ID.
+  string org_id = 6 [(sebuf.http.field_examples) = { values: ["org-abc123"] }];
+
+  // Member's role in the team.
+  MemberRole role = 7;
+
+  // When the member joined.
+  int64 joined_at = 8 [(sebuf.http.field_examples) = { values: ["1699900000"] }];
+}
+
+// Project represents a project within a team.
+message Project {
+  // Unique project identifier.
+  string id = 1 [(sebuf.http.field_examples) = { values: ["proj-def456"] }];
+
+  // Team ID that owns this project.
+  string team_id = 2 [(sebuf.http.field_examples) = { values: ["team-xyz789"] }];
+
+  // Organization ID.
+  string org_id = 3 [(sebuf.http.field_examples) = { values: ["org-abc123"] }];
+
+  // Project name.
+  string name = 4 [(sebuf.http.field_examples) = { values: ["API Redesign"] }];
+
+  // Project description.
+  string description = 5 [(sebuf.http.field_examples) = { values: ["Redesign the core API for v2"] }];
+
+  // Project status.
+  ProjectStatus status = 6;
+
+  // Project tags.
+  repeated string tags = 7 [(sebuf.http.field_examples) = { values: ["api", "high-priority"] }];
+
+  // Creation timestamp.
+  int64 created_at = 8 [(sebuf.http.field_examples) = { values: ["1699900000"] }];
+
+  // Last update timestamp.
+  int64 updated_at = 9 [(sebuf.http.field_examples) = { values: ["1699900000"] }];
+}
+
+// === Organization Requests ===
+
+// ListOrganizationsRequest for listing organizations with pagination.
+message ListOrganizationsRequest {
+  // Page number.
+  int32 page = 1 [
+    (sebuf.http.query) = { name: "page" },
+    (buf.validate.field).int32 = { gte: 1 },
+    (sebuf.http.field_examples) = { values: ["1"] }
+  ];
+
+  // Items per page.
+  int32 limit = 2 [
+    (sebuf.http.query) = { name: "limit" },
+    (buf.validate.field).int32 = { gte: 1, lte: 100 },
+    (sebuf.http.field_examples) = { values: ["20"] }
+  ];
+
+  // Search by name.
+  string search = 3 [
+    (sebuf.http.query) = { name: "q" },
+    (sebuf.http.field_examples) = { values: ["acme"] }
+  ];
+}
+
+// ListOrganizationsResponse contains paginated organizations.
+message ListOrganizationsResponse {
+  repeated Organization organizations = 1;
+  int32 total_count = 2;
+  int32 page = 3;
+  int32 total_pages = 4;
+}
+
+// GetOrganizationRequest for retrieving a single organization.
+message GetOrganizationRequest {
+  // Organization ID from path.
+  string org_id = 1 [
+    (buf.validate.field).string = { min_len: 1 },
+    (sebuf.http.field_examples) = { values: ["org-abc123"] }
+  ];
+}
+
+// CreateOrganizationRequest for creating a new organization.
+message CreateOrganizationRequest {
+  // Organization name.
+  string name = 1 [
+    (buf.validate.field).string = { min_len: 2, max_len: 100 },
+    (sebuf.http.field_examples) = { values: ["Acme Corporation"] }
+  ];
+
+  // URL-friendly slug.
+  string slug = 2 [
+    (buf.validate.field).string.pattern = "^[a-z0-9-]{2,50}$",
+    (sebuf.http.field_examples) = { values: ["acme-corp"] }
+  ];
+
+  // Description.
+  string description = 3 [
+    (buf.validate.field).string = { max_len: 500 },
+    (sebuf.http.field_examples) = { values: ["Leading provider of innovative solutions"] }
+  ];
+
+  // Website URL.
+  string website = 4 [
+    (sebuf.http.field_examples) = { values: ["https://acme.example.com"] }
+  ];
+}
+
+// === Team Requests (nested under organization) ===
+
+// ListTeamsRequest for listing teams within an organization.
+message ListTeamsRequest {
+  // Organization ID from path.
+  string org_id = 1 [
+    (buf.validate.field).string = { min_len: 1 },
+    (sebuf.http.field_examples) = { values: ["org-abc123"] }
+  ];
+
+  // Page number.
+  int32 page = 2 [
+    (sebuf.http.query) = { name: "page" },
+    (buf.validate.field).int32 = { gte: 1 },
+    (sebuf.http.field_examples) = { values: ["1"] }
+  ];
+
+  // Items per page.
+  int32 limit = 3 [
+    (sebuf.http.query) = { name: "limit" },
+    (buf.validate.field).int32 = { gte: 1, lte: 100 },
+    (sebuf.http.field_examples) = { values: ["20"] }
+  ];
+
+  // Include private teams.
+  bool include_private = 4 [
+    (sebuf.http.query) = { name: "include_private" },
+    (sebuf.http.field_examples) = { values: ["false"] }
+  ];
+}
+
+// ListTeamsResponse contains paginated teams.
+message ListTeamsResponse {
+  repeated Team teams = 1;
+  int32 total_count = 2;
+  int32 page = 3;
+  int32 total_pages = 4;
+}
+
+// GetTeamRequest for retrieving a single team.
+message GetTeamRequest {
+  // Organization ID from path.
+  string org_id = 1 [
+    (buf.validate.field).string = { min_len: 1 },
+    (sebuf.http.field_examples) = { values: ["org-abc123"] }
+  ];
+
+  // Team ID from path.
+  string team_id = 2 [
+    (buf.validate.field).string = { min_len: 1 },
+    (sebuf.http.field_examples) = { values: ["team-xyz789"] }
+  ];
+}
+
+// CreateTeamRequest for creating a new team.
+message CreateTeamRequest {
+  // Organization ID from path.
+  string org_id = 1 [
+    (buf.validate.field).string = { min_len: 1 },
+    (sebuf.http.field_examples) = { values: ["org-abc123"] }
+  ];
+
+  // Team name.
+  string name = 2 [
+    (buf.validate.field).string = { min_len: 2, max_len: 100 },
+    (sebuf.http.field_examples) = { values: ["Engineering"] }
+  ];
+
+  // Team description.
+  string description = 3 [
+    (buf.validate.field).string = { max_len: 500 },
+    (sebuf.http.field_examples) = { values: ["Core engineering team"] }
+  ];
+
+  // Whether the team is private.
+  bool private = 4 [(sebuf.http.field_examples) = { values: ["false"] }];
+}
+
+// === Member Requests (nested under team) ===
+
+// ListTeamMembersRequest for listing members within a team.
+message ListTeamMembersRequest {
+  // Organization ID from path.
+  string org_id = 1 [
+    (buf.validate.field).string = { min_len: 1 },
+    (sebuf.http.field_examples) = { values: ["org-abc123"] }
+  ];
+
+  // Team ID from path.
+  string team_id = 2 [
+    (buf.validate.field).string = { min_len: 1 },
+    (sebuf.http.field_examples) = { values: ["team-xyz789"] }
+  ];
+
+  // Page number.
+  int32 page = 3 [
+    (sebuf.http.query) = { name: "page" },
+    (buf.validate.field).int32 = { gte: 1 },
+    (sebuf.http.field_examples) = { values: ["1"] }
+  ];
+
+  // Items per page.
+  int32 limit = 4 [
+    (sebuf.http.query) = { name: "limit" },
+    (buf.validate.field).int32 = { gte: 1, lte: 100 },
+    (sebuf.http.field_examples) = { values: ["20"] }
+  ];
+
+  // Filter by role.
+  string role_filter = 5 [
+    (sebuf.http.query) = { name: "role" },
+    (sebuf.http.field_examples) = { values: ["admin"] }
+  ];
+}
+
+// ListTeamMembersResponse contains paginated members.
+message ListTeamMembersResponse {
+  repeated Member members = 1;
+  int32 total_count = 2;
+  int32 page = 3;
+  int32 total_pages = 4;
+}
+
+// GetTeamMemberRequest for retrieving a single member.
+message GetTeamMemberRequest {
+  // Organization ID from path.
+  string org_id = 1 [
+    (buf.validate.field).string = { min_len: 1 },
+    (sebuf.http.field_examples) = { values: ["org-abc123"] }
+  ];
+
+  // Team ID from path.
+  string team_id = 2 [
+    (buf.validate.field).string = { min_len: 1 },
+    (sebuf.http.field_examples) = { values: ["team-xyz789"] }
+  ];
+
+  // Member ID from path.
+  string member_id = 3 [
+    (buf.validate.field).string = { min_len: 1 },
+    (sebuf.http.field_examples) = { values: ["member-456"] }
+  ];
+}
+
+// AddTeamMemberRequest for adding a member to a team.
+message AddTeamMemberRequest {
+  // Organization ID from path.
+  string org_id = 1 [
+    (buf.validate.field).string = { min_len: 1 },
+    (sebuf.http.field_examples) = { values: ["org-abc123"] }
+  ];
+
+  // Team ID from path.
+  string team_id = 2 [
+    (buf.validate.field).string = { min_len: 1 },
+    (sebuf.http.field_examples) = { values: ["team-xyz789"] }
+  ];
+
+  // User ID to add.
+  string user_id = 3 [
+    (buf.validate.field).string = { min_len: 1 },
+    (sebuf.http.field_examples) = { values: ["user-john123"] }
+  ];
+
+  // Role for the new member.
+  MemberRole role = 4;
+}
+
+// RemoveTeamMemberRequest for removing a member from a team.
+message RemoveTeamMemberRequest {
+  // Organization ID from path.
+  string org_id = 1 [
+    (buf.validate.field).string = { min_len: 1 },
+    (sebuf.http.field_examples) = { values: ["org-abc123"] }
+  ];
+
+  // Team ID from path.
+  string team_id = 2 [
+    (buf.validate.field).string = { min_len: 1 },
+    (sebuf.http.field_examples) = { values: ["team-xyz789"] }
+  ];
+
+  // Member ID from path.
+  string member_id = 3 [
+    (buf.validate.field).string = { min_len: 1 },
+    (sebuf.http.field_examples) = { values: ["member-456"] }
+  ];
+}
+
+// RemoveTeamMemberResponse after removing a member.
+message RemoveTeamMemberResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+// === Project Requests (nested under team) ===
+
+// ListProjectsRequest for listing projects within a team.
+message ListProjectsRequest {
+  // Organization ID from path.
+  string org_id = 1 [
+    (buf.validate.field).string = { min_len: 1 },
+    (sebuf.http.field_examples) = { values: ["org-abc123"] }
+  ];
+
+  // Team ID from path.
+  string team_id = 2 [
+    (buf.validate.field).string = { min_len: 1 },
+    (sebuf.http.field_examples) = { values: ["team-xyz789"] }
+  ];
+
+  // Page number.
+  int32 page = 3 [
+    (sebuf.http.query) = { name: "page" },
+    (buf.validate.field).int32 = { gte: 1 },
+    (sebuf.http.field_examples) = { values: ["1"] }
+  ];
+
+  // Items per page.
+  int32 limit = 4 [
+    (sebuf.http.query) = { name: "limit" },
+    (buf.validate.field).int32 = { gte: 1, lte: 100 },
+    (sebuf.http.field_examples) = { values: ["20"] }
+  ];
+
+  // Filter by status.
+  string status_filter = 5 [
+    (sebuf.http.query) = { name: "status" },
+    (sebuf.http.field_examples) = { values: ["active"] }
+  ];
+}
+
+// ListProjectsResponse contains paginated projects.
+message ListProjectsResponse {
+  repeated Project projects = 1;
+  int32 total_count = 2;
+  int32 page = 3;
+  int32 total_pages = 4;
+}
+
+// GetProjectRequest for retrieving a single project.
+message GetProjectRequest {
+  // Organization ID from path.
+  string org_id = 1 [
+    (buf.validate.field).string = { min_len: 1 },
+    (sebuf.http.field_examples) = { values: ["org-abc123"] }
+  ];
+
+  // Team ID from path.
+  string team_id = 2 [
+    (buf.validate.field).string = { min_len: 1 },
+    (sebuf.http.field_examples) = { values: ["team-xyz789"] }
+  ];
+
+  // Project ID from path.
+  string project_id = 3 [
+    (buf.validate.field).string = { min_len: 1 },
+    (sebuf.http.field_examples) = { values: ["proj-def456"] }
+  ];
+}
+
+// CreateProjectRequest for creating a new project.
+message CreateProjectRequest {
+  // Organization ID from path.
+  string org_id = 1 [
+    (buf.validate.field).string = { min_len: 1 },
+    (sebuf.http.field_examples) = { values: ["org-abc123"] }
+  ];
+
+  // Team ID from path.
+  string team_id = 2 [
+    (buf.validate.field).string = { min_len: 1 },
+    (sebuf.http.field_examples) = { values: ["team-xyz789"] }
+  ];
+
+  // Project name.
+  string name = 3 [
+    (buf.validate.field).string = { min_len: 2, max_len: 100 },
+    (sebuf.http.field_examples) = { values: ["API Redesign"] }
+  ];
+
+  // Project description.
+  string description = 4 [
+    (buf.validate.field).string = { max_len: 1000 },
+    (sebuf.http.field_examples) = { values: ["Redesign the core API for v2"] }
+  ];
+
+  // Initial status.
+  ProjectStatus status = 5;
+
+  // Project tags.
+  repeated string tags = 6 [
+    (buf.validate.field).repeated = { max_items: 10 },
+    (sebuf.http.field_examples) = { values: ["api", "high-priority"] }
+  ];
+}
