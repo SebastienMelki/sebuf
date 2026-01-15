@@ -1,0 +1,50 @@
+// Test proto file for backward compatibility testing
+// Services without HTTP annotations should continue to work
+syntax = "proto3";
+
+package test.httpgen.compat;
+
+option go_package = "github.com/SebastienMelki/sebuf/internal/httpgen/testdata/generated;generated";
+
+// Service without any HTTP annotations - should use defaults
+service NoAnnotationsService {
+  rpc SimpleAction(SimpleRequest) returns (SimpleResponse);
+  rpc AnotherAction(AnotherRequest) returns (AnotherResponse);
+}
+
+// Service with only base_path but no method annotations
+service BasePathOnlyService {
+  option (sebuf.http.service_config) = {
+    base_path: "/api/v2"
+  };
+
+  rpc ActionOne(ActionRequest) returns (ActionResponse);
+  rpc ActionTwo(ActionRequest) returns (ActionResponse);
+}
+
+message SimpleRequest {
+  string input = 1;
+}
+
+message SimpleResponse {
+  string output = 1;
+}
+
+message AnotherRequest {
+  int32 value = 1;
+}
+
+message AnotherResponse {
+  int32 result = 1;
+}
+
+message ActionRequest {
+  string name = 1;
+}
+
+message ActionResponse {
+  bool success = 1;
+}
+
+// Import is needed for sebuf.http.service_config
+import "sebuf/http/annotations.proto";

@@ -1,0 +1,190 @@
+// Test proto file for comprehensive HTTP verb testing in httpgen
+syntax = "proto3";
+
+package test.httpgen;
+
+option go_package = "github.com/SebastienMelki/sebuf/internal/httpgen/testdata/generated;generated";
+
+import "sebuf/http/annotations.proto";
+import "sebuf/http/headers.proto";
+
+// RESTfulAPIService tests all HTTP verbs with various parameter combinations
+service RESTfulAPIService {
+  option (sebuf.http.service_config) = {
+    base_path: "/api/v1"
+  };
+
+  option (sebuf.http.service_headers) = {
+    required_headers: [
+      {
+        name: "X-API-Key"
+        description: "API key for authentication"
+        type: "string"
+        required: true
+        format: "uuid"
+      }
+    ]
+  };
+
+  // GET - List all resources with query parameters
+  rpc ListResources(ListResourcesRequest) returns (ListResourcesResponse) {
+    option (sebuf.http.config) = {
+      path: "/resources"
+      method: HTTP_METHOD_GET
+    };
+  }
+
+  // GET - Get single resource with path parameter
+  rpc GetResource(GetResourceRequest) returns (Resource) {
+    option (sebuf.http.config) = {
+      path: "/resources/{resource_id}"
+      method: HTTP_METHOD_GET
+    };
+  }
+
+  // GET - Nested resource with multiple path parameters
+  rpc GetNestedResource(GetNestedResourceRequest) returns (Resource) {
+    option (sebuf.http.config) = {
+      path: "/orgs/{org_id}/teams/{team_id}/resources/{resource_id}"
+      method: HTTP_METHOD_GET
+    };
+  }
+
+  // POST - Create new resource with request body
+  rpc CreateResource(CreateResourceRequest) returns (Resource) {
+    option (sebuf.http.config) = {
+      path: "/resources"
+      method: HTTP_METHOD_POST
+    };
+    option (sebuf.http.method_headers) = {
+      required_headers: [
+        {
+          name: "X-Request-ID"
+          type: "string"
+          format: "uuid"
+          required: true
+        }
+      ]
+    };
+  }
+
+  // PUT - Full update with path param and body
+  rpc UpdateResource(UpdateResourceRequest) returns (Resource) {
+    option (sebuf.http.config) = {
+      path: "/resources/{resource_id}"
+      method: HTTP_METHOD_PUT
+    };
+  }
+
+  // PATCH - Partial update with path param and body
+  rpc PatchResource(PatchResourceRequest) returns (Resource) {
+    option (sebuf.http.config) = {
+      path: "/resources/{resource_id}"
+      method: HTTP_METHOD_PATCH
+    };
+  }
+
+  // DELETE - Delete resource with path parameter
+  rpc DeleteResource(DeleteResourceRequest) returns (DeleteResourceResponse) {
+    option (sebuf.http.config) = {
+      path: "/resources/{resource_id}"
+      method: HTTP_METHOD_DELETE
+    };
+  }
+
+  // Default POST - Method without explicit HTTP method should default to POST
+  rpc DefaultPostMethod(DefaultPostRequest) returns (DefaultPostResponse) {
+    option (sebuf.http.config) = {
+      path: "/legacy/action"
+    };
+  }
+}
+
+// BackwardCompatService tests backward compatibility (no HTTP annotations)
+service BackwardCompatService {
+  // No service_config - should use default paths
+
+  // RPC without HTTP config - should default to POST
+  rpc LegacyAction(LegacyRequest) returns (LegacyResponse);
+}
+
+// Request/Response messages
+
+message ListResourcesRequest {
+  // Query parameters
+  int32 page = 1 [(sebuf.http.query) = { name: "page" }];
+  int32 page_size = 2 [(sebuf.http.query) = { name: "page_size" }];
+  string filter = 3 [(sebuf.http.query) = { name: "filter" }];
+  bool include_deleted = 4 [(sebuf.http.query) = { name: "include_deleted" }];
+}
+
+message ListResourcesResponse {
+  repeated Resource resources = 1;
+  int32 total_count = 2;
+  int32 page = 3;
+}
+
+message GetResourceRequest {
+  string resource_id = 1; // Path parameter - bound to {resource_id}
+}
+
+message GetNestedResourceRequest {
+  string org_id = 1;      // Path parameter
+  string team_id = 2;     // Path parameter
+  string resource_id = 3; // Path parameter
+}
+
+message CreateResourceRequest {
+  string name = 1;
+  string description = 2;
+  map<string, string> metadata = 3;
+}
+
+message UpdateResourceRequest {
+  string resource_id = 1; // Path parameter
+  // Body fields
+  string name = 2;
+  string description = 3;
+  map<string, string> metadata = 4;
+}
+
+message PatchResourceRequest {
+  string resource_id = 1; // Path parameter
+  // Fields for partial update (presence tracked via wrapper or empty check)
+  string name = 2;
+  string description = 3;
+}
+
+message DeleteResourceRequest {
+  string resource_id = 1; // Path parameter
+}
+
+message DeleteResourceResponse {
+  bool success = 1;
+}
+
+message DefaultPostRequest {
+  string action = 1;
+}
+
+message DefaultPostResponse {
+  string result = 1;
+}
+
+message LegacyRequest {
+  string data = 1;
+}
+
+message LegacyResponse {
+  string result = 1;
+}
+
+// Shared resource message
+message Resource {
+  string id = 1;
+  string name = 2;
+  string description = 3;
+  map<string, string> metadata = 4;
+  int64 created_at = 5;
+  int64 updated_at = 6;
+}

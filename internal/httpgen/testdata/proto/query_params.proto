@@ -1,0 +1,89 @@
+// Test proto file for query parameter variations
+syntax = "proto3";
+
+package test.httpgen.query;
+
+option go_package = "github.com/SebastienMelki/sebuf/internal/httpgen/testdata/generated;generated";
+
+import "sebuf/http/annotations.proto";
+
+// QueryParamService tests various query parameter configurations
+service QueryParamService {
+  option (sebuf.http.service_config) = {
+    base_path: "/api"
+  };
+
+  // All scalar types as query params
+  rpc SearchWithTypes(SearchWithTypesRequest) returns (SearchResponse) {
+    option (sebuf.http.config) = {
+      path: "/search/typed"
+      method: HTTP_METHOD_GET
+    };
+  }
+
+  // Required vs optional query params
+  rpc SearchRequired(SearchRequiredRequest) returns (SearchResponse) {
+    option (sebuf.http.config) = {
+      path: "/search/required"
+      method: HTTP_METHOD_GET
+    };
+  }
+
+  // Custom query param names
+  rpc SearchCustomNames(SearchCustomNamesRequest) returns (SearchResponse) {
+    option (sebuf.http.config) = {
+      path: "/search/custom"
+      method: HTTP_METHOD_GET
+    };
+  }
+
+  // Mixed path and query params
+  rpc GetWithFilters(GetWithFiltersRequest) returns (SearchResponse) {
+    option (sebuf.http.config) = {
+      path: "/resources/{resource_id}/items"
+      method: HTTP_METHOD_GET
+    };
+  }
+}
+
+message SearchWithTypesRequest {
+  // Different scalar types as query params
+  string query = 1 [(sebuf.http.query) = { name: "q" }];
+  int32 limit = 2 [(sebuf.http.query) = { name: "limit" }];
+  int64 offset = 3 [(sebuf.http.query) = { name: "offset" }];
+  bool active = 4 [(sebuf.http.query) = { name: "active" }];
+  float min_score = 5 [(sebuf.http.query) = { name: "min_score" }];
+  double max_score = 6 [(sebuf.http.query) = { name: "max_score" }];
+  uint32 page = 7 [(sebuf.http.query) = { name: "page" }];
+  uint64 timestamp = 8 [(sebuf.http.query) = { name: "ts" }];
+}
+
+message SearchRequiredRequest {
+  // Required query param
+  string query = 1 [(sebuf.http.query) = { name: "q", required: true }];
+  // Optional query params
+  int32 page = 2 [(sebuf.http.query) = { name: "page" }];
+  int32 page_size = 3 [(sebuf.http.query) = { name: "page_size" }];
+}
+
+message SearchCustomNamesRequest {
+  // Field name differs from query param name
+  string search_term = 1 [(sebuf.http.query) = { name: "q" }];
+  int32 results_per_page = 2 [(sebuf.http.query) = { name: "limit" }];
+  int32 page_number = 3 [(sebuf.http.query) = { name: "page" }];
+  string sort_field = 4 [(sebuf.http.query) = { name: "sort" }];
+  bool descending_order = 5 [(sebuf.http.query) = { name: "desc" }];
+}
+
+message GetWithFiltersRequest {
+  // Path parameter
+  string resource_id = 1;
+  // Query parameters
+  string filter = 2 [(sebuf.http.query) = { name: "filter" }];
+  int32 limit = 3 [(sebuf.http.query) = { name: "limit" }];
+}
+
+message SearchResponse {
+  repeated string results = 1;
+  int32 total = 2;
+}
