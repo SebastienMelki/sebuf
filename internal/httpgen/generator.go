@@ -59,6 +59,13 @@ func (g *Generator) generateFile(file *protogen.File) error {
 		return nil
 	}
 
+	// Validate HTTP configurations - fail fast on any errors
+	for _, service := range file.Services {
+		if err := ValidateService(service); err != nil {
+			return fmt.Errorf("validation error: %w", err)
+		}
+	}
+
 	// Generate main HTTP file
 	if err := g.generateHTTPFile(file); err != nil {
 		return err
@@ -139,6 +146,7 @@ func (g *Generator) generateService(gf *protogen.GeneratedFile, file *protogen.F
 
 	for i, method := range service.Methods {
 		httpPath := g.getMethodPath(method, basePath, file.GoPackageName)
+		httpMethod := g.getHTTPMethod(method)
 
 		handlerName := fmt.Sprintf("%sHandler", lowerFirst(method.GoName))
 		if i == 0 {
@@ -148,9 +156,11 @@ func (g *Generator) generateService(gf *protogen.GeneratedFile, file *protogen.F
 		}
 		gf.P(handlerName, " := BindingMiddleware[", method.Input.GoIdent, "](")
 		gf.P("genericHandler(server.", method.GoName, "), serviceHeaders, methodHeaders,")
+		gf.P(lowerFirst(method.GoName), "PathParams, ", lowerFirst(method.GoName), "QueryParams,")
+		gf.P(`"`, httpMethod, `",`)
 		gf.P(")")
 		gf.P()
-		gf.P(`config.mux.Handle("POST `, httpPath, `", `, handlerName, `)`)
+		gf.P(`config.mux.Handle("`, httpMethod, ` `, httpPath, `", `, handlerName, `)`)
 		gf.P()
 	}
 
@@ -160,6 +170,11 @@ func (g *Generator) generateService(gf *protogen.GeneratedFile, file *protogen.F
 
 	// Generate header getter functions
 	if err := g.generateHeaderGetters(gf, service); err != nil {
+		return err
+	}
+
+	// Generate path and query param configs
+	if err := g.generateParamConfigs(gf, service); err != nil {
 		return err
 	}
 
@@ -189,6 +204,7 @@ func (g *Generator) generateBindingFile(file *protogen.File) error {
 	gf.P(`protovalidate "buf.build/go/protovalidate"`)
 	gf.P(`"google.golang.org/protobuf/encoding/protojson"`)
 	gf.P(`"google.golang.org/protobuf/proto"`)
+	gf.P(`"google.golang.org/protobuf/reflect/protoreflect"`)
 	gf.P()
 	gf.P(`sebufhttp "github.com/SebastienMelki/sebuf/http"`)
 	gf.P(")")
@@ -209,6 +225,23 @@ func (g *Generator) generateBindingFile(file *protogen.File) error {
 	gf.P("type bodyCtxKey struct{}")
 	gf.P()
 
+	// PathParamConfig type
+	gf.P("// PathParamConfig defines configuration for a path parameter.")
+	gf.P("type PathParamConfig struct {")
+	gf.P("URLParam  string // Parameter name in URL path")
+	gf.P("FieldName string // Proto field name to bind to")
+	gf.P("}")
+	gf.P()
+
+	// QueryParamConfig type
+	gf.P("// QueryParamConfig defines configuration for a query parameter.")
+	gf.P("type QueryParamConfig struct {")
+	gf.P("QueryName string // Parameter name in query string")
+	gf.P("FieldName string // Proto field name to bind to")
+	gf.P("Required  bool   // Whether this parameter is required")
+	gf.P("}")
+	gf.P()
+
 	// getRequest function
 	gf.P("func getRequest[Req any](ctx context.Context) Req {")
 	gf.P("val := ctx.Value(bodyCtxKey{})")
@@ -222,10 +255,10 @@ func (g *Generator) generateBindingFile(file *protogen.File) error {
 
 	// BindingMiddleware function
 	gf.P("// BindingMiddleware creates a middleware that binds HTTP requests to protobuf messages")
-	gf.P("// and validates them using protovalidate and header validation")
-	gf.P(
-		"func BindingMiddleware[Req any](next http.Handler, serviceHeaders, methodHeaders []*sebufhttp.Header) http.Handler {",
-	)
+	gf.P("// and validates them using protovalidate and header validation.")
+	gf.P("// It supports path parameters, query parameters, and request body binding.")
+	gf.P("func BindingMiddleware[Req any](next http.Handler, serviceHeaders, methodHeaders []*sebufhttp.Header,")
+	gf.P("pathParams []PathParamConfig, queryParams []QueryParamConfig, httpMethod string) http.Handler {")
 	gf.P("return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {")
 	gf.P("// Validate headers first")
 	gf.P("if validationErr := validateHeaders(r, serviceHeaders, methodHeaders); validationErr != nil {")
@@ -235,6 +268,22 @@ func (g *Generator) generateBindingFile(file *protogen.File) error {
 	gf.P()
 	gf.P("toBind := new(Req)")
 	gf.P()
+	gf.P("// Bind path parameters")
+	gf.P("if msg, ok := any(toBind).(proto.Message); ok {")
+	gf.P("if err := bindPathParams(r, msg, pathParams); err != nil {")
+	gf.P("writeValidationErrorResponse(w, r, err)")
+	gf.P("return")
+	gf.P("}")
+	gf.P()
+	gf.P("// Bind query parameters")
+	gf.P("if err := bindQueryParams(r, msg, queryParams); err != nil {")
+	gf.P("writeValidationErrorResponse(w, r, err)")
+	gf.P("return")
+	gf.P("}")
+	gf.P("}")
+	gf.P()
+	gf.P("// Bind body only for POST, PUT, PATCH methods")
+	gf.P(`if httpMethod == "POST" || httpMethod == "PUT" || httpMethod == "PATCH" {`)
 	gf.P("err := bindDataBasedOnContentType(r, toBind)")
 	gf.P("if err != nil {")
 	gf.P("// For binding errors, return a simple validation error")
@@ -249,8 +298,9 @@ func (g *Generator) generateBindingFile(file *protogen.File) error {
 	gf.P("writeValidationErrorResponse(w, r, validationErr)")
 	gf.P("return")
 	gf.P("}")
+	gf.P("}")
 	gf.P()
-	gf.P("// Validate the message if it's a proto.Message")
+	gf.P("// Validate the complete message")
 	gf.P("if msg, ok := any(toBind).(proto.Message); ok {")
 	gf.P("if err := ValidateMessage(msg); err != nil {")
 	gf.P("writeValidationError(w, r, err)")
@@ -337,6 +387,166 @@ func (g *Generator) generateBindingFile(file *protogen.File) error {
 	gf.P(`return fmt.Errorf("could not unmarshal binary request: %w", err)`)
 	gf.P("}")
 	gf.P("return nil")
+	gf.P("}")
+	gf.P()
+
+	// bindPathParams function - binds URL path parameters to proto message fields
+	gf.P("// bindPathParams binds URL path parameters to proto message fields using Go 1.22+ PathValue.")
+	gf.P("func bindPathParams(r *http.Request, msg proto.Message, params []PathParamConfig) *sebufhttp.ValidationError {")
+	gf.P("if len(params) == 0 {")
+	gf.P("return nil")
+	gf.P("}")
+	gf.P()
+	gf.P("reflectMsg := msg.ProtoReflect()")
+	gf.P("fields := reflectMsg.Descriptor().Fields()")
+	gf.P()
+	gf.P("for _, param := range params {")
+	gf.P("value := r.PathValue(param.URLParam)")
+	gf.P("if value == \"\" {")
+	gf.P("return &sebufhttp.ValidationError{")
+	gf.P("Violations: []*sebufhttp.FieldViolation{{")
+	gf.P(`Field: param.FieldName,`)
+	gf.P(`Description: fmt.Sprintf("missing required path parameter: %s", param.URLParam),`)
+	gf.P("}},")
+	gf.P("}")
+	gf.P("}")
+	gf.P()
+	gf.P("field := fields.ByName(protoreflect.Name(param.FieldName))")
+	gf.P("if field == nil {")
+	gf.P("continue // Field not found, skip")
+	gf.P("}")
+	gf.P()
+	gf.P("convertedValue, err := convertStringToFieldValue(value, field.Kind())")
+	gf.P("if err != nil {")
+	gf.P("return &sebufhttp.ValidationError{")
+	gf.P("Violations: []*sebufhttp.FieldViolation{{")
+	gf.P(`Field: param.FieldName,`)
+	gf.P(`Description: fmt.Sprintf("invalid value for path parameter %s: %v", param.URLParam, err),`)
+	gf.P("}},")
+	gf.P("}")
+	gf.P("}")
+	gf.P()
+	gf.P("reflectMsg.Set(field, convertedValue)")
+	gf.P("}")
+	gf.P()
+	gf.P("return nil")
+	gf.P("}")
+	gf.P()
+
+	// bindQueryParams function - binds URL query parameters to proto message fields
+	gf.P("// bindQueryParams binds URL query parameters to proto message fields.")
+	gf.P("func bindQueryParams(r *http.Request, msg proto.Message, params []QueryParamConfig) *sebufhttp.ValidationError {")
+	gf.P("if len(params) == 0 {")
+	gf.P("return nil")
+	gf.P("}")
+	gf.P()
+	gf.P("query := r.URL.Query()")
+	gf.P("reflectMsg := msg.ProtoReflect()")
+	gf.P("fields := reflectMsg.Descriptor().Fields()")
+	gf.P()
+	gf.P("for _, param := range params {")
+	gf.P("values := query[param.QueryName]")
+	gf.P("if len(values) == 0 {")
+	gf.P("if param.Required {")
+	gf.P("return &sebufhttp.ValidationError{")
+	gf.P("Violations: []*sebufhttp.FieldViolation{{")
+	gf.P(`Field: param.FieldName,`)
+	gf.P(`Description: fmt.Sprintf("missing required query parameter: %s", param.QueryName),`)
+	gf.P("}},")
+	gf.P("}")
+	gf.P("}")
+	gf.P("continue")
+	gf.P("}")
+	gf.P()
+	gf.P("field := fields.ByName(protoreflect.Name(param.FieldName))")
+	gf.P("if field == nil {")
+	gf.P("continue // Field not found, skip")
+	gf.P("}")
+	gf.P()
+	gf.P("// Handle repeated fields (arrays)")
+	gf.P("if field.IsList() {")
+	gf.P("list := reflectMsg.Mutable(field).List()")
+	gf.P("for _, v := range values {")
+	gf.P("converted, err := convertStringToFieldValue(v, field.Kind())")
+	gf.P("if err != nil {")
+	gf.P("return &sebufhttp.ValidationError{")
+	gf.P("Violations: []*sebufhttp.FieldViolation{{")
+	gf.P(`Field: param.FieldName,`)
+	gf.P(`Description: fmt.Sprintf("invalid value for query parameter %s: %v", param.QueryName, err),`)
+	gf.P("}},")
+	gf.P("}")
+	gf.P("}")
+	gf.P("list.Append(converted)")
+	gf.P("}")
+	gf.P("} else {")
+	gf.P("converted, err := convertStringToFieldValue(values[0], field.Kind())")
+	gf.P("if err != nil {")
+	gf.P("return &sebufhttp.ValidationError{")
+	gf.P("Violations: []*sebufhttp.FieldViolation{{")
+	gf.P(`Field: param.FieldName,`)
+	gf.P(`Description: fmt.Sprintf("invalid value for query parameter %s: %v", param.QueryName, err),`)
+	gf.P("}},")
+	gf.P("}")
+	gf.P("}")
+	gf.P("reflectMsg.Set(field, converted)")
+	gf.P("}")
+	gf.P("}")
+	gf.P()
+	gf.P("return nil")
+	gf.P("}")
+	gf.P()
+
+	// convertStringToFieldValue function - converts string values to protoreflect.Value
+	gf.P("// convertStringToFieldValue converts a string value to the appropriate protoreflect.Value.")
+	gf.P("func convertStringToFieldValue(value string, kind protoreflect.Kind) (protoreflect.Value, error) {")
+	gf.P("switch kind {")
+	gf.P("case protoreflect.StringKind:")
+	gf.P("return protoreflect.ValueOfString(value), nil")
+	gf.P("case protoreflect.Int32Kind, protoreflect.Sint32Kind, protoreflect.Sfixed32Kind:")
+	gf.P("v, err := strconv.ParseInt(value, 10, 32)")
+	gf.P("if err != nil {")
+	gf.P("return protoreflect.Value{}, err")
+	gf.P("}")
+	gf.P("return protoreflect.ValueOfInt32(int32(v)), nil")
+	gf.P("case protoreflect.Int64Kind, protoreflect.Sint64Kind, protoreflect.Sfixed64Kind:")
+	gf.P("v, err := strconv.ParseInt(value, 10, 64)")
+	gf.P("if err != nil {")
+	gf.P("return protoreflect.Value{}, err")
+	gf.P("}")
+	gf.P("return protoreflect.ValueOfInt64(v), nil")
+	gf.P("case protoreflect.Uint32Kind, protoreflect.Fixed32Kind:")
+	gf.P("v, err := strconv.ParseUint(value, 10, 32)")
+	gf.P("if err != nil {")
+	gf.P("return protoreflect.Value{}, err")
+	gf.P("}")
+	gf.P("return protoreflect.ValueOfUint32(uint32(v)), nil")
+	gf.P("case protoreflect.Uint64Kind, protoreflect.Fixed64Kind:")
+	gf.P("v, err := strconv.ParseUint(value, 10, 64)")
+	gf.P("if err != nil {")
+	gf.P("return protoreflect.Value{}, err")
+	gf.P("}")
+	gf.P("return protoreflect.ValueOfUint64(v), nil")
+	gf.P("case protoreflect.BoolKind:")
+	gf.P("v, err := strconv.ParseBool(value)")
+	gf.P("if err != nil {")
+	gf.P("return protoreflect.Value{}, err")
+	gf.P("}")
+	gf.P("return protoreflect.ValueOfBool(v), nil")
+	gf.P("case protoreflect.FloatKind:")
+	gf.P("v, err := strconv.ParseFloat(value, 32)")
+	gf.P("if err != nil {")
+	gf.P("return protoreflect.Value{}, err")
+	gf.P("}")
+	gf.P("return protoreflect.ValueOfFloat32(float32(v)), nil")
+	gf.P("case protoreflect.DoubleKind:")
+	gf.P("v, err := strconv.ParseFloat(value, 64)")
+	gf.P("if err != nil {")
+	gf.P("return protoreflect.Value{}, err")
+	gf.P("}")
+	gf.P("return protoreflect.ValueOfFloat64(v), nil")
+	gf.P("default:")
+	gf.P(`return protoreflect.Value{}, fmt.Errorf("unsupported field type: %v", kind)`)
+	gf.P("}")
 	gf.P("}")
 	gf.P()
 
@@ -519,6 +729,24 @@ func (g *Generator) getServiceBasePath(service *protogen.Service) string {
 		return config.BasePath
 	}
 	return ""
+}
+
+// getHTTPMethod returns the HTTP method for a method. Defaults to POST for backward compatibility.
+func (g *Generator) getHTTPMethod(method *protogen.Method) string {
+	config := getMethodHTTPConfig(method)
+	if config != nil && config.Method != "" {
+		return config.Method
+	}
+	return "POST"
+}
+
+// getPathParams extracts path parameter names from method configuration.
+func (g *Generator) getPathParams(method *protogen.Method) []string {
+	config := getMethodHTTPConfig(method)
+	if config != nil {
+		return config.PathParams
+	}
+	return nil
 }
 
 // Helper functions.
@@ -1023,6 +1251,35 @@ func (g *Generator) generateHeaderLiteral(gf *protogen.GeneratedFile, header *ht
 	gf.P(`Example: "`, header.GetExample(), `",`)
 	gf.P(`Deprecated: `, strconv.FormatBool(header.GetDeprecated()), `,`)
 	gf.P("},")
+}
+
+// generateParamConfigs generates path and query parameter configurations for each method.
+func (g *Generator) generateParamConfigs(gf *protogen.GeneratedFile, service *protogen.Service) error {
+	for _, method := range service.Methods {
+		methodName := lowerFirst(method.GoName)
+
+		// Generate path params config
+		pathParams := g.getPathParams(method)
+		gf.P("// ", methodName, "PathParams contains path parameter configuration for ", method.GoName)
+		gf.P("var ", methodName, "PathParams = []PathParamConfig{")
+		for _, param := range pathParams {
+			gf.P("{URLParam: \"", param, "\", FieldName: \"", param, "\"},")
+		}
+		gf.P("}")
+		gf.P()
+
+		// Generate query params config
+		queryParams := getQueryParams(method.Input)
+		gf.P("// ", methodName, "QueryParams contains query parameter configuration for ", method.GoName)
+		gf.P("var ", methodName, "QueryParams = []QueryParamConfig{")
+		for _, qp := range queryParams {
+			gf.P("{QueryName: \"", qp.ParamName, "\", FieldName: \"", qp.FieldName, "\", Required: ", strconv.FormatBool(qp.Required), "},")
+		}
+		gf.P("}")
+		gf.P()
+	}
+
+	return nil
 }
 
 func (g *Generator) generateErrorImplFile(file *protogen.File) error {
