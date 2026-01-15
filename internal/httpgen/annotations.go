@@ -1,6 +1,8 @@
 package httpgen
 
 import (
+	"regexp"
+
 	"google.golang.org/protobuf/compiler/protogen"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/descriptorpb"
@@ -8,9 +10,22 @@ import (
 	"github.com/SebastienMelki/sebuf/http"
 )
 
+// pathParamRegex matches path variables like {user_id} or {id}
+var pathParamRegex = regexp.MustCompile(`\{([^}]+)\}`)
+
 // HTTPConfig represents the HTTP configuration for a method.
 type HTTPConfig struct {
-	Path string
+	Path       string
+	Method     string   // "GET", "POST", "PUT", "DELETE", "PATCH"
+	PathParams []string // Path variable names extracted from path
+}
+
+// QueryParam represents a query parameter configuration extracted from a field.
+type QueryParam struct {
+	FieldName  string // Proto field name
+	FieldGoName string // Go field name
+	ParamName  string // Query parameter name
+	Required   bool
 }
 
 // ServiceConfigImpl represents the HTTP configuration for a service.
@@ -42,9 +57,49 @@ func getMethodHTTPConfig(method *protogen.Method) *HTTPConfig {
 		return nil
 	}
 
+	path := httpConfig.GetPath()
+
 	return &HTTPConfig{
-		Path: httpConfig.GetPath(),
+		Path:       path,
+		Method:     httpMethodToString(httpConfig.GetMethod()),
+		PathParams: extractPathParams(path),
 	}
+}
+
+// httpMethodToString converts HttpMethod enum to string. Returns "POST" for unspecified (backward compatibility).
+func httpMethodToString(m http.HttpMethod) string {
+	switch m {
+	case http.HttpMethod_HTTP_METHOD_GET:
+		return "GET"
+	case http.HttpMethod_HTTP_METHOD_POST:
+		return "POST"
+	case http.HttpMethod_HTTP_METHOD_PUT:
+		return "PUT"
+	case http.HttpMethod_HTTP_METHOD_DELETE:
+		return "DELETE"
+	case http.HttpMethod_HTTP_METHOD_PATCH:
+		return "PATCH"
+	default:
+		// HTTP_METHOD_UNSPECIFIED or any unknown value defaults to POST for backward compatibility
+		return "POST"
+	}
+}
+
+// extractPathParams parses path variables from a path string.
+// Example: "/users/{user_id}/posts/{post_id}" -> ["user_id", "post_id"]
+func extractPathParams(path string) []string {
+	matches := pathParamRegex.FindAllStringSubmatch(path, -1)
+	if len(matches) == 0 {
+		return nil
+	}
+
+	params := make([]string, 0, len(matches))
+	for _, match := range matches {
+		if len(match) > 1 {
+			params = append(params, match[1])
+		}
+	}
+	return params
 }
 
 // getServiceHTTPConfig extracts HTTP configuration from service options.
@@ -165,4 +220,46 @@ func getFieldExamples(field *protogen.Field) []string {
 	}
 
 	return fieldExamples.GetValues()
+}
+
+// getQueryParams extracts query parameter configurations from message fields.
+func getQueryParams(message *protogen.Message) []QueryParam {
+	var params []QueryParam
+
+	for _, field := range message.Fields {
+		options := field.Desc.Options()
+		if options == nil {
+			continue
+		}
+
+		fieldOptions, ok := options.(*descriptorpb.FieldOptions)
+		if !ok {
+			continue
+		}
+
+		ext := proto.GetExtension(fieldOptions, http.E_Query)
+		if ext == nil {
+			continue
+		}
+
+		queryConfig, ok := ext.(*http.QueryConfig)
+		if !ok || queryConfig == nil {
+			continue
+		}
+
+		// Use the configured name, or default to the proto field name
+		paramName := queryConfig.GetName()
+		if paramName == "" {
+			paramName = string(field.Desc.Name())
+		}
+
+		params = append(params, QueryParam{
+			FieldName:   string(field.Desc.Name()),
+			FieldGoName: field.GoName,
+			ParamName:   paramName,
+			Required:    queryConfig.GetRequired(),
+		})
+	}
+
+	return params
 }
