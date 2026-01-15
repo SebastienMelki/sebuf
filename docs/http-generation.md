@@ -1419,4 +1419,9 @@ The OpenAPI spec will automatically reflect your HTTP annotations and routing.
 **See also:**
 - [Getting Started Guide](./getting-started.md)
 - [Validation Guide](./validation.md)
-- [Simple Demo](./examples/)
+- [All Examples](./examples/)
+
+**Feature-specific examples:**
+- [restful-crud](../examples/restful-crud/) - All HTTP verbs, path params, query params
+- [nested-resources](../examples/nested-resources/) - Deep path nesting with multiple path params
+- [multi-service-api](../examples/multi-service-api/) - Service/method-level header validation

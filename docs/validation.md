@@ -605,6 +605,11 @@ sebuf validation is fully compatible with the protovalidate ecosystem:
 
 **Need help?**
 - Check the [protovalidate documentation](https://github.com/bufbuild/protovalidate) for body validation
-- See the [examples/simple-api](../examples/simple-api) for working examples
+- See the [validation-showcase example](../examples/validation-showcase/) for comprehensive validation patterns
 - Review [http-generation.md](./http-generation.md#header-validation) for header details
 - Open an issue on GitHub
+
+## Examples
+
+- **[validation-showcase](../examples/validation-showcase/)** - Comprehensive buf.validate patterns (string, numeric, array, map, nested)
+- **[multi-service-api](../examples/multi-service-api/)** - Service and method-level header validation

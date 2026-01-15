@@ -2,45 +2,136 @@
 
 > **Learn sebuf through working examples**
 
-## 🚀 Start here: Simple API
+## Quick Start: Simple API
 
 **Want to see sebuf in action immediately?**
 
 ```bash
-# Clone the repo and run the complete example
 git clone https://github.com/SebastienMelki/sebuf.git
 cd sebuf/examples/simple-api
 make demo
 ```
 
-This starts a working HTTP API with:
-- User management and authentication
-- Multiple auth methods (email, token, social)
-- Type-safe request construction
-- OpenAPI documentation
-- JSON and binary protobuf support
+This starts a working HTTP API with user management, authentication, and OpenAPI docs.
 
-**→ [Go to the Simple API Tutorial](../../examples/simple-api/)**
-
-## What the example shows
-
-✅ **HTTP handlers** from protobuf services  
-✅ **Oneof helpers** that eliminate boilerplate  
-✅ **OpenAPI docs** that stay in sync  
-✅ **Multiple content types** (JSON + binary protobuf)  
-✅ **Real authentication patterns**
-
-## More examples (coming soon)
-
-- **E-commerce API** - Product catalog, cart, checkout
-- **Chat API** - Real-time messaging with websockets  
-- **File Upload API** - Handle binary data and metadata
-- **Microservices** - Inter-service communication patterns
-
-## Want to contribute an example?
-
-We're looking for real-world examples that show sebuf solving actual problems. See [Contributing Guidelines](../../CONTRIBUTING.md).
+**[Go to Simple API Tutorial](../../examples/simple-api/)**
 
 ---
 
-**Start with the [Simple API Tutorial](../../examples/simple-api/) →**
+## All Examples
+
+| Example | Description | Key Features |
+|---------|-------------|--------------|
+| **[simple-api](../../examples/simple-api/)** | User authentication API | Oneof helpers, multiple auth methods, basic HTTP endpoints |
+| **[restful-crud](../../examples/restful-crud/)** | Product catalog API | GET, POST, PUT, PATCH, DELETE, path params, query params, pagination |
+| **[validation-showcase](../../examples/validation-showcase/)** | Order processing API | buf.validate patterns: string, numeric, array, map, nested validation |
+| **[nested-resources](../../examples/nested-resources/)** | Organization hierarchy API | Deep path nesting (3 levels), multiple path params per endpoint |
+| **[multi-service-api](../../examples/multi-service-api/)** | Multi-tenant platform | Multiple services, different auth levels, service/method headers |
+
+---
+
+## Example Details
+
+### simple-api
+Basic introduction to sebuf with user authentication.
+- Oneof helpers for type-safe authentication methods
+- JSON and binary protobuf support
+- OpenAPI documentation generation
+
+```bash
+cd examples/simple-api && make demo
+```
+
+### restful-crud
+Complete RESTful CRUD operations for a product catalog.
+- All HTTP verbs: GET, POST, PUT, PATCH, DELETE
+- Path parameters: `/products/{product_id}`
+- Query parameters: pagination, filtering, sorting
+- PUT vs PATCH semantics with optional fields
+
+```bash
+cd examples/restful-crud && make demo
+```
+
+### validation-showcase
+Comprehensive buf.validate validation patterns.
+- String: min_len, max_len, email, uuid, pattern (regex), enum
+- Numeric: gte, lte, gt, lt bounds
+- Array: min_items, max_items, unique items
+- Map: max_pairs, key/value validation
+- Nested message validation
+
+```bash
+cd examples/validation-showcase && make demo
+```
+
+### nested-resources
+Complex resource hierarchies with multiple path parameters.
+- Organization > Team > Member/Project hierarchy
+- Up to 3 path parameters per endpoint
+- GitHub-style nested resource URLs
+
+```bash
+cd examples/nested-resources && make demo
+```
+
+**Endpoints:**
+```
+GET  /api/v1/orgs/{org_id}/teams/{team_id}/members/{member_id}
+POST /api/v1/orgs/{org_id}/teams/{team_id}/projects
+```
+
+### multi-service-api
+Multiple services with different authentication requirements.
+- **PublicService** - No auth required (health, info)
+- **UserService** - User auth (Authorization + X-Tenant-ID)
+- **AdminService** - Admin auth with method-specific headers
+
+```bash
+cd examples/multi-service-api && make demo
+```
+
+**Header patterns:**
+- Service-level headers applied to all methods
+- Method-level headers for specific operations (X-Confirm-Delete, X-Audit-Reason)
+
+---
+
+## Running Examples
+
+Each example follows the same pattern:
+
+```bash
+# Run complete demo (generate + run)
+make demo
+
+# Individual steps
+make generate  # Generate code from proto
+make run       # Start the server
+make test      # Test with curl commands
+make clean     # Remove generated files
+```
+
+## What Each Example Demonstrates
+
+| Feature | simple-api | restful-crud | validation | nested | multi-service |
+|---------|:----------:|:------------:|:----------:|:------:|:-------------:|
+| HTTP verbs (GET/POST) | Yes | Yes | Yes | Yes | Yes |
+| PUT/PATCH/DELETE | - | Yes | - | Yes | Yes |
+| Path parameters | - | Yes | - | Yes | Yes |
+| Query parameters | - | Yes | - | Yes | - |
+| buf.validate | Basic | Basic | Comprehensive | Basic | Basic |
+| Header validation | - | Yes | - | - | Yes |
+| Multiple services | - | - | - | - | Yes |
+| Nested resources | - | - | - | Yes | - |
+| Oneof helpers | Yes | - | - | - | - |
+
+---
+
+## Want to contribute an example?
+
+We welcome real-world examples that show sebuf solving actual problems. See [Contributing Guidelines](../../CONTRIBUTING.md).
+
+---
+
+**Start with the [Simple API Tutorial](../../examples/simple-api/)**
