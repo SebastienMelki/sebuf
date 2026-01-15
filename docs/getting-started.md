@@ -172,6 +172,17 @@ curl -X POST http://localhost:8080/api/v1/users \
 - **[OpenAPI Guide](./openapi-generation.md)** - Documentation customization
 - **[Validation Guide](./validation.md)** - Automatic request validation
 
+## More examples
+
+| Example | What it shows |
+|---------|--------------|
+| **[restful-crud](../examples/restful-crud/)** | All HTTP verbs, path params, query params, pagination |
+| **[validation-showcase](../examples/validation-showcase/)** | Comprehensive buf.validate patterns |
+| **[nested-resources](../examples/nested-resources/)** | Deep path nesting with multiple path params |
+| **[multi-service-api](../examples/multi-service-api/)** | Multiple services with different auth levels |
+
+See **[All Examples](./examples/)** for the complete list.
+
 ## Need help?
 
 - Try the [working example](../examples/simple-api/) first
