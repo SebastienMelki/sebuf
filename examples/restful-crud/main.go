@@ -186,21 +186,21 @@ func (s *ProductService) PatchProduct(ctx context.Context, req *models.PatchProd
 		return nil, fmt.Errorf("product not found: %s", req.ProductId)
 	}
 
-	// Partial update - only update provided fields
-	if req.Name != nil {
-		product.Name = *req.Name
+	// Partial update - only update non-zero fields
+	if req.Name != "" {
+		product.Name = req.Name
 	}
-	if req.Description != nil {
-		product.Description = *req.Description
+	if req.Description != "" {
+		product.Description = req.Description
 	}
-	if req.Price != nil {
-		product.Price = *req.Price
+	if req.Price != 0 {
+		product.Price = req.Price
 	}
-	if req.StockQuantity != nil {
-		product.StockQuantity = *req.StockQuantity
+	if req.StockQuantity != 0 {
+		product.StockQuantity = req.StockQuantity
 	}
-	if req.CategoryId != nil {
-		product.CategoryId = *req.CategoryId
+	if req.CategoryId != "" {
+		product.CategoryId = req.CategoryId
 	}
 	product.UpdatedAt = time.Now().Unix()
 

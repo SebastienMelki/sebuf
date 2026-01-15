@@ -74,9 +74,9 @@ message ContactInfo {
     (sebuf.http.field_examples) = { values: ["+14155551234"] }
   ];
 
-  // Alternative contact name (optional, 2-100 chars if provided).
-  optional string alternative_name = 3 [
-    (buf.validate.field).string = { min_len: 2, max_len: 100 },
+  // Alternative contact name (2-100 chars if provided).
+  string alternative_name = 3 [
+    (buf.validate.field).string = { max_len: 100 },
     (sebuf.http.field_examples) = { values: ["Jane Doe"] }
   ];
 }
@@ -148,7 +148,7 @@ message OrderItem {
   bool gift_wrap = 8 [(sebuf.http.field_examples) = { values: ["false"] }];
 
   // Gift message (if gift_wrap is true, max 500 chars).
-  optional string gift_message = 9 [
+  string gift_message = 9 [
     (buf.validate.field).string = { max_len: 500 },
     (sebuf.http.field_examples) = { values: ["Happy Birthday!"] }
   ];
@@ -251,7 +251,7 @@ message Order {
   PaymentMethod payment_method = 16;
 
   // Special instructions (max 1000 chars).
-  optional string special_instructions = 17 [
+  string special_instructions = 17 [
     (buf.validate.field).string = { max_len: 1000 },
     (sebuf.http.field_examples) = { values: ["Please leave at front door"] }
   ];
@@ -307,7 +307,7 @@ message CreateOrderRequest {
   ];
 
   // Special delivery instructions.
-  optional string special_instructions = 7 [
+  string special_instructions = 7 [
     (buf.validate.field).string = { max_len: 1000 }
   ];
 
