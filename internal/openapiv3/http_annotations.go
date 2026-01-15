@@ -1,6 +1,7 @@
 package openapiv3
 
 import (
+	"regexp"
 	"strings"
 
 	"github.com/pb33f/libopenapi/datamodel/high/base"
@@ -13,9 +14,22 @@ import (
 	"github.com/SebastienMelki/sebuf/http"
 )
 
+// pathParamRegex matches path variables like {user_id} or {id}.
+var pathParamRegex = regexp.MustCompile(`\{([^}]+)\}`)
+
 // HTTPConfig represents the HTTP configuration for a method.
 type HTTPConfig struct {
-	Path string
+	Path       string
+	Method     string   // "GET", "POST", "PUT", "DELETE", "PATCH"
+	PathParams []string // Path variable names extracted from path
+}
+
+// QueryParam represents a query parameter configuration extracted from a field.
+type QueryParam struct {
+	FieldName string
+	ParamName string
+	Required  bool
+	Field     *protogen.Field
 }
 
 // ServiceHTTPConfig represents the HTTP configuration for a service.
@@ -47,9 +61,93 @@ func getMethodHTTPConfig(method *protogen.Method) *HTTPConfig {
 		return nil
 	}
 
+	path := httpConfig.GetPath()
+
 	return &HTTPConfig{
-		Path: httpConfig.GetPath(),
+		Path:       path,
+		Method:     httpMethodToString(httpConfig.GetMethod()),
+		PathParams: extractPathParams(path),
 	}
+}
+
+// httpMethodToString converts HttpMethod enum to lowercase string for OpenAPI. Returns "post" for unspecified.
+func httpMethodToString(m http.HttpMethod) string {
+	switch m {
+	case http.HttpMethod_HTTP_METHOD_GET:
+		return httpMethodGet
+	case http.HttpMethod_HTTP_METHOD_POST:
+		return httpMethodPost
+	case http.HttpMethod_HTTP_METHOD_PUT:
+		return httpMethodPut
+	case http.HttpMethod_HTTP_METHOD_DELETE:
+		return httpMethodDelete
+	case http.HttpMethod_HTTP_METHOD_PATCH:
+		return httpMethodPatch
+	case http.HttpMethod_HTTP_METHOD_UNSPECIFIED:
+		// HTTP_METHOD_UNSPECIFIED defaults to POST for backward compatibility
+		return httpMethodPost
+	}
+	// Any unknown value defaults to POST for backward compatibility
+	return httpMethodPost
+}
+
+// extractPathParams parses path variables from a path string.
+// Example: "/users/{user_id}/posts/{post_id}" -> ["user_id", "post_id"].
+func extractPathParams(path string) []string {
+	matches := pathParamRegex.FindAllStringSubmatch(path, -1)
+	if len(matches) == 0 {
+		return nil
+	}
+
+	params := make([]string, 0, len(matches))
+	for _, match := range matches {
+		if len(match) > 1 {
+			params = append(params, match[1])
+		}
+	}
+	return params
+}
+
+// getQueryParams extracts query parameter configurations from message fields.
+func getQueryParams(message *protogen.Message) []QueryParam {
+	var params []QueryParam
+
+	for _, field := range message.Fields {
+		options := field.Desc.Options()
+		if options == nil {
+			continue
+		}
+
+		fieldOptions, ok := options.(*descriptorpb.FieldOptions)
+		if !ok {
+			continue
+		}
+
+		ext := proto.GetExtension(fieldOptions, http.E_Query)
+		if ext == nil {
+			continue
+		}
+
+		queryConfig, ok := ext.(*http.QueryConfig)
+		if !ok || queryConfig == nil {
+			continue
+		}
+
+		// Use the configured name, or default to the proto field name
+		paramName := queryConfig.GetName()
+		if paramName == "" {
+			paramName = string(field.Desc.Name())
+		}
+
+		params = append(params, QueryParam{
+			FieldName: string(field.Desc.Name()),
+			ParamName: paramName,
+			Required:  queryConfig.GetRequired(),
+			Field:     field,
+		})
+	}
+
+	return params
 }
 
 // getServiceHTTPConfig extracts HTTP configuration from service options.
@@ -274,6 +372,18 @@ const (
 	headerTypeInt32   = "int32"
 	headerTypeInt64   = "int64"
 	headerTypeInteger = "integer"
+	headerTypeNumber  = "number"
+	headerTypeFloat   = "float"
+	headerTypeDouble  = "double"
+)
+
+// HTTP method constants (lowercase for OpenAPI).
+const (
+	httpMethodGet    = "get"
+	httpMethodPost   = "post"
+	httpMethodPut    = "put"
+	httpMethodDelete = "delete"
+	httpMethodPatch  = "patch"
 )
 
 // mapHeaderTypeToOpenAPI maps proto header types to OpenAPI schema types.
@@ -283,8 +393,8 @@ func mapHeaderTypeToOpenAPI(headerType string) string {
 		return headerTypeString
 	case headerTypeInteger, "int", headerTypeInt32, headerTypeInt64:
 		return headerTypeInteger
-	case "number", "float", "double":
-		return "number"
+	case headerTypeNumber, headerTypeFloat, headerTypeDouble:
+		return headerTypeNumber
 	case "boolean", "bool":
 		return "boolean"
 	case "array":

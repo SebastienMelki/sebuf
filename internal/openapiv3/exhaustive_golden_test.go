@@ -301,6 +301,21 @@ func TestExhaustiveGoldenFiles(t *testing.T) {
 			goldenFile:  "testdata/golden/json/BasicService.openapi.json",
 			format:      "json",
 		},
+		// http_verbs.proto -> RESTfulUserService (HTTP verbs, path params, query params)
+		{
+			name:        "restful_user_service_yaml",
+			protoFile:   "testdata/proto/http_verbs.proto",
+			serviceName: "RESTfulUserService",
+			goldenFile:  "testdata/golden/yaml/RESTfulUserService.openapi.yaml",
+			format:      "yaml",
+		},
+		{
+			name:        "restful_user_service_json",
+			protoFile:   "testdata/proto/http_verbs.proto",
+			serviceName: "RESTfulUserService",
+			goldenFile:  "testdata/golden/json/RESTfulUserService.openapi.json",
+			format:      "json",
+		},
 	}
 
 	for _, tc := range testCases {

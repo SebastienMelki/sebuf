@@ -1,0 +1,65 @@
+syntax = "proto3";
+
+package multi_service.services.userservice;
+
+import "proto/models/user.proto";
+import "sebuf/http/annotations.proto";
+import "sebuf/http/headers.proto";
+
+option go_package = "github.com/SebastienMelki/sebuf/examples/multi-service-api/api/proto/services/userservice;userservice";
+
+// UserService provides user-authenticated endpoints.
+// Requires standard user authentication headers.
+service UserService {
+  option (sebuf.http.service_config) = {
+    base_path: "/api/v1/users"
+  };
+
+  // User authentication headers required for all endpoints.
+  option (sebuf.http.service_headers) = {
+    required_headers: [
+      {
+        name: "Authorization"
+        description: "Bearer token for user authentication"
+        type: "string"
+        required: true
+        example: "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+      },
+      {
+        name: "X-Tenant-ID"
+        description: "Tenant identifier for multi-tenancy"
+        type: "string"
+        required: true
+        format: "uuid"
+        example: "tenant-abc123"
+      }
+    ]
+  };
+
+  // GET /api/v1/users/me - Get the current authenticated user.
+  // Demonstrates: User-authenticated endpoint, empty request.
+  rpc GetCurrentUser(multi_service.models.GetCurrentUserRequest) returns (multi_service.models.User) {
+    option (sebuf.http.config) = {
+      path: "/me"
+      method: HTTP_METHOD_GET
+    };
+  }
+
+  // PATCH /api/v1/users/me - Update the current user's profile.
+  // Demonstrates: User self-service endpoint with optional fields.
+  rpc UpdateProfile(multi_service.models.UpdateProfileRequest) returns (multi_service.models.User) {
+    option (sebuf.http.config) = {
+      path: "/me"
+      method: HTTP_METHOD_PATCH
+    };
+  }
+
+  // GET /api/v1/users - List users in the current tenant.
+  // Demonstrates: User-level read access with pagination.
+  rpc ListUsers(multi_service.models.ListUsersRequest) returns (multi_service.models.ListUsersResponse) {
+    option (sebuf.http.config) = {
+      path: ""
+      method: HTTP_METHOD_GET
+    };
+  }
+}

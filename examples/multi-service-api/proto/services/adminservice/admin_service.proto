@@ -1,0 +1,120 @@
+syntax = "proto3";
+
+package multi_service.services.adminservice;
+
+import "proto/models/tenant.proto";
+import "proto/models/user.proto";
+import "sebuf/http/annotations.proto";
+import "sebuf/http/headers.proto";
+
+option go_package = "github.com/SebastienMelki/sebuf/examples/multi-service-api/api/proto/services/adminservice;adminservice";
+
+// AdminService provides admin-only endpoints with elevated permissions.
+// Requires admin authentication and role verification.
+service AdminService {
+  option (sebuf.http.service_config) = {
+    base_path: "/api/v1/admin"
+  };
+
+  // Admin authentication headers required for all endpoints.
+  // More restrictive than UserService.
+  option (sebuf.http.service_headers) = {
+    required_headers: [
+      {
+        name: "Authorization"
+        description: "Admin bearer token with elevated privileges"
+        type: "string"
+        required: true
+        example: "Bearer admin-eyJhbGciOiJIUzI1NiIs..."
+      },
+      {
+        name: "X-Admin-Role"
+        description: "Admin role level (admin or super_admin)"
+        type: "string"
+        required: true
+        example: "admin"
+      },
+      {
+        name: "X-Request-ID"
+        description: "Request tracing ID for audit logging"
+        type: "string"
+        required: false
+        format: "uuid"
+        example: "550e8400-e29b-41d4-a716-446655440000"
+      }
+    ]
+  };
+
+  // === Tenant Management ===
+
+  // GET /api/v1/admin/tenants - List all tenants (cross-tenant access).
+  // Demonstrates: Admin-only endpoint with cross-tenant visibility.
+  rpc ListTenants(multi_service.models.ListTenantsRequest) returns (multi_service.models.ListTenantsResponse) {
+    option (sebuf.http.config) = {
+      path: "/tenants"
+      method: HTTP_METHOD_GET
+    };
+  }
+
+  // POST /api/v1/admin/tenants - Create a new tenant.
+  // Demonstrates: Admin-only creation of tenant resources.
+  rpc CreateTenant(multi_service.models.CreateTenantRequest) returns (multi_service.models.Tenant) {
+    option (sebuf.http.config) = {
+      path: "/tenants"
+      method: HTTP_METHOD_POST
+    };
+  }
+
+  // DELETE /api/v1/admin/tenants/{tenant_id} - Delete a tenant.
+  // Demonstrates: Destructive operation requiring additional confirmation header.
+  rpc DeleteTenant(multi_service.models.DeleteTenantRequest) returns (multi_service.models.DeleteTenantResponse) {
+    option (sebuf.http.config) = {
+      path: "/tenants/{tenant_id}"
+      method: HTTP_METHOD_DELETE
+    };
+    // Additional confirmation header for destructive operations.
+    option (sebuf.http.method_headers) = {
+      required_headers: [
+        {
+          name: "X-Confirm-Delete"
+          description: "Must be set to 'true' to confirm permanent deletion"
+          type: "string"
+          required: true
+          example: "true"
+        }
+      ]
+    };
+  }
+
+  // === Cross-Tenant User Management ===
+
+  // GET /api/v1/admin/users - List all users across all tenants.
+  // Demonstrates: Admin cross-tenant visibility.
+  rpc ListAllUsers(multi_service.models.ListAllUsersRequest) returns (multi_service.models.ListAllUsersResponse) {
+    option (sebuf.http.config) = {
+      path: "/users"
+      method: HTTP_METHOD_GET
+    };
+  }
+
+  // POST /api/v1/admin/users/{user_id}/impersonate - Impersonate a user.
+  // Demonstrates: Sensitive admin operation with audit requirement.
+  rpc ImpersonateUser(multi_service.models.ImpersonateUserRequest) returns (multi_service.models.ImpersonateUserResponse) {
+    option (sebuf.http.config) = {
+      path: "/users/{user_id}/impersonate"
+      method: HTTP_METHOD_POST
+    };
+    // Additional audit header for sensitive operations.
+    option (sebuf.http.method_headers) = {
+      required_headers: [
+        {
+          name: "X-Audit-Reason"
+          description: "Required audit reason for impersonation (logged for compliance)"
+          type: "string"
+          required: true
+          example: "Customer support ticket #12345"
+        }
+      ]
+    };
+  }
+}

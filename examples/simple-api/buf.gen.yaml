@@ -43,4 +43,4 @@ plugins:
     out: api
     opt:
       - module=github.com/SebastienMelki/sebuf/examples/simple-api/api
-      - generate_mock=true
+      - generate_mock=false

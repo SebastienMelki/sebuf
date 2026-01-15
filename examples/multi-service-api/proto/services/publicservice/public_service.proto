@@ -1,0 +1,36 @@
+syntax = "proto3";
+
+package multi_service.services.publicservice;
+
+import "proto/models/health.proto";
+import "sebuf/http/annotations.proto";
+
+option go_package = "github.com/SebastienMelki/sebuf/examples/multi-service-api/api/proto/services/publicservice;publicservice";
+
+// PublicService provides unauthenticated public endpoints.
+// No authorization headers required - these endpoints are accessible to everyone.
+service PublicService {
+  option (sebuf.http.service_config) = {
+    base_path: "/api/v1/public"
+  };
+
+  // Note: No service_headers - this service is intentionally public!
+
+  // GET /api/v1/public/health - Health check endpoint.
+  // Demonstrates: Public endpoint with no authentication.
+  rpc GetHealth(multi_service.models.GetHealthRequest) returns (multi_service.models.GetHealthResponse) {
+    option (sebuf.http.config) = {
+      path: "/health"
+      method: HTTP_METHOD_GET
+    };
+  }
+
+  // GET /api/v1/public/info - API information endpoint.
+  // Demonstrates: Public endpoint returning API metadata.
+  rpc GetAPIInfo(multi_service.models.GetAPIInfoRequest) returns (multi_service.models.GetAPIInfoResponse) {
+    option (sebuf.http.config) = {
+      path: "/info"
+      method: HTTP_METHOD_GET
+    };
+  }
+}

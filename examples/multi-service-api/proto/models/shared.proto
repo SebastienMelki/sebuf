@@ -1,0 +1,37 @@
+syntax = "proto3";
+
+package multi_service.models;
+
+import "sebuf/http/annotations.proto";
+
+option go_package = "github.com/SebastienMelki/sebuf/examples/multi-service-api/api/proto/models;models";
+
+// Role represents user permission levels.
+enum Role {
+  ROLE_UNSPECIFIED = 0;
+  ROLE_USER = 1;
+  ROLE_MODERATOR = 2;
+  ROLE_ADMIN = 3;
+  ROLE_SUPER_ADMIN = 4;
+}
+
+// Pagination contains standard pagination metadata.
+message Pagination {
+  int32 page = 1 [(sebuf.http.field_examples) = { values: ["1"] }];
+  int32 page_size = 2 [(sebuf.http.field_examples) = { values: ["20"] }];
+  int32 total_count = 3 [(sebuf.http.field_examples) = { values: ["100"] }];
+  int32 total_pages = 4 [(sebuf.http.field_examples) = { values: ["5"] }];
+}
+
+// Timestamp contains creation and update timestamps.
+message Timestamp {
+  int64 created_at = 1 [(sebuf.http.field_examples) = { values: ["1699900000"] }];
+  int64 updated_at = 2 [(sebuf.http.field_examples) = { values: ["1699900000"] }];
+}
+
+// AuditInfo contains audit trail information.
+message AuditInfo {
+  string created_by = 1 [(sebuf.http.field_examples) = { values: ["user-123"] }];
+  string updated_by = 2 [(sebuf.http.field_examples) = { values: ["admin-456"] }];
+  Timestamp timestamps = 3;
+}

@@ -444,3 +444,8 @@ linters:
           - noctx
           - wrapcheck
           - gocognit
+          - testpackage # white-box testing needed for internal functions
+      # Allow http package name - intentionally named to match proto package
+      - path: 'http/'
+        text: 'avoid package names that conflict with Go standard library package names'
+        linters: [ revive ]

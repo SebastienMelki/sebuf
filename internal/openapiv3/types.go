@@ -57,32 +57,32 @@ func (g *Generator) convertScalarField(field *protogen.Field) *base.SchemaProxy 
 		schema.Type = []string{"boolean"}
 
 	case protoreflect.Int32Kind, protoreflect.Sint32Kind, protoreflect.Sfixed32Kind:
-		schema.Type = []string{"integer"}
-		schema.Format = "int32"
+		schema.Type = []string{headerTypeInteger}
+		schema.Format = headerTypeInt32
 
 	case protoreflect.Int64Kind, protoreflect.Sint64Kind, protoreflect.Sfixed64Kind:
-		schema.Type = []string{"integer"}
-		schema.Format = "int64"
+		schema.Type = []string{headerTypeInteger}
+		schema.Format = headerTypeInt64
 
 	case protoreflect.Uint32Kind, protoreflect.Fixed32Kind:
-		schema.Type = []string{"integer"}
-		schema.Format = "int32"
+		schema.Type = []string{headerTypeInteger}
+		schema.Format = headerTypeInt32
 		zero := 0.0
 		schema.Minimum = &zero
 
 	case protoreflect.Uint64Kind, protoreflect.Fixed64Kind:
-		schema.Type = []string{"integer"}
-		schema.Format = "int64"
+		schema.Type = []string{headerTypeInteger}
+		schema.Format = headerTypeInt64
 		zero := 0.0
 		schema.Minimum = &zero
 
 	case protoreflect.FloatKind:
-		schema.Type = []string{"number"}
-		schema.Format = "float"
+		schema.Type = []string{headerTypeNumber}
+		schema.Format = headerTypeFloat
 
 	case protoreflect.DoubleKind:
-		schema.Type = []string{"number"}
-		schema.Format = "double"
+		schema.Type = []string{headerTypeNumber}
+		schema.Format = headerTypeDouble
 
 	case protoreflect.StringKind:
 		schema.Type = []string{"string"}

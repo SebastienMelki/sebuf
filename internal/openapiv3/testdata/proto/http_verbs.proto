@@ -1,0 +1,179 @@
+syntax = "proto3";
+
+package http_verbs_test;
+
+import "sebuf/http/annotations.proto";
+
+option go_package = "github.com/SebastienMelki/sebuf/internal/openapiv3/testdata/httpverbs;httpverbs";
+
+// User represents a user entity
+message User {
+  // Unique user identifier
+  string id = 1;
+
+  // User's display name
+  string name = 2;
+
+  // User's email address
+  string email = 3;
+
+  // User's age
+  int32 age = 4;
+}
+
+// Request to get a single user by ID
+message GetUserRequest {
+  // The user ID to retrieve (bound from path variable)
+  string user_id = 1;
+}
+
+// Request to list users with pagination
+message ListUsersRequest {
+  // Page number (1-indexed)
+  int32 page = 1 [(sebuf.http.query) = { name: "page" }];
+
+  // Number of users per page
+  int32 page_size = 2 [(sebuf.http.query) = { name: "page_size" }];
+
+  // Optional filter by name
+  string name_filter = 3 [(sebuf.http.query) = { name: "filter" }];
+}
+
+// Response containing a list of users
+message ListUsersResponse {
+  // List of users
+  repeated User users = 1;
+
+  // Total number of users matching the query
+  int32 total_count = 2;
+
+  // Current page number
+  int32 page = 3;
+}
+
+// Request to create a new user
+message CreateUserRequest {
+  // User's display name
+  string name = 1;
+
+  // User's email address
+  string email = 2;
+
+  // User's age
+  int32 age = 3;
+}
+
+// Request to update an existing user
+message UpdateUserRequest {
+  // The user ID to update (bound from path variable)
+  string user_id = 1;
+
+  // Updated name (optional)
+  string name = 2;
+
+  // Updated email (optional)
+  string email = 3;
+
+  // Updated age (optional)
+  int32 age = 4;
+}
+
+// Request to delete a user
+message DeleteUserRequest {
+  // The user ID to delete (bound from path variable)
+  string user_id = 1;
+}
+
+// Response after deleting a user
+message DeleteUserResponse {
+  // Whether the deletion was successful
+  bool success = 1;
+}
+
+// Request to get posts for a user
+message GetUserPostsRequest {
+  // The user ID (bound from path variable)
+  string user_id = 1;
+
+  // Page number for pagination
+  int32 page = 2 [(sebuf.http.query) = { name: "page" }];
+
+  // Number of posts per page
+  int32 limit = 3 [(sebuf.http.query) = { name: "limit" }];
+}
+
+// Post represents a blog post
+message Post {
+  string id = 1;
+  string title = 2;
+  string content = 3;
+}
+
+// Response containing user posts
+message GetUserPostsResponse {
+  repeated Post posts = 1;
+  int32 total = 2;
+}
+
+// RESTful user service demonstrating all HTTP verbs
+service RESTfulUserService {
+  option (sebuf.http.service_config) = {
+    base_path: "/api/v1"
+  };
+
+  // GET /api/v1/users - List all users with pagination
+  rpc ListUsers(ListUsersRequest) returns (ListUsersResponse) {
+    option (sebuf.http.config) = {
+      path: "/users"
+      method: HTTP_METHOD_GET
+    };
+  }
+
+  // GET /api/v1/users/{user_id} - Get a single user by ID
+  rpc GetUser(GetUserRequest) returns (User) {
+    option (sebuf.http.config) = {
+      path: "/users/{user_id}"
+      method: HTTP_METHOD_GET
+    };
+  }
+
+  // POST /api/v1/users - Create a new user
+  rpc CreateUser(CreateUserRequest) returns (User) {
+    option (sebuf.http.config) = {
+      path: "/users"
+      method: HTTP_METHOD_POST
+    };
+  }
+
+  // PUT /api/v1/users/{user_id} - Update an existing user (full replacement)
+  rpc UpdateUser(UpdateUserRequest) returns (User) {
+    option (sebuf.http.config) = {
+      path: "/users/{user_id}"
+      method: HTTP_METHOD_PUT
+    };
+  }
+
+  // PATCH /api/v1/users/{user_id} - Partially update an existing user
+  rpc PatchUser(UpdateUserRequest) returns (User) {
+    option (sebuf.http.config) = {
+      path: "/users/{user_id}"
+      method: HTTP_METHOD_PATCH
+    };
+  }
+
+  // DELETE /api/v1/users/{user_id} - Delete a user
+  rpc DeleteUser(DeleteUserRequest) returns (DeleteUserResponse) {
+    option (sebuf.http.config) = {
+      path: "/users/{user_id}"
+      method: HTTP_METHOD_DELETE
+    };
+  }
+
+  // GET /api/v1/users/{user_id}/posts - Get posts for a user with pagination
+  rpc GetUserPosts(GetUserPostsRequest) returns (GetUserPostsResponse) {
+    option (sebuf.http.config) = {
+      path: "/users/{user_id}/posts"
+      method: HTTP_METHOD_GET
+    };
+  }
+}

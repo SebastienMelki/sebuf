@@ -1,0 +1,16 @@
+# Generated files
+api/
+docs/
+*.pb.go
+*_helpers.pb.go
+*_http.pb.go
+*_http_binding.pb.go
+*_http_config.pb.go
+openapi.yaml
+openapi.json
+
+# Buf lock file (will be created on first buf dep update)
+buf.lock
+
+# Go sum file (will be created on first go mod tidy)
+go.sum

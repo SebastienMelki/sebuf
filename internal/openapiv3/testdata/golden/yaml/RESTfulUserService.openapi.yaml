@@ -1,0 +1,468 @@
+openapi: 3.1.0
+info:
+    title: RESTfulUserService API
+    version: 1.0.0
+paths:
+    /api/v1/users:
+        get:
+            tags:
+                - RESTfulUserService
+            summary: ListUsers
+            description: GET /api/v1/users - List all users with pagination
+            operationId: ListUsers
+            parameters:
+                - name: page
+                  in: query
+                  description: Page number (1-indexed)
+                  required: false
+                  schema:
+                    type: integer
+                    format: int32
+                - name: page_size
+                  in: query
+                  description: Number of users per page
+                  required: false
+                  schema:
+                    type: integer
+                    format: int32
+                - name: filter
+                  in: query
+                  description: Optional filter by name
+                  required: false
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    description: Successful response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ListUsersResponse'
+                "400":
+                    description: Validation error
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ValidationError'
+                default:
+                    description: Error response
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    error:
+                                        type: string
+                                    code:
+                                        type: integer
+        post:
+            tags:
+                - RESTfulUserService
+            summary: CreateUser
+            description: POST /api/v1/users - Create a new user
+            operationId: CreateUser
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/CreateUserRequest'
+                required: true
+            responses:
+                "200":
+                    description: Successful response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/User'
+                "400":
+                    description: Validation error
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ValidationError'
+                default:
+                    description: Error response
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    error:
+                                        type: string
+                                    code:
+                                        type: integer
+    /api/v1/users/{user_id}:
+        get:
+            tags:
+                - RESTfulUserService
+            summary: GetUser
+            description: GET /api/v1/users/{user_id} - Get a single user by ID
+            operationId: GetUser
+            parameters:
+                - name: user_id
+                  in: path
+                  description: The user ID to retrieve (bound from path variable)
+                  required: true
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    description: Successful response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/User'
+                "400":
+                    description: Validation error
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ValidationError'
+                default:
+                    description: Error response
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    error:
+                                        type: string
+                                    code:
+                                        type: integer
+        put:
+            tags:
+                - RESTfulUserService
+            summary: UpdateUser
+            description: PUT /api/v1/users/{user_id} - Update an existing user (full replacement)
+            operationId: UpdateUser
+            parameters:
+                - name: user_id
+                  in: path
+                  description: The user ID to update (bound from path variable)
+                  required: true
+                  schema:
+                    type: string
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/UpdateUserRequest'
+                required: true
+            responses:
+                "200":
+                    description: Successful response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/User'
+                "400":
+                    description: Validation error
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ValidationError'
+                default:
+                    description: Error response
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    error:
+                                        type: string
+                                    code:
+                                        type: integer
+        delete:
+            tags:
+                - RESTfulUserService
+            summary: DeleteUser
+            description: DELETE /api/v1/users/{user_id} - Delete a user
+            operationId: DeleteUser
+            parameters:
+                - name: user_id
+                  in: path
+                  description: The user ID to delete (bound from path variable)
+                  required: true
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    description: Successful response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/DeleteUserResponse'
+                "400":
+                    description: Validation error
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ValidationError'
+                default:
+                    description: Error response
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    error:
+                                        type: string
+                                    code:
+                                        type: integer
+        patch:
+            tags:
+                - RESTfulUserService
+            summary: PatchUser
+            description: PATCH /api/v1/users/{user_id} - Partially update an existing user
+            operationId: PatchUser
+            parameters:
+                - name: user_id
+                  in: path
+                  description: The user ID to update (bound from path variable)
+                  required: true
+                  schema:
+                    type: string
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/UpdateUserRequest'
+                required: true
+            responses:
+                "200":
+                    description: Successful response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/User'
+                "400":
+                    description: Validation error
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ValidationError'
+                default:
+                    description: Error response
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    error:
+                                        type: string
+                                    code:
+                                        type: integer
+    /api/v1/users/{user_id}/posts:
+        get:
+            tags:
+                - RESTfulUserService
+            summary: GetUserPosts
+            description: GET /api/v1/users/{user_id}/posts - Get posts for a user with pagination
+            operationId: GetUserPosts
+            parameters:
+                - name: user_id
+                  in: path
+                  description: The user ID (bound from path variable)
+                  required: true
+                  schema:
+                    type: string
+                - name: page
+                  in: query
+                  description: Page number for pagination
+                  required: false
+                  schema:
+                    type: integer
+                    format: int32
+                - name: limit
+                  in: query
+                  description: Number of posts per page
+                  required: false
+                  schema:
+                    type: integer
+                    format: int32
+            responses:
+                "200":
+                    description: Successful response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/GetUserPostsResponse'
+                "400":
+                    description: Validation error
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ValidationError'
+                default:
+                    description: Error response
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    error:
+                                        type: string
+                                    code:
+                                        type: integer
+components:
+    schemas:
+        FieldViolation:
+            type: object
+            properties:
+                field:
+                    type: string
+                    description: The field path that failed validation (e.g., 'user.email' for nested fields). For header validation, this will be the header name (e.g., 'X-API-Key')
+                description:
+                    type: string
+                    description: Human-readable description of the validation violation (e.g., 'must be a valid email address', 'required field missing')
+            required:
+                - field
+                - description
+            description: FieldViolation describes a single validation error for a specific field.
+        ValidationError:
+            type: object
+            properties:
+                violations:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/FieldViolation'
+                    description: List of validation violations
+            required:
+                - violations
+            description: ValidationError is returned when request validation fails. It contains a list of field violations describing what went wrong.
+        ListUsersRequest:
+            type: object
+            properties:
+                page:
+                    type: integer
+                    format: int32
+                    description: Page number (1-indexed)
+                pageSize:
+                    type: integer
+                    format: int32
+                    description: Number of users per page
+                nameFilter:
+                    type: string
+                    description: Optional filter by name
+            description: Request to list users with pagination
+        ListUsersResponse:
+            type: object
+            properties:
+                users:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/User'
+                totalCount:
+                    type: integer
+                    format: int32
+                    description: Total number of users matching the query
+                page:
+                    type: integer
+                    format: int32
+                    description: Current page number
+            description: Response containing a list of users
+        User:
+            type: object
+            properties:
+                id:
+                    type: string
+                    description: Unique user identifier
+                name:
+                    type: string
+                    description: User's display name
+                email:
+                    type: string
+                    description: User's email address
+                age:
+                    type: integer
+                    format: int32
+                    description: User's age
+            description: User represents a user entity
+        GetUserRequest:
+            type: object
+            properties:
+                userId:
+                    type: string
+                    description: The user ID to retrieve (bound from path variable)
+            description: Request to get a single user by ID
+        CreateUserRequest:
+            type: object
+            properties:
+                name:
+                    type: string
+                    description: User's display name
+                email:
+                    type: string
+                    description: User's email address
+                age:
+                    type: integer
+                    format: int32
+                    description: User's age
+            description: Request to create a new user
+        UpdateUserRequest:
+            type: object
+            properties:
+                userId:
+                    type: string
+                    description: The user ID to update (bound from path variable)
+                name:
+                    type: string
+                    description: Updated name (optional)
+                email:
+                    type: string
+                    description: Updated email (optional)
+                age:
+                    type: integer
+                    format: int32
+                    description: Updated age (optional)
+            description: Request to update an existing user
+        DeleteUserRequest:
+            type: object
+            properties:
+                userId:
+                    type: string
+                    description: The user ID to delete (bound from path variable)
+            description: Request to delete a user
+        DeleteUserResponse:
+            type: object
+            properties:
+                success:
+                    type: boolean
+                    description: Whether the deletion was successful
+            description: Response after deleting a user
+        GetUserPostsRequest:
+            type: object
+            properties:
+                userId:
+                    type: string
+                    description: The user ID (bound from path variable)
+                page:
+                    type: integer
+                    format: int32
+                    description: Page number for pagination
+                limit:
+                    type: integer
+                    format: int32
+                    description: Number of posts per page
+            description: Request to get posts for a user
+        GetUserPostsResponse:
+            type: object
+            properties:
+                posts:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/Post'
+                total:
+                    type: integer
+                    format: int32
+            description: Response containing user posts
+        Post:
+            type: object
+            properties:
+                id:
+                    type: string
+                title:
+                    type: string
+                content:
+                    type: string
+            description: Post represents a blog post
