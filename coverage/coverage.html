@@ -63,7 +63,7 @@
 				
 				<option value="file3">github.com/SebastienMelki/sebuf/http/headers.pb.go (9.1%)</option>
 				
-				<option value="file4">github.com/SebastienMelki/sebuf/internal/httpgen/annotations.go (14.9%)</option>
+				<option value="file4">github.com/SebastienMelki/sebuf/internal/httpgen/annotations.go (15.7%)</option>
 				
 				<option value="file5">github.com/SebastienMelki/sebuf/internal/httpgen/generator.go (1.4%)</option>
 				
@@ -71,9 +71,9 @@
 				
 				<option value="file7">github.com/SebastienMelki/sebuf/internal/httpgen/validation.go (0.0%)</option>
 				
-				<option value="file8">github.com/SebastienMelki/sebuf/internal/openapiv3/generator.go (13.0%)</option>
+				<option value="file8">github.com/SebastienMelki/sebuf/internal/openapiv3/generator.go (12.6%)</option>
 				
-				<option value="file9">github.com/SebastienMelki/sebuf/internal/openapiv3/http_annotations.go (39.7%)</option>
+				<option value="file9">github.com/SebastienMelki/sebuf/internal/openapiv3/http_annotations.go (40.1%)</option>
 				
 				<option value="file10">github.com/SebastienMelki/sebuf/internal/openapiv3/types.go (0.0%)</option>
 				
@@ -1174,7 +1174,16 @@ import (
         "github.com/SebastienMelki/sebuf/http"
 )
 
-// pathParamRegex matches path variables like {user_id} or {id}
+// HTTP method constants.
+const (
+        httpMethodGET    = "GET"
+        httpMethodPOST   = "POST"
+        httpMethodPUT    = "PUT"
+        httpMethodDELETE = "DELETE"
+        httpMethodPATCH  = "PATCH"
+)
+
+// pathParamRegex matches path variables like {user_id} or {id}.
 var pathParamRegex = regexp.MustCompile(`\{([^}]+)\}`)
 
 // HTTPConfig represents the HTTP configuration for a method.
@@ -1186,10 +1195,10 @@ type HTTPConfig struct {
 
 // QueryParam represents a query parameter configuration extracted from a field.
 type QueryParam struct {
-        FieldName  string // Proto field name
+        FieldName   string // Proto field name
         FieldGoName string // Go field name
-        ParamName  string // Query parameter name
-        Required   bool
+        ParamName   string // Query parameter name
+        Required    bool
 }
 
 // ServiceConfigImpl represents the HTTP configuration for a service.
@@ -1234,23 +1243,25 @@ func getMethodHTTPConfig(method *protogen.Method) *HTTPConfig <span class="cov0"
 func httpMethodToString(m http.HttpMethod) string <span class="cov6" title="8">{
         switch m </span>{
         case http.HttpMethod_HTTP_METHOD_GET:<span class="cov1" title="1">
-                return "GET"</span>
+                return httpMethodGET</span>
         case http.HttpMethod_HTTP_METHOD_POST:<span class="cov1" title="1">
-                return "POST"</span>
+                return httpMethodPOST</span>
         case http.HttpMethod_HTTP_METHOD_PUT:<span class="cov1" title="1">
-                return "PUT"</span>
+                return httpMethodPUT</span>
         case http.HttpMethod_HTTP_METHOD_DELETE:<span class="cov1" title="1">
-                return "DELETE"</span>
+                return httpMethodDELETE</span>
         case http.HttpMethod_HTTP_METHOD_PATCH:<span class="cov1" title="1">
-                return "PATCH"</span>
-        default:<span class="cov4" title="3">
-                // HTTP_METHOD_UNSPECIFIED or any unknown value defaults to POST for backward compatibility
-                return "POST"</span>
+                return httpMethodPATCH</span>
+        case http.HttpMethod_HTTP_METHOD_UNSPECIFIED:<span class="cov1" title="1">
+                // HTTP_METHOD_UNSPECIFIED defaults to POST for backward compatibility
+                return httpMethodPOST</span>
         }
+        // Any unknown value defaults to POST for backward compatibility
+        <span class="cov2" title="2">return httpMethodPOST</span>
 }
 
 // extractPathParams parses path variables from a path string.
-// Example: "/users/{user_id}/posts/{post_id}" -&gt; ["user_id", "post_id"]
+// Example: "/users/{user_id}/posts/{post_id}" -&gt; ["user_id", "post_id"].
 func extractPathParams(path string) []string <span class="cov9" title="22">{
         matches := pathParamRegex.FindAllStringSubmatch(path, -1)
         if len(matches) == 0 </span><span class="cov6" title="7">{
@@ -1823,7 +1834,9 @@ func (g *Generator) generateBindingFile(file *protogen.File) error <span class="
 
         // bindPathParams function - binds URL path parameters to proto message fields
         gf.P("// bindPathParams binds URL path parameters to proto message fields using Go 1.22+ PathValue.")
-        gf.P("func bindPathParams(r *http.Request, msg proto.Message, params []PathParamConfig) *sebufhttp.ValidationError {")
+        gf.P(
+                "func bindPathParams(r *http.Request, msg proto.Message, params []PathParamConfig) *sebufhttp.ValidationError {",
+        )
         gf.P("if len(params) == 0 {")
         gf.P("return nil")
         gf.P("}")
@@ -1866,7 +1879,9 @@ func (g *Generator) generateBindingFile(file *protogen.File) error <span class="
 
         // bindQueryParams function - binds URL query parameters to proto message fields
         gf.P("// bindQueryParams binds URL query parameters to proto message fields.")
-        gf.P("func bindQueryParams(r *http.Request, msg proto.Message, params []QueryParamConfig) *sebufhttp.ValidationError {")
+        gf.P(
+                "func bindQueryParams(r *http.Request, msg proto.Message, params []QueryParamConfig) *sebufhttp.ValidationError {",
+        )
         gf.P("if len(params) == 0 {")
         gf.P("return nil")
         gf.P("}")
@@ -2704,7 +2719,15 @@ func (g *Generator) generateParamConfigs(gf *protogen.GeneratedFile, service *pr
                 gf.P("// ", methodName, "QueryParams contains query parameter configuration for ", method.GoName)
                 gf.P("var ", methodName, "QueryParams = []QueryParamConfig{")
                 for _, qp := range queryParams </span><span class="cov0" title="0">{
-                        gf.P("{QueryName: \"", qp.ParamName, "\", FieldName: \"", qp.FieldName, "\", Required: ", strconv.FormatBool(qp.Required), "},")
+                        gf.P(
+                                "{QueryName: \"",
+                                qp.ParamName,
+                                "\", FieldName: \"",
+                                qp.FieldName,
+                                "\", Required: ",
+                                strconv.FormatBool(qp.Required),
+                                "},",
+                        )
                 }</span>
                 <span class="cov0" title="0">gf.P("}")
                 gf.P()</span>
@@ -3208,7 +3231,10 @@ func ValidateMethodConfig(service *protogen.Service, method *protogen.Method) []
                                         "path variable '{%s}' is bound to field '%s' of type '%s', but path parameters must be scalar types "+
                                                 "(string, int32, int64, uint32, uint64, bool, float, double). "+
                                                 "Change the field type or remove it from the path.",
-                                        param, param, field.Desc.Kind()),
+                                        param,
+                                        param,
+                                        field.Desc.Kind(),
+                                ),
                         })
                 }</span>
         }
@@ -3281,9 +3307,10 @@ func isPathParamCompatible(field *protogen.Field) bool <span class="cov0" title=
                 protoreflect.BoolKind,
                 protoreflect.FloatKind, protoreflect.DoubleKind:<span class="cov0" title="0">
                 return true</span>
-        default:<span class="cov0" title="0">
+        case protoreflect.EnumKind, protoreflect.BytesKind, protoreflect.MessageKind, protoreflect.GroupKind:<span class="cov0" title="0">
                 return false</span>
         }
+        <span class="cov0" title="0">return false</span>
 }
 
 // getBodyFields returns fields that are not bound to path or query parameters.
@@ -3524,18 +3551,22 @@ func (g *Generator) processService(service *protogen.Service) <span class="cov0"
         }</span>
 }
 
-// processMethod converts a protobuf RPC method to an OpenAPI operation.
-func (g *Generator) processMethod(service *protogen.Service, method *protogen.Method) <span class="cov0" title="0">{
-        // Extract HTTP configuration from annotations
-        var path string
-        var httpMethod string
-        var pathParams []string
+// methodHTTPInfo holds extracted HTTP configuration for a method.
+type methodHTTPInfo struct {
+        path       string
+        httpMethod string
+        pathParams []string
+}
 
+// extractMethodHTTPInfo extracts HTTP configuration from service and method annotations.
+func extractMethodHTTPInfo(service *protogen.Service, method *protogen.Method) methodHTTPInfo <span class="cov0" title="0">{
         serviceConfig := getServiceHTTPConfig(service)
         methodConfig := getMethodHTTPConfig(method)
 
+        var path, httpMethod string
+        var pathParams []string
+
         if serviceConfig != nil || methodConfig != nil </span><span class="cov0" title="0">{
-                // Use sebuf.http annotations
                 servicePath := ""
                 methodPath := ""
 
@@ -3550,59 +3581,41 @@ func (g *Generator) processMethod(service *protogen.Service, method *protogen.Me
 
                 <span class="cov0" title="0">path = buildHTTPPath(servicePath, methodPath)</span>
         } else<span class="cov0" title="0"> {
-                // Fallback to gRPC-style path
                 path = fmt.Sprintf("/%s/%s", service.Desc.Name(), method.Desc.Name())
         }</span>
 
-        // Default to POST for backward compatibility
         <span class="cov0" title="0">if httpMethod == "" </span><span class="cov0" title="0">{
-                httpMethod = "post"
+                httpMethod = httpMethodPost
         }</span>
 
-        // Create operation
-        <span class="cov0" title="0">operation := &amp;v3.Operation{
-                OperationId: string(method.Desc.Name()),
-                Summary:     string(method.Desc.Name()),
-                Tags:        []string{string(service.Desc.Name())},
-        }
+        <span class="cov0" title="0">return methodHTTPInfo{path: path, httpMethod: httpMethod, pathParams: pathParams}</span>
+}
 
-        // Add description from comments
-        if method.Comments.Leading != "" </span><span class="cov0" title="0">{
-                operation.Description = strings.TrimSpace(string(method.Comments.Leading))
-        }</span>
-
-        // Extract and add header parameters
-        <span class="cov0" title="0">serviceHeaders := getServiceHeaders(service)
-        methodHeaders := getMethodHeaders(method)
-        allHeaders := combineHeaders(serviceHeaders, methodHeaders)
-
+// buildPathParameters creates OpenAPI path parameters from path variable names.
+func (g *Generator) buildPathParameters(method *protogen.Method, pathParams []string) []*v3.Parameter <span class="cov0" title="0">{
         var parameters []*v3.Parameter
-        if len(allHeaders) &gt; 0 </span><span class="cov0" title="0">{
-                parameters = convertHeadersToParameters(allHeaders)
-        }</span>
-
-        // Add path parameters
-        <span class="cov0" title="0">for _, paramName := range pathParams </span><span class="cov0" title="0">{
+        for _, paramName := range pathParams </span><span class="cov0" title="0">{
                 field := findFieldByName(method.Input, paramName)
                 pathParam := &amp;v3.Parameter{
                         Name:     paramName,
                         In:       "path",
-                        Required: proto.Bool(true), // Path parameters are always required
+                        Required: proto.Bool(true),
                 }
                 if field != nil </span><span class="cov0" title="0">{
                         pathParam.Schema = g.createFieldSchema(field)
                         pathParam.Description = strings.TrimSpace(string(field.Comments.Leading))
                 }</span> else<span class="cov0" title="0"> {
-                        // Default to string if field not found
-                        pathParam.Schema = base.CreateSchemaProxy(&amp;base.Schema{
-                                Type: []string{"string"},
-                        })
+                        pathParam.Schema = base.CreateSchemaProxy(&amp;base.Schema{Type: []string{"string"}})
                 }</span>
                 <span class="cov0" title="0">parameters = append(parameters, pathParam)</span>
         }
+        <span class="cov0" title="0">return parameters</span>
+}
 
-        // Add query parameters
-        <span class="cov0" title="0">queryParams := getQueryParams(method.Input)
+// buildQueryParameters creates OpenAPI query parameters from method input.
+func (g *Generator) buildQueryParameters(method *protogen.Method) []*v3.Parameter <span class="cov0" title="0">{
+        var parameters []*v3.Parameter
+        queryParams := getQueryParams(method.Input)
         for _, qp := range queryParams </span><span class="cov0" title="0">{
                 queryParam := &amp;v3.Parameter{
                         Name:     qp.ParamName,
@@ -3613,19 +3626,101 @@ func (g *Generator) processMethod(service *protogen.Service, method *protogen.Me
                         queryParam.Schema = g.createFieldSchema(qp.Field)
                         queryParam.Description = strings.TrimSpace(string(qp.Field.Comments.Leading))
                 }</span> else<span class="cov0" title="0"> {
-                        queryParam.Schema = base.CreateSchemaProxy(&amp;base.Schema{
-                                Type: []string{"string"},
-                        })
+                        queryParam.Schema = base.CreateSchemaProxy(&amp;base.Schema{Type: []string{"string"}})
                 }</span>
                 <span class="cov0" title="0">parameters = append(parameters, queryParam)</span>
         }
+        <span class="cov0" title="0">return parameters</span>
+}
 
-        <span class="cov0" title="0">if len(parameters) &gt; 0 </span><span class="cov0" title="0">{
+// buildResponses creates the standard response map for an operation.
+func (g *Generator) buildResponses(method *protogen.Method) *orderedmap.Map[string, *v3.Response] <span class="cov0" title="0">{
+        responses := orderedmap.New[string, *v3.Response]()
+
+        // Success response
+        outputSchemaRef := fmt.Sprintf("#/components/schemas/%s", g.getSchemaName(method.Output))
+        successResponse := &amp;v3.Response{
+                Description: "Successful response",
+                Content:     orderedmap.New[string, *v3.MediaType](),
+        }
+        successResponse.Content.Set("application/json", &amp;v3.MediaType{
+                Schema: base.CreateSchemaProxyRef(outputSchemaRef),
+        })
+        responses.Set("200", successResponse)
+
+        // Validation error response
+        validationErrorResponse := &amp;v3.Response{
+                Description: "Validation error",
+                Content:     orderedmap.New[string, *v3.MediaType](),
+        }
+        validationErrorResponse.Content.Set("application/json", &amp;v3.MediaType{
+                Schema: base.CreateSchemaProxyRef("#/components/schemas/ValidationError"),
+        })
+        responses.Set("400", validationErrorResponse)
+
+        // Default error response
+        errorProps := orderedmap.New[string, *base.SchemaProxy]()
+        errorProps.Set("error", base.CreateSchemaProxy(&amp;base.Schema{Type: []string{"string"}}))
+        errorProps.Set("code", base.CreateSchemaProxy(&amp;base.Schema{Type: []string{"integer"}}))
+        errorSchema := base.CreateSchemaProxy(&amp;base.Schema{Type: []string{"object"}, Properties: errorProps})
+
+        errorResponse := &amp;v3.Response{
+                Description: "Error response",
+                Content:     orderedmap.New[string, *v3.MediaType](),
+        }
+        errorResponse.Content.Set("application/json", &amp;v3.MediaType{Schema: errorSchema})
+        responses.Set("default", errorResponse)
+
+        return responses
+}</span>
+
+// assignOperationToPathItem assigns an operation to the correct HTTP method on a path item.
+func assignOperationToPathItem(pathItem *v3.PathItem, httpMethod string, operation *v3.Operation) <span class="cov0" title="0">{
+        switch httpMethod </span>{
+        case httpMethodGet:<span class="cov0" title="0">
+                pathItem.Get = operation</span>
+        case httpMethodPost:<span class="cov0" title="0">
+                pathItem.Post = operation</span>
+        case httpMethodPut:<span class="cov0" title="0">
+                pathItem.Put = operation</span>
+        case httpMethodDelete:<span class="cov0" title="0">
+                pathItem.Delete = operation</span>
+        case httpMethodPatch:<span class="cov0" title="0">
+                pathItem.Patch = operation</span>
+        default:<span class="cov0" title="0">
+                pathItem.Post = operation</span>
+        }
+}
+
+// processMethod converts a protobuf RPC method to an OpenAPI operation.
+func (g *Generator) processMethod(service *protogen.Service, method *protogen.Method) <span class="cov0" title="0">{
+        info := extractMethodHTTPInfo(service, method)
+
+        operation := &amp;v3.Operation{
+                OperationId: string(method.Desc.Name()),
+                Summary:     string(method.Desc.Name()),
+                Tags:        []string{string(service.Desc.Name())},
+        }
+
+        if method.Comments.Leading != "" </span><span class="cov0" title="0">{
+                operation.Description = strings.TrimSpace(string(method.Comments.Leading))
+        }</span>
+
+        // Build parameters
+        <span class="cov0" title="0">var parameters []*v3.Parameter
+        allHeaders := combineHeaders(getServiceHeaders(service), getMethodHeaders(method))
+        if len(allHeaders) &gt; 0 </span><span class="cov0" title="0">{
+                parameters = convertHeadersToParameters(allHeaders)
+        }</span>
+        <span class="cov0" title="0">parameters = append(parameters, g.buildPathParameters(method, info.pathParams)...)
+        parameters = append(parameters, g.buildQueryParameters(method)...)
+
+        if len(parameters) &gt; 0 </span><span class="cov0" title="0">{
                 operation.Parameters = parameters
         }</span>
 
-        // Add request body only for POST, PUT, PATCH methods
-        <span class="cov0" title="0">if httpMethod == "post" || httpMethod == "put" || httpMethod == "patch" </span><span class="cov0" title="0">{
+        // Add request body for POST, PUT, PATCH
+        <span class="cov0" title="0">if info.httpMethod == httpMethodPost || info.httpMethod == httpMethodPut || info.httpMethod == httpMethodPatch </span><span class="cov0" title="0">{
                 inputSchemaRef := fmt.Sprintf("#/components/schemas/%s", g.getSchemaName(method.Input))
                 operation.RequestBody = &amp;v3.RequestBody{
                         Required: proto.Bool(true),
@@ -3636,81 +3731,15 @@ func (g *Generator) processMethod(service *protogen.Service, method *protogen.Me
                 })
         }</span>
 
-        // Add response for the output message
-        <span class="cov0" title="0">outputSchemaRef := fmt.Sprintf("#/components/schemas/%s", g.getSchemaName(method.Output))
-        responses := orderedmap.New[string, *v3.Response]()
+        <span class="cov0" title="0">operation.Responses = &amp;v3.Responses{Codes: g.buildResponses(method)}
 
-        successResponse := &amp;v3.Response{
-                Description: "Successful response",
-                Content:     orderedmap.New[string, *v3.MediaType](),
-        }
-        successResponse.Content.Set("application/json", &amp;v3.MediaType{
-                Schema: base.CreateSchemaProxyRef(outputSchemaRef),
-        })
-        responses.Set("200", successResponse)
-
-        // Add validation error response (400)
-        validationErrorResponse := &amp;v3.Response{
-                Description: "Validation error",
-                Content:     orderedmap.New[string, *v3.MediaType](),
-        }
-        validationErrorResponse.Content.Set("application/json", &amp;v3.MediaType{
-                Schema: base.CreateSchemaProxyRef("#/components/schemas/ValidationError"),
-        })
-        responses.Set("400", validationErrorResponse)
-
-        // Add default error response
-        errorSchema := base.CreateSchemaProxy(&amp;base.Schema{
-                Type: []string{"object"},
-                Properties: func() *orderedmap.Map[string, *base.SchemaProxy] </span><span class="cov0" title="0">{
-                        props := orderedmap.New[string, *base.SchemaProxy]()
-                        props.Set("error", base.CreateSchemaProxy(&amp;base.Schema{
-                                Type: []string{"string"},
-                        }))
-                        props.Set("code", base.CreateSchemaProxy(&amp;base.Schema{
-                                Type: []string{"integer"},
-                        }))
-                        return props
-                }</span>(),
-        })
-
-        <span class="cov0" title="0">errorResponse := &amp;v3.Response{
-                Description: "Error response",
-                Content:     orderedmap.New[string, *v3.MediaType](),
-        }
-        errorResponse.Content.Set("application/json", &amp;v3.MediaType{
-                Schema: errorSchema,
-        })
-        responses.Set("default", errorResponse)
-
-        operation.Responses = &amp;v3.Responses{
-                Codes: responses,
-        }
-
-        // Create path item and add to document
-        // Check if path already exists (multiple methods on same path)
-        existingPathItem, exists := g.doc.Paths.PathItems.Get(path)
+        // Add to path items
+        existingPathItem, exists := g.doc.Paths.PathItems.Get(info.path)
         if !exists </span><span class="cov0" title="0">{
                 existingPathItem = &amp;v3.PathItem{}
         }</span>
-
-        // Assign operation to the correct HTTP method
-        <span class="cov0" title="0">switch httpMethod </span>{
-        case "get":<span class="cov0" title="0">
-                existingPathItem.Get = operation</span>
-        case "post":<span class="cov0" title="0">
-                existingPathItem.Post = operation</span>
-        case "put":<span class="cov0" title="0">
-                existingPathItem.Put = operation</span>
-        case "delete":<span class="cov0" title="0">
-                existingPathItem.Delete = operation</span>
-        case "patch":<span class="cov0" title="0">
-                existingPathItem.Patch = operation</span>
-        default:<span class="cov0" title="0">
-                existingPathItem.Post = operation</span> // Fallback to POST
-        }
-
-        <span class="cov0" title="0">g.doc.Paths.PathItems.Set(path, existingPathItem)</span>
+        <span class="cov0" title="0">assignOperationToPathItem(existingPathItem, info.httpMethod, operation)
+        g.doc.Paths.PathItems.Set(info.path, existingPathItem)</span>
 }
 
 // findFieldByName finds a field in a message by its proto name.
@@ -3728,30 +3757,30 @@ func (g *Generator) createFieldSchema(field *protogen.Field) *base.SchemaProxy <
         schema := &amp;base.Schema{}
 
         switch field.Desc.Kind().String() </span>{
-        case "string":<span class="cov0" title="0">
-                schema.Type = []string{"string"}</span>
-        case "int32", "sint32", "sfixed32":<span class="cov0" title="0">
-                schema.Type = []string{"integer"}
-                schema.Format = "int32"</span>
-        case "int64", "sint64", "sfixed64":<span class="cov0" title="0">
-                schema.Type = []string{"integer"}
-                schema.Format = "int64"</span>
+        case headerTypeString:<span class="cov0" title="0">
+                schema.Type = []string{headerTypeString}</span>
+        case headerTypeInt32, "sint32", "sfixed32":<span class="cov0" title="0">
+                schema.Type = []string{headerTypeInteger}
+                schema.Format = headerTypeInt32</span>
+        case headerTypeInt64, "sint64", "sfixed64":<span class="cov0" title="0">
+                schema.Type = []string{headerTypeInteger}
+                schema.Format = headerTypeInt64</span>
         case "uint32", "fixed32":<span class="cov0" title="0">
-                schema.Type = []string{"integer"}
-                schema.Format = "int32"</span>
+                schema.Type = []string{headerTypeInteger}
+                schema.Format = headerTypeInt32</span>
         case "uint64", "fixed64":<span class="cov0" title="0">
-                schema.Type = []string{"integer"}
-                schema.Format = "int64"</span>
+                schema.Type = []string{headerTypeInteger}
+                schema.Format = headerTypeInt64</span>
         case "bool":<span class="cov0" title="0">
                 schema.Type = []string{"boolean"}</span>
-        case "float":<span class="cov0" title="0">
-                schema.Type = []string{"number"}
-                schema.Format = "float"</span>
-        case "double":<span class="cov0" title="0">
-                schema.Type = []string{"number"}
-                schema.Format = "double"</span>
+        case headerTypeFloat:<span class="cov0" title="0">
+                schema.Type = []string{headerTypeNumber}
+                schema.Format = headerTypeFloat</span>
+        case headerTypeDouble:<span class="cov0" title="0">
+                schema.Type = []string{headerTypeNumber}
+                schema.Format = headerTypeDouble</span>
         default:<span class="cov0" title="0">
-                schema.Type = []string{"string"}</span>
+                schema.Type = []string{headerTypeString}</span>
         }
 
         <span class="cov0" title="0">return base.CreateSchemaProxy(schema)</span>
@@ -3836,7 +3865,7 @@ import (
         "github.com/SebastienMelki/sebuf/http"
 )
 
-// pathParamRegex matches path variables like {user_id} or {id}
+// pathParamRegex matches path variables like {user_id} or {id}.
 var pathParamRegex = regexp.MustCompile(`\{([^}]+)\}`)
 
 // HTTPConfig represents the HTTP configuration for a method.
@@ -3896,23 +3925,25 @@ func getMethodHTTPConfig(method *protogen.Method) *HTTPConfig <span class="cov0"
 func httpMethodToString(m http.HttpMethod) string <span class="cov7" title="8">{
         switch m </span>{
         case http.HttpMethod_HTTP_METHOD_GET:<span class="cov1" title="1">
-                return "get"</span>
+                return httpMethodGet</span>
         case http.HttpMethod_HTTP_METHOD_POST:<span class="cov1" title="1">
-                return "post"</span>
+                return httpMethodPost</span>
         case http.HttpMethod_HTTP_METHOD_PUT:<span class="cov1" title="1">
-                return "put"</span>
+                return httpMethodPut</span>
         case http.HttpMethod_HTTP_METHOD_DELETE:<span class="cov1" title="1">
-                return "delete"</span>
+                return httpMethodDelete</span>
         case http.HttpMethod_HTTP_METHOD_PATCH:<span class="cov1" title="1">
-                return "patch"</span>
-        default:<span class="cov4" title="3">
+                return httpMethodPatch</span>
+        case http.HttpMethod_HTTP_METHOD_UNSPECIFIED:<span class="cov1" title="1">
                 // HTTP_METHOD_UNSPECIFIED defaults to POST for backward compatibility
-                return "post"</span>
+                return httpMethodPost</span>
         }
+        // Any unknown value defaults to POST for backward compatibility
+        <span class="cov3" title="2">return httpMethodPost</span>
 }
 
 // extractPathParams parses path variables from a path string.
-// Example: "/users/{user_id}/posts/{post_id}" -&gt; ["user_id", "post_id"]
+// Example: "/users/{user_id}/posts/{post_id}" -&gt; ["user_id", "post_id"].
 func extractPathParams(path string) []string <span class="cov8" title="11">{
         matches := pathParamRegex.FindAllStringSubmatch(path, -1)
         if len(matches) == 0 </span><span class="cov5" title="5">{
@@ -4192,6 +4223,18 @@ const (
         headerTypeInt32   = "int32"
         headerTypeInt64   = "int64"
         headerTypeInteger = "integer"
+        headerTypeNumber  = "number"
+        headerTypeFloat   = "float"
+        headerTypeDouble  = "double"
+)
+
+// HTTP method constants (lowercase for OpenAPI).
+const (
+        httpMethodGet    = "get"
+        httpMethodPost   = "post"
+        httpMethodPut    = "put"
+        httpMethodDelete = "delete"
+        httpMethodPatch  = "patch"
 )
 
 // mapHeaderTypeToOpenAPI maps proto header types to OpenAPI schema types.
@@ -4201,8 +4244,8 @@ func mapHeaderTypeToOpenAPI(headerType string) string <span class="cov10" title=
                 return headerTypeString</span>
         case headerTypeInteger, "int", headerTypeInt32, headerTypeInt64:<span class="cov5" title="5">
                 return headerTypeInteger</span>
-        case "number", "float", "double":<span class="cov5" title="4">
-                return "number"</span>
+        case headerTypeNumber, headerTypeFloat, headerTypeDouble:<span class="cov5" title="4">
+                return headerTypeNumber</span>
         case "boolean", "bool":<span class="cov4" title="3">
                 return "boolean"</span>
         case "array":<span class="cov3" title="2">
@@ -4273,32 +4316,32 @@ func (g *Generator) convertScalarField(field *protogen.Field) *base.SchemaProxy 
                 schema.Type = []string{"boolean"}</span>
 
         case protoreflect.Int32Kind, protoreflect.Sint32Kind, protoreflect.Sfixed32Kind:<span class="cov0" title="0">
-                schema.Type = []string{"integer"}
-                schema.Format = "int32"</span>
+                schema.Type = []string{headerTypeInteger}
+                schema.Format = headerTypeInt32</span>
 
         case protoreflect.Int64Kind, protoreflect.Sint64Kind, protoreflect.Sfixed64Kind:<span class="cov0" title="0">
-                schema.Type = []string{"integer"}
-                schema.Format = "int64"</span>
+                schema.Type = []string{headerTypeInteger}
+                schema.Format = headerTypeInt64</span>
 
         case protoreflect.Uint32Kind, protoreflect.Fixed32Kind:<span class="cov0" title="0">
-                schema.Type = []string{"integer"}
-                schema.Format = "int32"
+                schema.Type = []string{headerTypeInteger}
+                schema.Format = headerTypeInt32
                 zero := 0.0
                 schema.Minimum = &amp;zero</span>
 
         case protoreflect.Uint64Kind, protoreflect.Fixed64Kind:<span class="cov0" title="0">
-                schema.Type = []string{"integer"}
-                schema.Format = "int64"
+                schema.Type = []string{headerTypeInteger}
+                schema.Format = headerTypeInt64
                 zero := 0.0
                 schema.Minimum = &amp;zero</span>
 
         case protoreflect.FloatKind:<span class="cov0" title="0">
-                schema.Type = []string{"number"}
-                schema.Format = "float"</span>
+                schema.Type = []string{headerTypeNumber}
+                schema.Format = headerTypeFloat</span>
 
         case protoreflect.DoubleKind:<span class="cov0" title="0">
-                schema.Type = []string{"number"}
-                schema.Format = "double"</span>
+                schema.Type = []string{headerTypeNumber}
+                schema.Format = headerTypeDouble</span>
 
         case protoreflect.StringKind:<span class="cov0" title="0">
                 schema.Type = []string{"string"}</span>

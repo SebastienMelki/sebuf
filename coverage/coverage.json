@@ -345,39 +345,39 @@
       "coverage": 85.7
     },
     {
-      "file": "github.com/SebastienMelki/sebuf/internal/httpgen/annotations.go:37:",
+      "file": "github.com/SebastienMelki/sebuf/internal/httpgen/annotations.go:46:",
       "coverage": 0.0
     },
     {
-      "file": "github.com/SebastienMelki/sebuf/internal/httpgen/annotations.go:70:",
+      "file": "github.com/SebastienMelki/sebuf/internal/httpgen/annotations.go:79:",
       "coverage": 100.0
     },
     {
-      "file": "github.com/SebastienMelki/sebuf/internal/httpgen/annotations.go:90:",
+      "file": "github.com/SebastienMelki/sebuf/internal/httpgen/annotations.go:101:",
       "coverage": 100.0
     },
     {
-      "file": "github.com/SebastienMelki/sebuf/internal/httpgen/annotations.go:106:",
+      "file": "github.com/SebastienMelki/sebuf/internal/httpgen/annotations.go:117:",
       "coverage": 0.0
     },
     {
-      "file": "github.com/SebastienMelki/sebuf/internal/httpgen/annotations.go:135:",
+      "file": "github.com/SebastienMelki/sebuf/internal/httpgen/annotations.go:146:",
       "coverage": 0.0
     },
     {
-      "file": "github.com/SebastienMelki/sebuf/internal/httpgen/annotations.go:162:",
+      "file": "github.com/SebastienMelki/sebuf/internal/httpgen/annotations.go:173:",
       "coverage": 0.0
     },
     {
-      "file": "github.com/SebastienMelki/sebuf/internal/httpgen/annotations.go:189:",
+      "file": "github.com/SebastienMelki/sebuf/internal/httpgen/annotations.go:200:",
       "coverage": 0.0
     },
     {
-      "file": "github.com/SebastienMelki/sebuf/internal/httpgen/annotations.go:199:",
+      "file": "github.com/SebastienMelki/sebuf/internal/httpgen/annotations.go:210:",
       "coverage": 0.0
     },
     {
-      "file": "github.com/SebastienMelki/sebuf/internal/httpgen/annotations.go:226:",
+      "file": "github.com/SebastienMelki/sebuf/internal/httpgen/annotations.go:237:",
       "coverage": 0.0
     },
     {
@@ -409,143 +409,143 @@
       "coverage": 0.0
     },
     {
-      "file": "github.com/SebastienMelki/sebuf/internal/httpgen/generator.go:623:",
+      "file": "github.com/SebastienMelki/sebuf/internal/httpgen/generator.go:627:",
       "coverage": 0.0
     },
     {
-      "file": "github.com/SebastienMelki/sebuf/internal/httpgen/generator.go:678:",
+      "file": "github.com/SebastienMelki/sebuf/internal/httpgen/generator.go:682:",
       "coverage": 0.0
     },
     {
-      "file": "github.com/SebastienMelki/sebuf/internal/httpgen/generator.go:687:",
+      "file": "github.com/SebastienMelki/sebuf/internal/httpgen/generator.go:691:",
       "coverage": 0.0
     },
     {
-      "file": "github.com/SebastienMelki/sebuf/internal/httpgen/generator.go:715:",
+      "file": "github.com/SebastienMelki/sebuf/internal/httpgen/generator.go:719:",
       "coverage": 0.0
     },
     {
-      "file": "github.com/SebastienMelki/sebuf/internal/httpgen/generator.go:726:",
+      "file": "github.com/SebastienMelki/sebuf/internal/httpgen/generator.go:730:",
       "coverage": 0.0
     },
     {
-      "file": "github.com/SebastienMelki/sebuf/internal/httpgen/generator.go:735:",
+      "file": "github.com/SebastienMelki/sebuf/internal/httpgen/generator.go:739:",
       "coverage": 0.0
     },
     {
-      "file": "github.com/SebastienMelki/sebuf/internal/httpgen/generator.go:744:",
+      "file": "github.com/SebastienMelki/sebuf/internal/httpgen/generator.go:748:",
       "coverage": 0.0
     },
     {
-      "file": "github.com/SebastienMelki/sebuf/internal/httpgen/generator.go:753:",
+      "file": "github.com/SebastienMelki/sebuf/internal/httpgen/generator.go:757:",
       "coverage": 100.0
     },
     {
-      "file": "github.com/SebastienMelki/sebuf/internal/httpgen/generator.go:760:",
+      "file": "github.com/SebastienMelki/sebuf/internal/httpgen/generator.go:764:",
       "coverage": 100.0
     },
     {
-      "file": "github.com/SebastienMelki/sebuf/internal/httpgen/generator.go:776:",
+      "file": "github.com/SebastienMelki/sebuf/internal/httpgen/generator.go:780:",
       "coverage": 0.0
     },
     {
-      "file": "github.com/SebastienMelki/sebuf/internal/httpgen/generator.go:784:",
+      "file": "github.com/SebastienMelki/sebuf/internal/httpgen/generator.go:788:",
       "coverage": 0.0
     },
     {
-      "file": "github.com/SebastienMelki/sebuf/internal/httpgen/generator.go:820:",
+      "file": "github.com/SebastienMelki/sebuf/internal/httpgen/generator.go:824:",
       "coverage": 0.0
     },
     {
-      "file": "github.com/SebastienMelki/sebuf/internal/httpgen/generator.go:831:",
+      "file": "github.com/SebastienMelki/sebuf/internal/httpgen/generator.go:835:",
       "coverage": 0.0
     },
     {
-      "file": "github.com/SebastienMelki/sebuf/internal/httpgen/generator.go:860:",
+      "file": "github.com/SebastienMelki/sebuf/internal/httpgen/generator.go:864:",
       "coverage": 0.0
     },
     {
-      "file": "github.com/SebastienMelki/sebuf/internal/httpgen/generator.go:869:",
+      "file": "github.com/SebastienMelki/sebuf/internal/httpgen/generator.go:873:",
       "coverage": 0.0
     },
     {
-      "file": "github.com/SebastienMelki/sebuf/internal/httpgen/generator.go:888:",
+      "file": "github.com/SebastienMelki/sebuf/internal/httpgen/generator.go:892:",
       "coverage": 0.0
     },
     {
-      "file": "github.com/SebastienMelki/sebuf/internal/httpgen/generator.go:926:",
+      "file": "github.com/SebastienMelki/sebuf/internal/httpgen/generator.go:930:",
       "coverage": 0.0
     },
     {
-      "file": "github.com/SebastienMelki/sebuf/internal/httpgen/generator.go:934:",
+      "file": "github.com/SebastienMelki/sebuf/internal/httpgen/generator.go:938:",
       "coverage": 0.0
     },
     {
-      "file": "github.com/SebastienMelki/sebuf/internal/httpgen/generator.go:948:",
+      "file": "github.com/SebastienMelki/sebuf/internal/httpgen/generator.go:952:",
       "coverage": 0.0
     },
     {
-      "file": "github.com/SebastienMelki/sebuf/internal/httpgen/generator.go:969:",
+      "file": "github.com/SebastienMelki/sebuf/internal/httpgen/generator.go:973:",
       "coverage": 0.0
     },
     {
-      "file": "github.com/SebastienMelki/sebuf/internal/httpgen/generator.go:995:",
+      "file": "github.com/SebastienMelki/sebuf/internal/httpgen/generator.go:999:",
       "coverage": 0.0
     },
     {
-      "file": "github.com/SebastienMelki/sebuf/internal/httpgen/generator.go:1007:",
+      "file": "github.com/SebastienMelki/sebuf/internal/httpgen/generator.go:1011:",
       "coverage": 0.0
     },
     {
-      "file": "github.com/SebastienMelki/sebuf/internal/httpgen/generator.go:1034:",
+      "file": "github.com/SebastienMelki/sebuf/internal/httpgen/generator.go:1038:",
       "coverage": 0.0
     },
     {
-      "file": "github.com/SebastienMelki/sebuf/internal/httpgen/generator.go:1041:",
+      "file": "github.com/SebastienMelki/sebuf/internal/httpgen/generator.go:1045:",
       "coverage": 0.0
     },
     {
-      "file": "github.com/SebastienMelki/sebuf/internal/httpgen/generator.go:1070:",
+      "file": "github.com/SebastienMelki/sebuf/internal/httpgen/generator.go:1074:",
       "coverage": 0.0
     },
     {
-      "file": "github.com/SebastienMelki/sebuf/internal/httpgen/generator.go:1106:",
+      "file": "github.com/SebastienMelki/sebuf/internal/httpgen/generator.go:1110:",
       "coverage": 0.0
     },
     {
-      "file": "github.com/SebastienMelki/sebuf/internal/httpgen/generator.go:1120:",
+      "file": "github.com/SebastienMelki/sebuf/internal/httpgen/generator.go:1124:",
       "coverage": 0.0
     },
     {
-      "file": "github.com/SebastienMelki/sebuf/internal/httpgen/generator.go:1127:",
+      "file": "github.com/SebastienMelki/sebuf/internal/httpgen/generator.go:1131:",
       "coverage": 0.0
     },
     {
-      "file": "github.com/SebastienMelki/sebuf/internal/httpgen/generator.go:1146:",
+      "file": "github.com/SebastienMelki/sebuf/internal/httpgen/generator.go:1150:",
       "coverage": 0.0
     },
     {
-      "file": "github.com/SebastienMelki/sebuf/internal/httpgen/generator.go:1167:",
+      "file": "github.com/SebastienMelki/sebuf/internal/httpgen/generator.go:1171:",
       "coverage": 0.0
     },
     {
-      "file": "github.com/SebastienMelki/sebuf/internal/httpgen/generator.go:1200:",
+      "file": "github.com/SebastienMelki/sebuf/internal/httpgen/generator.go:1204:",
       "coverage": 0.0
     },
     {
-      "file": "github.com/SebastienMelki/sebuf/internal/httpgen/generator.go:1244:",
+      "file": "github.com/SebastienMelki/sebuf/internal/httpgen/generator.go:1248:",
       "coverage": 0.0
     },
     {
-      "file": "github.com/SebastienMelki/sebuf/internal/httpgen/generator.go:1257:",
+      "file": "github.com/SebastienMelki/sebuf/internal/httpgen/generator.go:1261:",
       "coverage": 0.0
     },
     {
-      "file": "github.com/SebastienMelki/sebuf/internal/httpgen/generator.go:1285:",
+      "file": "github.com/SebastienMelki/sebuf/internal/httpgen/generator.go:1297:",
       "coverage": 0.0
     },
     {
-      "file": "github.com/SebastienMelki/sebuf/internal/httpgen/generator.go:1321:",
+      "file": "github.com/SebastienMelki/sebuf/internal/httpgen/generator.go:1333:",
       "coverage": 0.0
     },
     {
@@ -601,19 +601,19 @@
       "coverage": 0.0
     },
     {
-      "file": "github.com/SebastienMelki/sebuf/internal/httpgen/validation.go:108:",
+      "file": "github.com/SebastienMelki/sebuf/internal/httpgen/validation.go:111:",
       "coverage": 0.0
     },
     {
-      "file": "github.com/SebastienMelki/sebuf/internal/httpgen/validation.go:118:",
+      "file": "github.com/SebastienMelki/sebuf/internal/httpgen/validation.go:121:",
       "coverage": 0.0
     },
     {
-      "file": "github.com/SebastienMelki/sebuf/internal/httpgen/validation.go:134:",
+      "file": "github.com/SebastienMelki/sebuf/internal/httpgen/validation.go:138:",
       "coverage": 0.0
     },
     {
-      "file": "github.com/SebastienMelki/sebuf/internal/httpgen/validation.go:158:",
+      "file": "github.com/SebastienMelki/sebuf/internal/httpgen/validation.go:162:",
       "coverage": 0.0
     },
     {
@@ -665,23 +665,43 @@
       "coverage": 0.0
     },
     {
-      "file": "github.com/SebastienMelki/sebuf/internal/openapiv3/generator.go:202:",
+      "file": "github.com/SebastienMelki/sebuf/internal/openapiv3/generator.go:209:",
       "coverage": 0.0
     },
     {
-      "file": "github.com/SebastienMelki/sebuf/internal/openapiv3/generator.go:391:",
+      "file": "github.com/SebastienMelki/sebuf/internal/openapiv3/generator.go:242:",
       "coverage": 0.0
     },
     {
-      "file": "github.com/SebastienMelki/sebuf/internal/openapiv3/generator.go:401:",
+      "file": "github.com/SebastienMelki/sebuf/internal/openapiv3/generator.go:263:",
       "coverage": 0.0
     },
     {
-      "file": "github.com/SebastienMelki/sebuf/internal/openapiv3/generator.go:435:",
+      "file": "github.com/SebastienMelki/sebuf/internal/openapiv3/generator.go:284:",
+      "coverage": 0.0
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/internal/openapiv3/generator.go:325:",
+      "coverage": 0.0
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/internal/openapiv3/generator.go:343:",
+      "coverage": 0.0
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/internal/openapiv3/generator.go:393:",
+      "coverage": 0.0
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/internal/openapiv3/generator.go:403:",
+      "coverage": 0.0
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/internal/openapiv3/generator.go:437:",
       "coverage": 100.0
     },
     {
-      "file": "github.com/SebastienMelki/sebuf/internal/openapiv3/generator.go:475:",
+      "file": "github.com/SebastienMelki/sebuf/internal/openapiv3/generator.go:477:",
       "coverage": 70.0
     },
     {
@@ -693,43 +713,43 @@
       "coverage": 100.0
     },
     {
-      "file": "github.com/SebastienMelki/sebuf/internal/openapiv3/http_annotations.go:94:",
+      "file": "github.com/SebastienMelki/sebuf/internal/openapiv3/http_annotations.go:96:",
       "coverage": 100.0
     },
     {
-      "file": "github.com/SebastienMelki/sebuf/internal/openapiv3/http_annotations.go:110:",
+      "file": "github.com/SebastienMelki/sebuf/internal/openapiv3/http_annotations.go:112:",
       "coverage": 0.0
     },
     {
-      "file": "github.com/SebastienMelki/sebuf/internal/openapiv3/http_annotations.go:152:",
+      "file": "github.com/SebastienMelki/sebuf/internal/openapiv3/http_annotations.go:154:",
       "coverage": 0.0
     },
     {
-      "file": "github.com/SebastienMelki/sebuf/internal/openapiv3/http_annotations.go:181:",
+      "file": "github.com/SebastienMelki/sebuf/internal/openapiv3/http_annotations.go:183:",
       "coverage": 100.0
     },
     {
-      "file": "github.com/SebastienMelki/sebuf/internal/openapiv3/http_annotations.go:201:",
+      "file": "github.com/SebastienMelki/sebuf/internal/openapiv3/http_annotations.go:203:",
       "coverage": 100.0
     },
     {
-      "file": "github.com/SebastienMelki/sebuf/internal/openapiv3/http_annotations.go:212:",
+      "file": "github.com/SebastienMelki/sebuf/internal/openapiv3/http_annotations.go:214:",
       "coverage": 0.0
     },
     {
-      "file": "github.com/SebastienMelki/sebuf/internal/openapiv3/http_annotations.go:239:",
+      "file": "github.com/SebastienMelki/sebuf/internal/openapiv3/http_annotations.go:241:",
       "coverage": 0.0
     },
     {
-      "file": "github.com/SebastienMelki/sebuf/internal/openapiv3/http_annotations.go:266:",
+      "file": "github.com/SebastienMelki/sebuf/internal/openapiv3/http_annotations.go:268:",
       "coverage": 100.0
     },
     {
-      "file": "github.com/SebastienMelki/sebuf/internal/openapiv3/http_annotations.go:318:",
+      "file": "github.com/SebastienMelki/sebuf/internal/openapiv3/http_annotations.go:320:",
       "coverage": 0.0
     },
     {
-      "file": "github.com/SebastienMelki/sebuf/internal/openapiv3/http_annotations.go:376:",
+      "file": "github.com/SebastienMelki/sebuf/internal/openapiv3/http_annotations.go:390:",
       "coverage": 100.0
     },
     {
