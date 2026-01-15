@@ -1,0 +1,100 @@
+syntax = "proto3";
+
+package restful_crud.services;
+
+import "proto/models/product.proto";
+import "sebuf/http/annotations.proto";
+import "sebuf/http/headers.proto";
+
+option go_package = "github.com/SebastienMelki/sebuf/examples/restful-crud/api/proto/services;services";
+
+// ProductService provides a complete RESTful CRUD API for products.
+// This example demonstrates all HTTP verbs with path parameters and query parameters.
+service ProductService {
+  // Base path for all endpoints in this service.
+  option (sebuf.http.service_config) = {
+    base_path: "/api/v1"
+  };
+
+  // API key required for all operations.
+  option (sebuf.http.service_headers) = {
+    required_headers: [
+      {
+        name: "X-API-Key"
+        description: "API authentication key"
+        type: "string"
+        required: true
+        format: "uuid"
+        example: "123e4567-e89b-12d3-a456-426614174000"
+      }
+    ]
+  };
+
+  // GET /api/v1/products - List all products with pagination and filtering.
+  // Demonstrates: GET method, query parameters for pagination/filtering/sorting/search.
+  rpc ListProducts(restful_crud.models.ListProductsRequest) returns (restful_crud.models.ListProductsResponse) {
+    option (sebuf.http.config) = {
+      path: "/products"
+      method: HTTP_METHOD_GET
+    };
+  }
+
+  // GET /api/v1/products/{product_id} - Get a single product by ID.
+  // Demonstrates: GET method with path parameter.
+  rpc GetProduct(restful_crud.models.GetProductRequest) returns (restful_crud.models.Product) {
+    option (sebuf.http.config) = {
+      path: "/products/{product_id}"
+      method: HTTP_METHOD_GET
+    };
+  }
+
+  // POST /api/v1/products - Create a new product.
+  // Demonstrates: POST method with request body validation.
+  rpc CreateProduct(restful_crud.models.CreateProductRequest) returns (restful_crud.models.Product) {
+    option (sebuf.http.config) = {
+      path: "/products"
+      method: HTTP_METHOD_POST
+    };
+  }
+
+  // PUT /api/v1/products/{product_id} - Full update of an existing product.
+  // Demonstrates: PUT method with path parameter and request body.
+  // PUT semantics: All fields must be provided, replaces the entire resource.
+  rpc UpdateProduct(restful_crud.models.UpdateProductRequest) returns (restful_crud.models.Product) {
+    option (sebuf.http.config) = {
+      path: "/products/{product_id}"
+      method: HTTP_METHOD_PUT
+    };
+  }
+
+  // PATCH /api/v1/products/{product_id} - Partial update of an existing product.
+  // Demonstrates: PATCH method with path parameter and optional fields.
+  // PATCH semantics: Only provided fields are updated.
+  rpc PatchProduct(restful_crud.models.PatchProductRequest) returns (restful_crud.models.Product) {
+    option (sebuf.http.config) = {
+      path: "/products/{product_id}"
+      method: HTTP_METHOD_PATCH
+    };
+  }
+
+  // DELETE /api/v1/products/{product_id} - Delete a product.
+  // Demonstrates: DELETE method with path parameter.
+  rpc DeleteProduct(restful_crud.models.DeleteProductRequest) returns (restful_crud.models.DeleteProductResponse) {
+    option (sebuf.http.config) = {
+      path: "/products/{product_id}"
+      method: HTTP_METHOD_DELETE
+    };
+    // Extra confirmation header for destructive operations.
+    option (sebuf.http.method_headers) = {
+      required_headers: [
+        {
+          name: "X-Confirm-Delete"
+          description: "Set to 'true' to confirm deletion"
+          type: "string"
+          required: true
+          example: "true"
+        }
+      ]
+    };
+  }
+}

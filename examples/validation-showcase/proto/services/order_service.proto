@@ -1,0 +1,67 @@
+syntax = "proto3";
+
+package validation_showcase.services;
+
+import "proto/models/order.proto";
+import "sebuf/http/annotations.proto";
+import "sebuf/http/headers.proto";
+
+option go_package = "github.com/SebastienMelki/sebuf/examples/validation-showcase/api/proto/services;services";
+
+// OrderService demonstrates comprehensive request validation with buf.validate.
+// This example showcases all validation patterns: strings, numbers, arrays, maps, nested messages.
+service OrderService {
+  option (sebuf.http.service_config) = {
+    base_path: "/api/v1"
+  };
+
+  option (sebuf.http.service_headers) = {
+    required_headers: [
+      {
+        name: "X-API-Key"
+        description: "API authentication key"
+        type: "string"
+        required: true
+        format: "uuid"
+        example: "123e4567-e89b-12d3-a456-426614174000"
+      }
+    ]
+  };
+
+  // POST /api/v1/orders - Create a new order.
+  // Demonstrates: Nested message validation, array validation, map validation,
+  // required fields, enum validation, pattern validation.
+  rpc CreateOrder(validation_showcase.models.CreateOrderRequest) returns (validation_showcase.models.Order) {
+    option (sebuf.http.config) = {
+      path: "/orders"
+      method: HTTP_METHOD_POST
+    };
+  }
+
+  // GET /api/v1/orders/{order_id} - Get an order by ID.
+  // Demonstrates: UUID validation for path parameter.
+  rpc GetOrder(validation_showcase.models.GetOrderRequest) returns (validation_showcase.models.Order) {
+    option (sebuf.http.config) = {
+      path: "/orders/{order_id}"
+      method: HTTP_METHOD_GET
+    };
+  }
+
+  // POST /api/v1/validate/address - Validate a shipping address.
+  // Demonstrates: Nested message validation with pattern constraints.
+  rpc ValidateAddress(validation_showcase.models.ValidateAddressRequest) returns (validation_showcase.models.ValidateAddressResponse) {
+    option (sebuf.http.config) = {
+      path: "/validate/address"
+      method: HTTP_METHOD_POST
+    };
+  }
+
+  // POST /api/v1/validate/coupon - Validate a coupon code.
+  // Demonstrates: Pattern validation for coupon codes, numeric validation.
+  rpc ValidateCoupon(validation_showcase.models.CouponValidationRequest) returns (validation_showcase.models.CouponValidationResponse) {
+    option (sebuf.http.config) = {
+      path: "/validate/coupon"
+      method: HTTP_METHOD_POST
+    };
+  }
+}

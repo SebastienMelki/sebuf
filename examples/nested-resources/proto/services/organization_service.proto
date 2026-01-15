@@ -1,0 +1,153 @@
+syntax = "proto3";
+
+package nested_resources.services;
+
+import "proto/models/organization.proto";
+import "sebuf/http/annotations.proto";
+import "sebuf/http/headers.proto";
+
+option go_package = "github.com/SebastienMelki/sebuf/examples/nested-resources/api/proto/services;services";
+
+// OrganizationService demonstrates complex nested resource hierarchies with multiple path parameters.
+// This follows a GitHub-like pattern: Organization > Team > Members/Projects
+service OrganizationService {
+  option (sebuf.http.service_config) = {
+    base_path: "/api/v1"
+  };
+
+  option (sebuf.http.service_headers) = {
+    required_headers: [
+      {
+        name: "Authorization"
+        description: "Bearer token for authentication"
+        type: "string"
+        required: true
+        example: "Bearer eyJhbGciOiJIUzI1NiIs..."
+      }
+    ]
+  };
+
+  // === Organization Endpoints (1 path parameter) ===
+
+  // GET /api/v1/orgs - List all organizations.
+  // Demonstrates: Query parameters for pagination and search.
+  rpc ListOrganizations(nested_resources.models.ListOrganizationsRequest) returns (nested_resources.models.ListOrganizationsResponse) {
+    option (sebuf.http.config) = {
+      path: "/orgs"
+      method: HTTP_METHOD_GET
+    };
+  }
+
+  // GET /api/v1/orgs/{org_id} - Get a single organization.
+  // Demonstrates: Single path parameter.
+  rpc GetOrganization(nested_resources.models.GetOrganizationRequest) returns (nested_resources.models.Organization) {
+    option (sebuf.http.config) = {
+      path: "/orgs/{org_id}"
+      method: HTTP_METHOD_GET
+    };
+  }
+
+  // POST /api/v1/orgs - Create a new organization.
+  rpc CreateOrganization(nested_resources.models.CreateOrganizationRequest) returns (nested_resources.models.Organization) {
+    option (sebuf.http.config) = {
+      path: "/orgs"
+      method: HTTP_METHOD_POST
+    };
+  }
+
+  // === Team Endpoints (2 path parameters) ===
+
+  // GET /api/v1/orgs/{org_id}/teams - List teams in an organization.
+  // Demonstrates: Nested resource with org_id from path, query params for filtering.
+  rpc ListTeams(nested_resources.models.ListTeamsRequest) returns (nested_resources.models.ListTeamsResponse) {
+    option (sebuf.http.config) = {
+      path: "/orgs/{org_id}/teams"
+      method: HTTP_METHOD_GET
+    };
+  }
+
+  // GET /api/v1/orgs/{org_id}/teams/{team_id} - Get a single team.
+  // Demonstrates: Two path parameters.
+  rpc GetTeam(nested_resources.models.GetTeamRequest) returns (nested_resources.models.Team) {
+    option (sebuf.http.config) = {
+      path: "/orgs/{org_id}/teams/{team_id}"
+      method: HTTP_METHOD_GET
+    };
+  }
+
+  // POST /api/v1/orgs/{org_id}/teams - Create a new team.
+  // Demonstrates: Path parameter combined with request body.
+  rpc CreateTeam(nested_resources.models.CreateTeamRequest) returns (nested_resources.models.Team) {
+    option (sebuf.http.config) = {
+      path: "/orgs/{org_id}/teams"
+      method: HTTP_METHOD_POST
+    };
+  }
+
+  // === Member Endpoints (3 path parameters) ===
+
+  // GET /api/v1/orgs/{org_id}/teams/{team_id}/members - List team members.
+  // Demonstrates: Deep nesting with 2 parent path params + query params.
+  rpc ListTeamMembers(nested_resources.models.ListTeamMembersRequest) returns (nested_resources.models.ListTeamMembersResponse) {
+    option (sebuf.http.config) = {
+      path: "/orgs/{org_id}/teams/{team_id}/members"
+      method: HTTP_METHOD_GET
+    };
+  }
+
+  // GET /api/v1/orgs/{org_id}/teams/{team_id}/members/{member_id} - Get a single member.
+  // Demonstrates: Three path parameters (deepest nesting).
+  rpc GetTeamMember(nested_resources.models.GetTeamMemberRequest) returns (nested_resources.models.Member) {
+    option (sebuf.http.config) = {
+      path: "/orgs/{org_id}/teams/{team_id}/members/{member_id}"
+      method: HTTP_METHOD_GET
+    };
+  }
+
+  // POST /api/v1/orgs/{org_id}/teams/{team_id}/members - Add a member to a team.
+  // Demonstrates: Two path parameters with request body.
+  rpc AddTeamMember(nested_resources.models.AddTeamMemberRequest) returns (nested_resources.models.Member) {
+    option (sebuf.http.config) = {
+      path: "/orgs/{org_id}/teams/{team_id}/members"
+      method: HTTP_METHOD_POST
+    };
+  }
+
+  // DELETE /api/v1/orgs/{org_id}/teams/{team_id}/members/{member_id} - Remove a member.
+  // Demonstrates: Three path parameters for deletion.
+  rpc RemoveTeamMember(nested_resources.models.RemoveTeamMemberRequest) returns (nested_resources.models.RemoveTeamMemberResponse) {
+    option (sebuf.http.config) = {
+      path: "/orgs/{org_id}/teams/{team_id}/members/{member_id}"
+      method: HTTP_METHOD_DELETE
+    };
+  }
+
+  // === Project Endpoints (3 path parameters) ===
+
+  // GET /api/v1/orgs/{org_id}/teams/{team_id}/projects - List team projects.
+  // Demonstrates: Deep nesting with query parameter filtering.
+  rpc ListProjects(nested_resources.models.ListProjectsRequest) returns (nested_resources.models.ListProjectsResponse) {
+    option (sebuf.http.config) = {
+      path: "/orgs/{org_id}/teams/{team_id}/projects"
+      method: HTTP_METHOD_GET
+    };
+  }
+
+  // GET /api/v1/orgs/{org_id}/teams/{team_id}/projects/{project_id} - Get a single project.
+  // Demonstrates: Three path parameters.
+  rpc GetProject(nested_resources.models.GetProjectRequest) returns (nested_resources.models.Project) {
+    option (sebuf.http.config) = {
+      path: "/orgs/{org_id}/teams/{team_id}/projects/{project_id}"
+      method: HTTP_METHOD_GET
+    };
+  }
+
+  // POST /api/v1/orgs/{org_id}/teams/{team_id}/projects - Create a new project.
+  // Demonstrates: Two path parameters with full request body.
+  rpc CreateProject(nested_resources.models.CreateProjectRequest) returns (nested_resources.models.Project) {
+    option (sebuf.http.config) = {
+      path: "/orgs/{org_id}/teams/{team_id}/projects"
+      method: HTTP_METHOD_POST
+    };
+  }
+}

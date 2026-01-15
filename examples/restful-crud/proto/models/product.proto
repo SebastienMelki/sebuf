@@ -1,0 +1,244 @@
+syntax = "proto3";
+
+package restful_crud.models;
+
+import "buf/validate/validate.proto";
+import "sebuf/http/annotations.proto";
+
+option go_package = "github.com/SebastienMelki/sebuf/examples/restful-crud/api/proto/models;models";
+
+// Product represents a product entity in the catalog.
+message Product {
+  // Unique product identifier (UUID).
+  string id = 1 [(sebuf.http.field_examples) = { values: ["prod-123e4567-e89b-12d3-a456-426614174000"] }];
+
+  // Product name.
+  string name = 2 [(sebuf.http.field_examples) = { values: ["Wireless Bluetooth Headphones"] }];
+
+  // Detailed product description.
+  string description = 3 [(sebuf.http.field_examples) = { values: ["High-quality wireless headphones with noise cancellation"] }];
+
+  // Product price in USD.
+  double price = 4 [(sebuf.http.field_examples) = { values: ["99.99"] }];
+
+  // Available stock quantity.
+  int32 stock_quantity = 5 [(sebuf.http.field_examples) = { values: ["150"] }];
+
+  // Category identifier for grouping products.
+  string category_id = 6 [(sebuf.http.field_examples) = { values: ["cat-electronics"] }];
+
+  // Tags for product search and filtering.
+  repeated string tags = 7 [(sebuf.http.field_examples) = { values: ["audio", "wireless", "bluetooth"] }];
+
+  // Product creation timestamp (Unix epoch).
+  int64 created_at = 8 [(sebuf.http.field_examples) = { values: ["1699900000"] }];
+
+  // Last update timestamp (Unix epoch).
+  int64 updated_at = 9 [(sebuf.http.field_examples) = { values: ["1699900000"] }];
+}
+
+// Request to list products with pagination and filtering.
+message ListProductsRequest {
+  // Page number (1-indexed, default: 1).
+  int32 page = 1 [
+    (sebuf.http.query) = { name: "page" },
+    (buf.validate.field).int32 = { gte: 1 },
+    (sebuf.http.field_examples) = { values: ["1"] }
+  ];
+
+  // Number of items per page (default: 20, max: 100).
+  int32 limit = 2 [
+    (sebuf.http.query) = { name: "limit" },
+    (buf.validate.field).int32 = { gte: 1, lte: 100 },
+    (sebuf.http.field_examples) = { values: ["20"] }
+  ];
+
+  // Filter by category ID.
+  string category = 3 [
+    (sebuf.http.query) = { name: "category" },
+    (sebuf.http.field_examples) = { values: ["cat-electronics"] }
+  ];
+
+  // Minimum price filter.
+  double min_price = 4 [
+    (sebuf.http.query) = { name: "min_price" },
+    (buf.validate.field).double = { gte: 0 },
+    (sebuf.http.field_examples) = { values: ["10.00"] }
+  ];
+
+  // Maximum price filter.
+  double max_price = 5 [
+    (sebuf.http.query) = { name: "max_price" },
+    (buf.validate.field).double = { gte: 0 },
+    (sebuf.http.field_examples) = { values: ["500.00"] }
+  ];
+
+  // Field to sort by (name, price, created_at).
+  string sort_by = 6 [
+    (sebuf.http.query) = { name: "sort" },
+    (sebuf.http.field_examples) = { values: ["price"] }
+  ];
+
+  // Sort in descending order.
+  bool descending = 7 [
+    (sebuf.http.query) = { name: "desc" },
+    (sebuf.http.field_examples) = { values: ["false"] }
+  ];
+
+  // Search query for product name or description.
+  string search = 8 [
+    (sebuf.http.query) = { name: "q" },
+    (sebuf.http.field_examples) = { values: ["headphones"] }
+  ];
+}
+
+// Response containing paginated list of products.
+message ListProductsResponse {
+  // List of products for the current page.
+  repeated Product products = 1;
+
+  // Total number of products matching the query.
+  int32 total_count = 2 [(sebuf.http.field_examples) = { values: ["42"] }];
+
+  // Current page number.
+  int32 page = 3 [(sebuf.http.field_examples) = { values: ["1"] }];
+
+  // Total number of pages.
+  int32 total_pages = 4 [(sebuf.http.field_examples) = { values: ["3"] }];
+}
+
+// Request to get a single product by ID.
+message GetProductRequest {
+  // The product ID to retrieve (bound from path variable).
+  string product_id = 1 [
+    (buf.validate.field).string.uuid = true,
+    (sebuf.http.field_examples) = { values: ["123e4567-e89b-12d3-a456-426614174000"] }
+  ];
+}
+
+// Request to create a new product.
+message CreateProductRequest {
+  // Product name (required, 1-200 characters).
+  string name = 1 [
+    (buf.validate.field).string = { min_len: 1, max_len: 200 },
+    (sebuf.http.field_examples) = { values: ["Wireless Bluetooth Headphones"] }
+  ];
+
+  // Product description (optional, max 2000 characters).
+  string description = 2 [
+    (buf.validate.field).string = { max_len: 2000 },
+    (sebuf.http.field_examples) = { values: ["High-quality wireless headphones with noise cancellation"] }
+  ];
+
+  // Price in USD (must be positive).
+  double price = 3 [
+    (buf.validate.field).double = { gt: 0 },
+    (sebuf.http.field_examples) = { values: ["99.99"] }
+  ];
+
+  // Initial stock quantity (must be non-negative).
+  int32 stock_quantity = 4 [
+    (buf.validate.field).int32 = { gte: 0 },
+    (sebuf.http.field_examples) = { values: ["100"] }
+  ];
+
+  // Category ID for grouping.
+  string category_id = 5 [(sebuf.http.field_examples) = { values: ["cat-electronics"] }];
+
+  // Product tags for search.
+  repeated string tags = 6 [(sebuf.http.field_examples) = { values: ["audio", "wireless"] }];
+}
+
+// Request to fully update an existing product (PUT).
+message UpdateProductRequest {
+  // Product ID (bound from path variable).
+  string product_id = 1 [
+    (buf.validate.field).string.uuid = true,
+    (sebuf.http.field_examples) = { values: ["123e4567-e89b-12d3-a456-426614174000"] }
+  ];
+
+  // Updated product name (required).
+  string name = 2 [
+    (buf.validate.field).string = { min_len: 1, max_len: 200 },
+    (sebuf.http.field_examples) = { values: ["Updated Wireless Headphones"] }
+  ];
+
+  // Updated description.
+  string description = 3 [
+    (buf.validate.field).string = { max_len: 2000 },
+    (sebuf.http.field_examples) = { values: ["Updated description with new features"] }
+  ];
+
+  // Updated price (must be positive).
+  double price = 4 [
+    (buf.validate.field).double = { gt: 0 },
+    (sebuf.http.field_examples) = { values: ["129.99"] }
+  ];
+
+  // Updated stock quantity.
+  int32 stock_quantity = 5 [
+    (buf.validate.field).int32 = { gte: 0 },
+    (sebuf.http.field_examples) = { values: ["75"] }
+  ];
+
+  // Updated category ID.
+  string category_id = 6 [(sebuf.http.field_examples) = { values: ["cat-electronics"] }];
+
+  // Updated tags.
+  repeated string tags = 7 [(sebuf.http.field_examples) = { values: ["audio", "wireless", "premium"] }];
+}
+
+// Request to partially update an existing product (PATCH).
+// Only provided fields will be updated.
+message PatchProductRequest {
+  // Product ID (bound from path variable).
+  string product_id = 1 [
+    (buf.validate.field).string.uuid = true,
+    (sebuf.http.field_examples) = { values: ["123e4567-e89b-12d3-a456-426614174000"] }
+  ];
+
+  // Updated name (optional).
+  optional string name = 2 [
+    (buf.validate.field).string = { min_len: 1, max_len: 200 },
+    (sebuf.http.field_examples) = { values: ["New Product Name"] }
+  ];
+
+  // Updated description (optional).
+  optional string description = 3 [
+    (buf.validate.field).string = { max_len: 2000 },
+    (sebuf.http.field_examples) = { values: ["New description"] }
+  ];
+
+  // Updated price (optional).
+  optional double price = 4 [
+    (buf.validate.field).double = { gt: 0 },
+    (sebuf.http.field_examples) = { values: ["149.99"] }
+  ];
+
+  // Updated stock quantity (optional).
+  optional int32 stock_quantity = 5 [
+    (buf.validate.field).int32 = { gte: 0 },
+    (sebuf.http.field_examples) = { values: ["50"] }
+  ];
+
+  // Updated category ID (optional).
+  optional string category_id = 6 [(sebuf.http.field_examples) = { values: ["cat-audio"] }];
+}
+
+// Request to delete a product.
+message DeleteProductRequest {
+  // Product ID to delete (bound from path variable).
+  string product_id = 1 [
+    (buf.validate.field).string.uuid = true,
+    (sebuf.http.field_examples) = { values: ["123e4567-e89b-12d3-a456-426614174000"] }
+  ];
+}
+
+// Response after deleting a product.
+message DeleteProductResponse {
+  // Whether the deletion was successful.
+  bool success = 1 [(sebuf.http.field_examples) = { values: ["true"] }];
+
+  // Informational message.
+  string message = 2 [(sebuf.http.field_examples) = { values: ["Product deleted successfully"] }];
+}
