@@ -2,6 +2,7 @@ package httpgen
 
 import (
 	"bytes"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -68,16 +69,13 @@ func TestHTTPGenGoldenFiles(t *testing.T) {
 	goldenDir := filepath.Join(baseDir, "testdata", "golden")
 
 	// Create golden directory if it doesn't exist
-	if err := os.MkdirAll(goldenDir, 0o755); err != nil {
-		t.Fatalf("Failed to create golden directory: %v", err)
+	mkdirErr := os.MkdirAll(goldenDir, 0o755)
+	if mkdirErr != nil {
+		t.Fatalf("Failed to create golden directory: %v", mkdirErr)
 	}
 
 	// Create temp directory for generated files
-	tempDir, err := os.MkdirTemp("", "httpgen-golden-test-*")
-	if err != nil {
-		t.Fatalf("Failed to create temp directory: %v", err)
-	}
-	defer os.RemoveAll(tempDir)
+	tempDir := t.TempDir()
 
 	updateGolden := os.Getenv("UPDATE_GOLDEN") == "1"
 
@@ -86,7 +84,8 @@ func TestHTTPGenGoldenFiles(t *testing.T) {
 			protoPath := filepath.Join(protoDir, tc.protoFile)
 
 			// Check proto file exists
-			if _, err := os.Stat(protoPath); os.IsNotExist(err) {
+			_, statErr := os.Stat(protoPath)
+			if os.IsNotExist(statErr) {
 				t.Fatalf("Proto file not found: %s", protoPath)
 			}
 
@@ -105,8 +104,9 @@ func TestHTTPGenGoldenFiles(t *testing.T) {
 			var stderr bytes.Buffer
 			cmd.Stderr = &stderr
 
-			if err := cmd.Run(); err != nil {
-				t.Fatalf("protoc failed: %v\nstderr: %s", err, stderr.String())
+			runErr := cmd.Run()
+			if runErr != nil {
+				t.Fatalf("protoc failed: %v\nstderr: %s", runErr, stderr.String())
 			}
 
 			// Compare or update golden files
@@ -114,41 +114,52 @@ func TestHTTPGenGoldenFiles(t *testing.T) {
 				generatedPath := filepath.Join(tempDir, expectedFile)
 				goldenPath := filepath.Join(goldenDir, expectedFile)
 
-				generatedContent, err := os.ReadFile(generatedPath)
-				if err != nil {
-					t.Fatalf("Failed to read generated file %s: %v", generatedPath, err)
+				generatedContent, readErr := os.ReadFile(generatedPath)
+				if readErr != nil {
+					t.Fatalf("Failed to read generated file %s: %v", generatedPath, readErr)
 				}
 
 				if updateGolden {
-					// Update golden file
-					if err := os.WriteFile(goldenPath, generatedContent, 0o644); err != nil {
-						t.Fatalf("Failed to write golden file %s: %v", goldenPath, err)
-					}
-					t.Logf("Updated golden file: %s", goldenPath)
-				} else {
-					// Compare with golden file
-					goldenContent, err := os.ReadFile(goldenPath)
-					if err != nil {
-						if os.IsNotExist(err) {
-							t.Fatalf("Golden file not found: %s\nRun with UPDATE_GOLDEN=1 to create it", goldenPath)
-						}
-						t.Fatalf("Failed to read golden file %s: %v", goldenPath, err)
-					}
-
-					if !bytes.Equal(generatedContent, goldenContent) {
-						t.Errorf("Generated file %s does not match golden file.\n"+
-							"Run with UPDATE_GOLDEN=1 to update golden files after reviewing changes.\n"+
-							"Diff:\n%s",
-							expectedFile,
-							diffStrings(string(goldenContent), string(generatedContent)))
-					}
+					updateGoldenFile(t, goldenPath, generatedContent)
+					continue
 				}
+				compareGoldenFile(t, expectedFile, goldenPath, generatedContent)
 			}
 		})
 	}
 }
 
-// diffStrings returns a simple diff between two strings
+// updateGoldenFile writes generated content to a golden file.
+func updateGoldenFile(t *testing.T, goldenPath string, content []byte) {
+	t.Helper()
+	writeErr := os.WriteFile(goldenPath, content, 0o644)
+	if writeErr != nil {
+		t.Fatalf("Failed to write golden file %s: %v", goldenPath, writeErr)
+	}
+	t.Logf("Updated golden file: %s", goldenPath)
+}
+
+// compareGoldenFile compares generated content with a golden file.
+func compareGoldenFile(t *testing.T, expectedFile, goldenPath string, generatedContent []byte) {
+	t.Helper()
+	goldenContent, goldenReadErr := os.ReadFile(goldenPath)
+	if goldenReadErr != nil {
+		if os.IsNotExist(goldenReadErr) {
+			t.Fatalf("Golden file not found: %s\nRun with UPDATE_GOLDEN=1 to create it", goldenPath)
+		}
+		t.Fatalf("Failed to read golden file %s: %v", goldenPath, goldenReadErr)
+	}
+
+	if !bytes.Equal(generatedContent, goldenContent) {
+		t.Errorf("Generated file %s does not match golden file.\n"+
+			"Run with UPDATE_GOLDEN=1 to update golden files after reviewing changes.\n"+
+			"Diff:\n%s",
+			expectedFile,
+			diffStrings(string(goldenContent), string(generatedContent)))
+	}
+}
+
+// diffStrings returns a simple diff between two strings.
 func diffStrings(expected, actual string) string {
 	expectedLines := strings.Split(expected, "\n")
 	actualLines := strings.Split(actual, "\n")
@@ -173,9 +184,9 @@ func diffStrings(expected, actual string) string {
 
 		if expLine != actLine {
 			diff.WriteString("Line ")
-			diff.WriteString(string(rune('0' + i/100)))
-			diff.WriteString(string(rune('0' + (i/10)%10)))
-			diff.WriteString(string(rune('0' + i%10)))
+			diff.WriteRune(rune('0' + i/100))
+			diff.WriteRune(rune('0' + (i/10)%10))
+			diff.WriteRune(rune('0' + i%10))
 			diff.WriteString(":\n")
 			diff.WriteString("  expected: ")
 			diff.WriteString(expLine)
@@ -218,7 +229,7 @@ func TestHTTPGenValidation(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Validation logic tests
-			if tt.config.Method == "GET" || tt.config.Method == "DELETE" {
+			if tt.config.Method == http.MethodGet || tt.config.Method == http.MethodDelete {
 				// These methods shouldn't have body fields
 				// Test is informational - actual validation happens in ValidateMethodConfig
 				t.Logf("Config: %+v", tt.config)
@@ -231,7 +242,7 @@ func TestHTTPGenValidation(t *testing.T) {
 // This is an integration test that runs the actual compiler.
 func TestGeneratedCodeCompiles(t *testing.T) {
 	// Skip if protoc is not available
-	if _, err := exec.LookPath("protoc"); err != nil {
+	if _, lookErr := exec.LookPath("protoc"); lookErr != nil {
 		t.Skip("protoc not found, skipping compilation test")
 	}
 
@@ -244,11 +255,7 @@ func TestGeneratedCodeCompiles(t *testing.T) {
 	protoDir := filepath.Join(baseDir, "testdata", "proto")
 
 	// Create temp directory for generated files
-	tempDir, err := os.MkdirTemp("", "httpgen-compile-test-*")
-	if err != nil {
-		t.Fatalf("Failed to create temp directory: %v", err)
-	}
-	defer os.RemoveAll(tempDir)
+	tempDir := t.TempDir()
 
 	// Generate code for comprehensive test proto
 	cmd := exec.Command("protoc",
@@ -265,8 +272,9 @@ func TestGeneratedCodeCompiles(t *testing.T) {
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
 
-	if err := cmd.Run(); err != nil {
-		t.Fatalf("protoc failed: %v\nstderr: %s", err, stderr.String())
+	runErr := cmd.Run()
+	if runErr != nil {
+		t.Fatalf("protoc failed: %v\nstderr: %s", runErr, stderr.String())
 	}
 
 	// Try to compile the generated code (syntax check)

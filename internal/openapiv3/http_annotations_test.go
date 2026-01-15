@@ -48,7 +48,11 @@ func TestExtractPathParams(t *testing.T) {
 		{"single param", "/users/{id}", []string{"id"}},
 		{"single param with underscore", "/users/{user_id}", []string{"user_id"}},
 		{"multiple params", "/users/{user_id}/posts/{post_id}", []string{"user_id", "post_id"}},
-		{"three params", "/orgs/{org_id}/teams/{team_id}/members/{member_id}", []string{"org_id", "team_id", "member_id"}},
+		{
+			"three params",
+			"/orgs/{org_id}/teams/{team_id}/members/{member_id}",
+			[]string{"org_id", "team_id", "member_id"},
+		},
 
 		// Empty/missing cases
 		{"no params", "/users", nil},
@@ -298,7 +302,7 @@ func TestHTTPConfig_Struct(t *testing.T) {
 	if config.Path != "/users/{id}" {
 		t.Errorf("HTTPConfig.Path = %q, expected %q", config.Path, "/users/{id}")
 	}
-	if config.Method != "get" {
+	if config.Method != "get" { //nolint:usestdlibvars // OpenAPI uses lowercase method names
 		t.Errorf("HTTPConfig.Method = %q, expected %q", config.Method, "get")
 	}
 	if len(config.PathParams) != 1 || config.PathParams[0] != "id" {
@@ -311,7 +315,7 @@ func TestQueryParam_Struct(t *testing.T) {
 		FieldName: "page_number",
 		ParamName: "page",
 		Required:  true,
-		Field:     nil, // protogen.Field can be nil for this test
+		// Field is left nil (zero value) for this test - protogen.Field can be nil
 	}
 
 	if param.FieldName != "page_number" {
@@ -322,6 +326,9 @@ func TestQueryParam_Struct(t *testing.T) {
 	}
 	if !param.Required {
 		t.Error("QueryParam.Required = false, expected true")
+	}
+	if param.Field != nil {
+		t.Error("QueryParam.Field should be nil")
 	}
 }
 
@@ -335,23 +342,23 @@ func TestServiceHTTPConfig_Struct(t *testing.T) {
 	}
 }
 
-// Benchmark tests
+// Benchmark tests.
 func BenchmarkBuildHTTPPath(b *testing.B) {
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		buildHTTPPath("/api/v1", "/users/{user_id}")
 	}
 }
 
 func BenchmarkEnsureLeadingSlash(b *testing.B) {
 	paths := []string{"/users", "users", "", "/", "api/v1/users"}
-	for i := 0; i < b.N; i++ {
+	for i := range b.N {
 		ensureLeadingSlash(paths[i%len(paths)])
 	}
 }
 
 func BenchmarkMapHeaderTypeToOpenAPI(b *testing.B) {
 	types := []string{"string", "integer", "number", "boolean", "array", "", "unknown"}
-	for i := 0; i < b.N; i++ {
+	for i := range b.N {
 		mapHeaderTypeToOpenAPI(types[i%len(types)])
 	}
 }
@@ -365,7 +372,7 @@ func BenchmarkCombineHeaders(b *testing.B) {
 		{Name: "X-Request-ID"},
 		{Name: "X-API-Key"}, // Override
 	}
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		combineHeaders(serviceHeaders, methodHeaders)
 	}
 }
@@ -376,7 +383,7 @@ func BenchmarkExtractPathParams(b *testing.B) {
 		"/orgs/{org_id}/teams/{team_id}/members/{member_id}",
 		"/api/v1/users",
 	}
-	for i := 0; i < b.N; i++ {
+	for i := range b.N {
 		extractPathParams(paths[i%len(paths)])
 	}
 }

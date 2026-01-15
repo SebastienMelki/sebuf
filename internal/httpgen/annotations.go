@@ -10,7 +10,16 @@ import (
 	"github.com/SebastienMelki/sebuf/http"
 )
 
-// pathParamRegex matches path variables like {user_id} or {id}
+// HTTP method constants.
+const (
+	httpMethodGET    = "GET"
+	httpMethodPOST   = "POST"
+	httpMethodPUT    = "PUT"
+	httpMethodDELETE = "DELETE"
+	httpMethodPATCH  = "PATCH"
+)
+
+// pathParamRegex matches path variables like {user_id} or {id}.
 var pathParamRegex = regexp.MustCompile(`\{([^}]+)\}`)
 
 // HTTPConfig represents the HTTP configuration for a method.
@@ -22,10 +31,10 @@ type HTTPConfig struct {
 
 // QueryParam represents a query parameter configuration extracted from a field.
 type QueryParam struct {
-	FieldName  string // Proto field name
+	FieldName   string // Proto field name
 	FieldGoName string // Go field name
-	ParamName  string // Query parameter name
-	Required   bool
+	ParamName   string // Query parameter name
+	Required    bool
 }
 
 // ServiceConfigImpl represents the HTTP configuration for a service.
@@ -70,23 +79,25 @@ func getMethodHTTPConfig(method *protogen.Method) *HTTPConfig {
 func httpMethodToString(m http.HttpMethod) string {
 	switch m {
 	case http.HttpMethod_HTTP_METHOD_GET:
-		return "GET"
+		return httpMethodGET
 	case http.HttpMethod_HTTP_METHOD_POST:
-		return "POST"
+		return httpMethodPOST
 	case http.HttpMethod_HTTP_METHOD_PUT:
-		return "PUT"
+		return httpMethodPUT
 	case http.HttpMethod_HTTP_METHOD_DELETE:
-		return "DELETE"
+		return httpMethodDELETE
 	case http.HttpMethod_HTTP_METHOD_PATCH:
-		return "PATCH"
-	default:
-		// HTTP_METHOD_UNSPECIFIED or any unknown value defaults to POST for backward compatibility
-		return "POST"
+		return httpMethodPATCH
+	case http.HttpMethod_HTTP_METHOD_UNSPECIFIED:
+		// HTTP_METHOD_UNSPECIFIED defaults to POST for backward compatibility
+		return httpMethodPOST
 	}
+	// Any unknown value defaults to POST for backward compatibility
+	return httpMethodPOST
 }
 
 // extractPathParams parses path variables from a path string.
-// Example: "/users/{user_id}/posts/{post_id}" -> ["user_id", "post_id"]
+// Example: "/users/{user_id}/posts/{post_id}" -> ["user_id", "post_id"].
 func extractPathParams(path string) []string {
 	matches := pathParamRegex.FindAllStringSubmatch(path, -1)
 	if len(matches) == 0 {

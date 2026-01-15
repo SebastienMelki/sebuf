@@ -198,18 +198,22 @@ func (g *Generator) processService(service *protogen.Service) {
 	}
 }
 
-// processMethod converts a protobuf RPC method to an OpenAPI operation.
-func (g *Generator) processMethod(service *protogen.Service, method *protogen.Method) {
-	// Extract HTTP configuration from annotations
-	var path string
-	var httpMethod string
-	var pathParams []string
+// methodHTTPInfo holds extracted HTTP configuration for a method.
+type methodHTTPInfo struct {
+	path       string
+	httpMethod string
+	pathParams []string
+}
 
+// extractMethodHTTPInfo extracts HTTP configuration from service and method annotations.
+func extractMethodHTTPInfo(service *protogen.Service, method *protogen.Method) methodHTTPInfo {
 	serviceConfig := getServiceHTTPConfig(service)
 	methodConfig := getMethodHTTPConfig(method)
 
+	var path, httpMethod string
+	var pathParams []string
+
 	if serviceConfig != nil || methodConfig != nil {
-		// Use sebuf.http annotations
 		servicePath := ""
 		methodPath := ""
 
@@ -224,58 +228,40 @@ func (g *Generator) processMethod(service *protogen.Service, method *protogen.Me
 
 		path = buildHTTPPath(servicePath, methodPath)
 	} else {
-		// Fallback to gRPC-style path
 		path = fmt.Sprintf("/%s/%s", service.Desc.Name(), method.Desc.Name())
 	}
 
-	// Default to POST for backward compatibility
 	if httpMethod == "" {
-		httpMethod = "post"
+		httpMethod = httpMethodPost
 	}
 
-	// Create operation
-	operation := &v3.Operation{
-		OperationId: string(method.Desc.Name()),
-		Summary:     string(method.Desc.Name()),
-		Tags:        []string{string(service.Desc.Name())},
-	}
+	return methodHTTPInfo{path: path, httpMethod: httpMethod, pathParams: pathParams}
+}
 
-	// Add description from comments
-	if method.Comments.Leading != "" {
-		operation.Description = strings.TrimSpace(string(method.Comments.Leading))
-	}
-
-	// Extract and add header parameters
-	serviceHeaders := getServiceHeaders(service)
-	methodHeaders := getMethodHeaders(method)
-	allHeaders := combineHeaders(serviceHeaders, methodHeaders)
-
+// buildPathParameters creates OpenAPI path parameters from path variable names.
+func (g *Generator) buildPathParameters(method *protogen.Method, pathParams []string) []*v3.Parameter {
 	var parameters []*v3.Parameter
-	if len(allHeaders) > 0 {
-		parameters = convertHeadersToParameters(allHeaders)
-	}
-
-	// Add path parameters
 	for _, paramName := range pathParams {
 		field := findFieldByName(method.Input, paramName)
 		pathParam := &v3.Parameter{
 			Name:     paramName,
 			In:       "path",
-			Required: proto.Bool(true), // Path parameters are always required
+			Required: proto.Bool(true),
 		}
 		if field != nil {
 			pathParam.Schema = g.createFieldSchema(field)
 			pathParam.Description = strings.TrimSpace(string(field.Comments.Leading))
 		} else {
-			// Default to string if field not found
-			pathParam.Schema = base.CreateSchemaProxy(&base.Schema{
-				Type: []string{"string"},
-			})
+			pathParam.Schema = base.CreateSchemaProxy(&base.Schema{Type: []string{"string"}})
 		}
 		parameters = append(parameters, pathParam)
 	}
+	return parameters
+}
 
-	// Add query parameters
+// buildQueryParameters creates OpenAPI query parameters from method input.
+func (g *Generator) buildQueryParameters(method *protogen.Method) []*v3.Parameter {
+	var parameters []*v3.Parameter
 	queryParams := getQueryParams(method.Input)
 	for _, qp := range queryParams {
 		queryParam := &v3.Parameter{
@@ -287,19 +273,101 @@ func (g *Generator) processMethod(service *protogen.Service, method *protogen.Me
 			queryParam.Schema = g.createFieldSchema(qp.Field)
 			queryParam.Description = strings.TrimSpace(string(qp.Field.Comments.Leading))
 		} else {
-			queryParam.Schema = base.CreateSchemaProxy(&base.Schema{
-				Type: []string{"string"},
-			})
+			queryParam.Schema = base.CreateSchemaProxy(&base.Schema{Type: []string{"string"}})
 		}
 		parameters = append(parameters, queryParam)
 	}
+	return parameters
+}
+
+// buildResponses creates the standard response map for an operation.
+func (g *Generator) buildResponses(method *protogen.Method) *orderedmap.Map[string, *v3.Response] {
+	responses := orderedmap.New[string, *v3.Response]()
+
+	// Success response
+	outputSchemaRef := fmt.Sprintf("#/components/schemas/%s", g.getSchemaName(method.Output))
+	successResponse := &v3.Response{
+		Description: "Successful response",
+		Content:     orderedmap.New[string, *v3.MediaType](),
+	}
+	successResponse.Content.Set("application/json", &v3.MediaType{
+		Schema: base.CreateSchemaProxyRef(outputSchemaRef),
+	})
+	responses.Set("200", successResponse)
+
+	// Validation error response
+	validationErrorResponse := &v3.Response{
+		Description: "Validation error",
+		Content:     orderedmap.New[string, *v3.MediaType](),
+	}
+	validationErrorResponse.Content.Set("application/json", &v3.MediaType{
+		Schema: base.CreateSchemaProxyRef("#/components/schemas/ValidationError"),
+	})
+	responses.Set("400", validationErrorResponse)
+
+	// Default error response
+	errorProps := orderedmap.New[string, *base.SchemaProxy]()
+	errorProps.Set("error", base.CreateSchemaProxy(&base.Schema{Type: []string{"string"}}))
+	errorProps.Set("code", base.CreateSchemaProxy(&base.Schema{Type: []string{"integer"}}))
+	errorSchema := base.CreateSchemaProxy(&base.Schema{Type: []string{"object"}, Properties: errorProps})
+
+	errorResponse := &v3.Response{
+		Description: "Error response",
+		Content:     orderedmap.New[string, *v3.MediaType](),
+	}
+	errorResponse.Content.Set("application/json", &v3.MediaType{Schema: errorSchema})
+	responses.Set("default", errorResponse)
+
+	return responses
+}
+
+// assignOperationToPathItem assigns an operation to the correct HTTP method on a path item.
+func assignOperationToPathItem(pathItem *v3.PathItem, httpMethod string, operation *v3.Operation) {
+	switch httpMethod {
+	case httpMethodGet:
+		pathItem.Get = operation
+	case httpMethodPost:
+		pathItem.Post = operation
+	case httpMethodPut:
+		pathItem.Put = operation
+	case httpMethodDelete:
+		pathItem.Delete = operation
+	case httpMethodPatch:
+		pathItem.Patch = operation
+	default:
+		pathItem.Post = operation
+	}
+}
+
+// processMethod converts a protobuf RPC method to an OpenAPI operation.
+func (g *Generator) processMethod(service *protogen.Service, method *protogen.Method) {
+	info := extractMethodHTTPInfo(service, method)
+
+	operation := &v3.Operation{
+		OperationId: string(method.Desc.Name()),
+		Summary:     string(method.Desc.Name()),
+		Tags:        []string{string(service.Desc.Name())},
+	}
+
+	if method.Comments.Leading != "" {
+		operation.Description = strings.TrimSpace(string(method.Comments.Leading))
+	}
+
+	// Build parameters
+	var parameters []*v3.Parameter
+	allHeaders := combineHeaders(getServiceHeaders(service), getMethodHeaders(method))
+	if len(allHeaders) > 0 {
+		parameters = convertHeadersToParameters(allHeaders)
+	}
+	parameters = append(parameters, g.buildPathParameters(method, info.pathParams)...)
+	parameters = append(parameters, g.buildQueryParameters(method)...)
 
 	if len(parameters) > 0 {
 		operation.Parameters = parameters
 	}
 
-	// Add request body only for POST, PUT, PATCH methods
-	if httpMethod == "post" || httpMethod == "put" || httpMethod == "patch" {
+	// Add request body for POST, PUT, PATCH
+	if info.httpMethod == httpMethodPost || info.httpMethod == httpMethodPut || info.httpMethod == httpMethodPatch {
 		inputSchemaRef := fmt.Sprintf("#/components/schemas/%s", g.getSchemaName(method.Input))
 		operation.RequestBody = &v3.RequestBody{
 			Required: proto.Bool(true),
@@ -310,81 +378,15 @@ func (g *Generator) processMethod(service *protogen.Service, method *protogen.Me
 		})
 	}
 
-	// Add response for the output message
-	outputSchemaRef := fmt.Sprintf("#/components/schemas/%s", g.getSchemaName(method.Output))
-	responses := orderedmap.New[string, *v3.Response]()
+	operation.Responses = &v3.Responses{Codes: g.buildResponses(method)}
 
-	successResponse := &v3.Response{
-		Description: "Successful response",
-		Content:     orderedmap.New[string, *v3.MediaType](),
-	}
-	successResponse.Content.Set("application/json", &v3.MediaType{
-		Schema: base.CreateSchemaProxyRef(outputSchemaRef),
-	})
-	responses.Set("200", successResponse)
-
-	// Add validation error response (400)
-	validationErrorResponse := &v3.Response{
-		Description: "Validation error",
-		Content:     orderedmap.New[string, *v3.MediaType](),
-	}
-	validationErrorResponse.Content.Set("application/json", &v3.MediaType{
-		Schema: base.CreateSchemaProxyRef("#/components/schemas/ValidationError"),
-	})
-	responses.Set("400", validationErrorResponse)
-
-	// Add default error response
-	errorSchema := base.CreateSchemaProxy(&base.Schema{
-		Type: []string{"object"},
-		Properties: func() *orderedmap.Map[string, *base.SchemaProxy] {
-			props := orderedmap.New[string, *base.SchemaProxy]()
-			props.Set("error", base.CreateSchemaProxy(&base.Schema{
-				Type: []string{"string"},
-			}))
-			props.Set("code", base.CreateSchemaProxy(&base.Schema{
-				Type: []string{"integer"},
-			}))
-			return props
-		}(),
-	})
-
-	errorResponse := &v3.Response{
-		Description: "Error response",
-		Content:     orderedmap.New[string, *v3.MediaType](),
-	}
-	errorResponse.Content.Set("application/json", &v3.MediaType{
-		Schema: errorSchema,
-	})
-	responses.Set("default", errorResponse)
-
-	operation.Responses = &v3.Responses{
-		Codes: responses,
-	}
-
-	// Create path item and add to document
-	// Check if path already exists (multiple methods on same path)
-	existingPathItem, exists := g.doc.Paths.PathItems.Get(path)
+	// Add to path items
+	existingPathItem, exists := g.doc.Paths.PathItems.Get(info.path)
 	if !exists {
 		existingPathItem = &v3.PathItem{}
 	}
-
-	// Assign operation to the correct HTTP method
-	switch httpMethod {
-	case "get":
-		existingPathItem.Get = operation
-	case "post":
-		existingPathItem.Post = operation
-	case "put":
-		existingPathItem.Put = operation
-	case "delete":
-		existingPathItem.Delete = operation
-	case "patch":
-		existingPathItem.Patch = operation
-	default:
-		existingPathItem.Post = operation // Fallback to POST
-	}
-
-	g.doc.Paths.PathItems.Set(path, existingPathItem)
+	assignOperationToPathItem(existingPathItem, info.httpMethod, operation)
+	g.doc.Paths.PathItems.Set(info.path, existingPathItem)
 }
 
 // findFieldByName finds a field in a message by its proto name.
@@ -402,30 +404,30 @@ func (g *Generator) createFieldSchema(field *protogen.Field) *base.SchemaProxy {
 	schema := &base.Schema{}
 
 	switch field.Desc.Kind().String() {
-	case "string":
-		schema.Type = []string{"string"}
-	case "int32", "sint32", "sfixed32":
-		schema.Type = []string{"integer"}
-		schema.Format = "int32"
-	case "int64", "sint64", "sfixed64":
-		schema.Type = []string{"integer"}
-		schema.Format = "int64"
+	case headerTypeString:
+		schema.Type = []string{headerTypeString}
+	case headerTypeInt32, "sint32", "sfixed32":
+		schema.Type = []string{headerTypeInteger}
+		schema.Format = headerTypeInt32
+	case headerTypeInt64, "sint64", "sfixed64":
+		schema.Type = []string{headerTypeInteger}
+		schema.Format = headerTypeInt64
 	case "uint32", "fixed32":
-		schema.Type = []string{"integer"}
-		schema.Format = "int32"
+		schema.Type = []string{headerTypeInteger}
+		schema.Format = headerTypeInt32
 	case "uint64", "fixed64":
-		schema.Type = []string{"integer"}
-		schema.Format = "int64"
+		schema.Type = []string{headerTypeInteger}
+		schema.Format = headerTypeInt64
 	case "bool":
 		schema.Type = []string{"boolean"}
-	case "float":
-		schema.Type = []string{"number"}
-		schema.Format = "float"
-	case "double":
-		schema.Type = []string{"number"}
-		schema.Format = "double"
+	case headerTypeFloat:
+		schema.Type = []string{headerTypeNumber}
+		schema.Format = headerTypeFloat
+	case headerTypeDouble:
+		schema.Type = []string{headerTypeNumber}
+		schema.Format = headerTypeDouble
 	default:
-		schema.Type = []string{"string"}
+		schema.Type = []string{headerTypeString}
 	}
 
 	return base.CreateSchemaProxy(schema)

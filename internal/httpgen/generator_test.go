@@ -86,7 +86,7 @@ func TestGenerator_New(t *testing.T) {
 	// Test creating a new generator without plugin (nil is acceptable for unit test)
 	gen := New(nil)
 	if gen == nil {
-		t.Error("New(nil) returned nil, expected non-nil Generator")
+		t.Fatal("New(nil) returned nil, expected non-nil Generator")
 	}
 	if gen.generateMock {
 		t.Error("New() generator should have generateMock = false by default")
@@ -95,9 +95,9 @@ func TestGenerator_New(t *testing.T) {
 
 func TestGenerator_NewWithOptions(t *testing.T) {
 	tests := []struct {
-		name         string
-		opts         Options
-		expectMock   bool
+		name       string
+		opts       Options
+		expectMock bool
 	}{
 		{"default options", Options{}, false},
 		{"with mock enabled", Options{GenerateMock: true}, true},
@@ -128,17 +128,17 @@ func TestOptions_Struct(t *testing.T) {
 	}
 }
 
-// Benchmark tests
+// Benchmark tests.
 func BenchmarkLowerFirst(b *testing.B) {
 	inputs := []string{"CreateUser", "GetUser", "ListUsers", "DeleteUser", "UpdateUserProfile"}
-	for i := 0; i < b.N; i++ {
+	for i := range b.N {
 		lowerFirst(inputs[i%len(inputs)])
 	}
 }
 
 func BenchmarkCamelToSnake(b *testing.B) {
 	inputs := []string{"CreateUser", "GetUserById", "ListAllUsers", "DeleteUserProfile", "UpdateUserStatus"}
-	for i := 0; i < b.N; i++ {
+	for i := range b.N {
 		camelToSnake(inputs[i%len(inputs)])
 	}
 }

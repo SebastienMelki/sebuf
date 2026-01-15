@@ -1,6 +1,7 @@
 package httpgen
 
 import (
+	nethttp "net/http"
 	"reflect"
 	"testing"
 
@@ -48,7 +49,11 @@ func TestExtractPathParams(t *testing.T) {
 		{"single param", "/users/{id}", []string{"id"}},
 		{"single param with underscore", "/users/{user_id}", []string{"user_id"}},
 		{"multiple params", "/users/{user_id}/posts/{post_id}", []string{"user_id", "post_id"}},
-		{"three params", "/orgs/{org_id}/teams/{team_id}/members/{member_id}", []string{"org_id", "team_id", "member_id"}},
+		{
+			"three params",
+			"/orgs/{org_id}/teams/{team_id}/members/{member_id}",
+			[]string{"org_id", "team_id", "member_id"},
+		},
 		{"camelCase param", "/items/{itemId}", []string{"itemId"}},
 
 		// Empty/missing cases
@@ -69,7 +74,11 @@ func TestExtractPathParams(t *testing.T) {
 		{"param with underscore prefix", "/users/{_private}", []string{"_private"}},
 
 		// Complex paths
-		{"deeply nested path", "/api/v1/orgs/{org_id}/teams/{team_id}/members/{member_id}/roles/{role_id}", []string{"org_id", "team_id", "member_id", "role_id"}},
+		{
+			"deeply nested path",
+			"/api/v1/orgs/{org_id}/teams/{team_id}/members/{member_id}/roles/{role_id}",
+			[]string{"org_id", "team_id", "member_id", "role_id"},
+		},
 		{"param at start", "/{version}/users", []string{"version"}},
 		{"param at end", "/users/{id}", []string{"id"}},
 		{"consecutive params", "/users/{type}/{id}", []string{"type", "id"}},
@@ -100,8 +109,8 @@ func TestHTTPConfig_Struct(t *testing.T) {
 	if config.Path != "/users/{id}" {
 		t.Errorf("HTTPConfig.Path = %q, expected %q", config.Path, "/users/{id}")
 	}
-	if config.Method != "GET" {
-		t.Errorf("HTTPConfig.Method = %q, expected %q", config.Method, "GET")
+	if config.Method != nethttp.MethodGet {
+		t.Errorf("HTTPConfig.Method = %q, expected %q", config.Method, nethttp.MethodGet)
 	}
 	if len(config.PathParams) != 1 || config.PathParams[0] != "id" {
 		t.Errorf("HTTPConfig.PathParams = %v, expected [id]", config.PathParams)
@@ -142,24 +151,24 @@ func TestServiceConfigImpl_Struct(t *testing.T) {
 	}
 }
 
-// Benchmark tests for performance-critical functions
+// Benchmark tests for performance-critical functions.
 func BenchmarkExtractPathParams_SingleParam(b *testing.B) {
 	path := "/users/{user_id}"
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		extractPathParams(path)
 	}
 }
 
 func BenchmarkExtractPathParams_MultipleParams(b *testing.B) {
 	path := "/orgs/{org_id}/teams/{team_id}/members/{member_id}"
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		extractPathParams(path)
 	}
 }
 
 func BenchmarkExtractPathParams_NoParams(b *testing.B) {
 	path := "/api/v1/users/list"
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		extractPathParams(path)
 	}
 }
@@ -172,7 +181,7 @@ func BenchmarkHttpMethodToString(b *testing.B) {
 		http.HttpMethod_HTTP_METHOD_DELETE,
 		http.HttpMethod_HTTP_METHOD_PATCH,
 	}
-	for i := 0; i < b.N; i++ {
+	for i := range b.N {
 		httpMethodToString(methods[i%len(methods)])
 	}
 }

@@ -52,7 +52,10 @@ func ValidateMethodConfig(service *protogen.Service, method *protogen.Method) []
 					"path variable '{%s}' is bound to field '%s' of type '%s', but path parameters must be scalar types "+
 						"(string, int32, int64, uint32, uint64, bool, float, double). "+
 						"Change the field type or remove it from the path.",
-					param, param, field.Desc.Kind()),
+					param,
+					param,
+					field.Desc.Kind(),
+				),
 			})
 		}
 	}
@@ -125,9 +128,10 @@ func isPathParamCompatible(field *protogen.Field) bool {
 		protoreflect.BoolKind,
 		protoreflect.FloatKind, protoreflect.DoubleKind:
 		return true
-	default:
+	case protoreflect.EnumKind, protoreflect.BytesKind, protoreflect.MessageKind, protoreflect.GroupKind:
 		return false
 	}
+	return false
 }
 
 // getBodyFields returns fields that are not bound to path or query parameters.
