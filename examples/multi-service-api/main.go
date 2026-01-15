@@ -100,11 +100,11 @@ func (s *UserServiceImpl) GetCurrentUser(ctx context.Context, req *models.GetCur
 
 func (s *UserServiceImpl) UpdateProfile(ctx context.Context, req *models.UpdateProfileRequest) (*models.User, error) {
 	user := s.users["user-xyz789"]
-	if req.Name != nil {
-		user.Name = *req.Name
+	if req.Name != "" {
+		user.Name = req.Name
 	}
-	if req.AvatarUrl != nil {
-		user.AvatarUrl = *req.AvatarUrl
+	if req.AvatarUrl != "" {
+		user.AvatarUrl = req.AvatarUrl
 	}
 	return user, nil
 }

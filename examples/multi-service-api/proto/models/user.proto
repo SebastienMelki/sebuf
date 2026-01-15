@@ -26,11 +26,11 @@ message GetCurrentUserRequest {}
 
 // UpdateProfileRequest for updating the current user's profile.
 message UpdateProfileRequest {
-  optional string name = 1 [
+  string name = 1 [
     (buf.validate.field).string = { min_len: 2, max_len: 100 },
     (sebuf.http.field_examples) = { values: ["Updated Name"] }
   ];
-  optional string avatar_url = 2 [
+  string avatar_url = 2 [
     (sebuf.http.field_examples) = { values: ["https://example.com/new-avatar.png"] }
   ];
 }

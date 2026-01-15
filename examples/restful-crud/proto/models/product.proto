@@ -197,32 +197,32 @@ message PatchProductRequest {
     (sebuf.http.field_examples) = { values: ["123e4567-e89b-12d3-a456-426614174000"] }
   ];
 
-  // Updated name (optional).
-  optional string name = 2 [
+  // Updated name.
+  string name = 2 [
     (buf.validate.field).string = { min_len: 1, max_len: 200 },
     (sebuf.http.field_examples) = { values: ["New Product Name"] }
   ];
 
-  // Updated description (optional).
-  optional string description = 3 [
+  // Updated description.
+  string description = 3 [
     (buf.validate.field).string = { max_len: 2000 },
     (sebuf.http.field_examples) = { values: ["New description"] }
   ];
 
-  // Updated price (optional).
-  optional double price = 4 [
+  // Updated price.
+  double price = 4 [
     (buf.validate.field).double = { gt: 0 },
     (sebuf.http.field_examples) = { values: ["149.99"] }
   ];
 
-  // Updated stock quantity (optional).
-  optional int32 stock_quantity = 5 [
+  // Updated stock quantity.
+  int32 stock_quantity = 5 [
     (buf.validate.field).int32 = { gte: 0 },
     (sebuf.http.field_examples) = { values: ["50"] }
   ];
 
-  // Updated category ID (optional).
-  optional string category_id = 6 [(sebuf.http.field_examples) = { values: ["cat-audio"] }];
+  // Updated category ID.
+  string category_id = 6 [(sebuf.http.field_examples) = { values: ["cat-audio"] }];
 }
 
 // Request to delete a product.
