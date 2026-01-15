@@ -1,0 +1,521 @@
+{
+  "packages": [
+    {
+      "file": "github.com/SebastienMelki/sebuf/http/annotations.pb.go:58:",
+      "coverage": 0.0
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/http/annotations.pb.go:64:",
+      "coverage": 0.0
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/http/annotations.pb.go:68:",
+      "coverage": 0.0
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/http/annotations.pb.go:72:",
+      "coverage": 0.0
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/http/annotations.pb.go:76:",
+      "coverage": 0.0
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/http/annotations.pb.go:81:",
+      "coverage": 0.0
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/http/annotations.pb.go:96:",
+      "coverage": 0.0
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/http/annotations.pb.go:103:",
+      "coverage": 0.0
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/http/annotations.pb.go:107:",
+      "coverage": 0.0
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/http/annotations.pb.go:109:",
+      "coverage": 0.0
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/http/annotations.pb.go:122:",
+      "coverage": 0.0
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/http/annotations.pb.go:126:",
+      "coverage": 0.0
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/http/annotations.pb.go:133:",
+      "coverage": 0.0
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/http/annotations.pb.go:149:",
+      "coverage": 0.0
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/http/annotations.pb.go:156:",
+      "coverage": 0.0
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/http/annotations.pb.go:160:",
+      "coverage": 0.0
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/http/annotations.pb.go:162:",
+      "coverage": 0.0
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/http/annotations.pb.go:175:",
+      "coverage": 0.0
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/http/annotations.pb.go:179:",
+      "coverage": 0.0
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/http/annotations.pb.go:195:",
+      "coverage": 0.0
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/http/annotations.pb.go:202:",
+      "coverage": 0.0
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/http/annotations.pb.go:206:",
+      "coverage": 0.0
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/http/annotations.pb.go:208:",
+      "coverage": 0.0
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/http/annotations.pb.go:221:",
+      "coverage": 0.0
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/http/annotations.pb.go:225:",
+      "coverage": 0.0
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/http/annotations.pb.go:243:",
+      "coverage": 0.0
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/http/annotations.pb.go:250:",
+      "coverage": 0.0
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/http/annotations.pb.go:254:",
+      "coverage": 0.0
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/http/annotations.pb.go:256:",
+      "coverage": 0.0
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/http/annotations.pb.go:269:",
+      "coverage": 0.0
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/http/annotations.pb.go:273:",
+      "coverage": 0.0
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/http/annotations.pb.go:280:",
+      "coverage": 0.0
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/http/annotations.pb.go:381:",
+      "coverage": 0.0
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/http/annotations.pb.go:417:",
+      "coverage": 100.0
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/http/annotations.pb.go:418:",
+      "coverage": 85.7
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/http/errors.pb.go:34:",
+      "coverage": 0.0
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/http/errors.pb.go:41:",
+      "coverage": 0.0
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/http/errors.pb.go:45:",
+      "coverage": 0.0
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/http/errors.pb.go:47:",
+      "coverage": 0.0
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/http/errors.pb.go:60:",
+      "coverage": 0.0
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/http/errors.pb.go:64:",
+      "coverage": 66.7
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/http/errors.pb.go:81:",
+      "coverage": 0.0
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/http/errors.pb.go:88:",
+      "coverage": 0.0
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/http/errors.pb.go:92:",
+      "coverage": 0.0
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/http/errors.pb.go:94:",
+      "coverage": 0.0
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/http/errors.pb.go:107:",
+      "coverage": 0.0
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/http/errors.pb.go:111:",
+      "coverage": 66.7
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/http/errors.pb.go:131:",
+      "coverage": 0.0
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/http/errors.pb.go:138:",
+      "coverage": 0.0
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/http/errors.pb.go:142:",
+      "coverage": 0.0
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/http/errors.pb.go:144:",
+      "coverage": 0.0
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/http/errors.pb.go:157:",
+      "coverage": 0.0
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/http/errors.pb.go:161:",
+      "coverage": 66.7
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/http/errors.pb.go:168:",
+      "coverage": 66.7
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/http/errors.pb.go:196:",
+      "coverage": 0.0
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/http/errors.pb.go:218:",
+      "coverage": 100.0
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/http/errors.pb.go:219:",
+      "coverage": 85.7
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/http/errors_impl.go:10:",
+      "coverage": 100.0
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/http/errors_impl.go:35:",
+      "coverage": 100.0
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/http/headers.pb.go:46:",
+      "coverage": 0.0
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/http/headers.pb.go:53:",
+      "coverage": 0.0
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/http/headers.pb.go:57:",
+      "coverage": 0.0
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/http/headers.pb.go:59:",
+      "coverage": 0.0
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/http/headers.pb.go:72:",
+      "coverage": 0.0
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/http/headers.pb.go:76:",
+      "coverage": 0.0
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/http/headers.pb.go:83:",
+      "coverage": 0.0
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/http/headers.pb.go:90:",
+      "coverage": 0.0
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/http/headers.pb.go:97:",
+      "coverage": 0.0
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/http/headers.pb.go:104:",
+      "coverage": 0.0
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/http/headers.pb.go:111:",
+      "coverage": 0.0
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/http/headers.pb.go:118:",
+      "coverage": 0.0
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/http/headers.pb.go:134:",
+      "coverage": 0.0
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/http/headers.pb.go:141:",
+      "coverage": 0.0
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/http/headers.pb.go:145:",
+      "coverage": 0.0
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/http/headers.pb.go:147:",
+      "coverage": 0.0
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/http/headers.pb.go:160:",
+      "coverage": 0.0
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/http/headers.pb.go:164:",
+      "coverage": 0.0
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/http/headers.pb.go:180:",
+      "coverage": 0.0
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/http/headers.pb.go:187:",
+      "coverage": 0.0
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/http/headers.pb.go:191:",
+      "coverage": 0.0
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/http/headers.pb.go:193:",
+      "coverage": 0.0
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/http/headers.pb.go:206:",
+      "coverage": 0.0
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/http/headers.pb.go:210:",
+      "coverage": 0.0
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/http/headers.pb.go:276:",
+      "coverage": 0.0
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/http/headers.pb.go:305:",
+      "coverage": 100.0
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/http/headers.pb.go:306:",
+      "coverage": 85.7
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/internal/openapiv3/generator.go:33:",
+      "coverage": 100.0
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/internal/openapiv3/generator.go:60:",
+      "coverage": 0.0
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/internal/openapiv3/generator.go:65:",
+      "coverage": 100.0
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/internal/openapiv3/generator.go:70:",
+      "coverage": 100.0
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/internal/openapiv3/generator.go:75:",
+      "coverage": 100.0
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/internal/openapiv3/generator.go:81:",
+      "coverage": 0.0
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/internal/openapiv3/generator.go:91:",
+      "coverage": 0.0
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/internal/openapiv3/generator.go:103:",
+      "coverage": 0.0
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/internal/openapiv3/generator.go:145:",
+      "coverage": 0.0
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/internal/openapiv3/generator.go:150:",
+      "coverage": 0.0
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/internal/openapiv3/generator.go:162:",
+      "coverage": 0.0
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/internal/openapiv3/generator.go:195:",
+      "coverage": 0.0
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/internal/openapiv3/generator.go:202:",
+      "coverage": 0.0
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/internal/openapiv3/generator.go:391:",
+      "coverage": 0.0
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/internal/openapiv3/generator.go:401:",
+      "coverage": 0.0
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/internal/openapiv3/generator.go:435:",
+      "coverage": 100.0
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/internal/openapiv3/generator.go:475:",
+      "coverage": 70.0
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/internal/openapiv3/http_annotations.go:41:",
+      "coverage": 0.0
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/internal/openapiv3/http_annotations.go:74:",
+      "coverage": 0.0
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/internal/openapiv3/http_annotations.go:94:",
+      "coverage": 0.0
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/internal/openapiv3/http_annotations.go:110:",
+      "coverage": 0.0
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/internal/openapiv3/http_annotations.go:152:",
+      "coverage": 0.0
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/internal/openapiv3/http_annotations.go:181:",
+      "coverage": 0.0
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/internal/openapiv3/http_annotations.go:201:",
+      "coverage": 0.0
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/internal/openapiv3/http_annotations.go:212:",
+      "coverage": 0.0
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/internal/openapiv3/http_annotations.go:239:",
+      "coverage": 0.0
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/internal/openapiv3/http_annotations.go:266:",
+      "coverage": 0.0
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/internal/openapiv3/http_annotations.go:318:",
+      "coverage": 0.0
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/internal/openapiv3/http_annotations.go:376:",
+      "coverage": 0.0
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/internal/openapiv3/types.go:18:",
+      "coverage": 0.0
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/internal/openapiv3/types.go:52:",
+      "coverage": 0.0
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/internal/openapiv3/types.go:143:",
+      "coverage": 0.0
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/internal/openapiv3/types.go:173:",
+      "coverage": 0.0
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/internal/openapiv3/types.go:217:",
+      "coverage": 0.0
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/internal/openapiv3/validation.go:17:",
+      "coverage": 0.0
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/internal/openapiv3/validation.go:75:",
+      "coverage": 0.0
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/internal/openapiv3/validation.go:141:",
+      "coverage": 0.0
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/internal/openapiv3/validation.go:192:",
+      "coverage": 0.0
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/internal/openapiv3/validation.go:243:",
+      "coverage": 0.0
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/internal/openapiv3/validation.go:294:",
+      "coverage": 0.0
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/internal/openapiv3/validation.go:345:",
+      "coverage": 0.0
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/internal/openapiv3/validation.go:371:",
+      "coverage": 0.0
+    },
+    {
+      "file": "github.com/SebastienMelki/sebuf/internal/openapiv3/validation.go:391:",
+      "coverage": 0.0
+    }
+  ],
+  "total_coverage": 8.3
+}
