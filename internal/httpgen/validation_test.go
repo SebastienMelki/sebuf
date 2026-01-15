@@ -84,9 +84,10 @@ func isKindPathParamCompatible(kind protoreflect.Kind) bool {
 		protoreflect.BoolKind,
 		protoreflect.FloatKind, protoreflect.DoubleKind:
 		return true
-	default:
+	case protoreflect.EnumKind, protoreflect.BytesKind, protoreflect.MessageKind, protoreflect.GroupKind:
 		return false
 	}
+	return false
 }
 
 func TestGetBodyFields_Logic(t *testing.T) {
@@ -192,10 +193,10 @@ func stringSliceEqual(a, b []string) bool {
 func TestValidationErrorMessages(t *testing.T) {
 	// Test that validation error messages are actionable and contain useful information
 	tests := []struct {
-		name            string
-		error           ValidationError
-		mustContain     []string
-		mustNotContain  []string
+		name           string
+		error          ValidationError
+		mustContain    []string
+		mustNotContain []string
 	}{
 		{
 			name: "missing field error",
@@ -273,18 +274,18 @@ func TestHTTPMethodValidation(t *testing.T) {
 	}
 }
 
-// isMethodWithoutBody is a helper that matches the validation logic
+// isMethodWithoutBody is a helper that matches the validation logic.
 func isMethodWithoutBody(method string) bool {
 	return method == "GET" || method == "DELETE"
 }
 
-// Benchmark tests
+// Benchmark tests.
 func BenchmarkGetUnboundFields(b *testing.B) {
 	allFields := []string{"id", "name", "email", "phone", "address", "city", "country", "zip"}
 	pathParams := []string{"id"}
 	queryParams := []string{"page", "limit"}
 
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		getUnboundFields(allFields, pathParams, queryParams)
 	}
 }
@@ -297,7 +298,7 @@ func BenchmarkIsKindPathParamCompatible(b *testing.B) {
 		protoreflect.BytesKind,
 		protoreflect.BoolKind,
 	}
-	for i := 0; i < b.N; i++ {
+	for i := range b.N {
 		isKindPathParamCompatible(kinds[i%len(kinds)])
 	}
 }

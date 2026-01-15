@@ -14,7 +14,7 @@ import (
 	"github.com/SebastienMelki/sebuf/http"
 )
 
-// pathParamRegex matches path variables like {user_id} or {id}
+// pathParamRegex matches path variables like {user_id} or {id}.
 var pathParamRegex = regexp.MustCompile(`\{([^}]+)\}`)
 
 // HTTPConfig represents the HTTP configuration for a method.
@@ -74,23 +74,25 @@ func getMethodHTTPConfig(method *protogen.Method) *HTTPConfig {
 func httpMethodToString(m http.HttpMethod) string {
 	switch m {
 	case http.HttpMethod_HTTP_METHOD_GET:
-		return "get"
+		return httpMethodGet
 	case http.HttpMethod_HTTP_METHOD_POST:
-		return "post"
+		return httpMethodPost
 	case http.HttpMethod_HTTP_METHOD_PUT:
-		return "put"
+		return httpMethodPut
 	case http.HttpMethod_HTTP_METHOD_DELETE:
-		return "delete"
+		return httpMethodDelete
 	case http.HttpMethod_HTTP_METHOD_PATCH:
-		return "patch"
-	default:
+		return httpMethodPatch
+	case http.HttpMethod_HTTP_METHOD_UNSPECIFIED:
 		// HTTP_METHOD_UNSPECIFIED defaults to POST for backward compatibility
-		return "post"
+		return httpMethodPost
 	}
+	// Any unknown value defaults to POST for backward compatibility
+	return httpMethodPost
 }
 
 // extractPathParams parses path variables from a path string.
-// Example: "/users/{user_id}/posts/{post_id}" -> ["user_id", "post_id"]
+// Example: "/users/{user_id}/posts/{post_id}" -> ["user_id", "post_id"].
 func extractPathParams(path string) []string {
 	matches := pathParamRegex.FindAllStringSubmatch(path, -1)
 	if len(matches) == 0 {
@@ -370,6 +372,18 @@ const (
 	headerTypeInt32   = "int32"
 	headerTypeInt64   = "int64"
 	headerTypeInteger = "integer"
+	headerTypeNumber  = "number"
+	headerTypeFloat   = "float"
+	headerTypeDouble  = "double"
+)
+
+// HTTP method constants (lowercase for OpenAPI).
+const (
+	httpMethodGet    = "get"
+	httpMethodPost   = "post"
+	httpMethodPut    = "put"
+	httpMethodDelete = "delete"
+	httpMethodPatch  = "patch"
 )
 
 // mapHeaderTypeToOpenAPI maps proto header types to OpenAPI schema types.
@@ -379,8 +393,8 @@ func mapHeaderTypeToOpenAPI(headerType string) string {
 		return headerTypeString
 	case headerTypeInteger, "int", headerTypeInt32, headerTypeInt64:
 		return headerTypeInteger
-	case "number", "float", "double":
-		return "number"
+	case headerTypeNumber, headerTypeFloat, headerTypeDouble:
+		return headerTypeNumber
 	case "boolean", "bool":
 		return "boolean"
 	case "array":

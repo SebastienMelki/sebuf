@@ -392,7 +392,9 @@ func (g *Generator) generateBindingFile(file *protogen.File) error {
 
 	// bindPathParams function - binds URL path parameters to proto message fields
 	gf.P("// bindPathParams binds URL path parameters to proto message fields using Go 1.22+ PathValue.")
-	gf.P("func bindPathParams(r *http.Request, msg proto.Message, params []PathParamConfig) *sebufhttp.ValidationError {")
+	gf.P(
+		"func bindPathParams(r *http.Request, msg proto.Message, params []PathParamConfig) *sebufhttp.ValidationError {",
+	)
 	gf.P("if len(params) == 0 {")
 	gf.P("return nil")
 	gf.P("}")
@@ -435,7 +437,9 @@ func (g *Generator) generateBindingFile(file *protogen.File) error {
 
 	// bindQueryParams function - binds URL query parameters to proto message fields
 	gf.P("// bindQueryParams binds URL query parameters to proto message fields.")
-	gf.P("func bindQueryParams(r *http.Request, msg proto.Message, params []QueryParamConfig) *sebufhttp.ValidationError {")
+	gf.P(
+		"func bindQueryParams(r *http.Request, msg proto.Message, params []QueryParamConfig) *sebufhttp.ValidationError {",
+	)
 	gf.P("if len(params) == 0 {")
 	gf.P("return nil")
 	gf.P("}")
@@ -1273,7 +1277,15 @@ func (g *Generator) generateParamConfigs(gf *protogen.GeneratedFile, service *pr
 		gf.P("// ", methodName, "QueryParams contains query parameter configuration for ", method.GoName)
 		gf.P("var ", methodName, "QueryParams = []QueryParamConfig{")
 		for _, qp := range queryParams {
-			gf.P("{QueryName: \"", qp.ParamName, "\", FieldName: \"", qp.FieldName, "\", Required: ", strconv.FormatBool(qp.Required), "},")
+			gf.P(
+				"{QueryName: \"",
+				qp.ParamName,
+				"\", FieldName: \"",
+				qp.FieldName,
+				"\", Required: ",
+				strconv.FormatBool(qp.Required),
+				"},",
+			)
 		}
 		gf.P("}")
 		gf.P()
