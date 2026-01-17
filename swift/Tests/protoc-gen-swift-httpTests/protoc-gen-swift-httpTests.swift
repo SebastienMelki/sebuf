@@ -1,5 +1,5 @@
 //
-//  buf-gen-swiftTests.swift
+//  protoc-gen-swiftTests.swift
 //  SwiftSebuf
 //
 //  Created by Khaled Chehabeddine on 12/01/2026.
