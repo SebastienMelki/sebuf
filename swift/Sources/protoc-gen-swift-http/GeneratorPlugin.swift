@@ -58,15 +58,15 @@ internal struct GeneratorPlugin: CodeGenerator {
  swift build
  
  protoc \
-	 --proto_path=Tests/buf-gen-swiftTests/Golden/SimpleService \
-	 --swift_out=Tests/buf-gen-swiftTests/Golden/SimpleService \
+	 --proto_path=Tests/buf-gen-swift-httpTests/Golden/SimpleService \
+	 --swift_out=Tests/buf-gen-swift-httpTests/Golden/SimpleService \
 	 --plugin=protoc-gen-swift=$(which protoc-gen-swift) \
-	 Tests/buf-gen-swiftTests/Golden/SimpleService/simple_user_service.proto
+	 Tests/buf-gen-swift-httpTests/Golden/SimpleService/simple_user_service.proto
  
  protoc \
-	 --proto_path=Tests/buf-gen-swiftTests/Golden/SimpleService \
-	 --swift-sebuf_out=Tests/buf-gen-swiftTests/Golden/SimpleService \
-	 --plugin=protoc-gen-swift-sebuf=.build/debug/buf-gen-swift \
-	 Tests/buf-gen-swiftTests/Golden/SimpleService/simple_user_service.proto
+	 --proto_path=Tests/buf-gen-swift-httpTests/Golden/SimpleService \
+	 --swift-sebuf_out=Tests/buf-gen-swift-httpTests/Golden/SimpleService \
+	 --plugin=protoc-gen-swift-sebuf=.build/debug/buf-gen-swift-http \
+	 Tests/buf-gen-swift-httpTests/Golden/SimpleService/simple_user_service.proto
  
  */
