@@ -7,7 +7,7 @@ let package = Package(
 	name: .name,
     products: [
         // Products define the executables and libraries a package produces, making them visible to other packages.
-		.bufGenSwift,
+		.protocGenSwiftHTTP,
 		.swiftSebuf
     ],
 	dependencies: [
@@ -16,8 +16,8 @@ let package = Package(
     targets: [
         // Targets are the basic building blocks of a package, defining a module or a test suite.
         // Targets can depend on other targets in this package and products from dependencies.
-		.bufGenSwift,
-		.bufGenSwiftTest,
+		.protocGenSwiftHTTP,
+		.protocGenSwiftHTTPTest,
 		
 		.swiftSebuf,
 		.swiftSebufTest
@@ -29,7 +29,7 @@ extension String {
 	fileprivate static let name = "SwiftSebuf"
 	
 	// Modules
-	fileprivate static let bufGenSwift = "buf-gen-swift"
+	fileprivate static let protocGenSwiftHTTP = "protoc-gen-swift-http"
 	fileprivate static let swiftSebuf = "SwiftSebuf"
 	
 	// Packages
@@ -44,10 +44,10 @@ extension String {
 
 extension Product {
 
-	fileprivate static let bufGenSwift: Product = executable(
-		name: .bufGenSwift,
+	fileprivate static let protocGenSwiftHTTP: Product = executable(
+		name: .protocGenSwiftHTTP,
 		targets: [
-			.bufGenSwift,
+			.protocGenSwiftHTTP,
 			.swiftSebuf
 		]
 	)
@@ -59,16 +59,16 @@ extension Product {
 
 extension Target {
 
-	fileprivate static let bufGenSwift: Target = executableTarget(
-		name: .bufGenSwift,
+	fileprivate static let protocGenSwiftHTTP: Target = executableTarget(
+		name: .protocGenSwiftHTTP,
 		dependencies: [
 			.swiftProtobuf,
 			.swiftProtobufPluginLibrary
 		]
 	)
-	fileprivate static let bufGenSwiftTest: Target = testTarget(
-		name: .bufGenSwift.test,
-		dependencies: [.bufGenSwift],
+	fileprivate static let protocGenSwiftHTTPTest: Target = testTarget(
+		name: .protocGenSwiftHTTP.test,
+		dependencies: [.protocGenSwiftHTTP],
 		exclude: ["Golden/SimpleService/simple_user_service.proto"]
 	)
 	
@@ -85,7 +85,7 @@ extension Target {
 extension Target.Dependency {
 	
 	// Modules
-	fileprivate static let bufGenSwift: Target.Dependency = byName(name: .bufGenSwift)
+	fileprivate static let protocGenSwiftHTTP: Target.Dependency = byName(name: .protocGenSwiftHTTP)
 	fileprivate static let swiftSebuf: Target.Dependency = byName(name: .swiftSebuf)
 	
 	// Packages
