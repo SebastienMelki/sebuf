@@ -20,7 +20,6 @@ fileprivate struct _GeneratedWithProtocGenSwiftVersion: SwiftProtobuf.ProtobufAP
   typealias Version = _2
 }
 
-protocol SimpleUserService: Sendable {
-
-  func createUser(_ request: CreateUserRequest) async throws -> User
+protocol Simple_Example_SimpleUserService: Sendable {
+  func createUser(_ request: Simple_Example_CreateUserRequest) async throws -> Simple_Example_User
 }

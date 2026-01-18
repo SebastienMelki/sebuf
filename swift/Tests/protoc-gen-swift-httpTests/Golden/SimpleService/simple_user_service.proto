@@ -1,5 +1,7 @@
 syntax = "proto3";
 
+package simple.example;
+
 service SimpleUserService {
   rpc CreateUser(CreateUserRequest) returns (User);
 }
