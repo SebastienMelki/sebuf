@@ -21,11 +21,4 @@ extension String {
 		
 		return (directory, base, ext)
 	}
-	
-	internal func camelCased() -> Self {
-		if let char = self.first {
-			return char.lowercased() + self.dropFirst()
-		}
-		return self
-	}
 }

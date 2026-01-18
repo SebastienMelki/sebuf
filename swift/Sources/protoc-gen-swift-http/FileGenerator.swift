@@ -94,7 +94,7 @@ internal final class FileGenerator {
 		generateVersionCheck(printer: &p)
 		
 		for serviceDescriptor in descriptor.services {
-			let serviceGenerator = ServiceGenerator(descriptor: serviceDescriptor, options: options)
+			let serviceGenerator = ServiceGenerator(descriptor: serviceDescriptor, options: options, namer: namer)
 			serviceGenerator.generate(printer: &p)
 		}
 	}
