@@ -81,7 +81,7 @@ Automatically apply relevant labels based on content analysis:
 
 - **Type Labels**: `bug`, `feature`, `documentation`, `enhancement`, `refactor`
 - **Priority Labels**: `priority:low`, `priority:medium`, `priority:high`, `priority:critical`
-- **Component Labels**: `http-gen`, `openapi`, `oneof-helper`, `validation`, `testing`
+- **Component Labels**: `http-gen`, `openapi`, `validation`, `testing`
 - **Status Labels**: `needs-investigation`, `ready-to-implement`, `blocked`
 
 ## Implementation Guidelines

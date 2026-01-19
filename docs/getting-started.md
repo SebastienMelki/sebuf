@@ -49,15 +49,29 @@ import "sebuf/http/annotations.proto";
 
 service UserService {
   option (sebuf.http.service_config) = { base_path: "/api/v1" };
-  
+
   rpc CreateUser(CreateUserRequest) returns (User) {
-    option (sebuf.http.config) = { path: "/users" };
+    option (sebuf.http.config) = {
+      path: "/users"
+      method: HTTP_METHOD_POST
+    };
+  }
+
+  rpc GetUser(GetUserRequest) returns (User) {
+    option (sebuf.http.config) = {
+      path: "/users/{id}"
+      method: HTTP_METHOD_GET
+    };
   }
 }
 
 message CreateUserRequest {
   string name = 1;
   string email = 2;
+}
+
+message GetUserRequest {
+  string id = 1;
 }
 
 message User {
@@ -124,11 +138,19 @@ type UserService struct {
 func (s *UserService) CreateUser(ctx context.Context, req *api.CreateUserRequest) (*api.User, error) {
     s.nextId++
     user := &api.User{
-        Id: fmt.Sprintf("%d", s.nextId), 
+        Id: fmt.Sprintf("%d", s.nextId),
         Name: req.Name,
         Email: req.Email,
     }
     s.users[user.Id] = user
+    return user, nil
+}
+
+func (s *UserService) GetUser(ctx context.Context, req *api.GetUserRequest) (*api.User, error) {
+    user, ok := s.users[req.Id]
+    if !ok {
+        return nil, fmt.Errorf("user not found: %s", req.Id)
+    }
     return user, nil
 }
 
@@ -150,9 +172,13 @@ go run main.go
 ```
 
 ```bash
+# Create a user
 curl -X POST http://localhost:8080/api/v1/users \
   -H "Content-Type: application/json" \
   -d '{"name": "John", "email": "john@example.com"}'
+
+# Get a user by ID
+curl -X GET http://localhost:8080/api/v1/users/1
 ```
 
 **That's it!** You now have a working HTTP API with OpenAPI docs.
