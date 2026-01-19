@@ -1,0 +1,33 @@
+syntax = "proto3";
+
+package api.models;
+
+// CustomError is a custom error response that users can return from their error handler.
+// This demonstrates how to create application-specific error responses.
+message CustomError {
+  // Application-specific error code
+  string code = 1;
+  // Human-readable error message
+  string message = 2;
+  // Request ID for tracking
+  string request_id = 3;
+  // Timestamp when the error occurred
+  int64 timestamp = 4;
+  // Additional error details
+  map<string, string> details = 5;
+}
+
+// NotFoundError is returned when a resource is not found.
+message NotFoundError {
+  string resource_type = 1;
+  string resource_id = 2;
+  string message = 3;
+}
+
+// RateLimitError is returned when rate limiting is triggered.
+message RateLimitError {
+  string message = 1;
+  int32 retry_after_seconds = 2;
+  int64 limit = 3;
+  int64 remaining = 4;
+}

@@ -1,0 +1,51 @@
+syntax = "proto3";
+
+package api.services;
+
+import "proto/models/user.proto";
+import "sebuf/http/annotations.proto";
+
+// UserService demonstrates the WithErrorHandler feature.
+// This service includes operations that can fail in various ways,
+// allowing demonstration of custom error handling.
+service UserService {
+  option (sebuf.http.service_config) = {
+    base_path: "/api/v1"
+  };
+
+  // CreateUser creates a new user.
+  // Can fail with validation errors (handled by framework).
+  rpc CreateUser(api.models.CreateUserRequest) returns (api.models.User) {
+    option (sebuf.http.config) = {
+      path: "/users"
+      method: HTTP_METHOD_POST
+    };
+  }
+
+  // GetUser retrieves a user by ID.
+  // Can fail with not found errors (custom error handler).
+  rpc GetUser(api.models.GetUserRequest) returns (api.models.User) {
+    option (sebuf.http.config) = {
+      path: "/users/{id}"
+      method: HTTP_METHOD_GET
+    };
+  }
+
+  // UpdateUser updates an existing user.
+  // Can fail with validation or not found errors.
+  rpc UpdateUser(api.models.UpdateUserRequest) returns (api.models.User) {
+    option (sebuf.http.config) = {
+      path: "/users/{id}"
+      method: HTTP_METHOD_PUT
+    };
+  }
+
+  // DeleteUser deletes a user.
+  // Can fail with not found errors.
+  rpc DeleteUser(api.models.DeleteUserRequest) returns (api.models.DeleteUserResponse) {
+    option (sebuf.http.config) = {
+      path: "/users/{id}"
+      method: HTTP_METHOD_DELETE
+    };
+  }
+}
