@@ -176,11 +176,9 @@ Understanding the project structure helps you contribute effectively:
 ```
 sebuf/
 ├── cmd/                           # Command-line tools
-│   ├── protoc-gen-go-oneof-helper/   # Oneof helper generator
-│   ├── protoc-gen-go-http/           # HTTP handler generator  
+│   ├── protoc-gen-go-http/           # HTTP handler generator
 │   └── protoc-gen-openapiv3/         # OpenAPI spec generator
 ├── internal/                      # Internal packages
-│   ├── oneofhelper/                  # Oneof helper logic
 │   ├── httpgen/                      # HTTP generation logic
 │   └── openapiv3/                    # OpenAPI generation logic
 ├── proto/                         # Protobuf definitions
@@ -390,7 +388,6 @@ Any additional information that would be helpful for reviewers.
 make test
 
 # Run specific test suites
-go test ./internal/oneofhelper/...
 go test ./internal/httpgen/...
 go test ./internal/openapiv3/...
 
@@ -398,7 +395,8 @@ go test ./internal/openapiv3/...
 make test-coverage
 
 # Update golden files (when output intentionally changes)
-UPDATE_GOLDEN=1 go test ./internal/oneofhelper/
+UPDATE_GOLDEN=1 go test ./internal/httpgen/
+UPDATE_GOLDEN=1 go test ./internal/openapiv3/
 ```
 
 ### Adding New Tests
@@ -406,13 +404,13 @@ UPDATE_GOLDEN=1 go test ./internal/oneofhelper/
 **Golden File Tests:**
 ```bash
 # Add new test proto file
-echo 'syntax = "proto3"; ...' > internal/oneofhelper/testdata/proto/new_test.proto
+echo 'syntax = "proto3"; ...' > internal/httpgen/testdata/proto/new_test.proto
 
 # Add expected output
-echo '// Expected generated code' > internal/oneofhelper/testdata/golden/new_test_helpers.pb.go
+echo '// Expected generated code' > internal/httpgen/testdata/golden/new_test_http.pb.go
 
 # Update test to include new file
-# Edit internal/oneofhelper/exhaustive_golden_test.go
+# Edit internal/httpgen/exhaustive_golden_test.go
 ```
 
 **Unit Tests:**

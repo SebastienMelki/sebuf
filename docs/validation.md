@@ -182,15 +182,12 @@ service APIService {
         description: "Tenant identifier"
         type: "integer"
         required: true
-        minimum: 1
-        maximum: 999999
       },
       {
         name: "X-Debug-Mode"
         description: "Enable debug mode"
         type: "boolean"
         required: false
-        default: "false"
       }
     ]
   };
@@ -213,10 +210,9 @@ rpc CreateResource(CreateResourceRequest) returns (Resource) {
       },
       {
         name: "X-Idempotency-Key"
+        description: "Idempotency key for safe retries"
         type: "string"
         required: true
-        min_length: 16
-        max_length: 64
       }
     ]
   };
@@ -228,8 +224,8 @@ rpc CreateResource(CreateResourceRequest) returns (Resource) {
 | Type | Formats | Description |
 |------|---------|-------------|
 | `string` | `uuid`, `email`, `date-time`, `date`, `time` | Text with optional format validation |
-| `integer` | - | Whole numbers with optional min/max constraints |
-| `number` | - | Decimal numbers with optional min/max constraints |
+| `integer` | - | Whole numbers |
+| `number` | - | Decimal numbers |
 | `boolean` | - | `true` or `false` values |
 | `array` | - | Comma-separated values |
 
@@ -243,40 +239,45 @@ service SecureAPI {
       // UUID validation
       {
         name: "X-Trace-ID"
+        description: "Trace ID for request tracing"
         type: "string"
         format: "uuid"
         required: true
+        example: "123e4567-e89b-12d3-a456-426614174000"
       },
       // Email validation
       {
         name: "X-Admin-Email"
+        description: "Admin contact email"
         type: "string"
         format: "email"
         required: false
+        example: "admin@example.com"
       },
       // Date-time validation
       {
         name: "X-Request-Time"
+        description: "Request timestamp"
         type: "string"
         format: "date-time"
         required: true
+        example: "2024-01-15T10:30:00Z"
       },
-      // Integer with constraints
+      // Integer type
       {
         name: "X-Rate-Limit"
+        description: "Rate limit override"
         type: "integer"
         required: false
-        minimum: 1
-        maximum: 1000
-        default: "100"
+        example: "100"
       },
-      // Enum-like validation
+      // String type
       {
         name: "X-API-Version"
+        description: "API version"
         type: "string"
         required: false
-        enum: ["v1", "v2", "v3"]
-        default: "v2"
+        example: "v2"
       },
       // Array type
       {
@@ -284,6 +285,7 @@ service SecureAPI {
         type: "array"
         required: false
         description: "Comma-separated feature flags"
+        example: "feature1,feature2"
       }
     ]
   };

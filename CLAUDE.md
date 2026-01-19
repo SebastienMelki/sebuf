@@ -313,7 +313,7 @@ sebuf stands on the shoulders of giants. We build upon and integrate with an inc
 ### Validation Ecosystem  
 - **[protovalidate](https://github.com/bufbuild/protovalidate)** by Buf - The modern validation framework that powers our automatic request validation. Built on CEL for flexibility and performance.
 - **[Common Expression Language (CEL)](https://github.com/google/cel-go)** by Google - The expression language that enables powerful custom validation rules in protovalidate.
-- **[buf.validate](https://buf.build/bufbuild/protovalidate)** - The proto definitions that provide the validation annotations we alias as `sebuf.validate`.
+- **[buf.validate](https://buf.build/bufbuild/protovalidate)** - The proto definitions that provide the validation annotations used directly in sebuf (e.g., `buf.validate.field`).
 
 ### API Documentation
 - **[OpenAPI 3.1](https://spec.openapis.org/oas/v3.1.0)** - The industry standard for REST API documentation that our OpenAPI generator targets.

@@ -75,20 +75,23 @@ service UserService {
   rpc CreateUser(CreateUserRequest) returns (User) {
     option (sebuf.http.config) = {
       path: "/users"
+      method: HTTP_METHOD_POST
     };
   }
-  
+
   // Get user by ID
   rpc GetUser(GetUserRequest) returns (User) {
     option (sebuf.http.config) = {
-      path: "/users/get"
+      path: "/users/{id}"
+      method: HTTP_METHOD_GET
     };
   }
-  
+
   // List all users
   rpc ListUsers(ListUsersRequest) returns (ListUsersResponse) {
     option (sebuf.http.config) = {
       path: "/users"
+      method: HTTP_METHOD_GET
     };
   }
 }
@@ -252,10 +255,10 @@ func main() {
     // Start server
     fmt.Println("Server starting on :8080")
     fmt.Println("Endpoints:")
-    fmt.Println("  POST   /api/v1/users      - Create user")
-    fmt.Println("  POST   /api/v1/users/get - Get user")
-    fmt.Println("  POST   /api/v1/users      - List users")
-    
+    fmt.Println("  POST   /api/v1/users       - Create user")
+    fmt.Println("  GET    /api/v1/users/{id}  - Get user")
+    fmt.Println("  GET    /api/v1/users       - List users")
+
     log.Fatal(http.ListenAndServe(":8080", mux))
 }
 ```
@@ -272,18 +275,11 @@ curl -X POST http://localhost:8080/api/v1/users \
     "department": "Engineering"
   }'
 
-# Get a user  
-curl -X POST http://localhost:8080/api/v1/users/get \
-  -H "Content-Type: application/json" \
-  -d '{"id": "123"}'
+# Get a user
+curl -X GET http://localhost:8080/api/v1/users/123
 
 # List users with filter
-curl -X POST http://localhost:8080/api/v1/users \
-  -H "Content-Type: application/json" \
-  -d '{
-    "page_size": 10,
-    "department_filter": "Engineering"
-  }'
+curl -X GET "http://localhost:8080/api/v1/users?page_size=10&department_filter=Engineering"
 ```
 
 ## HTTP Annotations
@@ -667,8 +663,7 @@ service AuthenticatedAPI {
         description: "API version"
         type: "string"
         required: false
-        default: "v1"
-        enum: ["v1", "v2", "v3"]
+        example: "v1"
       }
     ]
   };
@@ -1179,24 +1174,36 @@ message UploadFileRequest {
 ### 1. Consistent URL Design
 
 ```protobuf
-// Good: RESTful paths
+// Good: RESTful paths with HTTP methods
 service UserService {
   option (sebuf.http.service_config) = { base_path: "/api/v1" };
-  
+
   rpc CreateUser(CreateUserRequest) returns (User) {
-    option (sebuf.http.config) = { path: "/users" };
+    option (sebuf.http.config) = {
+      path: "/users"
+      method: HTTP_METHOD_POST
+    };
   }
-  
+
   rpc GetUser(GetUserRequest) returns (User) {
-    option (sebuf.http.config) = { path: "/users/get" };
+    option (sebuf.http.config) = {
+      path: "/users/{id}"
+      method: HTTP_METHOD_GET
+    };
   }
-  
+
   rpc UpdateUser(UpdateUserRequest) returns (User) {
-    option (sebuf.http.config) = { path: "/users/update" };
+    option (sebuf.http.config) = {
+      path: "/users/{id}"
+      method: HTTP_METHOD_PUT
+    };
   }
-  
+
   rpc DeleteUser(DeleteUserRequest) returns (DeleteUserResponse) {
-    option (sebuf.http.config) = { path: "/users/delete" };
+    option (sebuf.http.config) = {
+      path: "/users/{id}"
+      method: HTTP_METHOD_DELETE
+    };
   }
 }
 ```
