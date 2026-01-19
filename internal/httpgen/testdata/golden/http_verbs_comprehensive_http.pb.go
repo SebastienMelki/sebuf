@@ -29,56 +29,72 @@ func RegisterRESTfulAPIServiceServer(server RESTfulAPIServiceServer, opts ...Ser
 
 	methodHeaders := getListResourcesHeaders()
 	listResourcesHandler := BindingMiddleware[ListResourcesRequest](
-		genericHandler(server.ListResources), serviceHeaders, methodHeaders,
+		genericHandler(server.ListResources, config.errorHandler), serviceHeaders, methodHeaders,
+		listResourcesPathParams, listResourcesQueryParams,
+		"GET", config.errorHandler,
 	)
 
-	config.mux.Handle("POST /api/v1/resources", listResourcesHandler)
+	config.mux.Handle("GET /api/v1/resources", listResourcesHandler)
 
 	methodHeaders = getGetResourceHeaders()
 	getResourceHandler := BindingMiddleware[GetResourceRequest](
-		genericHandler(server.GetResource), serviceHeaders, methodHeaders,
+		genericHandler(server.GetResource, config.errorHandler), serviceHeaders, methodHeaders,
+		getResourcePathParams, getResourceQueryParams,
+		"GET", config.errorHandler,
 	)
 
-	config.mux.Handle("POST /api/v1/resources/{resource_id}", getResourceHandler)
+	config.mux.Handle("GET /api/v1/resources/{resource_id}", getResourceHandler)
 
 	methodHeaders = getGetNestedResourceHeaders()
 	getNestedResourceHandler := BindingMiddleware[GetNestedResourceRequest](
-		genericHandler(server.GetNestedResource), serviceHeaders, methodHeaders,
+		genericHandler(server.GetNestedResource, config.errorHandler), serviceHeaders, methodHeaders,
+		getNestedResourcePathParams, getNestedResourceQueryParams,
+		"GET", config.errorHandler,
 	)
 
-	config.mux.Handle("POST /api/v1/orgs/{org_id}/teams/{team_id}/resources/{resource_id}", getNestedResourceHandler)
+	config.mux.Handle("GET /api/v1/orgs/{org_id}/teams/{team_id}/resources/{resource_id}", getNestedResourceHandler)
 
 	methodHeaders = getCreateResourceHeaders()
 	createResourceHandler := BindingMiddleware[CreateResourceRequest](
-		genericHandler(server.CreateResource), serviceHeaders, methodHeaders,
+		genericHandler(server.CreateResource, config.errorHandler), serviceHeaders, methodHeaders,
+		createResourcePathParams, createResourceQueryParams,
+		"POST", config.errorHandler,
 	)
 
 	config.mux.Handle("POST /api/v1/resources", createResourceHandler)
 
 	methodHeaders = getUpdateResourceHeaders()
 	updateResourceHandler := BindingMiddleware[UpdateResourceRequest](
-		genericHandler(server.UpdateResource), serviceHeaders, methodHeaders,
+		genericHandler(server.UpdateResource, config.errorHandler), serviceHeaders, methodHeaders,
+		updateResourcePathParams, updateResourceQueryParams,
+		"PUT", config.errorHandler,
 	)
 
-	config.mux.Handle("POST /api/v1/resources/{resource_id}", updateResourceHandler)
+	config.mux.Handle("PUT /api/v1/resources/{resource_id}", updateResourceHandler)
 
 	methodHeaders = getPatchResourceHeaders()
 	patchResourceHandler := BindingMiddleware[PatchResourceRequest](
-		genericHandler(server.PatchResource), serviceHeaders, methodHeaders,
+		genericHandler(server.PatchResource, config.errorHandler), serviceHeaders, methodHeaders,
+		patchResourcePathParams, patchResourceQueryParams,
+		"PATCH", config.errorHandler,
 	)
 
-	config.mux.Handle("POST /api/v1/resources/{resource_id}", patchResourceHandler)
+	config.mux.Handle("PATCH /api/v1/resources/{resource_id}", patchResourceHandler)
 
 	methodHeaders = getDeleteResourceHeaders()
 	deleteResourceHandler := BindingMiddleware[DeleteResourceRequest](
-		genericHandler(server.DeleteResource), serviceHeaders, methodHeaders,
+		genericHandler(server.DeleteResource, config.errorHandler), serviceHeaders, methodHeaders,
+		deleteResourcePathParams, deleteResourceQueryParams,
+		"DELETE", config.errorHandler,
 	)
 
-	config.mux.Handle("POST /api/v1/resources/{resource_id}", deleteResourceHandler)
+	config.mux.Handle("DELETE /api/v1/resources/{resource_id}", deleteResourceHandler)
 
 	methodHeaders = getDefaultPostMethodHeaders()
 	defaultPostMethodHandler := BindingMiddleware[DefaultPostRequest](
-		genericHandler(server.DefaultPostMethod), serviceHeaders, methodHeaders,
+		genericHandler(server.DefaultPostMethod, config.errorHandler), serviceHeaders, methodHeaders,
+		defaultPostMethodPathParams, defaultPostMethodQueryParams,
+		"POST", config.errorHandler,
 	)
 
 	config.mux.Handle("POST /api/v1/legacy/action", defaultPostMethodHandler)
@@ -151,6 +167,71 @@ func getDefaultPostMethodHeaders() []*sebufhttp.Header {
 	return nil
 }
 
+// listResourcesPathParams contains path parameter configuration for ListResources
+var listResourcesPathParams = []PathParamConfig{}
+
+// listResourcesQueryParams contains query parameter configuration for ListResources
+var listResourcesQueryParams = []QueryParamConfig{
+	{QueryName: "page", FieldName: "page", Required: false},
+	{QueryName: "page_size", FieldName: "page_size", Required: false},
+	{QueryName: "filter", FieldName: "filter", Required: false},
+	{QueryName: "include_deleted", FieldName: "include_deleted", Required: false},
+}
+
+// getResourcePathParams contains path parameter configuration for GetResource
+var getResourcePathParams = []PathParamConfig{
+	{URLParam: "resource_id", FieldName: "resource_id"},
+}
+
+// getResourceQueryParams contains query parameter configuration for GetResource
+var getResourceQueryParams = []QueryParamConfig{}
+
+// getNestedResourcePathParams contains path parameter configuration for GetNestedResource
+var getNestedResourcePathParams = []PathParamConfig{
+	{URLParam: "org_id", FieldName: "org_id"},
+	{URLParam: "team_id", FieldName: "team_id"},
+	{URLParam: "resource_id", FieldName: "resource_id"},
+}
+
+// getNestedResourceQueryParams contains query parameter configuration for GetNestedResource
+var getNestedResourceQueryParams = []QueryParamConfig{}
+
+// createResourcePathParams contains path parameter configuration for CreateResource
+var createResourcePathParams = []PathParamConfig{}
+
+// createResourceQueryParams contains query parameter configuration for CreateResource
+var createResourceQueryParams = []QueryParamConfig{}
+
+// updateResourcePathParams contains path parameter configuration for UpdateResource
+var updateResourcePathParams = []PathParamConfig{
+	{URLParam: "resource_id", FieldName: "resource_id"},
+}
+
+// updateResourceQueryParams contains query parameter configuration for UpdateResource
+var updateResourceQueryParams = []QueryParamConfig{}
+
+// patchResourcePathParams contains path parameter configuration for PatchResource
+var patchResourcePathParams = []PathParamConfig{
+	{URLParam: "resource_id", FieldName: "resource_id"},
+}
+
+// patchResourceQueryParams contains query parameter configuration for PatchResource
+var patchResourceQueryParams = []QueryParamConfig{}
+
+// deleteResourcePathParams contains path parameter configuration for DeleteResource
+var deleteResourcePathParams = []PathParamConfig{
+	{URLParam: "resource_id", FieldName: "resource_id"},
+}
+
+// deleteResourceQueryParams contains query parameter configuration for DeleteResource
+var deleteResourceQueryParams = []QueryParamConfig{}
+
+// defaultPostMethodPathParams contains path parameter configuration for DefaultPostMethod
+var defaultPostMethodPathParams = []PathParamConfig{}
+
+// defaultPostMethodQueryParams contains query parameter configuration for DefaultPostMethod
+var defaultPostMethodQueryParams = []QueryParamConfig{}
+
 // BackwardCompatServiceServer is the server API for BackwardCompatService service.
 type BackwardCompatServiceServer interface {
 	LegacyAction(context.Context, *LegacyRequest) (*LegacyResponse, error)
@@ -164,7 +245,9 @@ func RegisterBackwardCompatServiceServer(server BackwardCompatServiceServer, opt
 
 	methodHeaders := getLegacyActionHeaders()
 	legacyActionHandler := BindingMiddleware[LegacyRequest](
-		genericHandler(server.LegacyAction), serviceHeaders, methodHeaders,
+		genericHandler(server.LegacyAction, config.errorHandler), serviceHeaders, methodHeaders,
+		legacyActionPathParams, legacyActionQueryParams,
+		"POST", config.errorHandler,
 	)
 
 	config.mux.Handle("POST /generated/legacy_action", legacyActionHandler)
@@ -181,3 +264,9 @@ func getBackwardCompatServiceHeaders() []*sebufhttp.Header {
 func getLegacyActionHeaders() []*sebufhttp.Header {
 	return nil
 }
+
+// legacyActionPathParams contains path parameter configuration for LegacyAction
+var legacyActionPathParams = []PathParamConfig{}
+
+// legacyActionQueryParams contains query parameter configuration for LegacyAction
+var legacyActionQueryParams = []QueryParamConfig{}

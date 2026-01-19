@@ -5,14 +5,31 @@ package generated
 
 import (
 	"net/http"
+
+	"google.golang.org/protobuf/proto"
 )
+
+// ErrorHandler is called when an error occurs.
+//
+// You can:
+//   - Set headers via w.Header().Set(...)
+//   - Set status code via w.WriteHeader(...)
+//   - Return a proto.Message to be marshaled as the response body
+//   - Return nil to use the default error response (ValidationError or Error)
+//
+// If you write directly to w (via w.Write()), the response is considered
+// complete and no further writing occurs.
+//
+// Use errors.As() to inspect error types: *sebufhttp.ValidationError or *sebufhttp.Error
+type ErrorHandler func(w http.ResponseWriter, r *http.Request, err error) proto.Message
 
 // ServerOption configures a Server
 type ServerOption func(c *serverConfiguration)
 
 type serverConfiguration struct {
-	mux     *http.ServeMux
-	withMux bool
+	mux          *http.ServeMux
+	withMux      bool
+	errorHandler ErrorHandler
 }
 
 func getDefaultConfiguration() *serverConfiguration {
@@ -35,5 +52,12 @@ func WithMux(mux *http.ServeMux) ServerOption {
 	return func(c *serverConfiguration) {
 		c.mux = mux
 		c.withMux = true
+	}
+}
+
+// WithErrorHandler configures a custom error handler for the server.
+func WithErrorHandler(handler ErrorHandler) ServerOption {
+	return func(c *serverConfiguration) {
+		c.errorHandler = handler
 	}
 }

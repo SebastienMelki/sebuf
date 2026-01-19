@@ -25,31 +25,39 @@ func RegisterQueryParamServiceServer(server QueryParamServiceServer, opts ...Ser
 
 	methodHeaders := getSearchWithTypesHeaders()
 	searchWithTypesHandler := BindingMiddleware[SearchWithTypesRequest](
-		genericHandler(server.SearchWithTypes), serviceHeaders, methodHeaders,
+		genericHandler(server.SearchWithTypes, config.errorHandler), serviceHeaders, methodHeaders,
+		searchWithTypesPathParams, searchWithTypesQueryParams,
+		"GET", config.errorHandler,
 	)
 
-	config.mux.Handle("POST /api/search/typed", searchWithTypesHandler)
+	config.mux.Handle("GET /api/search/typed", searchWithTypesHandler)
 
 	methodHeaders = getSearchRequiredHeaders()
 	searchRequiredHandler := BindingMiddleware[SearchRequiredRequest](
-		genericHandler(server.SearchRequired), serviceHeaders, methodHeaders,
+		genericHandler(server.SearchRequired, config.errorHandler), serviceHeaders, methodHeaders,
+		searchRequiredPathParams, searchRequiredQueryParams,
+		"GET", config.errorHandler,
 	)
 
-	config.mux.Handle("POST /api/search/required", searchRequiredHandler)
+	config.mux.Handle("GET /api/search/required", searchRequiredHandler)
 
 	methodHeaders = getSearchCustomNamesHeaders()
 	searchCustomNamesHandler := BindingMiddleware[SearchCustomNamesRequest](
-		genericHandler(server.SearchCustomNames), serviceHeaders, methodHeaders,
+		genericHandler(server.SearchCustomNames, config.errorHandler), serviceHeaders, methodHeaders,
+		searchCustomNamesPathParams, searchCustomNamesQueryParams,
+		"GET", config.errorHandler,
 	)
 
-	config.mux.Handle("POST /api/search/custom", searchCustomNamesHandler)
+	config.mux.Handle("GET /api/search/custom", searchCustomNamesHandler)
 
 	methodHeaders = getGetWithFiltersHeaders()
 	getWithFiltersHandler := BindingMiddleware[GetWithFiltersRequest](
-		genericHandler(server.GetWithFilters), serviceHeaders, methodHeaders,
+		genericHandler(server.GetWithFilters, config.errorHandler), serviceHeaders, methodHeaders,
+		getWithFiltersPathParams, getWithFiltersQueryParams,
+		"GET", config.errorHandler,
 	)
 
-	config.mux.Handle("POST /api/resources/{resource_id}/items", getWithFiltersHandler)
+	config.mux.Handle("GET /api/resources/{resource_id}/items", getWithFiltersHandler)
 
 	return nil
 }
@@ -77,4 +85,52 @@ func getSearchCustomNamesHeaders() []*sebufhttp.Header {
 // getGetWithFiltersHeaders returns the method-level required headers for GetWithFilters
 func getGetWithFiltersHeaders() []*sebufhttp.Header {
 	return nil
+}
+
+// searchWithTypesPathParams contains path parameter configuration for SearchWithTypes
+var searchWithTypesPathParams = []PathParamConfig{}
+
+// searchWithTypesQueryParams contains query parameter configuration for SearchWithTypes
+var searchWithTypesQueryParams = []QueryParamConfig{
+	{QueryName: "q", FieldName: "query", Required: false},
+	{QueryName: "limit", FieldName: "limit", Required: false},
+	{QueryName: "offset", FieldName: "offset", Required: false},
+	{QueryName: "active", FieldName: "active", Required: false},
+	{QueryName: "min_score", FieldName: "min_score", Required: false},
+	{QueryName: "max_score", FieldName: "max_score", Required: false},
+	{QueryName: "page", FieldName: "page", Required: false},
+	{QueryName: "ts", FieldName: "timestamp", Required: false},
+}
+
+// searchRequiredPathParams contains path parameter configuration for SearchRequired
+var searchRequiredPathParams = []PathParamConfig{}
+
+// searchRequiredQueryParams contains query parameter configuration for SearchRequired
+var searchRequiredQueryParams = []QueryParamConfig{
+	{QueryName: "q", FieldName: "query", Required: true},
+	{QueryName: "page", FieldName: "page", Required: false},
+	{QueryName: "page_size", FieldName: "page_size", Required: false},
+}
+
+// searchCustomNamesPathParams contains path parameter configuration for SearchCustomNames
+var searchCustomNamesPathParams = []PathParamConfig{}
+
+// searchCustomNamesQueryParams contains query parameter configuration for SearchCustomNames
+var searchCustomNamesQueryParams = []QueryParamConfig{
+	{QueryName: "q", FieldName: "search_term", Required: false},
+	{QueryName: "limit", FieldName: "results_per_page", Required: false},
+	{QueryName: "page", FieldName: "page_number", Required: false},
+	{QueryName: "sort", FieldName: "sort_field", Required: false},
+	{QueryName: "desc", FieldName: "descending_order", Required: false},
+}
+
+// getWithFiltersPathParams contains path parameter configuration for GetWithFilters
+var getWithFiltersPathParams = []PathParamConfig{
+	{URLParam: "resource_id", FieldName: "resource_id"},
+}
+
+// getWithFiltersQueryParams contains query parameter configuration for GetWithFilters
+var getWithFiltersQueryParams = []QueryParamConfig{
+	{QueryName: "filter", FieldName: "filter", Required: false},
+	{QueryName: "limit", FieldName: "limit", Required: false},
 }

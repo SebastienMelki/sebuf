@@ -19,6 +19,7 @@ import (
 	protovalidate "buf.build/go/protovalidate"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/reflect/protoreflect"
 
 	sebufhttp "github.com/SebastienMelki/sebuf/http"
 )
@@ -34,6 +35,19 @@ const (
 
 type bodyCtxKey struct{}
 
+// PathParamConfig defines configuration for a path parameter.
+type PathParamConfig struct {
+	URLParam  string // Parameter name in URL path
+	FieldName string // Proto field name to bind to
+}
+
+// QueryParamConfig defines configuration for a query parameter.
+type QueryParamConfig struct {
+	QueryName string // Parameter name in query string
+	FieldName string // Proto field name to bind to
+	Required  bool   // Whether this parameter is required
+}
+
 func getRequest[Req any](ctx context.Context) Req {
 	val := ctx.Value(bodyCtxKey{})
 	request, ok := val.(Req)
@@ -44,36 +58,55 @@ func getRequest[Req any](ctx context.Context) Req {
 }
 
 // BindingMiddleware creates a middleware that binds HTTP requests to protobuf messages
-// and validates them using protovalidate and header validation
-func BindingMiddleware[Req any](next http.Handler, serviceHeaders, methodHeaders []*sebufhttp.Header) http.Handler {
+// and validates them using protovalidate and header validation.
+// It supports path parameters, query parameters, and request body binding.
+func BindingMiddleware[Req any](next http.Handler, serviceHeaders, methodHeaders []*sebufhttp.Header,
+	pathParams []PathParamConfig, queryParams []QueryParamConfig, httpMethod string, errorHandler ErrorHandler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Validate headers first
 		if validationErr := validateHeaders(r, serviceHeaders, methodHeaders); validationErr != nil {
-			writeValidationErrorResponse(w, r, validationErr)
+			writeErrorWithHandler(w, r, validationErr, errorHandler)
 			return
 		}
 
 		toBind := new(Req)
 
-		err := bindDataBasedOnContentType(r, toBind)
-		if err != nil {
-			// For binding errors, return a simple validation error
-			validationErr := &sebufhttp.ValidationError{
-				Violations: []*sebufhttp.FieldViolation{
-					{
-						Field:       "body",
-						Description: fmt.Sprintf("failed to parse request body: %v", err),
-					},
-				},
+		// Bind path parameters
+		if msg, ok := any(toBind).(proto.Message); ok {
+			if err := bindPathParams(r, msg, pathParams); err != nil {
+				writeErrorWithHandler(w, r, err, errorHandler)
+				return
 			}
-			writeValidationErrorResponse(w, r, validationErr)
-			return
+
+			// Bind query parameters
+			if err := bindQueryParams(r, msg, queryParams); err != nil {
+				writeErrorWithHandler(w, r, err, errorHandler)
+				return
+			}
 		}
 
-		// Validate the message if it's a proto.Message
+		// Bind body only for POST, PUT, PATCH methods
+		if httpMethod == "POST" || httpMethod == "PUT" || httpMethod == "PATCH" {
+			err := bindDataBasedOnContentType(r, toBind)
+			if err != nil {
+				// For binding errors, return a simple validation error
+				validationErr := &sebufhttp.ValidationError{
+					Violations: []*sebufhttp.FieldViolation{
+						{
+							Field:       "body",
+							Description: fmt.Sprintf("failed to parse request body: %v", err),
+						},
+					},
+				}
+				writeErrorWithHandler(w, r, validationErr, errorHandler)
+				return
+			}
+		}
+
+		// Validate the complete message
 		if msg, ok := any(toBind).(proto.Message); ok {
 			if err := ValidateMessage(msg); err != nil {
-				writeValidationError(w, r, err)
+				writeErrorWithHandler(w, r, convertProtovalidateError(err), errorHandler)
 				return
 			}
 		}
@@ -151,7 +184,161 @@ func bindDataFromBinaryRequest[Req any](r *http.Request, toBind *Req) error {
 	return nil
 }
 
-func genericHandler[Req any, Res any](serve func(context.Context, Req) (Res, error)) http.HandlerFunc {
+// bindPathParams binds URL path parameters to proto message fields using Go 1.22+ PathValue.
+func bindPathParams(r *http.Request, msg proto.Message, params []PathParamConfig) *sebufhttp.ValidationError {
+	if len(params) == 0 {
+		return nil
+	}
+
+	reflectMsg := msg.ProtoReflect()
+	fields := reflectMsg.Descriptor().Fields()
+
+	for _, param := range params {
+		value := r.PathValue(param.URLParam)
+		if value == "" {
+			return &sebufhttp.ValidationError{
+				Violations: []*sebufhttp.FieldViolation{{
+					Field:       param.FieldName,
+					Description: fmt.Sprintf("missing required path parameter: %s", param.URLParam),
+				}},
+			}
+		}
+
+		field := fields.ByName(protoreflect.Name(param.FieldName))
+		if field == nil {
+			continue // Field not found, skip
+		}
+
+		convertedValue, err := convertStringToFieldValue(value, field.Kind())
+		if err != nil {
+			return &sebufhttp.ValidationError{
+				Violations: []*sebufhttp.FieldViolation{{
+					Field:       param.FieldName,
+					Description: fmt.Sprintf("invalid value for path parameter %s: %v", param.URLParam, err),
+				}},
+			}
+		}
+
+		reflectMsg.Set(field, convertedValue)
+	}
+
+	return nil
+}
+
+// bindQueryParams binds URL query parameters to proto message fields.
+func bindQueryParams(r *http.Request, msg proto.Message, params []QueryParamConfig) *sebufhttp.ValidationError {
+	if len(params) == 0 {
+		return nil
+	}
+
+	query := r.URL.Query()
+	reflectMsg := msg.ProtoReflect()
+	fields := reflectMsg.Descriptor().Fields()
+
+	for _, param := range params {
+		values := query[param.QueryName]
+		if len(values) == 0 {
+			if param.Required {
+				return &sebufhttp.ValidationError{
+					Violations: []*sebufhttp.FieldViolation{{
+						Field:       param.FieldName,
+						Description: fmt.Sprintf("missing required query parameter: %s", param.QueryName),
+					}},
+				}
+			}
+			continue
+		}
+
+		field := fields.ByName(protoreflect.Name(param.FieldName))
+		if field == nil {
+			continue // Field not found, skip
+		}
+
+		// Handle repeated fields (arrays)
+		if field.IsList() {
+			list := reflectMsg.Mutable(field).List()
+			for _, v := range values {
+				converted, err := convertStringToFieldValue(v, field.Kind())
+				if err != nil {
+					return &sebufhttp.ValidationError{
+						Violations: []*sebufhttp.FieldViolation{{
+							Field:       param.FieldName,
+							Description: fmt.Sprintf("invalid value for query parameter %s: %v", param.QueryName, err),
+						}},
+					}
+				}
+				list.Append(converted)
+			}
+		} else {
+			converted, err := convertStringToFieldValue(values[0], field.Kind())
+			if err != nil {
+				return &sebufhttp.ValidationError{
+					Violations: []*sebufhttp.FieldViolation{{
+						Field:       param.FieldName,
+						Description: fmt.Sprintf("invalid value for query parameter %s: %v", param.QueryName, err),
+					}},
+				}
+			}
+			reflectMsg.Set(field, converted)
+		}
+	}
+
+	return nil
+}
+
+// convertStringToFieldValue converts a string value to the appropriate protoreflect.Value.
+func convertStringToFieldValue(value string, kind protoreflect.Kind) (protoreflect.Value, error) {
+	switch kind {
+	case protoreflect.StringKind:
+		return protoreflect.ValueOfString(value), nil
+	case protoreflect.Int32Kind, protoreflect.Sint32Kind, protoreflect.Sfixed32Kind:
+		v, err := strconv.ParseInt(value, 10, 32)
+		if err != nil {
+			return protoreflect.Value{}, err
+		}
+		return protoreflect.ValueOfInt32(int32(v)), nil
+	case protoreflect.Int64Kind, protoreflect.Sint64Kind, protoreflect.Sfixed64Kind:
+		v, err := strconv.ParseInt(value, 10, 64)
+		if err != nil {
+			return protoreflect.Value{}, err
+		}
+		return protoreflect.ValueOfInt64(v), nil
+	case protoreflect.Uint32Kind, protoreflect.Fixed32Kind:
+		v, err := strconv.ParseUint(value, 10, 32)
+		if err != nil {
+			return protoreflect.Value{}, err
+		}
+		return protoreflect.ValueOfUint32(uint32(v)), nil
+	case protoreflect.Uint64Kind, protoreflect.Fixed64Kind:
+		v, err := strconv.ParseUint(value, 10, 64)
+		if err != nil {
+			return protoreflect.Value{}, err
+		}
+		return protoreflect.ValueOfUint64(v), nil
+	case protoreflect.BoolKind:
+		v, err := strconv.ParseBool(value)
+		if err != nil {
+			return protoreflect.Value{}, err
+		}
+		return protoreflect.ValueOfBool(v), nil
+	case protoreflect.FloatKind:
+		v, err := strconv.ParseFloat(value, 32)
+		if err != nil {
+			return protoreflect.Value{}, err
+		}
+		return protoreflect.ValueOfFloat32(float32(v)), nil
+	case protoreflect.DoubleKind:
+		v, err := strconv.ParseFloat(value, 64)
+		if err != nil {
+			return protoreflect.Value{}, err
+		}
+		return protoreflect.ValueOfFloat64(v), nil
+	default:
+		return protoreflect.Value{}, fmt.Errorf("unsupported field type: %v", kind)
+	}
+}
+
+func genericHandler[Req any, Res any](serve func(context.Context, Req) (Res, error), errorHandler ErrorHandler) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		request := getRequest[Req](r.Context())
 
@@ -160,7 +347,7 @@ func genericHandler[Req any, Res any](serve func(context.Context, Req) (Res, err
 			errorMsg := &sebufhttp.Error{
 				Message: err.Error(),
 			}
-			writeErrorResponse(w, r, errorMsg)
+			writeErrorWithHandler(w, r, errorMsg, errorHandler)
 			return
 		}
 
@@ -169,7 +356,7 @@ func genericHandler[Req any, Res any](serve func(context.Context, Req) (Res, err
 			errorMsg := &sebufhttp.Error{
 				Message: fmt.Sprintf("failed to marshal response: %v", err),
 			}
-			writeErrorResponse(w, r, errorMsg)
+			writeErrorWithHandler(w, r, errorMsg, errorHandler)
 			return
 		}
 
@@ -178,7 +365,7 @@ func genericHandler[Req any, Res any](serve func(context.Context, Req) (Res, err
 			errorMsg := &sebufhttp.Error{
 				Message: fmt.Sprintf("failed to write response: %v", err),
 			}
-			writeErrorResponse(w, r, errorMsg)
+			writeErrorWithHandler(w, r, errorMsg, errorHandler)
 			return
 		}
 	}
@@ -203,6 +390,23 @@ func marshalResponse(r *http.Request, response any) ([]byte, error) {
 	default:
 		return nil, fmt.Errorf("unsupported content type: %s", contentType)
 	}
+}
+
+// responseCapture wraps ResponseWriter to track if Write or WriteHeader was called
+type responseCapture struct {
+	http.ResponseWriter
+	wroteHeader bool
+	written     bool
+}
+
+func (rc *responseCapture) WriteHeader(code int) {
+	rc.wroteHeader = true
+	rc.ResponseWriter.WriteHeader(code)
+}
+
+func (rc *responseCapture) Write(b []byte) (int, error) {
+	rc.written = true
+	return rc.ResponseWriter.Write(b)
 }
 
 // writeProtoMessageResponse writes a protobuf message as an HTTP response
@@ -282,6 +486,125 @@ func writeValidationError(w http.ResponseWriter, r *http.Request, err error) {
 // writeErrorResponse writes an Error as a response
 func writeErrorResponse(w http.ResponseWriter, r *http.Request, errorMsg *sebufhttp.Error) {
 	writeProtoMessageResponse(w, r, errorMsg, http.StatusInternalServerError, "internal server error")
+}
+
+// convertProtovalidateError converts a protovalidate error to ValidationError
+func convertProtovalidateError(err error) *sebufhttp.ValidationError {
+	validationErr := &sebufhttp.ValidationError{}
+
+	// Handle protovalidate.ValidationError
+	var valErr *protovalidate.ValidationError
+	if errors.As(err, &valErr) {
+		for _, violation := range valErr.Violations {
+			// Extract field path from violation
+			fieldPath := ""
+			if violation.Proto != nil && violation.Proto.GetField() != nil {
+				elements := violation.Proto.GetField().GetElements()
+				if len(elements) > 0 {
+					fieldPath = elements[0].GetFieldName()
+					for i := 1; i < len(elements); i++ {
+						fieldPath += "." + elements[i].GetFieldName()
+					}
+				}
+			}
+			if fieldPath == "" {
+				fieldPath = "unknown"
+			}
+
+			validationErr.Violations = append(validationErr.Violations, &sebufhttp.FieldViolation{
+				Field:       fieldPath,
+				Description: violation.Proto.GetMessage(),
+			})
+		}
+	} else {
+		// Shouldn't happen, but handle as generic error
+		validationErr.Violations = append(validationErr.Violations, &sebufhttp.FieldViolation{
+			Field:       "unknown",
+			Description: err.Error(),
+		})
+	}
+
+	return validationErr
+}
+
+// defaultErrorResponse returns the appropriate error response message based on error type
+func defaultErrorResponse(err error) proto.Message {
+	var valErr *sebufhttp.ValidationError
+	if errors.As(err, &valErr) {
+		return valErr
+	}
+	var handlerErr *sebufhttp.Error
+	if errors.As(err, &handlerErr) {
+		return handlerErr
+	}
+	return &sebufhttp.Error{Message: err.Error()}
+}
+
+// defaultErrorStatusCode returns the appropriate HTTP status code based on error type
+func defaultErrorStatusCode(err error) int {
+	var valErr *sebufhttp.ValidationError
+	if errors.As(err, &valErr) {
+		return http.StatusBadRequest
+	}
+	return http.StatusInternalServerError
+}
+
+// writeErrorWithHandler calls custom handler if set, then marshals response
+func writeErrorWithHandler(w http.ResponseWriter, r *http.Request, err error, handler ErrorHandler) {
+	var response proto.Message
+	var capture *responseCapture
+
+	if handler != nil {
+		capture = &responseCapture{ResponseWriter: w}
+		response = handler(capture, r, err)
+		if capture.written {
+			return // Handler wrote directly, done
+		}
+	}
+
+	// Determine response if handler didn't provide one
+	if response == nil {
+		response = defaultErrorResponse(err)
+	}
+
+	// Determine status code
+	statusCode := defaultErrorStatusCode(err)
+
+	// If handler already set status, don't set it again
+	if capture != nil && capture.wroteHeader {
+		// Handler set status, just write the body
+		writeResponseBody(w, r, response)
+		return
+	}
+
+	// Write full response with status code
+	writeProtoMessageResponse(w, r, response, statusCode, "error processing request")
+}
+
+// writeResponseBody writes the response body without setting status code
+func writeResponseBody(w http.ResponseWriter, r *http.Request, msg proto.Message) {
+	contentType := r.Header.Get("Content-Type")
+	if contentType == "" {
+		contentType = JSONContentType
+	}
+
+	var responseBytes []byte
+	var err error
+
+	switch filterFlags(contentType) {
+	case JSONContentType:
+		responseBytes, err = protojson.Marshal(msg)
+	case BinaryContentType, ProtoContentType:
+		responseBytes, err = proto.Marshal(msg)
+	default:
+		responseBytes, err = protojson.Marshal(msg)
+	}
+
+	if err != nil {
+		return // Can't write anything meaningful
+	}
+
+	_, _ = w.Write(responseBytes)
 }
 
 var (
