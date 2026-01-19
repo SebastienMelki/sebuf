@@ -23,14 +23,18 @@ func RegisterNoAnnotationsServiceServer(server NoAnnotationsServiceServer, opts 
 
 	methodHeaders := getSimpleActionHeaders()
 	simpleActionHandler := BindingMiddleware[SimpleRequest](
-		genericHandler(server.SimpleAction), serviceHeaders, methodHeaders,
+		genericHandler(server.SimpleAction, config.errorHandler), serviceHeaders, methodHeaders,
+		simpleActionPathParams, simpleActionQueryParams,
+		"POST", config.errorHandler,
 	)
 
 	config.mux.Handle("POST /generated/simple_action", simpleActionHandler)
 
 	methodHeaders = getAnotherActionHeaders()
 	anotherActionHandler := BindingMiddleware[AnotherRequest](
-		genericHandler(server.AnotherAction), serviceHeaders, methodHeaders,
+		genericHandler(server.AnotherAction, config.errorHandler), serviceHeaders, methodHeaders,
+		anotherActionPathParams, anotherActionQueryParams,
+		"POST", config.errorHandler,
 	)
 
 	config.mux.Handle("POST /generated/another_action", anotherActionHandler)
@@ -53,6 +57,18 @@ func getAnotherActionHeaders() []*sebufhttp.Header {
 	return nil
 }
 
+// simpleActionPathParams contains path parameter configuration for SimpleAction
+var simpleActionPathParams = []PathParamConfig{}
+
+// simpleActionQueryParams contains query parameter configuration for SimpleAction
+var simpleActionQueryParams = []QueryParamConfig{}
+
+// anotherActionPathParams contains path parameter configuration for AnotherAction
+var anotherActionPathParams = []PathParamConfig{}
+
+// anotherActionQueryParams contains query parameter configuration for AnotherAction
+var anotherActionQueryParams = []QueryParamConfig{}
+
 // BasePathOnlyServiceServer is the server API for BasePathOnlyService service.
 type BasePathOnlyServiceServer interface {
 	ActionOne(context.Context, *ActionRequest) (*ActionResponse, error)
@@ -67,14 +83,18 @@ func RegisterBasePathOnlyServiceServer(server BasePathOnlyServiceServer, opts ..
 
 	methodHeaders := getActionOneHeaders()
 	actionOneHandler := BindingMiddleware[ActionRequest](
-		genericHandler(server.ActionOne), serviceHeaders, methodHeaders,
+		genericHandler(server.ActionOne, config.errorHandler), serviceHeaders, methodHeaders,
+		actionOnePathParams, actionOneQueryParams,
+		"POST", config.errorHandler,
 	)
 
 	config.mux.Handle("POST /api/v2/action_one", actionOneHandler)
 
 	methodHeaders = getActionTwoHeaders()
 	actionTwoHandler := BindingMiddleware[ActionRequest](
-		genericHandler(server.ActionTwo), serviceHeaders, methodHeaders,
+		genericHandler(server.ActionTwo, config.errorHandler), serviceHeaders, methodHeaders,
+		actionTwoPathParams, actionTwoQueryParams,
+		"POST", config.errorHandler,
 	)
 
 	config.mux.Handle("POST /api/v2/action_two", actionTwoHandler)
@@ -96,3 +116,15 @@ func getActionOneHeaders() []*sebufhttp.Header {
 func getActionTwoHeaders() []*sebufhttp.Header {
 	return nil
 }
+
+// actionOnePathParams contains path parameter configuration for ActionOne
+var actionOnePathParams = []PathParamConfig{}
+
+// actionOneQueryParams contains query parameter configuration for ActionOne
+var actionOneQueryParams = []QueryParamConfig{}
+
+// actionTwoPathParams contains path parameter configuration for ActionTwo
+var actionTwoPathParams = []PathParamConfig{}
+
+// actionTwoQueryParams contains query parameter configuration for ActionTwo
+var actionTwoQueryParams = []QueryParamConfig{}
