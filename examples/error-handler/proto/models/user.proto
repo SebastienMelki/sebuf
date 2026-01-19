@@ -1,0 +1,56 @@
+syntax = "proto3";
+
+package api.models;
+
+import "buf/validate/validate.proto";
+
+// User represents a user in the system.
+message User {
+  string id = 1;
+  string name = 2;
+  string email = 3;
+  int64 created_at = 4;
+}
+
+// CreateUserRequest is the request for creating a new user.
+message CreateUserRequest {
+  string name = 1 [(buf.validate.field).string = {
+    min_len: 2,
+    max_len: 100
+  }];
+
+  string email = 2 [(buf.validate.field).string.email = true];
+}
+
+// GetUserRequest is the request for getting a user by ID.
+message GetUserRequest {
+  string id = 1 [(buf.validate.field).string = {
+    min_len: 1
+  }];
+}
+
+// UpdateUserRequest is the request for updating a user.
+message UpdateUserRequest {
+  string id = 1 [(buf.validate.field).string = {
+    min_len: 1
+  }];
+
+  string name = 2 [(buf.validate.field).string = {
+    min_len: 2,
+    max_len: 100
+  }];
+
+  string email = 3 [(buf.validate.field).string.email = true];
+}
+
+// DeleteUserRequest is the request for deleting a user.
+message DeleteUserRequest {
+  string id = 1 [(buf.validate.field).string = {
+    min_len: 1
+  }];
+}
+
+// DeleteUserResponse is the response for deleting a user.
+message DeleteUserResponse {
+  bool success = 1;
+}
