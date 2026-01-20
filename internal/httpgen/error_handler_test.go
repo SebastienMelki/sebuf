@@ -461,8 +461,10 @@ func TestProtoMessageErrorPreservation(t *testing.T) {
 			return
 		}
 
-		if !(valErrPos < handlerErrPos && handlerErrPos < protoMsgPos && protoMsgPos < fallbackPos) {
-			t.Error("defaultErrorResponse should check errors in order: ValidationError, Error, proto.Message, fallback")
+		if valErrPos >= handlerErrPos || handlerErrPos >= protoMsgPos || protoMsgPos >= fallbackPos {
+			t.Error(
+				"defaultErrorResponse should check errors in order: ValidationError, Error, proto.Message, fallback",
+			)
 		}
 	})
 }

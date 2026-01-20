@@ -241,7 +241,16 @@ func CombinedErrorHandler(w http.ResponseWriter, r *http.Request, err error) pro
 	w.Header().Set("X-Request-ID", requestID)
 	w.Header().Set("X-Error-Timestamp", time.Now().UTC().Format(time.RFC3339))
 
-	// Handle not found errors - return NotFoundError proto message from errors.proto
+	// Handle proto NotFoundError returned directly from handler
+	// The framework preserves its structure automatically
+	var protoNotFound *models.NotFoundError
+	if errors.As(err, &protoNotFound) {
+		w.Header().Set("X-Error-Type", "not_found")
+		w.WriteHeader(http.StatusNotFound)
+		return nil // Return nil to let framework use the proto error directly
+	}
+
+	// Handle Go struct not found errors (legacy pattern)
 	var notFound *ErrNotFound
 	if errors.As(err, &notFound) {
 		w.Header().Set("X-Error-Type", "not_found")
