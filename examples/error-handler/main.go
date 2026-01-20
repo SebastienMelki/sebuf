@@ -69,13 +69,22 @@ func (s *UserServiceImpl) CreateUser(ctx context.Context, req *models.CreateUser
 }
 
 // GetUser retrieves a user by ID.
+// This demonstrates returning a proto error message directly from a handler.
+// The framework preserves the proto structure in the response (not wrapped in {"message":"..."}).
 func (s *UserServiceImpl) GetUser(ctx context.Context, req *models.GetUserRequest) (*models.User, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
 	user, exists := s.users[req.Id]
 	if !exists {
-		return nil, &ErrNotFound{ResourceType: "user", ResourceID: req.Id}
+		// Return proto error directly - structure is preserved in response:
+		// Response: {"resourceType":"user","resourceId":"...","message":"user not found"}
+		// NOT:      {"message":"{\"resourceType\":\"user\",...}"}
+		return nil, &models.NotFoundError{
+			ResourceType: "user",
+			ResourceId:   req.Id,
+			Message:      "user not found",
+		}
 	}
 	return user, nil
 }
@@ -309,8 +318,10 @@ func main() {
 	fmt.Println(`     -H "Content-Type: application/json" \`)
 	fmt.Println(`     -d '{"name": "J", "email": "invalid-email"}'`)
 	fmt.Println()
-	fmt.Println("3. Get non-existent user (not found error):")
+	fmt.Println("3. Get non-existent user (proto error with preserved structure):")
 	fmt.Println(`   curl -v http://localhost:8080/api/v1/users/non-existent-id`)
+	fmt.Println(`   # Returns: {"resourceType":"user","resourceId":"non-existent-id","message":"user not found"}`)
+	fmt.Println(`   # NOT:     {"message":"{\"resourceType\":\"user\",...}"} (old behavior)`)
 	fmt.Println()
 	fmt.Println("4. Get user with request ID header:")
 	fmt.Println(`   curl -v http://localhost:8080/api/v1/users/non-existent-id \`)
