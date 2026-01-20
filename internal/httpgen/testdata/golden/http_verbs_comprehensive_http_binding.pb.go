@@ -345,8 +345,9 @@ func genericHandler[Req any, Res any](serve func(context.Context, Req) (Res, err
 		response, err := serve(r.Context(), request)
 		if err != nil {
 			// Check if error is already a proto.Message (e.g., custom proto error types)
-			if protoErr, ok := err.(proto.Message); ok {
-				writeErrorWithHandler(w, r, protoErr, errorHandler)
+			// If so, pass it directly - defaultErrorResponse will preserve its structure
+			if _, ok := err.(proto.Message); ok {
+				writeErrorWithHandler(w, r, err, errorHandler)
 				return
 			}
 			errorMsg := &sebufhttp.Error{

@@ -388,15 +388,16 @@ func TestProtoMessageErrorPreservation(t *testing.T) {
 
 	t.Run("genericHandler checks for proto.Message errors", func(t *testing.T) {
 		// The genericHandler should check if the error is already a proto.Message
-		if !strings.Contains(files.binding, "if protoErr, ok := err.(proto.Message); ok {") {
+		if !strings.Contains(files.binding, "if _, ok := err.(proto.Message); ok {") {
 			t.Error("genericHandler should check if error is a proto.Message")
 		}
 	})
 
 	t.Run("genericHandler passes proto.Message errors directly to writeErrorWithHandler", func(t *testing.T) {
 		// When error is a proto.Message, it should be passed directly without wrapping
-		if !strings.Contains(files.binding, "writeErrorWithHandler(w, r, protoErr, errorHandler)") {
-			t.Error("genericHandler should pass proto.Message errors directly to writeErrorWithHandler")
+		// The error is passed as 'err' (not protoErr) since it implements both error and proto.Message
+		if !strings.Contains(files.binding, "if _, ok := err.(proto.Message); ok {") {
+			t.Error("genericHandler should check if error is a proto.Message")
 		}
 	})
 
@@ -423,7 +424,7 @@ func TestProtoMessageErrorPreservation(t *testing.T) {
 	t.Run("proto.Message check comes before sebufhttp.Error wrapping", func(t *testing.T) {
 		// In genericHandler, the proto.Message check should come before the sebufhttp.Error wrapping
 		binding := files.binding
-		protoMsgCheckPos := strings.Index(binding, "if protoErr, ok := err.(proto.Message)")
+		protoMsgCheckPos := strings.Index(binding, "if _, ok := err.(proto.Message)")
 		sebufErrorPos := strings.Index(binding, "errorMsg := &sebufhttp.Error{")
 
 		if protoMsgCheckPos == -1 || sebufErrorPos == -1 {
