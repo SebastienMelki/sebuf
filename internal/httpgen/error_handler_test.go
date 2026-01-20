@@ -381,3 +381,87 @@ func TestErrorHandlerBackwardCompatibility(t *testing.T) {
 		}
 	})
 }
+
+// TestProtoMessageErrorPreservation tests that proto.Message errors are preserved without wrapping.
+func TestProtoMessageErrorPreservation(t *testing.T) {
+	files := generateTestFiles(t, "http_verbs_comprehensive.proto")
+
+	t.Run("genericHandler checks for proto.Message errors", func(t *testing.T) {
+		// The genericHandler should check if the error is already a proto.Message
+		if !strings.Contains(files.binding, "if protoErr, ok := err.(proto.Message); ok {") {
+			t.Error("genericHandler should check if error is a proto.Message")
+		}
+	})
+
+	t.Run("genericHandler passes proto.Message errors directly to writeErrorWithHandler", func(t *testing.T) {
+		// When error is a proto.Message, it should be passed directly without wrapping
+		if !strings.Contains(files.binding, "writeErrorWithHandler(w, r, protoErr, errorHandler)") {
+			t.Error("genericHandler should pass proto.Message errors directly to writeErrorWithHandler")
+		}
+	})
+
+	t.Run("genericHandler has comment explaining proto.Message check", func(t *testing.T) {
+		if !strings.Contains(files.binding, "Check if error is already a proto.Message") {
+			t.Error("genericHandler should have comment explaining proto.Message check")
+		}
+	})
+
+	t.Run("defaultErrorResponse checks for proto.Message errors", func(t *testing.T) {
+		// defaultErrorResponse should also check for proto.Message errors as fallback
+		if !strings.Contains(files.binding, "if protoErr, ok := err.(proto.Message); ok {") {
+			t.Error("defaultErrorResponse should check if error is a proto.Message")
+		}
+	})
+
+	t.Run("defaultErrorResponse returns proto.Message errors directly", func(t *testing.T) {
+		// The function should return the proto.Message directly without wrapping
+		if !strings.Contains(files.binding, "return protoErr") {
+			t.Error("defaultErrorResponse should return proto.Message errors directly")
+		}
+	})
+
+	t.Run("proto.Message check comes before sebufhttp.Error wrapping", func(t *testing.T) {
+		// In genericHandler, the proto.Message check should come before the sebufhttp.Error wrapping
+		binding := files.binding
+		protoMsgCheckPos := strings.Index(binding, "if protoErr, ok := err.(proto.Message)")
+		sebufErrorPos := strings.Index(binding, "errorMsg := &sebufhttp.Error{")
+
+		if protoMsgCheckPos == -1 || sebufErrorPos == -1 {
+			t.Error("Both proto.Message check and sebufhttp.Error creation should exist")
+			return
+		}
+
+		if protoMsgCheckPos > sebufErrorPos {
+			t.Error("proto.Message check should come before sebufhttp.Error wrapping in genericHandler")
+		}
+	})
+
+	t.Run("defaultErrorResponse proto.Message check comes after known error types", func(t *testing.T) {
+		// In defaultErrorResponse, proto.Message check should be after ValidationError and Error checks
+		binding := files.binding
+
+		// Find the defaultErrorResponse function
+		funcStart := strings.Index(binding, "func defaultErrorResponse(err error) proto.Message {")
+		if funcStart == -1 {
+			t.Error("defaultErrorResponse function not found")
+			return
+		}
+
+		funcBody := binding[funcStart:]
+
+		// Check order: ValidationError -> Error -> proto.Message -> fallback
+		valErrPos := strings.Index(funcBody, "var valErr *sebufhttp.ValidationError")
+		handlerErrPos := strings.Index(funcBody, "var handlerErr *sebufhttp.Error")
+		protoMsgPos := strings.Index(funcBody, "if protoErr, ok := err.(proto.Message)")
+		fallbackPos := strings.Index(funcBody, "return &sebufhttp.Error{Message: err.Error()}")
+
+		if valErrPos == -1 || handlerErrPos == -1 || protoMsgPos == -1 || fallbackPos == -1 {
+			t.Error("defaultErrorResponse should have all four error handling cases")
+			return
+		}
+
+		if !(valErrPos < handlerErrPos && handlerErrPos < protoMsgPos && protoMsgPos < fallbackPos) {
+			t.Error("defaultErrorResponse should check errors in order: ValidationError, Error, proto.Message, fallback")
+		}
+	})
+}

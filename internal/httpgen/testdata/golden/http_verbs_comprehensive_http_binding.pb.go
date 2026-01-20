@@ -344,6 +344,11 @@ func genericHandler[Req any, Res any](serve func(context.Context, Req) (Res, err
 
 		response, err := serve(r.Context(), request)
 		if err != nil {
+			// Check if error is already a proto.Message (e.g., custom proto error types)
+			if protoErr, ok := err.(proto.Message); ok {
+				writeErrorWithHandler(w, r, protoErr, errorHandler)
+				return
+			}
 			errorMsg := &sebufhttp.Error{
 				Message: err.Error(),
 			}
@@ -446,40 +451,7 @@ func writeValidationErrorResponse(w http.ResponseWriter, r *http.Request, valida
 
 // writeValidationError converts a protovalidate error to ValidationError and writes it as response
 func writeValidationError(w http.ResponseWriter, r *http.Request, err error) {
-	validationErr := &sebufhttp.ValidationError{}
-
-	// Handle protovalidate.ValidationError
-	var valErr *protovalidate.ValidationError
-	if errors.As(err, &valErr) {
-		for _, violation := range valErr.Violations {
-			// Extract field path from violation
-			fieldPath := ""
-			if violation.Proto != nil && violation.Proto.GetField() != nil {
-				elements := violation.Proto.GetField().GetElements()
-				if len(elements) > 0 {
-					fieldPath = elements[0].GetFieldName()
-					for i := 1; i < len(elements); i++ {
-						fieldPath += "." + elements[i].GetFieldName()
-					}
-				}
-			}
-			if fieldPath == "" {
-				fieldPath = "unknown"
-			}
-
-			validationErr.Violations = append(validationErr.Violations, &sebufhttp.FieldViolation{
-				Field:       fieldPath,
-				Description: violation.Proto.GetMessage(),
-			})
-		}
-	} else {
-		// Shouldn't happen, but handle as generic error
-		validationErr.Violations = append(validationErr.Violations, &sebufhttp.FieldViolation{
-			Field:       "unknown",
-			Description: err.Error(),
-		})
-	}
-
+	validationErr := convertProtovalidateError(err)
 	writeValidationErrorResponse(w, r, validationErr)
 }
 
@@ -536,6 +508,10 @@ func defaultErrorResponse(err error) proto.Message {
 	var handlerErr *sebufhttp.Error
 	if errors.As(err, &handlerErr) {
 		return handlerErr
+	}
+	// Check if error is already a proto.Message (e.g., custom proto error types)
+	if protoErr, ok := err.(proto.Message); ok {
+		return protoErr
 	}
 	return &sebufhttp.Error{Message: err.Error()}
 }

@@ -259,6 +259,7 @@ service UserService {
 ### Error Handling
 - **Structured Error Responses**: All errors use protobuf messages for consistent API responses
 - **Automatic Go Error Interface**: Any protobuf message ending with "Error" automatically implements Go's error interface for `errors.As()` and `errors.Is()` support
+- **Proto Message Error Preservation**: Custom proto error messages returned from handlers are serialized directly, preserving their structure (not wrapped in a generic Error message)
 - **Validation Errors (HTTP 400)**: ValidationError with field-level violations for body and header validation failures
 - **Handler Errors (HTTP 500)**: Error messages for service implementation failures with custom messages
 - **Content-Type Aware**: Error responses serialized as JSON or protobuf based on request Content-Type
@@ -266,6 +267,31 @@ service UserService {
 - **Detailed validation errors**: Full validation error details from protovalidate for body validation
 - **Header validation errors**: Clear messages indicating which header failed validation and why
 - **Fail-fast**: Validation stops request processing immediately on failure (headers validated before body)
+
+**Custom Proto Error Example:**
+```protobuf
+// Define a custom error message
+message NotFoundError {
+  string resource_type = 1;
+  string resource_id = 2;
+}
+```
+
+```go
+// Return it from your handler - it will be serialized directly
+func (s *Server) GetUser(ctx context.Context, req *GetUserRequest) (*User, error) {
+    user, err := s.db.FindUser(req.Id)
+    if err != nil {
+        return nil, &NotFoundError{
+            ResourceType: "user",
+            ResourceId:   req.Id,
+        }
+    }
+    return user, nil
+}
+// Response: {"resourceType":"user","resourceId":"123"}
+// NOT: {"message":"{\"resourceType\":\"user\",\"resourceId\":\"123\"}"}
+```
 
 ## Type System
 
