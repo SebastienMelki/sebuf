@@ -220,3 +220,88 @@ Path parameters like `{product_id}` are automatically bound from the URL path to
 ### Query Parameters
 
 Fields annotated with `(sebuf.http.query)` are parsed from URL query string instead of request body. This is useful for GET requests that shouldn't have a body.
+
+## Client Examples
+
+This directory contains several example files demonstrating advanced client usage patterns:
+
+| File | Description |
+|------|-------------|
+| `client_example.go` | Basic CRUD operations with the generated client |
+| `client_error_handling.go` | Comprehensive error handling patterns |
+| `client_content_types.go` | JSON vs binary protobuf content types |
+| `client_per_call_options.go` | Per-request customization with call options |
+
+### Running the Examples
+
+First, start the server:
+```bash
+make run
+```
+
+Then run any example:
+```bash
+go run client_example.go
+go run client_error_handling.go
+go run client_content_types.go
+go run client_per_call_options.go
+```
+
+### Error Handling Example
+
+Demonstrates handling different error types:
+- Validation errors (HTTP 400) with field-level details
+- Not found errors (HTTP 404)
+- Missing required headers
+- Network errors and timeouts
+- Context cancellation
+
+```go
+var validationErr *sebufhttp.ValidationError
+if errors.As(err, &validationErr) {
+    for _, violation := range validationErr.GetViolations() {
+        fmt.Printf("Field '%s': %s\n", violation.GetField(), violation.GetDescription())
+    }
+}
+```
+
+### Content Types Example
+
+Demonstrates switching between JSON and binary protobuf:
+- Default JSON client
+- Binary protobuf for better performance
+- Per-request content type override
+- Performance comparison
+
+```go
+// Default JSON
+client := services.NewProductServiceClient("http://localhost:8080")
+
+// Binary protobuf (30-50% smaller payloads)
+protoClient := services.NewProductServiceClient(
+    "http://localhost:8080",
+    services.WithProductServiceContentType(services.ContentTypeProto),
+)
+
+// Per-request override
+client.ListProducts(ctx, req,
+    services.WithProductServiceCallContentType(services.ContentTypeProto),
+)
+```
+
+### Per-Call Options Example
+
+Demonstrates request-level customization:
+- Custom headers per request (tracing, correlation IDs)
+- Generated header helpers
+- Content type override per request
+- Dynamic headers based on context
+- A/B testing with headers
+
+```go
+product, err := client.CreateProduct(ctx, req,
+    services.WithProductServiceHeader("X-Request-ID", "req-123"),
+    services.WithProductServiceHeader("X-Correlation-ID", "corr-456"),
+    services.WithProductServiceCallContentType(services.ContentTypeProto),
+)
+```
