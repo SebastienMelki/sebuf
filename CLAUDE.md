@@ -4,9 +4,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is `sebuf`, a specialized Go protobuf toolkit for building HTTP APIs. It consists of two complementary protoc plugins that together enable modern, type-safe API development:
+This is `sebuf`, a specialized Go protobuf toolkit for building HTTP APIs. It consists of three complementary protoc plugins that together enable modern, type-safe API development:
 
 - **`protoc-gen-go-http`**: Generates HTTP handlers, routing, request/response binding, and automatic validation
+- **`protoc-gen-go-client`**: Generates type-safe HTTP clients with functional options pattern
 - **`protoc-gen-openapiv3`**: Creates comprehensive OpenAPI v3.1 specifications
 
 The toolkit enables developers to build HTTP APIs directly from protobuf definitions without gRPC dependencies, targeting web and mobile API development with built-in request validation.
@@ -17,8 +18,10 @@ The project follows a clean Go protoc plugin architecture with separated concern
 
 ### Plugin Structure
 - **cmd/protoc-gen-go-http/**: HTTP handler generator entry point
+- **cmd/protoc-gen-go-client/**: HTTP client generator entry point
 - **cmd/protoc-gen-openapiv3/**: OpenAPI specification generator entry point
 - **internal/httpgen/**: HTTP handler generation logic, annotations, and header validation middleware
+- **internal/clientgen/**: HTTP client generation logic and annotations
 - **internal/openapiv3/**: OpenAPI generation logic, type mapping, and header parameter generation
 - **proto/sebuf/http/**: HTTP annotation definitions including headers.proto for header validation
 - **scripts/**: Test automation and build scripts
@@ -26,10 +29,11 @@ The project follows a clean Go protoc plugin architecture with separated concern
 ### Core Components
 
 1. **HTTP Handler Generator** (`internal/httpgen/generator.go:22`): Generates HTTP handlers, request binding, routing configuration, automatic body validation, and header validation middleware
-2. **OpenAPI Generator** (`internal/openapiv3/generator.go:53`): Creates comprehensive OpenAPI v3.1 specifications from protobuf definitions with full header parameter support, generating one file per service for better organization
-3. **HTTP Annotations** (`proto/sebuf/http/annotations.proto`): Custom protobuf extensions for HTTP configuration
-4. **Header Validation** (`proto/sebuf/http/headers.proto`): Protobuf definitions for service and method-level header validation
-5. **Validation System**: Automatic request body validation via buf.validate/protovalidate and header validation middleware
+2. **HTTP Client Generator** (`internal/clientgen/generator.go:13`): Generates type-safe HTTP clients with functional options pattern, automatic request/response marshaling, and error handling
+3. **OpenAPI Generator** (`internal/openapiv3/generator.go:53`): Creates comprehensive OpenAPI v3.1 specifications from protobuf definitions with full header parameter support, generating one file per service for better organization
+4. **HTTP Annotations** (`proto/sebuf/http/annotations.proto`): Custom protobuf extensions for HTTP configuration
+5. **Header Validation** (`proto/sebuf/http/headers.proto`): Protobuf definitions for service and method-level header validation
+6. **Validation System**: Automatic request body validation via buf.validate/protovalidate and header validation middleware
 
 ### Generated Output Examples
 
@@ -42,6 +46,27 @@ type UserServiceServer interface {
 
 // RegisterUserServiceServer registers HTTP handlers for UserService
 func RegisterUserServiceServer(server UserServiceServer, opts ...ServerOption) error
+```
+
+**HTTP Clients** - Type-safe HTTP client with functional options:
+```go
+// UserServiceClient is the client API for UserService
+type UserServiceClient interface {
+    CreateUser(ctx context.Context, req *CreateUserRequest, opts ...UserServiceCallOption) (*User, error)
+}
+
+// Create a client with options
+client := NewUserServiceClient(
+    "http://localhost:8080",
+    WithUserServiceHTTPClient(&http.Client{Timeout: 30 * time.Second}),
+    WithUserServiceAPIKey("your-api-key"),  // From service_headers annotation
+)
+
+// Make requests with per-call options
+user, err := client.CreateUser(ctx, req,
+    WithUserServiceHeader("X-Request-ID", "req-123"),
+    WithUserServiceCallContentType(ContentTypeProto),
+)
 ```
 
 **OpenAPI Specifications** - Comprehensive API documentation (one file per service):
