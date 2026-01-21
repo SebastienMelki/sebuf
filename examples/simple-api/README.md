@@ -35,6 +35,7 @@ brew install bufbuild/buf/buf
 
 # Install sebuf tools
 go install github.com/SebastienMelki/sebuf/cmd/protoc-gen-go-http@latest
+go install github.com/SebastienMelki/sebuf/cmd/protoc-gen-go-client@latest
 go install github.com/SebastienMelki/sebuf/cmd/protoc-gen-openapiv3@latest
 ```
 

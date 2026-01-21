@@ -177,9 +177,11 @@ Understanding the project structure helps you contribute effectively:
 sebuf/
 ├── cmd/                           # Command-line tools
 │   ├── protoc-gen-go-http/           # HTTP handler generator
+│   ├── protoc-gen-go-client/         # HTTP client generator
 │   └── protoc-gen-openapiv3/         # OpenAPI spec generator
 ├── internal/                      # Internal packages
 │   ├── httpgen/                      # HTTP generation logic
+│   ├── clientgen/                    # HTTP client generation logic
 │   └── openapiv3/                    # OpenAPI generation logic
 ├── proto/                         # Protobuf definitions
 ├── http/                          # Generated HTTP annotations
