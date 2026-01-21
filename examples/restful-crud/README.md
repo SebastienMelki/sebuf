@@ -131,10 +131,80 @@ api/
       product_service_http_binding.pb.go  # Request/response binding
       product_service_http_config.pb.go   # Server options
       product_service_http_mock.pb.go     # Mock implementation
+      product_service_client.pb.go        # HTTP client
 docs/
   ProductService.openapi.yaml   # OpenAPI 3.1 spec (YAML)
   ProductService.openapi.json   # OpenAPI 3.1 spec (JSON)
 ```
+
+## Using the Generated Client
+
+The generated HTTP client provides type-safe access to your API. See `client_example.go` for a complete working example.
+
+### Basic Usage
+
+```go
+package main
+
+import (
+    "context"
+    "net/http"
+    "time"
+
+    "github.com/SebastienMelki/sebuf/examples/restful-crud/api/proto/models"
+    "github.com/SebastienMelki/sebuf/examples/restful-crud/api/proto/services"
+)
+
+func main() {
+    // Create client with options
+    client := services.NewProductServiceClient(
+        "http://localhost:8080",
+        services.WithProductServiceAPIKey("your-api-key"),
+        services.WithProductServiceHTTPClient(&http.Client{
+            Timeout: 30 * time.Second,
+        }),
+    )
+
+    ctx := context.Background()
+
+    // Create a product
+    product, err := client.CreateProduct(ctx, &models.CreateProductRequest{
+        Name:        "New Product",
+        Description: "A great product",
+        Price:       99.99,
+        CategoryId:  "electronics",
+        Tags:        []string{"new", "featured"},
+    })
+
+    // List products with query parameters
+    list, err := client.ListProducts(ctx, &models.ListProductsRequest{
+        Page:     1,
+        Limit:    10,
+        Category: "electronics",
+        SortBy:   "price",
+    })
+
+    // Get a product by ID
+    product, err := client.GetProduct(ctx, &models.GetProductRequest{
+        ProductId: "product-123",
+    })
+
+    // Delete with confirmation header
+    _, err = client.DeleteProduct(ctx, &models.DeleteProductRequest{
+        ProductId: "product-123",
+    },
+        services.WithProductServiceCallConfirmDelete("true"),
+    )
+}
+```
+
+### Client Features
+
+- **Functional options pattern**: Configure client behavior at creation time
+- **Per-call options**: Customize individual requests with headers or content type
+- **JSON and Protobuf support**: Use `ContentTypeJSON` or `ContentTypeProto`
+- **Generated header helpers**: `WithProductServiceAPIKey()`, `WithProductServiceCallConfirmDelete()`
+- **Automatic path/query parameter handling**: URL building is automatic
 
 ## Key Concepts
 

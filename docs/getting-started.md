@@ -25,8 +25,9 @@ This starts a complete HTTP API with authentication, validation, and OpenAPI doc
 # Install Buf (recommended)
 brew install bufbuild/buf/buf
 
-# Install sebuf
+# Install sebuf plugins
 go install github.com/SebastienMelki/sebuf/cmd/protoc-gen-go-http@latest
+go install github.com/SebastienMelki/sebuf/cmd/protoc-gen-go-client@latest
 go install github.com/SebastienMelki/sebuf/cmd/protoc-gen-openapiv3@latest
 ```
 
@@ -99,6 +100,8 @@ plugins:
     opt: paths=source_relative
   - local: protoc-gen-go-http
     out: .
+  - local: protoc-gen-go-client
+    out: .
   - local: protoc-gen-openapiv3
     out: .
 ```
@@ -114,6 +117,7 @@ go mod tidy
 This creates:
 - `api.pb.go` - Protobuf structs
 - `api_http*.pb.go` - HTTP handlers
+- `api_client.pb.go` - HTTP client
 - `api.yaml` - OpenAPI documentation
 
 ### 6. Write your server
@@ -186,7 +190,8 @@ curl -X GET http://localhost:8080/api/v1/users/1
 ## What you just built
 
 - ✅ **HTTP endpoints** from protobuf services
-- ✅ **JSON and binary** protobuf support  
+- ✅ **Type-safe HTTP client** with functional options
+- ✅ **JSON and binary** protobuf support
 - ✅ **OpenAPI documentation** (`api.yaml`)
 - ✅ **Type safety** throughout your API
 - ✅ **Zero runtime dependencies**
@@ -195,6 +200,7 @@ curl -X GET http://localhost:8080/api/v1/users/1
 
 - **[Complete Tutorial](../examples/simple-api/)** - See authentication, validation, and more
 - **[HTTP Generation Guide](./http-generation.md)** - Advanced HTTP features
+- **[Client Generation Guide](./client-generation.md)** - Type-safe HTTP clients
 - **[OpenAPI Guide](./openapi-generation.md)** - Documentation customization
 - **[Validation Guide](./validation.md)** - Automatic request validation
 

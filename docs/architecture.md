@@ -17,32 +17,30 @@ This document provides a comprehensive technical overview of sebuf's architectur
 
 ## System Overview
 
-sebuf is a collection of two specialized protoc plugins that work together to enable modern HTTP API development from protobuf definitions:
+sebuf is a collection of three specialized protoc plugins that work together to enable modern HTTP API development from protobuf definitions:
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                        sebuf Toolkit                            │
-├─────────────────────────────┬───────────────────────────────────┤
-│  protoc-gen-go-http         │    protoc-gen-openapiv3           │
-│                             │                                   │
-│                             │                                   │
-│ ┌─────────────────────────┐ │ ┌─────────────────────────────────┐ │
-│ │HTTP Handlers            │ │ │   OpenAPI v3.1                 │ │
-│ │  + Binding              │ │ │  Specifications                 │ │
-│ │  + Routing              │ │ │  + Validation Rules             │ │
-│ │  + Validation           │ │ │  + Header Parameters            │ │
-│ └─────────────────────────┘ │ └─────────────────────────────────┘ │
-└─────────────────────────────┴───────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                   Standard Go HTTP Stack                        │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────────┐  │
-│  │   net/http  │  │ Gin/Echo/   │  │  Client Libraries       │  │
-│  │             │  │ Chi/Fiber   │  │  (Generated from        │  │
-│  │             │  │             │  │   OpenAPI specs)        │  │
-│  └─────────────┘  └─────────────┘  └─────────────────────────┘  │
-└─────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                              sebuf Toolkit                                       │
+├─────────────────────────┬─────────────────────────┬─────────────────────────────┤
+│  protoc-gen-go-http     │  protoc-gen-go-client   │    protoc-gen-openapiv3     │
+│                         │                         │                             │
+│ ┌─────────────────────┐ │ ┌─────────────────────┐ │ ┌─────────────────────────┐ │
+│ │HTTP Handlers        │ │ │HTTP Clients         │ │ │   OpenAPI v3.1          │ │
+│ │  + Binding          │ │ │  + Type-safe calls  │ │ │  Specifications         │ │
+│ │  + Routing          │ │ │  + Functional opts  │ │ │  + Validation Rules     │ │
+│ │  + Validation       │ │ │  + Error handling   │ │ │  + Header Parameters    │ │
+│ └─────────────────────┘ │ └─────────────────────┘ │ └─────────────────────────┘ │
+└─────────────────────────┴─────────────────────────┴─────────────────────────────┘
+                                      │
+                                      ▼
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                         Standard Go HTTP Stack                                   │
+│  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────────────────────┐  │
+│  │    net/http     │  │  Gin/Echo/      │  │  Generated Type-Safe Clients    │  │
+│  │                 │  │  Chi/Fiber      │  │  (Direct protobuf integration)  │  │
+│  └─────────────────┘  └─────────────────┘  └─────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ## Plugin Architecture
@@ -73,6 +71,7 @@ func main() {
 | Plugin | Primary Function | Output | Dependencies |
 |--------|-----------------|---------|--------------|
 | `protoc-gen-go-http` | Generate HTTP handlers, routing & validation | `*_http*.pb.go` | `protoc-gen-go`, sebuf annotations |
+| `protoc-gen-go-client` | Generate type-safe HTTP clients | `*_client.pb.go` | `protoc-gen-go`, sebuf annotations |
 | `protoc-gen-openapiv3` | Generate OpenAPI specifications | `*.yaml`, `*.json` | None (standalone) |
 
 ## Code Generation Pipeline
@@ -84,10 +83,12 @@ graph TD
     A[.proto files] --> B[protoc compiler]
     B --> C[CodeGeneratorRequest]
     C --> D[protoc-gen-go]
+    C --> E[protoc-gen-go-client]
     C --> F[protoc-gen-go-http]
     C --> G[protoc-gen-openapiv3]
-    
+
     D --> H[.pb.go files]
+    E --> I[*_client.pb.go]
     F --> J[*_http*.pb.go]
     G --> K[OpenAPI specs]
 ```
@@ -170,7 +171,48 @@ func (g *HTTPGenerator) Generate() error {
 HTTP Request → Content-Type Detection → Binding Middleware → Service Method → Response Marshaling → HTTP Response
 ```
 
-### 2. OpenAPI Generator
+### 2. HTTP Client Generator
+
+**Location**: `internal/clientgen/`
+
+**Architecture**:
+```go
+type Generator struct {
+    plugin *protogen.Plugin
+}
+
+func (g *Generator) Generate() error {
+    for _, file := range g.plugin.Files {
+        // Generate client file for services
+        // *_client.pb.go with interface and implementation
+        g.generateClientFile(file)
+    }
+}
+```
+
+**Generated Components**:
+
+1. **Client Interface** - Type-safe client contract
+2. **Client Implementation** - HTTP client with request/response handling
+3. **Client Options** - Functional options for configuration
+4. **Call Options** - Per-request customization options
+5. **Header Helpers** - Generated from service/method header annotations
+
+**Request Flow**:
+```go
+// Generated client request pipeline
+Method Call → Build URL → Apply Headers → Serialize Body → HTTP Request → Deserialize Response → Return
+```
+
+**Key Features**:
+- Functional options pattern for client configuration
+- Per-call options for request customization
+- Automatic path parameter substitution
+- Query parameter encoding for GET/DELETE
+- JSON and protobuf content type support
+- Typed error handling with `ClientError`
+
+### 3. OpenAPI Generator
 
 **Location**: `internal/openapiv3/`
 
@@ -185,12 +227,12 @@ type Generator struct {
 func (g *Generator) ProcessFile(file *protogen.File) {
     // 1. Extract document metadata
     g.updateDocumentInfo(file)
-    
+
     // 2. Process all messages → schemas
     for _, message := range file.Messages {
         g.processMessage(message)
     }
-    
+
     // 3. Process all services → paths
     for _, service := range file.Services {
         g.processService(service)

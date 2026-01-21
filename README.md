@@ -30,6 +30,7 @@ This starts a working HTTP API with JSON endpoints and OpenAPI docs - all genera
 ## What you get
 
 - **HTTP handlers** from protobuf services (JSON + binary support)
+- **Type-safe HTTP clients** with functional options pattern and per-call customization
 - **Mock server generation** with realistic field examples for rapid prototyping
 - **Automatic request validation** using protovalidate with buf.validate annotations
 - **HTTP header validation** with type checking and format validation (UUID, email, datetime)
@@ -85,6 +86,12 @@ sebuf generates:
 // HTTP handlers with automatic validation (both headers and body)
 api.RegisterUserServiceServer(userService, api.WithMux(mux))
 
+// Type-safe HTTP client with functional options
+client := api.NewUserServiceClient("http://localhost:8080",
+    api.WithUserServiceAPIKey("your-api-key"),
+)
+user, err := client.CreateUser(ctx, req)
+
 // Mock server with realistic data (optional)
 mockService := api.NewMockUserServiceServer()
 api.RegisterUserServiceServer(mockService, api.WithMux(mux))
@@ -99,7 +106,8 @@ api.RegisterUserServiceServer(mockService, api.WithMux(mux))
 
 ```bash
 # Install the tools
-go install github.com/SebastienMelki/sebuf/cmd/protoc-gen-go-http@latest  
+go install github.com/SebastienMelki/sebuf/cmd/protoc-gen-go-http@latest
+go install github.com/SebastienMelki/sebuf/cmd/protoc-gen-go-client@latest
 go install github.com/SebastienMelki/sebuf/cmd/protoc-gen-openapiv3@latest
 
 # Try the complete example

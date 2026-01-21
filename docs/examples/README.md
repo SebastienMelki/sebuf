@@ -48,10 +48,13 @@ Complete RESTful CRUD operations for a product catalog.
 - Path parameters: `/products/{product_id}`
 - Query parameters: pagination, filtering, sorting
 - PUT vs PATCH semantics with optional fields
+- **Generated HTTP client** with functional options pattern
 
 ```bash
 cd examples/restful-crud && make demo
 ```
+
+See `client_example.go` for HTTP client usage examples.
 
 ### validation-showcase
 Comprehensive buf.validate validation patterns.
@@ -125,6 +128,7 @@ make clean     # Remove generated files
 | Multiple services | - | - | - | - | Yes |
 | Nested resources | - | - | - | Yes | - |
 | Oneof helpers | Yes | - | - | - | - |
+| **HTTP Client** | - | **Yes** | - | - | - |
 
 ---
 
