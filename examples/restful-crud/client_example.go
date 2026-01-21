@@ -35,7 +35,7 @@ func main() {
 		Name:        "Example Widget",
 		Description: "A high-quality widget",
 		Price:       19.99,
-		Category:    "widgets",
+		CategoryId:  "widgets",
 		Tags:        []string{"new", "featured"},
 	})
 	if err != nil {
@@ -74,7 +74,7 @@ func main() {
 		Name:        "Updated Widget",
 		Description: "An even better widget",
 		Price:       24.99,
-		Category:    "widgets",
+		CategoryId:  "widgets",
 		Tags:        []string{"updated", "premium"},
 	})
 	if err != nil {
@@ -86,7 +86,7 @@ func main() {
 	fmt.Println("\nPatching product price...")
 	patched, err := client.PatchProduct(ctx, &models.PatchProductRequest{
 		ProductId: product.Id,
-		Price:     &models.PatchProductRequest_PriceValue{PriceValue: 29.99},
+		Price:     29.99,
 	})
 	if err != nil {
 		log.Fatalf("Failed to patch product: %v", err)
