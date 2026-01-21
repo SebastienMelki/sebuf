@@ -44,3 +44,9 @@ plugins:
     opt:
       - module=github.com/SebastienMelki/sebuf/examples/restful-crud/api
       - generate_mock=false
+
+  # HTTP client generation
+  - local: ../../bin/protoc-gen-go-client
+    out: api
+    opt:
+      - module=github.com/SebastienMelki/sebuf/examples/restful-crud/api
