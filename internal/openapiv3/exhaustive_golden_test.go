@@ -316,6 +316,21 @@ func TestExhaustiveGoldenFiles(t *testing.T) {
 			goldenFile:  "testdata/golden/json/RESTfulUserService.openapi.json",
 			format:      "json",
 		},
+		// unwrap.proto -> UnwrapService (unwrap field option for map values)
+		{
+			name:        "unwrap_service_yaml",
+			protoFile:   "testdata/proto/unwrap.proto",
+			serviceName: "UnwrapService",
+			goldenFile:  "testdata/golden/yaml/UnwrapService.openapi.yaml",
+			format:      "yaml",
+		},
+		{
+			name:        "unwrap_service_json",
+			protoFile:   "testdata/proto/unwrap.proto",
+			serviceName: "UnwrapService",
+			goldenFile:  "testdata/golden/json/UnwrapService.openapi.json",
+			format:      "json",
+		},
 	}
 
 	for _, tc := range testCases {
@@ -363,6 +378,19 @@ func TestExhaustiveGoldenFiles(t *testing.T) {
 			// Read golden file content
 			goldenContent, err := os.ReadFile(tc.goldenFile)
 			if err != nil {
+				// If golden file doesn't exist and UPDATE_GOLDEN is set, create it
+				if os.IsNotExist(err) && os.Getenv("UPDATE_GOLDEN") == "1" {
+					// Ensure directory exists
+					goldenDir := filepath.Dir(tc.goldenFile)
+					if mkdirErr := os.MkdirAll(goldenDir, 0o755); mkdirErr != nil {
+						t.Fatalf("Failed to create golden directory: %v", mkdirErr)
+					}
+					if writeErr := os.WriteFile(tc.goldenFile, generatedContent, 0o644); writeErr != nil {
+						t.Fatalf("Failed to create golden file: %v", writeErr)
+					}
+					t.Logf("Created golden file: %s (%d bytes)", tc.goldenFile, len(generatedContent))
+					return
+				}
 				t.Fatalf("Failed to read golden file %s: %v", tc.goldenFile, err)
 			}
 

@@ -67,6 +67,18 @@ func TestClientGenGoldenFiles(t *testing.T) {
 		t.Fatalf("Failed to create golden directory: %v", mkdirErr)
 	}
 
+	// Build the plugin binary for testing
+	pluginPath := filepath.Join(projectRoot, "bin", "protoc-gen-go-client")
+
+	// Build the plugin if it doesn't exist
+	if _, buildStatErr := os.Stat(pluginPath); os.IsNotExist(buildStatErr) {
+		buildCmd := exec.Command("make", "build")
+		buildCmd.Dir = projectRoot
+		if buildErr := buildCmd.Run(); buildErr != nil {
+			t.Fatalf("Failed to build plugin: %v", buildErr)
+		}
+	}
+
 	// Create temp directory for generated files
 	tempDir := t.TempDir()
 
@@ -82,8 +94,9 @@ func TestClientGenGoldenFiles(t *testing.T) {
 				t.Fatalf("Proto file not found: %s", protoPath)
 			}
 
-			// Run protoc with go-client plugin
+			// Run protoc with go-client plugin (using explicit plugin path)
 			cmd := exec.Command("protoc",
+				"--plugin=protoc-gen-go-client="+pluginPath,
 				"--go_out="+tempDir,
 				"--go_opt=paths=source_relative",
 				"--go-client_out="+tempDir,
@@ -212,12 +225,23 @@ func TestGeneratedClientCodeCompiles(t *testing.T) {
 
 	projectRoot := filepath.Join(baseDir, "..", "..")
 	protoDir := filepath.Join(baseDir, "testdata", "proto")
+	pluginPath := filepath.Join(projectRoot, "bin", "protoc-gen-go-client")
+
+	// Build the plugin if it doesn't exist
+	if _, buildStatErr := os.Stat(pluginPath); os.IsNotExist(buildStatErr) {
+		buildCmd := exec.Command("make", "build")
+		buildCmd.Dir = projectRoot
+		if buildErr := buildCmd.Run(); buildErr != nil {
+			t.Fatalf("Failed to build plugin: %v", buildErr)
+		}
+	}
 
 	// Create temp directory for generated files
 	tempDir := t.TempDir()
 
 	// Generate code for comprehensive test proto
 	cmd := exec.Command("protoc",
+		"--plugin=protoc-gen-go-client="+pluginPath,
 		"--go_out="+tempDir,
 		"--go_opt=paths=source_relative",
 		"--go-client_out="+tempDir,

@@ -33,9 +33,20 @@ func generateTestFiles(t *testing.T, protoFile string) *generatedFiles {
 	projectRoot := filepath.Join(baseDir, "..", "..")
 	protoDir := filepath.Join(baseDir, "testdata", "proto")
 	tempDir := t.TempDir()
+	pluginPath := filepath.Join(projectRoot, "bin", "protoc-gen-go-http")
 
-	// Generate code
+	// Build the plugin if it doesn't exist
+	if _, buildStatErr := os.Stat(pluginPath); os.IsNotExist(buildStatErr) {
+		buildCmd := exec.Command("make", "build")
+		buildCmd.Dir = projectRoot
+		if buildErr := buildCmd.Run(); buildErr != nil {
+			t.Fatalf("Failed to build plugin: %v", buildErr)
+		}
+	}
+
+	// Generate code (using explicit plugin path)
 	cmd := exec.Command("protoc",
+		"--plugin=protoc-gen-go-http="+pluginPath,
 		"--go_out="+tempDir,
 		"--go_opt=paths=source_relative",
 		"--go-http_out="+tempDir,
