@@ -561,8 +561,12 @@ func (g *Generator) generateQueryParamEncoding(gf *protogen.GeneratedFile, qp Qu
 
 func (g *Generator) generateHelperMethods(gf *protogen.GeneratedFile, serviceName string) {
 	lowerName := lowerFirst(serviceName)
+	g.generateMarshalRequestMethod(gf, lowerName)
+	g.generateHandleErrorResponseMethod(gf, lowerName)
+	g.generateUnmarshalResponseMethod(gf, lowerName)
+}
 
-	// marshalRequest
+func (g *Generator) generateMarshalRequestMethod(gf *protogen.GeneratedFile, lowerName string) {
 	gf.P("func (c *", lowerName, "Client) marshalRequest(req proto.Message, contentType string) ([]byte, error) {")
 	gf.P("switch contentType {")
 	gf.P("case ContentTypeJSON:")
@@ -578,8 +582,9 @@ func (g *Generator) generateHelperMethods(gf *protogen.GeneratedFile, serviceNam
 	gf.P("}")
 	gf.P("}")
 	gf.P()
+}
 
-	// handleErrorResponse
+func (g *Generator) generateHandleErrorResponseMethod(gf *protogen.GeneratedFile, lowerName string) {
 	gf.P("func (c *", lowerName, "Client) handleErrorResponse(statusCode int, body []byte, contentType string) error {")
 	gf.P("// Try to parse as ValidationError first (for 400 errors)")
 	gf.P("if statusCode == http.StatusBadRequest {")
@@ -599,8 +604,9 @@ func (g *Generator) generateHelperMethods(gf *protogen.GeneratedFile, serviceNam
 	gf.P("return fmt.Errorf(\"request failed with status %d: %s\", statusCode, string(body))")
 	gf.P("}")
 	gf.P()
+}
 
-	// unmarshalResponse
+func (g *Generator) generateUnmarshalResponseMethod(gf *protogen.GeneratedFile, lowerName string) {
 	gf.P(
 		"func (c *",
 		lowerName,

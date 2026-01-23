@@ -175,55 +175,8 @@ func (g *Generator) convertMapField(field *protogen.Field) *base.SchemaProxy {
 		Type: []string{"object"},
 	}
 
-	// For maps, we need to determine the value type
-	if field.Message != nil && len(field.Message.Fields) >= 2 {
-		// Map entry messages have exactly 2 fields: key (field 1) and value (field 2)
-		var valueField *protogen.Field
-		const mapValueFieldNumber = 2 // value field is always number 2 in protobuf map entries
-		for _, f := range field.Message.Fields {
-			if f.Desc.Number() == mapValueFieldNumber {
-				valueField = f
-				break
-			}
-		}
-
-		if valueField != nil {
-			// Check if value message has an unwrap field
-			if valueField.Message != nil {
-				if unwrapField := getUnwrapField(valueField.Message); unwrapField != nil {
-					// Generate array schema for unwrap field's element type
-					itemSchema := g.convertScalarField(unwrapField)
-					arraySchema := &base.Schema{
-						Type: []string{"array"},
-						Items: &base.DynamicValue[*base.SchemaProxy, bool]{
-							A: itemSchema,
-						},
-					}
-					schema.AdditionalProperties = &base.DynamicValue[*base.SchemaProxy, bool]{
-						A: base.CreateSchemaProxy(arraySchema),
-					}
-				} else {
-					// Normal: reference to message schema
-					valueSchema := g.convertScalarField(valueField)
-					schema.AdditionalProperties = &base.DynamicValue[*base.SchemaProxy, bool]{
-						A: valueSchema,
-					}
-				}
-			} else {
-				valueSchema := g.convertScalarField(valueField)
-				schema.AdditionalProperties = &base.DynamicValue[*base.SchemaProxy, bool]{
-					A: valueSchema,
-				}
-			}
-		}
-	}
-
-	// If we couldn't determine the value type, allow any type
-	if schema.AdditionalProperties == nil {
-		schema.AdditionalProperties = &base.DynamicValue[*base.SchemaProxy, bool]{
-			B: true,
-		}
-	}
+	// Set additional properties based on map value type
+	schema.AdditionalProperties = g.getMapValueSchema(field)
 
 	// Add description from field comments
 	if field.Comments.Leading != "" {
@@ -234,6 +187,56 @@ func (g *Generator) convertMapField(field *protogen.Field) *base.SchemaProxy {
 	extractValidationConstraints(field, schema)
 
 	return base.CreateSchemaProxy(schema)
+}
+
+// getMapValueSchema returns the schema for the map's value type.
+func (g *Generator) getMapValueSchema(field *protogen.Field) *base.DynamicValue[*base.SchemaProxy, bool] {
+	valueField := getMapValueField(field)
+	if valueField == nil {
+		// Couldn't determine value type, allow any type
+		return &base.DynamicValue[*base.SchemaProxy, bool]{B: true}
+	}
+
+	// Check if value is a message with an unwrap field
+	if valueField.Message != nil {
+		if unwrapField := getUnwrapField(valueField.Message); unwrapField != nil {
+			return g.createUnwrapArraySchema(unwrapField)
+		}
+	}
+
+	// Normal scalar or message type
+	valueSchema := g.convertScalarField(valueField)
+	return &base.DynamicValue[*base.SchemaProxy, bool]{A: valueSchema}
+}
+
+// getMapValueField extracts the value field from a map field's entry message.
+func getMapValueField(field *protogen.Field) *protogen.Field {
+	if field.Message == nil || len(field.Message.Fields) < 2 {
+		return nil
+	}
+
+	// Map entry messages have exactly 2 fields: key (field 1) and value (field 2)
+	const mapValueFieldNumber = 2
+	for _, f := range field.Message.Fields {
+		if f.Desc.Number() == mapValueFieldNumber {
+			return f
+		}
+	}
+	return nil
+}
+
+// createUnwrapArraySchema creates an array schema for an unwrap field's element type.
+func (g *Generator) createUnwrapArraySchema(unwrapField *protogen.Field) *base.DynamicValue[*base.SchemaProxy, bool] {
+	itemSchema := g.convertScalarField(unwrapField)
+	arraySchema := &base.Schema{
+		Type: []string{"array"},
+		Items: &base.DynamicValue[*base.SchemaProxy, bool]{
+			A: itemSchema,
+		},
+	}
+	return &base.DynamicValue[*base.SchemaProxy, bool]{
+		A: base.CreateSchemaProxy(arraySchema),
+	}
 }
 
 // getUnwrapField returns the unwrap field from a message, or nil if none exists.
