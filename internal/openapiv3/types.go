@@ -188,9 +188,32 @@ func (g *Generator) convertMapField(field *protogen.Field) *base.SchemaProxy {
 		}
 
 		if valueField != nil {
-			valueSchema := g.convertScalarField(valueField)
-			schema.AdditionalProperties = &base.DynamicValue[*base.SchemaProxy, bool]{
-				A: valueSchema,
+			// Check if value message has an unwrap field
+			if valueField.Message != nil {
+				if unwrapField := getUnwrapField(valueField.Message); unwrapField != nil {
+					// Generate array schema for unwrap field's element type
+					itemSchema := g.convertScalarField(unwrapField)
+					arraySchema := &base.Schema{
+						Type: []string{"array"},
+						Items: &base.DynamicValue[*base.SchemaProxy, bool]{
+							A: itemSchema,
+						},
+					}
+					schema.AdditionalProperties = &base.DynamicValue[*base.SchemaProxy, bool]{
+						A: base.CreateSchemaProxy(arraySchema),
+					}
+				} else {
+					// Normal: reference to message schema
+					valueSchema := g.convertScalarField(valueField)
+					schema.AdditionalProperties = &base.DynamicValue[*base.SchemaProxy, bool]{
+						A: valueSchema,
+					}
+				}
+			} else {
+				valueSchema := g.convertScalarField(valueField)
+				schema.AdditionalProperties = &base.DynamicValue[*base.SchemaProxy, bool]{
+					A: valueSchema,
+				}
 			}
 		}
 	}
@@ -211,6 +234,37 @@ func (g *Generator) convertMapField(field *protogen.Field) *base.SchemaProxy {
 	extractValidationConstraints(field, schema)
 
 	return base.CreateSchemaProxy(schema)
+}
+
+// getUnwrapField returns the unwrap field from a message, or nil if none exists.
+func getUnwrapField(message *protogen.Message) *protogen.Field {
+	for _, field := range message.Fields {
+		if hasUnwrapAnnotation(field) && field.Desc.IsList() {
+			return field
+		}
+	}
+	return nil
+}
+
+// hasUnwrapAnnotation checks if a field has the unwrap=true annotation.
+func hasUnwrapAnnotation(field *protogen.Field) bool {
+	options := field.Desc.Options()
+	if options == nil {
+		return false
+	}
+
+	fieldOptions, ok := options.(*descriptorpb.FieldOptions)
+	if !ok {
+		return false
+	}
+
+	ext := proto.GetExtension(fieldOptions, http.E_Unwrap)
+	if ext == nil {
+		return false
+	}
+
+	unwrap, ok := ext.(bool)
+	return ok && unwrap
 }
 
 // getFieldExamples extracts example values from field options.
