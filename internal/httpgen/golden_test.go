@@ -55,6 +55,16 @@ func TestHTTPGenGoldenFiles(t *testing.T) {
 				"backward_compat_http_config.pb.go",
 			},
 		},
+		{
+			name:      "unwrap field option",
+			protoFile: "unwrap.proto",
+			expectedFiles: []string{
+				"unwrap_http.pb.go",
+				"unwrap_http_binding.pb.go",
+				"unwrap_http_config.pb.go",
+				"unwrap_unwrap.pb.go",
+			},
+		},
 	}
 
 	// Get paths
@@ -74,6 +84,18 @@ func TestHTTPGenGoldenFiles(t *testing.T) {
 		t.Fatalf("Failed to create golden directory: %v", mkdirErr)
 	}
 
+	// Build the plugin binary for testing
+	pluginPath := filepath.Join(projectRoot, "bin", "protoc-gen-go-http")
+
+	// Build the plugin if it doesn't exist
+	if _, buildStatErr := os.Stat(pluginPath); os.IsNotExist(buildStatErr) {
+		buildCmd := exec.Command("make", "build")
+		buildCmd.Dir = projectRoot
+		if buildErr := buildCmd.Run(); buildErr != nil {
+			t.Fatalf("Failed to build plugin: %v", buildErr)
+		}
+	}
+
 	// Create temp directory for generated files
 	tempDir := t.TempDir()
 
@@ -89,8 +111,9 @@ func TestHTTPGenGoldenFiles(t *testing.T) {
 				t.Fatalf("Proto file not found: %s", protoPath)
 			}
 
-			// Run protoc with go-http plugin
+			// Run protoc with go-http plugin (using explicit plugin path)
 			cmd := exec.Command("protoc",
+				"--plugin=protoc-gen-go-http="+pluginPath,
 				"--go_out="+tempDir,
 				"--go_opt=paths=source_relative",
 				"--go-http_out="+tempDir,
@@ -253,12 +276,23 @@ func TestGeneratedCodeCompiles(t *testing.T) {
 
 	projectRoot := filepath.Join(baseDir, "..", "..")
 	protoDir := filepath.Join(baseDir, "testdata", "proto")
+	pluginPath := filepath.Join(projectRoot, "bin", "protoc-gen-go-http")
+
+	// Build the plugin if it doesn't exist
+	if _, buildStatErr := os.Stat(pluginPath); os.IsNotExist(buildStatErr) {
+		buildCmd := exec.Command("make", "build")
+		buildCmd.Dir = projectRoot
+		if buildErr := buildCmd.Run(); buildErr != nil {
+			t.Fatalf("Failed to build plugin: %v", buildErr)
+		}
+	}
 
 	// Create temp directory for generated files
 	tempDir := t.TempDir()
 
 	// Generate code for comprehensive test proto
 	cmd := exec.Command("protoc",
+		"--plugin=protoc-gen-go-http="+pluginPath,
 		"--go_out="+tempDir,
 		"--go_opt=paths=source_relative",
 		"--go-http_out="+tempDir,
