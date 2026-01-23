@@ -64,4 +64,11 @@ extend google.protobuf.FieldOptions {
 
   // Query parameter configuration for a field
   QueryConfig query = 50008;
+
+  // Mark a repeated field for unwrapping when parent message is a map value.
+  // When set to true on a repeated field, and the message containing this field
+  // is used as a map value, the JSON serialization will collapse the wrapper
+  // to just the unwrapped field's array value.
+  // Constraints: Only valid on repeated fields, only one per message.
+  bool unwrap = 50009;
 }
