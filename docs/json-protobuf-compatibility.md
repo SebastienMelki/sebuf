@@ -4,6 +4,8 @@
 
 Protobuf and JSON have different type systems and serialization behaviors. While sebuf handles most conversions automatically, some patterns require explicit annotations to produce the expected JSON output. This guide covers these edge cases and how to address them.
 
+> **Note**: The `unwrap` annotation was added to address [issue #86](https://github.com/SebastienMelki/sebuf/issues/86) - supporting unwrapped repeated fields in map values for JSON marshaling.
+
 ## Table of Contents
 
 - [Overview](#overview)
