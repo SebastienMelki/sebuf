@@ -1,0 +1,122 @@
+openapi: 3.1.0
+info:
+    title: UnwrapService API
+    version: 1.0.0
+paths:
+    /api/v1/options/bars:
+        post:
+            tags:
+                - UnwrapService
+            summary: GetOptionBars
+            description: GetOptionBars retrieves option bar data
+            operationId: GetOptionBars
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/GetOptionBarsRequest'
+                required: true
+            responses:
+                "200":
+                    description: Successful response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/GetOptionBarsResponse'
+                "400":
+                    description: Validation error
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ValidationError'
+                default:
+                    description: Error response
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    error:
+                                        type: string
+                                    code:
+                                        type: integer
+components:
+    schemas:
+        FieldViolation:
+            type: object
+            properties:
+                field:
+                    type: string
+                    description: The field path that failed validation (e.g., 'user.email' for nested fields). For header validation, this will be the header name (e.g., 'X-API-Key')
+                description:
+                    type: string
+                    description: Human-readable description of the validation violation (e.g., 'must be a valid email address', 'required field missing')
+            required:
+                - field
+                - description
+            description: FieldViolation describes a single validation error for a specific field.
+        ValidationError:
+            type: object
+            properties:
+                violations:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/FieldViolation'
+                    description: List of validation violations
+            required:
+                - violations
+            description: ValidationError is returned when request validation fails. It contains a list of field violations describing what went wrong.
+        GetOptionBarsRequest:
+            type: object
+            properties:
+                symbols:
+                    type: array
+                    items:
+                        type: string
+                startDate:
+                    type: string
+                endDate:
+                    type: string
+            description: GetOptionBarsRequest is the request message
+        GetOptionBarsResponse:
+            type: object
+            properties:
+                bars:
+                    type: object
+                    additionalProperties:
+                        type: array
+                        items:
+                            $ref: '#/components/schemas/OptionBar'
+                    description: 'Map from symbol to option bars - should be rendered as additionalProperties: array of OptionBar'
+                nextPageToken:
+                    type: string
+            description: GetOptionBarsResponse contains a map of symbol to OptionBarsList
+        BarsEntry:
+            type: object
+            properties:
+                key:
+                    type: string
+                value:
+                    $ref: '#/components/schemas/OptionBarsList'
+        OptionBarsList:
+            type: object
+            properties:
+                bars:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/OptionBar'
+            description: OptionBarsList is a wrapper message with an unwrap field
+        OptionBar:
+            type: object
+            properties:
+                symbol:
+                    type: string
+                price:
+                    type: number
+                    format: double
+                volume:
+                    type: integer
+                    format: int64
+                timestamp:
+                    type: string
+            description: OptionBar represents a single option bar data point

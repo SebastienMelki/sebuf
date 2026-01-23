@@ -6,6 +6,7 @@ package generated
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -146,6 +147,11 @@ func bindDataFromJSONRequest[Req any](r *http.Request, toBind *Req) error {
 
 	if len(bodyBytes) == 0 {
 		return nil
+	}
+
+	// Check for custom JSON unmarshaler (unwrap support)
+	if unmarshaler, ok := any(toBind).(json.Unmarshaler); ok {
+		return unmarshaler.UnmarshalJSON(bodyBytes)
 	}
 
 	protoRequest, ok := any(toBind).(proto.Message)
@@ -390,6 +396,10 @@ func marshalResponse(r *http.Request, response any) ([]byte, error) {
 
 	switch filterFlags(contentType) {
 	case JSONContentType:
+		// Check for custom JSON marshaler (unwrap support)
+		if marshaler, ok := response.(json.Marshaler); ok {
+			return marshaler.MarshalJSON()
+		}
 		return protojson.Marshal(msg)
 	case BinaryContentType, ProtoContentType:
 		return proto.Marshal(msg)
