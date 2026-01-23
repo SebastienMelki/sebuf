@@ -524,6 +524,30 @@ metadata:
     type: string
 ```
 
+**Map Fields with Unwrap (Array Values):**
+
+When map values use the `unwrap` annotation, the OpenAPI schema reflects the unwrapped structure:
+
+```protobuf
+message BarList {
+  repeated Bar bars = 1 [(sebuf.http.unwrap) = true];
+}
+
+message Response {
+  map<string, BarList> bars = 1;
+}
+```
+```yaml
+bars:
+  type: object
+  additionalProperties:
+    type: array
+    items:
+      $ref: '#/components/schemas/Bar'
+```
+
+See [JSON/Protobuf Compatibility](./json-protobuf-compatibility.md) for details.
+
 **Enums:**
 ```protobuf
 enum Status {

@@ -181,6 +181,8 @@ const (
 client := api.NewUserServiceClient("http://localhost:8080")
 ```
 
+The client automatically handles special JSON serialization, including messages with `unwrap` annotations for map values. See [JSON/Protobuf Compatibility](./json-protobuf-compatibility.md) for details.
+
 ### Binary Protobuf
 
 For better performance with large payloads:

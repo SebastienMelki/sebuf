@@ -1169,6 +1169,27 @@ message UploadFileRequest {
 }
 ```
 
+### Map with Array Values (Unwrap)
+
+When you need a map where values are arrays (common in market data APIs):
+
+```protobuf
+import "sebuf/http/annotations.proto";
+
+// Wrapper message with unwrap annotation
+message BarList {
+  repeated Bar bars = 1 [(sebuf.http.unwrap) = true];
+}
+
+message GetBarsResponse {
+  // JSON output: {"bars": {"AAPL": [...], "GOOG": [...]}}
+  // Instead of: {"bars": {"AAPL": {"bars": [...]}, ...}}
+  map<string, BarList> bars = 1;
+}
+```
+
+See [JSON and Protobuf Compatibility](./json-protobuf-compatibility.md) for complete details.
+
 ## Best Practices
 
 ### 1. Consistent URL Design
@@ -1426,6 +1447,7 @@ The OpenAPI spec will automatically reflect your HTTP annotations and routing.
 **See also:**
 - [Getting Started Guide](./getting-started.md)
 - [Validation Guide](./validation.md)
+- [JSON/Protobuf Compatibility](./json-protobuf-compatibility.md)
 - [All Examples](./examples/)
 
 **Feature-specific examples:**

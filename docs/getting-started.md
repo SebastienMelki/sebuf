@@ -203,6 +203,7 @@ curl -X GET http://localhost:8080/api/v1/users/1
 - **[Client Generation Guide](./client-generation.md)** - Type-safe HTTP clients
 - **[OpenAPI Guide](./openapi-generation.md)** - Documentation customization
 - **[Validation Guide](./validation.md)** - Automatic request validation
+- **[JSON/Protobuf Compatibility](./json-protobuf-compatibility.md)** - Handling serialization edge cases
 
 ## More examples
 
