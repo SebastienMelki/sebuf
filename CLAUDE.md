@@ -151,6 +151,20 @@ service UserService {
 }
 ```
 
+**Unwrap Annotation** - For map values that should serialize as arrays in JSON:
+```protobuf
+// Wrapper message with unwrap annotation
+message BarList {
+  repeated Bar bars = 1 [(sebuf.http.unwrap) = true];
+}
+
+message Response {
+  // JSON: {"bars": {"AAPL": [...], "GOOG": [...]}}
+  // Without unwrap: {"bars": {"AAPL": {"bars": [...]}, ...}}
+  map<string, BarList> bars = 1;
+}
+```
+
 ## Development Commands
 
 ### Testing
@@ -209,6 +223,7 @@ The project uses a comprehensive two-tier testing approach:
 - **Function-level testing**: Tests individual functions for HTTP and OpenAPI generators
 - **Mocked components**: Uses protogen mocks for isolated testing
 - **File locations**: internal/httpgen/ and internal/openapiv3/ test files
+- **Unwrap tests**: internal/httpgen/unwrap_test.go for map value unwrapping
 
 ## Validation System
 
