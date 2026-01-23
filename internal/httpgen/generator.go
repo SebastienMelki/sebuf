@@ -55,6 +55,11 @@ func (g *Generator) generateFile(file *protogen.File) error {
 		return err
 	}
 
+	// Generate unwrap file if there are messages with unwrap annotations
+	if err := g.generateUnwrapFile(file); err != nil {
+		return err
+	}
+
 	if len(file.Services) == 0 {
 		return nil
 	}
@@ -191,6 +196,7 @@ func (g *Generator) generateBindingFile(file *protogen.File) error {
 	gf.P("import (")
 	gf.P(`"bytes"`)
 	gf.P(`"context"`)
+	gf.P(`"encoding/json"`)
 	gf.P(`"errors"`)
 	gf.P(`"fmt"`)
 	gf.P(`"io"`)
@@ -351,6 +357,11 @@ func (g *Generator) generateBindingFile(file *protogen.File) error {
 	gf.P()
 	gf.P("if len(bodyBytes) == 0 {")
 	gf.P("return nil")
+	gf.P("}")
+	gf.P()
+	gf.P("// Check for custom JSON unmarshaler (unwrap support)")
+	gf.P("if unmarshaler, ok := any(toBind).(json.Unmarshaler); ok {")
+	gf.P("return unmarshaler.UnmarshalJSON(bodyBytes)")
 	gf.P("}")
 	gf.P()
 	gf.P("protoRequest, ok := any(toBind).(proto.Message)")
@@ -613,6 +624,10 @@ func (g *Generator) generateBindingFile(file *protogen.File) error {
 	gf.P()
 	gf.P("switch filterFlags(contentType) {")
 	gf.P("case JSONContentType:")
+	gf.P("// Check for custom JSON marshaler (unwrap support)")
+	gf.P("if marshaler, ok := response.(json.Marshaler); ok {")
+	gf.P("return marshaler.MarshalJSON()")
+	gf.P("}")
 	gf.P("return protojson.Marshal(msg)")
 	gf.P("case BinaryContentType, ProtoContentType:")
 	gf.P("return proto.Marshal(msg)")

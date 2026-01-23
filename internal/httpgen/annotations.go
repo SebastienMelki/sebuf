@@ -274,3 +274,88 @@ func getQueryParams(message *protogen.Message) []QueryParam {
 
 	return params
 }
+
+// UnwrapFieldInfo contains information about an unwrap field in a message.
+type UnwrapFieldInfo struct {
+	Field       *protogen.Field   // The field with unwrap=true
+	ElementType *protogen.Message // The element type of the repeated field (if message type)
+}
+
+// hasUnwrapAnnotation checks if a field has the unwrap=true annotation.
+func hasUnwrapAnnotation(field *protogen.Field) bool {
+	options := field.Desc.Options()
+	if options == nil {
+		return false
+	}
+
+	fieldOptions, ok := options.(*descriptorpb.FieldOptions)
+	if !ok {
+		return false
+	}
+
+	ext := proto.GetExtension(fieldOptions, http.E_Unwrap)
+	if ext == nil {
+		return false
+	}
+
+	unwrap, ok := ext.(bool)
+	return ok && unwrap
+}
+
+// getUnwrapField returns the unwrap field info for a message, or nil if none exists.
+// Returns an error if the annotation is invalid (e.g., on non-repeated field, multiple unwrap fields).
+func getUnwrapField(message *protogen.Message) (*UnwrapFieldInfo, error) {
+	var unwrapField *protogen.Field
+
+	for _, field := range message.Fields {
+		if !hasUnwrapAnnotation(field) {
+			continue
+		}
+
+		// Validate: must be a repeated field
+		if !field.Desc.IsList() {
+			return nil, &UnwrapValidationError{
+				MessageName: string(message.Desc.Name()),
+				FieldName:   string(field.Desc.Name()),
+				Reason:      "unwrap annotation can only be used on repeated fields",
+			}
+		}
+
+		// Validate: only one unwrap field per message
+		if unwrapField != nil {
+			return nil, &UnwrapValidationError{
+				MessageName: string(message.Desc.Name()),
+				FieldName:   string(field.Desc.Name()),
+				Reason:      "only one field per message can have the unwrap annotation",
+			}
+		}
+
+		unwrapField = field
+	}
+
+	if unwrapField == nil {
+		return nil, nil
+	}
+
+	info := &UnwrapFieldInfo{
+		Field: unwrapField,
+	}
+
+	// If the element type is a message, capture it
+	if unwrapField.Message != nil {
+		info.ElementType = unwrapField.Message
+	}
+
+	return info, nil
+}
+
+// UnwrapValidationError represents an error in unwrap annotation validation.
+type UnwrapValidationError struct {
+	MessageName string
+	FieldName   string
+	Reason      string
+}
+
+func (e *UnwrapValidationError) Error() string {
+	return "invalid unwrap annotation on " + e.MessageName + "." + e.FieldName + ": " + e.Reason
+}
