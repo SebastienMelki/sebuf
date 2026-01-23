@@ -102,6 +102,29 @@ func writeTemporaryGeneratedFile(t *testing.T, goldenFile string, generatedConte
 	}
 }
 
+// tryCreateGoldenFile attempts to create a golden file if it doesn't exist and UPDATE_GOLDEN is set.
+// Returns true if the golden file was created, false otherwise.
+func tryCreateGoldenFile(t *testing.T, goldenFile string, generatedContent []byte, readErr error) bool {
+	t.Helper()
+
+	if !os.IsNotExist(readErr) || os.Getenv("UPDATE_GOLDEN") != "1" {
+		return false
+	}
+
+	// Ensure directory exists
+	goldenDir := filepath.Dir(goldenFile)
+	if mkdirErr := os.MkdirAll(goldenDir, 0o755); mkdirErr != nil {
+		t.Fatalf("Failed to create golden directory: %v", mkdirErr)
+	}
+
+	if writeErr := os.WriteFile(goldenFile, generatedContent, 0o644); writeErr != nil {
+		t.Fatalf("Failed to create golden file: %v", writeErr)
+	}
+
+	t.Logf("Created golden file: %s (%d bytes)", goldenFile, len(generatedContent))
+	return true
+}
+
 // TestExhaustiveGoldenFiles performs exhaustive byte-for-byte comparison
 // between generated OpenAPI output and golden files.
 func TestExhaustiveGoldenFiles(t *testing.T) {
@@ -378,17 +401,7 @@ func TestExhaustiveGoldenFiles(t *testing.T) {
 			// Read golden file content
 			goldenContent, err := os.ReadFile(tc.goldenFile)
 			if err != nil {
-				// If golden file doesn't exist and UPDATE_GOLDEN is set, create it
-				if os.IsNotExist(err) && os.Getenv("UPDATE_GOLDEN") == "1" {
-					// Ensure directory exists
-					goldenDir := filepath.Dir(tc.goldenFile)
-					if mkdirErr := os.MkdirAll(goldenDir, 0o755); mkdirErr != nil {
-						t.Fatalf("Failed to create golden directory: %v", mkdirErr)
-					}
-					if writeErr := os.WriteFile(tc.goldenFile, generatedContent, 0o644); writeErr != nil {
-						t.Fatalf("Failed to create golden file: %v", writeErr)
-					}
-					t.Logf("Created golden file: %s (%d bytes)", tc.goldenFile, len(generatedContent))
+				if created := tryCreateGoldenFile(t, tc.goldenFile, generatedContent, err); created {
 					return
 				}
 				t.Fatalf("Failed to read golden file %s: %v", tc.goldenFile, err)

@@ -334,7 +334,7 @@ func getUnwrapField(message *protogen.Message) (*UnwrapFieldInfo, error) {
 	}
 
 	if unwrapField == nil {
-		return nil, nil
+		return nil, nil //nolint:nilnil // nil,nil is intentional: no unwrap field exists, not an error
 	}
 
 	info := &UnwrapFieldInfo{

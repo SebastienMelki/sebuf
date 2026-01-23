@@ -1,9 +1,27 @@
 package httpgen
 
 import (
-	"strings"
-
 	"google.golang.org/protobuf/compiler/protogen"
+)
+
+// Proto field kind constants for type checking.
+const (
+	kindString   = "string"
+	kindBool     = "bool"
+	kindInt32    = "int32"
+	kindUint32   = "uint32"
+	kindSint32   = "sint32"
+	kindSfixed32 = "sfixed32"
+	kindInt64    = "int64"
+	kindSint64   = "sint64"
+	kindSfixed64 = "sfixed64"
+	kindUint64   = "uint64"
+	kindFixed32  = "fixed32"
+	kindFixed64  = "fixed64"
+	kindFloat    = "float"
+	kindDouble   = "double"
+	kindBytes    = "bytes"
+	kindEnum     = "enum"
 )
 
 // UnwrapContext holds information about messages that need unwrap JSON methods.
@@ -26,72 +44,91 @@ type UnwrapMapField struct {
 }
 
 // collectUnwrapContext analyzes all messages in a file and collects unwrap information.
-func (g *Generator) collectUnwrapContext(file *protogen.File) (*UnwrapContext, error) {
+func (g *Generator) collectUnwrapContext(file *protogen.File) *UnwrapContext {
 	ctx := &UnwrapContext{}
 
 	// First, collect all messages that have unwrap fields (including nested messages)
-	unwrapMessages := make(map[string]*UnwrapFieldInfo)
-	var collectUnwrapFields func(messages []*protogen.Message)
-	collectUnwrapFields = func(messages []*protogen.Message) {
-		for _, msg := range messages {
-			info, err := getUnwrapField(msg)
-			if err != nil {
-				// Log error but continue
-				continue
-			}
-			if info != nil {
-				unwrapMessages[string(msg.Desc.FullName())] = info
-			}
-			// Check nested messages too
-			collectUnwrapFields(msg.Messages)
-		}
-	}
-	collectUnwrapFields(file.Messages)
+	unwrapMessages := collectAllUnwrapFields(file.Messages)
 
 	// Now find messages that have map fields whose value type is in unwrapMessages
-	var findMapFields func(messages []*protogen.Message)
-	findMapFields = func(messages []*protogen.Message) {
-		for _, msg := range messages {
-			var mapFields []*UnwrapMapField
+	findMapFieldsWithUnwrap(file.Messages, unwrapMessages, ctx)
 
-			for _, field := range msg.Fields {
-				if !field.Desc.IsMap() {
-					continue
-				}
+	return ctx
+}
 
-				// Get the value type of the map
-				valueMsg := getMapValueMessage(field)
-				if valueMsg == nil {
-					continue
-				}
+// collectAllUnwrapFields recursively collects all messages with unwrap fields.
+func collectAllUnwrapFields(messages []*protogen.Message) map[string]*UnwrapFieldInfo {
+	result := make(map[string]*UnwrapFieldInfo)
+	collectUnwrapFieldsRecursive(messages, result)
+	return result
+}
 
-				// Check if value message has an unwrap field
-				unwrapInfo, ok := unwrapMessages[string(valueMsg.Desc.FullName())]
-				if !ok {
-					continue
-				}
-
-				mapFields = append(mapFields, &UnwrapMapField{
-					Field:        field,
-					ValueMessage: valueMsg,
-					UnwrapField:  unwrapInfo,
-				})
-			}
-
-			if len(mapFields) > 0 {
-				ctx.ContainingMessages = append(ctx.ContainingMessages, &UnwrapContainingMessage{
-					Message:   msg,
-					MapFields: mapFields,
-				})
-			}
-
-			// Check nested messages too
-			findMapFields(msg.Messages)
+// collectUnwrapFieldsRecursive is a helper that recursively collects unwrap fields.
+func collectUnwrapFieldsRecursive(messages []*protogen.Message, result map[string]*UnwrapFieldInfo) {
+	for _, msg := range messages {
+		info, err := getUnwrapField(msg)
+		if err != nil {
+			// Log error but continue
+			continue
 		}
+		if info != nil {
+			result[string(msg.Desc.FullName())] = info
+		}
+		// Check nested messages too
+		collectUnwrapFieldsRecursive(msg.Messages, result)
 	}
-	findMapFields(file.Messages)
+}
 
-	return ctx, nil
+// findMapFieldsWithUnwrap finds messages with map fields whose values have unwrap fields.
+func findMapFieldsWithUnwrap(
+	messages []*protogen.Message,
+	unwrapMessages map[string]*UnwrapFieldInfo,
+	ctx *UnwrapContext,
+) {
+	for _, msg := range messages {
+		mapFields := collectUnwrapMapFields(msg, unwrapMessages)
+
+		if len(mapFields) > 0 {
+			ctx.ContainingMessages = append(ctx.ContainingMessages, &UnwrapContainingMessage{
+				Message:   msg,
+				MapFields: mapFields,
+			})
+		}
+
+		// Check nested messages too
+		findMapFieldsWithUnwrap(msg.Messages, unwrapMessages, ctx)
+	}
+}
+
+// collectUnwrapMapFields collects map fields whose value types have unwrap fields.
+func collectUnwrapMapFields(msg *protogen.Message, unwrapMessages map[string]*UnwrapFieldInfo) []*UnwrapMapField {
+	var mapFields []*UnwrapMapField
+
+	for _, field := range msg.Fields {
+		if !field.Desc.IsMap() {
+			continue
+		}
+
+		// Get the value type of the map
+		valueMsg := getMapValueMessage(field)
+		if valueMsg == nil {
+			continue
+		}
+
+		// Check if value message has an unwrap field
+		unwrapInfo, ok := unwrapMessages[string(valueMsg.Desc.FullName())]
+		if !ok {
+			continue
+		}
+
+		mapFields = append(mapFields, &UnwrapMapField{
+			Field:        field,
+			ValueMessage: valueMsg,
+			UnwrapField:  unwrapInfo,
+		})
+	}
+
+	return mapFields
 }
 
 // getMapValueMessage returns the message type of a map field's value, or nil if not a message.
@@ -112,10 +149,7 @@ func getMapValueMessage(field *protogen.Field) *protogen.Message {
 
 // generateUnwrapFile generates the *_unwrap.pb.go file if needed.
 func (g *Generator) generateUnwrapFile(file *protogen.File) error {
-	ctx, err := g.collectUnwrapContext(file)
-	if err != nil {
-		return err
-	}
+	ctx := g.collectUnwrapContext(file)
 
 	// If no messages need unwrap methods, skip generation
 	if len(ctx.ContainingMessages) == 0 {
@@ -172,16 +206,17 @@ func (g *Generator) generateUnwrapMarshalJSON(gf *protogen.GeneratedFile, contai
 			}
 		}
 
-		if unwrapMapField != nil {
+		switch {
+		case unwrapMapField != nil:
 			// This is an unwrap map field - generate unwrap logic
 			g.generateUnwrapMapMarshal(gf, field, unwrapMapField, jsonName)
-		} else if field.Desc.IsMap() {
+		case field.Desc.IsMap():
 			// Regular map field
 			g.generateRegularMapMarshal(gf, field, jsonName)
-		} else if field.Desc.IsList() {
+		case field.Desc.IsList():
 			// Repeated field
 			g.generateRepeatedFieldMarshal(gf, field, jsonName)
-		} else {
+		default:
 			// Scalar or message field
 			g.generateScalarFieldMarshal(gf, field, fieldName, jsonName)
 		}
@@ -192,7 +227,12 @@ func (g *Generator) generateUnwrapMarshalJSON(gf *protogen.GeneratedFile, contai
 	gf.P()
 }
 
-func (g *Generator) generateUnwrapMapMarshal(gf *protogen.GeneratedFile, field *protogen.Field, unwrapMapField *UnwrapMapField, jsonName string) {
+func (g *Generator) generateUnwrapMapMarshal(
+	gf *protogen.GeneratedFile,
+	field *protogen.Field,
+	unwrapMapField *UnwrapMapField,
+	jsonName string,
+) {
 	fieldName := field.GoName
 	unwrapFieldName := unwrapMapField.UnwrapField.Field.GoName
 	isMessageType := unwrapMapField.UnwrapField.ElementType != nil
@@ -277,7 +317,11 @@ func (g *Generator) generateRepeatedFieldMarshal(gf *protogen.GeneratedFile, fie
 	gf.P()
 }
 
-func (g *Generator) generateScalarFieldMarshal(gf *protogen.GeneratedFile, field *protogen.Field, fieldName, jsonName string) {
+func (g *Generator) generateScalarFieldMarshal(
+	gf *protogen.GeneratedFile,
+	field *protogen.Field,
+	fieldName, jsonName string,
+) {
 	// Check if this is an optional field or message
 	if field.Message != nil {
 		gf.P("// Handle message field: ", fieldName)
@@ -329,13 +373,14 @@ func (g *Generator) generateUnwrapUnmarshalJSON(gf *protogen.GeneratedFile, cont
 			}
 		}
 
-		if unwrapMapField != nil {
+		switch {
+		case unwrapMapField != nil:
 			g.generateUnwrapMapUnmarshal(gf, field, unwrapMapField, jsonName)
-		} else if field.Desc.IsMap() {
+		case field.Desc.IsMap():
 			g.generateRegularMapUnmarshal(gf, field, jsonName)
-		} else if field.Desc.IsList() {
+		case field.Desc.IsList():
 			g.generateRepeatedFieldUnmarshal(gf, field, jsonName)
-		} else {
+		default:
 			g.generateScalarFieldUnmarshal(gf, field, fieldName, jsonName)
 		}
 	}
@@ -345,7 +390,12 @@ func (g *Generator) generateUnwrapUnmarshalJSON(gf *protogen.GeneratedFile, cont
 	gf.P()
 }
 
-func (g *Generator) generateUnwrapMapUnmarshal(gf *protogen.GeneratedFile, field *protogen.Field, unwrapMapField *UnwrapMapField, jsonName string) {
+func (g *Generator) generateUnwrapMapUnmarshal(
+	gf *protogen.GeneratedFile,
+	field *protogen.Field,
+	unwrapMapField *UnwrapMapField,
+	jsonName string,
+) {
 	fieldName := field.GoName
 	valueTypeName := unwrapMapField.ValueMessage.GoIdent.GoName
 	unwrapFieldName := unwrapMapField.UnwrapField.Field.GoName
@@ -428,7 +478,11 @@ func (g *Generator) generateRepeatedFieldUnmarshal(gf *protogen.GeneratedFile, f
 	gf.P()
 }
 
-func (g *Generator) generateScalarFieldUnmarshal(gf *protogen.GeneratedFile, field *protogen.Field, fieldName, jsonName string) {
+func (g *Generator) generateScalarFieldUnmarshal(
+	gf *protogen.GeneratedFile,
+	field *protogen.Field,
+	fieldName, jsonName string,
+) {
 	gf.P("// Handle field: ", fieldName)
 	gf.P(`if rawField, ok := raw["`, jsonName, `"]; ok {`)
 	if field.Message != nil {
@@ -454,16 +508,16 @@ func getJSONFieldName(field *protogen.Field) string {
 // getZeroValueCheck returns a condition that checks if a field is non-zero.
 func getZeroValueCheck(field *protogen.Field, fieldExpr string) string {
 	switch field.Desc.Kind().String() {
-	case "string":
+	case kindString:
 		return fieldExpr + ` != ""`
-	case "bool":
+	case kindBool:
 		return fieldExpr
-	case "int32", "sint32", "sfixed32", "int64", "sint64", "sfixed64",
-		"uint32", "fixed32", "uint64", "fixed64", "float", "double":
+	case kindInt32, kindSint32, kindSfixed32, kindInt64, kindSint64, kindSfixed64,
+		kindUint32, kindFixed32, kindUint64, kindFixed64, kindFloat, kindDouble:
 		return fieldExpr + " != 0"
-	case "bytes":
+	case kindBytes:
 		return "len(" + fieldExpr + ") > 0"
-	case "enum":
+	case kindEnum:
 		return fieldExpr + " != 0"
 	default:
 		return fieldExpr + " != nil"
@@ -473,36 +527,25 @@ func getZeroValueCheck(field *protogen.Field, fieldExpr string) string {
 // getScalarTypeName returns the Go type name for a scalar field.
 func getScalarTypeName(field *protogen.Field) string {
 	switch field.Desc.Kind().String() {
-	case "string":
+	case kindString:
 		return "string"
-	case "bool":
+	case kindBool:
 		return "bool"
-	case "int32", "sint32", "sfixed32":
+	case kindInt32, kindSint32, kindSfixed32:
 		return "int32"
-	case "int64", "sint64", "sfixed64":
+	case kindInt64, kindSint64, kindSfixed64:
 		return "int64"
-	case "uint32", "fixed32":
+	case kindUint32, kindFixed32:
 		return "uint32"
-	case "uint64", "fixed64":
+	case kindUint64, kindFixed64:
 		return "uint64"
-	case "float":
+	case kindFloat:
 		return "float32"
-	case "double":
+	case kindDouble:
 		return "float64"
-	case "bytes":
+	case kindBytes:
 		return "[]byte"
 	default:
 		return "interface{}"
 	}
-}
-
-// snakeToCamel converts snake_case to camelCase.
-func snakeToCamel(s string) string {
-	parts := strings.Split(s, "_")
-	for i := 1; i < len(parts); i++ {
-		if len(parts[i]) > 0 {
-			parts[i] = strings.ToUpper(parts[i][:1]) + parts[i][1:]
-		}
-	}
-	return strings.Join(parts, "")
 }
