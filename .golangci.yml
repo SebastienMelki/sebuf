@@ -413,7 +413,7 @@ linters:
   exclusions:
     # Log a warning if an exclusion rule is unused.
     # Default: false
-    warn-unused: true
+    warn-unused: false
     # Predefined exclusion rules.
     # Default: []
     presets:
