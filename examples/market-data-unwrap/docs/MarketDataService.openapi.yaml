@@ -1,0 +1,374 @@
+openapi: 3.1.0
+info:
+    title: MarketDataService API
+    version: 1.0.0
+paths:
+    /v2/options/bars:
+        get:
+            tags:
+                - MarketDataService
+            summary: GetOptionBars
+            description: GetOptionBars retrieves historical option bars for the specified symbols.
+            operationId: GetOptionBars
+            parameters:
+                - name: APCA-API-KEY-ID
+                  in: header
+                  description: Alpaca API key ID for authentication
+                  required: true
+                  schema:
+                    type: string
+                    example: PKXXXXXXXXXXXXXXXX
+                - name: APCA-API-SECRET-KEY
+                  in: header
+                  description: Alpaca API secret key for authentication
+                  required: true
+                  schema:
+                    type: string
+                    example: XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+                - name: symbols
+                  in: query
+                  description: Comma-separated list of option symbols in OCC format.
+                  required: false
+                  schema:
+                    type: string
+                - name: timeframe
+                  in: query
+                  description: Bar timeframe (e.g., 1Min, 5Min, 1Hour, 1Day).
+                  required: false
+                  schema:
+                    type: string
+                - name: start
+                  in: query
+                  description: Start timestamp (RFC 3339 or YYYY-MM-DD).
+                  required: false
+                  schema:
+                    type: string
+                - name: end
+                  in: query
+                  description: End timestamp (RFC 3339 or YYYY-MM-DD).
+                  required: false
+                  schema:
+                    type: string
+                - name: limit
+                  in: query
+                  description: Maximum number of bars to return (1-10000, default 1000).
+                  required: false
+                  schema:
+                    type: integer
+                    format: int32
+                - name: page_token
+                  in: query
+                  description: Page token for pagination.
+                  required: false
+                  schema:
+                    type: string
+                - name: sort
+                  in: query
+                  description: Sort order (asc, desc).
+                  required: false
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    description: Successful response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/GetOptionBarsResponse'
+                "400":
+                    description: Validation error
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ValidationError'
+                default:
+                    description: Error response
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    error:
+                                        type: string
+                                    code:
+                                        type: integer
+    /v2/options/bars/latest:
+        get:
+            tags:
+                - MarketDataService
+            summary: GetLatestOptionBars
+            description: GetLatestOptionBars retrieves the latest option bar for each symbol.
+            operationId: GetLatestOptionBars
+            parameters:
+                - name: APCA-API-KEY-ID
+                  in: header
+                  description: Alpaca API key ID for authentication
+                  required: true
+                  schema:
+                    type: string
+                    example: PKXXXXXXXXXXXXXXXX
+                - name: APCA-API-SECRET-KEY
+                  in: header
+                  description: Alpaca API secret key for authentication
+                  required: true
+                  schema:
+                    type: string
+                    example: XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+                - name: symbols
+                  in: query
+                  description: Comma-separated list of option symbols.
+                  required: false
+                  schema:
+                    type: string
+                - name: feed
+                  in: query
+                  description: Data feed (indicative, opra).
+                  required: false
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    description: Successful response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/GetLatestOptionBarsResponse'
+                "400":
+                    description: Validation error
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ValidationError'
+                default:
+                    description: Error response
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    error:
+                                        type: string
+                                    code:
+                                        type: integer
+components:
+    schemas:
+        FieldViolation:
+            type: object
+            properties:
+                field:
+                    type: string
+                    description: The field path that failed validation (e.g., 'user.email' for nested fields). For header validation, this will be the header name (e.g., 'X-API-Key')
+                description:
+                    type: string
+                    description: Human-readable description of the validation violation (e.g., 'must be a valid email address', 'required field missing')
+            required:
+                - field
+                - description
+            description: FieldViolation describes a single validation error for a specific field.
+        ValidationError:
+            type: object
+            properties:
+                violations:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/FieldViolation'
+                    description: List of validation violations
+            required:
+                - violations
+            description: ValidationError is returned when request validation fails. It contains a list of field violations describing what went wrong.
+        GetOptionBarsRequest:
+            type: object
+            properties:
+                symbols:
+                    type: string
+                    examples:
+                        - TSLA260123C00335000
+                        - AAPL240119C00150000,AAPL240119P00145000
+                    description: Comma-separated list of option symbols in OCC format.
+                    example: TSLA260123C00335000
+                timeframe:
+                    type: string
+                    examples:
+                        - 1Day
+                        - 1Hour
+                        - 5Min
+                    description: Bar timeframe (e.g., 1Min, 5Min, 1Hour, 1Day).
+                    example: 1Day
+                start:
+                    type: string
+                    examples:
+                        - 2025-12-01
+                        - 2025-12-15T09:30:00Z
+                    description: Start timestamp (RFC 3339 or YYYY-MM-DD).
+                    example: 2025-12-01
+                end:
+                    type: string
+                    examples:
+                        - 2025-12-31
+                        - 2025-12-15T16:00:00Z
+                    description: End timestamp (RFC 3339 or YYYY-MM-DD).
+                    example: 2025-12-31
+                limit:
+                    type: integer
+                    examples:
+                        - 100
+                        - 1000
+                    maximum: 10000
+                    minimum: 1
+                    format: int32
+                    description: Maximum number of bars to return (1-10000, default 1000).
+                    example: 100
+                pageToken:
+                    type: string
+                    examples:
+                        - dG9rZW4xMjM=
+                    description: Page token for pagination.
+                    example: dG9rZW4xMjM=
+                sort:
+                    type: string
+                    examples:
+                        - asc
+                        - desc
+                    enum:
+                        - asc
+                        - desc
+                    description: Sort order (asc, desc).
+                    example: asc
+            required:
+                - symbols
+                - timeframe
+            description: GetOptionBarsRequest is the request to get historical option bars.
+        GetOptionBarsResponse:
+            type: object
+            properties:
+                bars:
+                    type: object
+                    additionalProperties:
+                        type: array
+                        items:
+                            $ref: '#/components/schemas/OptionBar'
+                    description: Map of symbol to list of bars. Each symbol maps directly to an array of bars.
+                nextPageToken:
+                    type: string
+                    examples:
+                        - eyJwYWdlIjogMn0=
+                    description: Next page token for pagination, null if no more pages.
+                    example: eyJwYWdlIjogMn0=
+            description: |-
+                GetOptionBarsResponse contains the option bars data.
+                 The map values use the unwrap annotation for cleaner JSON serialization:
+                 {"bars": {"TSLA260123C00335000": [...bars...]}} instead of {"bars": {"TSLA260123C00335000": {"bars": [...]}}}
+        BarsEntry:
+            type: object
+            properties:
+                key:
+                    type: string
+                value:
+                    $ref: '#/components/schemas/OptionBar'
+        OptionBarsList:
+            type: object
+            properties:
+                bars:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/OptionBar'
+            description: |-
+                OptionBarsList is a wrapper for a list of bars that will be unwrapped in JSON.
+                 This enables map values to serialize as arrays instead of nested objects.
+        OptionBar:
+            type: object
+            properties:
+                t:
+                    type: string
+                    examples:
+                        - 2025-12-15T15:05:00Z
+                        - 2025-12-15T18:05:00Z
+                    description: Timestamp in RFC 3339 format.
+                    example: 2025-12-15T15:05:00Z
+                o:
+                    type: number
+                    examples:
+                        - 143.08
+                        - 145.34
+                    format: double
+                    description: Open price.
+                    example: 143.08
+                h:
+                    type: number
+                    examples:
+                        - 143.08
+                        - 145.34
+                    format: double
+                    description: High price.
+                    example: 143.08
+                l:
+                    type: number
+                    examples:
+                        - 143.08
+                        - 145.34
+                    format: double
+                    description: Low price.
+                    example: 143.08
+                c:
+                    type: number
+                    examples:
+                        - 143.08
+                        - 145.34
+                    format: double
+                    description: Close price.
+                    example: 143.08
+                v:
+                    type: integer
+                    examples:
+                        - 1
+                        - 20
+                    format: int64
+                    description: Volume.
+                    example: 1
+                n:
+                    type: integer
+                    examples:
+                        - 1
+                    format: int64
+                    description: Number of trades.
+                    example: 1
+                vw:
+                    type: number
+                    examples:
+                        - 143.08
+                        - 145.34
+                    format: double
+                    description: Volume weighted average price.
+                    example: 143.08
+            description: OptionBar represents an option OHLCV bar data point.
+        GetLatestOptionBarsRequest:
+            type: object
+            properties:
+                symbols:
+                    type: string
+                    examples:
+                        - TSLA260123C00335000
+                    description: Comma-separated list of option symbols.
+                    example: TSLA260123C00335000
+                feed:
+                    type: string
+                    examples:
+                        - opra
+                        - indicative
+                    enum:
+                        - indicative
+                        - opra
+                    description: Data feed (indicative, opra).
+                    example: opra
+            required:
+                - symbols
+            description: GetLatestOptionBarsRequest is the request to get the latest option bars.
+        GetLatestOptionBarsResponse:
+            type: object
+            properties:
+                bars:
+                    type: object
+                    additionalProperties:
+                        $ref: '#/components/schemas/OptionBar'
+                    description: Map of symbol to latest bar.
+            description: GetLatestOptionBarsResponse contains the latest option bar for each symbol.

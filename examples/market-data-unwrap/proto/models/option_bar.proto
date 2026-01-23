@@ -1,0 +1,32 @@
+syntax = "proto3";
+package marketdata.models;
+
+import "sebuf/http/annotations.proto";
+
+// OptionBar represents an option OHLCV bar data point.
+message OptionBar {
+  // Timestamp in RFC 3339 format.
+  string t = 1 [(sebuf.http.field_examples) = { values: ["2025-12-15T15:05:00Z", "2025-12-15T18:05:00Z"] }];
+  // Open price.
+  double o = 2 [(sebuf.http.field_examples) = { values: ["143.08", "145.34"] }];
+  // High price.
+  double h = 3 [(sebuf.http.field_examples) = { values: ["143.08", "145.34"] }];
+  // Low price.
+  double l = 4 [(sebuf.http.field_examples) = { values: ["143.08", "145.34"] }];
+  // Close price.
+  double c = 5 [(sebuf.http.field_examples) = { values: ["143.08", "145.34"] }];
+  // Volume.
+  int64 v = 6 [(sebuf.http.field_examples) = { values: ["1", "20"] }];
+  // Number of trades.
+  int64 n = 7 [(sebuf.http.field_examples) = { values: ["1"] }];
+  // Volume weighted average price.
+  double vw = 8 [(sebuf.http.field_examples) = { values: ["143.08", "145.34"] }];
+}
+
+// OptionBarsList is a wrapper for a list of bars that will be unwrapped in JSON.
+// This enables map values to serialize as arrays instead of nested objects.
+message OptionBarsList {
+  // The bars field is marked for unwrapping - when this message is a map value,
+  // the JSON will collapse to just the array: {"AAPL": [...]} instead of {"AAPL": {"bars": [...]}}
+  repeated OptionBar bars = 1 [(sebuf.http.unwrap) = true];
+}

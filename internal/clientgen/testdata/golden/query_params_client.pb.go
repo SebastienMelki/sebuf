@@ -4,7 +4,6 @@
 package generated
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"

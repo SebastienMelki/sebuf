@@ -101,6 +101,7 @@ func findMapFieldsWithUnwrap(
 }
 
 // collectUnwrapMapFields collects map fields whose value types have unwrap fields.
+// This checks the value message directly, which works for both local and imported messages.
 func collectUnwrapMapFields(msg *protogen.Message, unwrapMessages map[string]*UnwrapFieldInfo) []*UnwrapMapField {
 	var mapFields []*UnwrapMapField
 
@@ -115,10 +116,15 @@ func collectUnwrapMapFields(msg *protogen.Message, unwrapMessages map[string]*Un
 			continue
 		}
 
-		// Check if value message has an unwrap field
+		// First check local cache (same file), then check the message directly (imported files)
 		unwrapInfo, ok := unwrapMessages[string(valueMsg.Desc.FullName())]
 		if !ok {
-			continue
+			// Check imported message directly for unwrap annotation
+			var err error
+			unwrapInfo, err = getUnwrapField(valueMsg)
+			if err != nil || unwrapInfo == nil {
+				continue
+			}
 		}
 
 		mapFields = append(mapFields, &UnwrapMapField{
@@ -397,11 +403,12 @@ func (g *Generator) generateUnwrapMapUnmarshal(
 	jsonName string,
 ) {
 	fieldName := field.GoName
-	valueTypeName := unwrapMapField.ValueMessage.GoIdent.GoName
+	valueTypeIdent := unwrapMapField.ValueMessage.GoIdent
 	unwrapFieldName := unwrapMapField.UnwrapField.Field.GoName
-	elementTypeName := ""
+	var elementTypeIdent *protogen.GoIdent
 	if unwrapMapField.UnwrapField.ElementType != nil {
-		elementTypeName = unwrapMapField.UnwrapField.ElementType.GoIdent.GoName
+		ident := unwrapMapField.UnwrapField.ElementType.GoIdent
+		elementTypeIdent = &ident
 	}
 
 	gf.P("// Handle unwrap map field: ", fieldName)
@@ -410,16 +417,16 @@ func (g *Generator) generateUnwrapMapUnmarshal(
 	gf.P("if err := json.Unmarshal(rawField, &mapRaw); err != nil {")
 	gf.P("return err")
 	gf.P("}")
-	gf.P("x.", fieldName, " = make(map[string]*", valueTypeName, ")")
+	gf.P("x.", fieldName, " = make(map[string]*", gf.QualifiedGoIdent(valueTypeIdent), ")")
 	gf.P("for k, arrayRaw := range mapRaw {")
 	gf.P("var itemsRaw []json.RawMessage")
 	gf.P("if err := json.Unmarshal(arrayRaw, &itemsRaw); err != nil {")
 	gf.P("return err")
 	gf.P("}")
-	if elementTypeName != "" {
-		gf.P("items := make([]*", elementTypeName, ", 0, len(itemsRaw))")
+	if elementTypeIdent != nil {
+		gf.P("items := make([]*", gf.QualifiedGoIdent(*elementTypeIdent), ", 0, len(itemsRaw))")
 		gf.P("for _, itemRaw := range itemsRaw {")
-		gf.P("item := &", elementTypeName, "{}")
+		gf.P("item := &", *elementTypeIdent, "{}")
 		gf.P("if err := protojson.Unmarshal(itemRaw, item); err != nil {")
 		gf.P("return err")
 		gf.P("}")
@@ -432,7 +439,7 @@ func (g *Generator) generateUnwrapMapUnmarshal(
 		gf.P("return err")
 		gf.P("}")
 	}
-	gf.P("x.", fieldName, "[k] = &", valueTypeName, "{", unwrapFieldName, ": items}")
+	gf.P("x.", fieldName, "[k] = &", valueTypeIdent, "{", unwrapFieldName, ": items}")
 	gf.P("}")
 	gf.P("}")
 	gf.P()
@@ -456,14 +463,14 @@ func (g *Generator) generateRepeatedFieldUnmarshal(gf *protogen.GeneratedFile, f
 	gf.P("// Handle repeated field: ", fieldName)
 	gf.P(`if rawField, ok := raw["`, jsonName, `"]; ok {`)
 	if field.Message != nil {
-		elementTypeName := field.Message.GoIdent.GoName
+		elementTypeIdent := field.Message.GoIdent
 		gf.P("var itemsRaw []json.RawMessage")
 		gf.P("if err := json.Unmarshal(rawField, &itemsRaw); err != nil {")
 		gf.P("return err")
 		gf.P("}")
-		gf.P("x.", fieldName, " = make([]*", elementTypeName, ", 0, len(itemsRaw))")
+		gf.P("x.", fieldName, " = make([]*", gf.QualifiedGoIdent(elementTypeIdent), ", 0, len(itemsRaw))")
 		gf.P("for _, itemRaw := range itemsRaw {")
-		gf.P("item := &", elementTypeName, "{}")
+		gf.P("item := &", elementTypeIdent, "{}")
 		gf.P("if err := protojson.Unmarshal(itemRaw, item); err != nil {")
 		gf.P("return err")
 		gf.P("}")
