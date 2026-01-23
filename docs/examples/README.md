@@ -27,6 +27,7 @@ This starts a working HTTP API with user management, authentication, and OpenAPI
 | **[validation-showcase](../../examples/validation-showcase/)** | Order processing API | buf.validate patterns: string, numeric, array, map, nested validation |
 | **[nested-resources](../../examples/nested-resources/)** | Organization hierarchy API | Deep path nesting (3 levels), multiple path params per endpoint |
 | **[multi-service-api](../../examples/multi-service-api/)** | Multi-tenant platform | Multiple services, different auth levels, service/method headers |
+| **[market-data-unwrap](../../examples/market-data-unwrap/)** | Financial market data API | Unwrap annotation for map values, JSON/protobuf compatibility |
 
 ---
 
@@ -98,6 +99,29 @@ cd examples/multi-service-api && make demo
 - Service-level headers applied to all methods
 - Method-level headers for specific operations (X-Confirm-Delete, X-Audit-Reason)
 
+### market-data-unwrap
+Financial market data API demonstrating the `unwrap` annotation.
+- `(sebuf.http.unwrap)` annotation for cleaner JSON serialization
+- Map values serialized as arrays instead of wrapped objects
+- Real-world pattern from APIs like Alpaca Market Data
+
+```bash
+cd examples/market-data-unwrap && make run    # Start server
+cd examples/market-data-unwrap && make client # Run client example
+```
+
+**JSON output with unwrap:**
+```json
+{"bars": {"TSLA": [{"c": 143.08, ...}]}}
+```
+
+**Without unwrap (standard protobuf):**
+```json
+{"bars": {"TSLA": {"bars": [{"c": 143.08, ...}]}}}
+```
+
+See [JSON/Protobuf Compatibility Guide](../json-protobuf-compatibility.md) for details.
+
 ---
 
 ## Running Examples
@@ -117,18 +141,19 @@ make clean     # Remove generated files
 
 ## What Each Example Demonstrates
 
-| Feature | simple-api | restful-crud | validation | nested | multi-service |
-|---------|:----------:|:------------:|:----------:|:------:|:-------------:|
-| HTTP verbs (GET/POST) | Yes | Yes | Yes | Yes | Yes |
-| PUT/PATCH/DELETE | - | Yes | - | Yes | Yes |
-| Path parameters | - | Yes | - | Yes | Yes |
-| Query parameters | - | Yes | - | Yes | - |
-| buf.validate | Basic | Basic | Comprehensive | Basic | Basic |
-| Header validation | - | Yes | - | - | Yes |
-| Multiple services | - | - | - | - | Yes |
-| Nested resources | - | - | - | Yes | - |
-| Oneof helpers | Yes | - | - | - | - |
-| **HTTP Client** | - | **Yes** | - | - | - |
+| Feature | simple-api | restful-crud | validation | nested | multi-service | market-data |
+|---------|:----------:|:------------:|:----------:|:------:|:-------------:|:-----------:|
+| HTTP verbs (GET/POST) | Yes | Yes | Yes | Yes | Yes | Yes |
+| PUT/PATCH/DELETE | - | Yes | - | Yes | Yes | - |
+| Path parameters | - | Yes | - | Yes | Yes | - |
+| Query parameters | - | Yes | - | Yes | - | Yes |
+| buf.validate | Basic | Basic | Comprehensive | Basic | Basic | Yes |
+| Header validation | - | Yes | - | - | Yes | Yes |
+| Multiple services | - | - | - | - | Yes | - |
+| Nested resources | - | - | - | Yes | - | - |
+| Oneof helpers | Yes | - | - | - | - | - |
+| **HTTP Client** | - | **Yes** | - | - | - | **Yes** |
+| **Unwrap annotation** | - | - | - | - | - | **Yes** |
 
 ---
 
