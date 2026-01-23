@@ -1,0 +1,79 @@
+// Test proto file for unwrap field option testing
+syntax = "proto3";
+
+package test.httpgen.unwrap;
+
+option go_package = "github.com/SebastienMelki/sebuf/internal/httpgen/testdata/generated;generated";
+
+import "sebuf/http/annotations.proto";
+
+// OptionBar represents a single option bar data point
+message OptionBar {
+  string symbol = 1;
+  double price = 2;
+  int64 volume = 3;
+  string timestamp = 4;
+}
+
+// OptionBarsList is a wrapper message with an unwrap field
+message OptionBarsList {
+  // The bars field is marked for unwrapping
+  repeated OptionBar bars = 1 [(sebuf.http.unwrap) = true];
+}
+
+// GetOptionBarsResponse contains a map of symbol to OptionBarsList
+// When serialized to JSON, the OptionBarsList wrapper will be collapsed
+message GetOptionBarsResponse {
+  // Map from symbol to option bars list
+  // JSON output: {"bars": {"AAPL": [...], "GOOG": [...]}}
+  // instead of: {"bars": {"AAPL": {"bars": [...]}, "GOOG": {"bars": [...]}}}
+  map<string, OptionBarsList> bars = 1;
+  string next_page_token = 2;
+}
+
+// GetOptionBarsRequest is the request message
+message GetOptionBarsRequest {
+  repeated string symbols = 1;
+  string start_date = 2;
+  string end_date = 3;
+}
+
+// OptionDataService provides option market data
+service OptionDataService {
+  option (sebuf.http.service_config) = {
+    base_path: "/api/v1"
+  };
+
+  // GetOptionBars retrieves option bar data for multiple symbols
+  rpc GetOptionBars(GetOptionBarsRequest) returns (GetOptionBarsResponse) {
+    option (sebuf.http.config) = {
+      path: "/options/bars"
+      method: HTTP_METHOD_POST
+    };
+  }
+}
+
+// Additional test cases
+
+// ScalarUnwrap tests unwrap with scalar types
+message IntList {
+  repeated int32 values = 1 [(sebuf.http.unwrap) = true];
+}
+
+message ScalarMapResponse {
+  map<string, IntList> data = 1;
+}
+
+// NestedMessage tests that non-unwrap maps still work
+message RegularWrapper {
+  repeated OptionBar items = 1;  // No unwrap annotation
+}
+
+message MixedResponse {
+  // This uses unwrap
+  map<string, OptionBarsList> unwrapped_bars = 1;
+  // This does not use unwrap - should serialize normally
+  map<string, RegularWrapper> regular_bars = 2;
+  // Simple scalar field
+  string status = 3;
+}
