@@ -6,6 +6,7 @@ package generated
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -648,6 +649,10 @@ func (c *rESTfulAPIServiceClient) DefaultPostMethod(ctx context.Context, req *De
 func (c *rESTfulAPIServiceClient) marshalRequest(req proto.Message, contentType string) ([]byte, error) {
 	switch contentType {
 	case ContentTypeJSON:
+		// Check for custom JSON marshaler (unwrap support)
+		if marshaler, ok := req.(json.Marshaler); ok {
+			return marshaler.MarshalJSON()
+		}
 		return protojson.Marshal(req)
 	case ContentTypeProto:
 		return proto.Marshal(req)
@@ -682,6 +687,10 @@ func (c *rESTfulAPIServiceClient) unmarshalResponse(body []byte, msg proto.Messa
 
 	switch contentType {
 	case ContentTypeJSON:
+		// Check for custom JSON unmarshaler (unwrap support)
+		if unmarshaler, ok := msg.(json.Unmarshaler); ok {
+			return unmarshaler.UnmarshalJSON(body)
+		}
 		return protojson.Unmarshal(body, msg)
 	case ContentTypeProto:
 		return proto.Unmarshal(body, msg)
@@ -842,6 +851,10 @@ func (c *backwardCompatServiceClient) LegacyAction(ctx context.Context, req *Leg
 func (c *backwardCompatServiceClient) marshalRequest(req proto.Message, contentType string) ([]byte, error) {
 	switch contentType {
 	case ContentTypeJSON:
+		// Check for custom JSON marshaler (unwrap support)
+		if marshaler, ok := req.(json.Marshaler); ok {
+			return marshaler.MarshalJSON()
+		}
 		return protojson.Marshal(req)
 	case ContentTypeProto:
 		return proto.Marshal(req)
@@ -876,6 +889,10 @@ func (c *backwardCompatServiceClient) unmarshalResponse(body []byte, msg proto.M
 
 	switch contentType {
 	case ContentTypeJSON:
+		// Check for custom JSON unmarshaler (unwrap support)
+		if unmarshaler, ok := msg.(json.Unmarshaler); ok {
+			return unmarshaler.UnmarshalJSON(body)
+		}
 		return protojson.Unmarshal(body, msg)
 	case ContentTypeProto:
 		return proto.Unmarshal(body, msg)

@@ -6,6 +6,7 @@ package generated
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -242,6 +243,10 @@ func (c *noAnnotationsServiceClient) AnotherAction(ctx context.Context, req *Ano
 func (c *noAnnotationsServiceClient) marshalRequest(req proto.Message, contentType string) ([]byte, error) {
 	switch contentType {
 	case ContentTypeJSON:
+		// Check for custom JSON marshaler (unwrap support)
+		if marshaler, ok := req.(json.Marshaler); ok {
+			return marshaler.MarshalJSON()
+		}
 		return protojson.Marshal(req)
 	case ContentTypeProto:
 		return proto.Marshal(req)
@@ -276,6 +281,10 @@ func (c *noAnnotationsServiceClient) unmarshalResponse(body []byte, msg proto.Me
 
 	switch contentType {
 	case ContentTypeJSON:
+		// Check for custom JSON unmarshaler (unwrap support)
+		if unmarshaler, ok := msg.(json.Unmarshaler); ok {
+			return unmarshaler.UnmarshalJSON(body)
+		}
 		return protojson.Unmarshal(body, msg)
 	case ContentTypeProto:
 		return proto.Unmarshal(body, msg)
@@ -501,6 +510,10 @@ func (c *basePathOnlyServiceClient) ActionTwo(ctx context.Context, req *ActionRe
 func (c *basePathOnlyServiceClient) marshalRequest(req proto.Message, contentType string) ([]byte, error) {
 	switch contentType {
 	case ContentTypeJSON:
+		// Check for custom JSON marshaler (unwrap support)
+		if marshaler, ok := req.(json.Marshaler); ok {
+			return marshaler.MarshalJSON()
+		}
 		return protojson.Marshal(req)
 	case ContentTypeProto:
 		return proto.Marshal(req)
@@ -535,6 +548,10 @@ func (c *basePathOnlyServiceClient) unmarshalResponse(body []byte, msg proto.Mes
 
 	switch contentType {
 	case ContentTypeJSON:
+		// Check for custom JSON unmarshaler (unwrap support)
+		if unmarshaler, ok := msg.(json.Unmarshaler); ok {
+			return unmarshaler.UnmarshalJSON(body)
+		}
 		return protojson.Unmarshal(body, msg)
 	case ContentTypeProto:
 		return proto.Unmarshal(body, msg)

@@ -6,6 +6,7 @@ package generated
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -427,6 +428,10 @@ func (c *queryParamServiceClient) GetWithFilters(ctx context.Context, req *GetWi
 func (c *queryParamServiceClient) marshalRequest(req proto.Message, contentType string) ([]byte, error) {
 	switch contentType {
 	case ContentTypeJSON:
+		// Check for custom JSON marshaler (unwrap support)
+		if marshaler, ok := req.(json.Marshaler); ok {
+			return marshaler.MarshalJSON()
+		}
 		return protojson.Marshal(req)
 	case ContentTypeProto:
 		return proto.Marshal(req)
@@ -461,6 +466,10 @@ func (c *queryParamServiceClient) unmarshalResponse(body []byte, msg proto.Messa
 
 	switch contentType {
 	case ContentTypeJSON:
+		// Check for custom JSON unmarshaler (unwrap support)
+		if unmarshaler, ok := msg.(json.Unmarshaler); ok {
+			return unmarshaler.UnmarshalJSON(body)
+		}
 		return protojson.Unmarshal(body, msg)
 	case ContentTypeProto:
 		return proto.Unmarshal(body, msg)
