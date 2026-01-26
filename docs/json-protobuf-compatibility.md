@@ -118,6 +118,8 @@ When you use the `unwrap` annotation:
 2. **Client Generation**: The generated client automatically uses the custom marshalers
 3. **OpenAPI Generation**: The OpenAPI schema shows the unwrapped structure (array values, not wrapper objects)
 
+**Cross-file support**: The wrapper message can be defined in a different proto file than the response message that uses it, as long as both compile to the same Go package. See [market-data-unwrap-same-pkg](../examples/market-data-unwrap-same-pkg/) for an example.
+
 ### Complete Example
 
 ```protobuf
