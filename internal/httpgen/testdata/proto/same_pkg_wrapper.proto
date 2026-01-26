@@ -1,0 +1,24 @@
+// Test proto file for unwrap field option - wrapper in different file
+// This file tests same-package, different-file unwrap resolution
+syntax = "proto3";
+
+package test.httpgen.samepkg;
+
+option go_package = "github.com/SebastienMelki/sebuf/internal/httpgen/testdata/generated/samepkg;samepkg";
+
+import "sebuf/http/annotations.proto";
+
+// Bar represents a single bar data point
+message Bar {
+  string symbol = 1;
+  double price = 2;
+  int64 volume = 3;
+  string timestamp = 4;
+}
+
+// BarList is a wrapper message with an unwrap field
+// This is defined in a DIFFERENT file than the response message that uses it
+message BarList {
+  // The bars field is marked for unwrapping
+  repeated Bar bars = 1 [(sebuf.http.unwrap) = true];
+}
