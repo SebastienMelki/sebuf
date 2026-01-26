@@ -28,6 +28,7 @@ This starts a working HTTP API with user management, authentication, and OpenAPI
 | **[nested-resources](../../examples/nested-resources/)** | Organization hierarchy API | Deep path nesting (3 levels), multiple path params per endpoint |
 | **[multi-service-api](../../examples/multi-service-api/)** | Multi-tenant platform | Multiple services, different auth levels, service/method headers |
 | **[market-data-unwrap](../../examples/market-data-unwrap/)** | Financial market data API | Unwrap annotation for map values, JSON/protobuf compatibility |
+| **[market-data-unwrap-same-pkg](../../examples/market-data-unwrap-same-pkg/)** | Cross-file unwrap | Wrapper in separate proto file, same Go package |
 
 ---
 
@@ -122,6 +123,18 @@ cd examples/market-data-unwrap && make client # Run client example
 
 See [JSON/Protobuf Compatibility Guide](../json-protobuf-compatibility.md) for details.
 
+### market-data-unwrap-same-pkg
+Cross-file unwrap when wrapper is in a separate proto file.
+- Wrapper message (`BarList`) in `stock_bar.proto`
+- Service using wrapper in `stock_service.proto`
+- Both in same Go package - unwrap works automatically
+
+```bash
+cd examples/market-data-unwrap-same-pkg && buf generate
+```
+
+Use this pattern when sharing wrapper types across multiple services.
+
 ---
 
 ## Running Examples
@@ -141,19 +154,20 @@ make clean     # Remove generated files
 
 ## What Each Example Demonstrates
 
-| Feature | simple-api | restful-crud | validation | nested | multi-service | market-data |
-|---------|:----------:|:------------:|:----------:|:------:|:-------------:|:-----------:|
-| HTTP verbs (GET/POST) | Yes | Yes | Yes | Yes | Yes | Yes |
-| PUT/PATCH/DELETE | - | Yes | - | Yes | Yes | - |
-| Path parameters | - | Yes | - | Yes | Yes | - |
-| Query parameters | - | Yes | - | Yes | - | Yes |
-| buf.validate | Basic | Basic | Comprehensive | Basic | Basic | Yes |
-| Header validation | - | Yes | - | - | Yes | Yes |
-| Multiple services | - | - | - | - | Yes | - |
-| Nested resources | - | - | - | Yes | - | - |
-| Oneof helpers | Yes | - | - | - | - | - |
-| **HTTP Client** | - | **Yes** | - | - | - | **Yes** |
-| **Unwrap annotation** | - | - | - | - | - | **Yes** |
+| Feature | simple-api | restful-crud | validation | nested | multi-service | market-data | same-pkg |
+|---------|:----------:|:------------:|:----------:|:------:|:-------------:|:-----------:|:--------:|
+| HTTP verbs (GET/POST) | Yes | Yes | Yes | Yes | Yes | Yes | Yes |
+| PUT/PATCH/DELETE | - | Yes | - | Yes | Yes | - | - |
+| Path parameters | - | Yes | - | Yes | Yes | - | - |
+| Query parameters | - | Yes | - | Yes | - | Yes | - |
+| buf.validate | Basic | Basic | Comprehensive | Basic | Basic | Yes | - |
+| Header validation | - | Yes | - | - | Yes | Yes | - |
+| Multiple services | - | - | - | - | Yes | - | - |
+| Nested resources | - | - | - | Yes | - | - | - |
+| Oneof helpers | Yes | - | - | - | - | - | - |
+| **HTTP Client** | - | **Yes** | - | - | - | **Yes** | - |
+| **Unwrap annotation** | - | - | - | - | - | **Yes** | **Yes** |
+| **Cross-file types** | - | - | - | - | - | - | **Yes** |
 
 ---
 

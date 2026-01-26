@@ -1,0 +1,21 @@
+version: v2
+deps:
+  - buf.build/bufbuild/protovalidate
+  - buf.build/sebmelki/sebuf
+lint:
+  use:
+    - STANDARD
+  except:
+    - PACKAGE_VERSION_SUFFIX
+    - PACKAGE_DIRECTORY_MATCH
+    - RPC_REQUEST_RESPONSE_UNIQUE
+    - RPC_RESPONSE_STANDARD_NAME
+    - RPC_REQUEST_STANDARD_NAME
+    - FIELD_NOT_REQUIRED
+  enum_zero_value_suffix: _UNSPECIFIED
+  service_suffix: Service
+breaking:
+  use:
+    - FILE
+    - PACKAGE
+    - WIRE_JSON

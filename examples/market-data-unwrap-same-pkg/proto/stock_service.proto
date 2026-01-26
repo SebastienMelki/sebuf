@@ -1,0 +1,85 @@
+// Example: Unwrap annotation in same package, different file
+// This file defines the service and response that use the wrapper message
+syntax = "proto3";
+package stockdata.v1;
+
+option go_package = "github.com/SebastienMelki/sebuf/examples/market-data-unwrap-same-pkg/generated;stockdata";
+
+import "buf/validate/validate.proto";
+import "sebuf/http/annotations.proto";
+import "sebuf/http/headers.proto";
+// Import the wrapper from the SAME package, different file
+import "proto/stock_bar.proto";
+
+// GetStockBarsRequest is the request to get historical stock bars.
+message GetStockBarsRequest {
+  // Comma-separated list of stock symbols.
+  string symbols = 1 [
+    (buf.validate.field).required = true,
+    (sebuf.http.query) = { name: "symbols" },
+    (sebuf.http.field_examples) = { values: ["AAPL,GOOG,MSFT"] }
+  ];
+  // Bar timeframe (e.g., 1Min, 5Min, 1Hour, 1Day).
+  string timeframe = 2 [
+    (buf.validate.field).required = true,
+    (sebuf.http.query) = { name: "timeframe" },
+    (sebuf.http.field_examples) = { values: ["1Day"] }
+  ];
+  // Start timestamp (RFC 3339 or YYYY-MM-DD).
+  string start = 3 [
+    (sebuf.http.query) = { name: "start" },
+    (sebuf.http.field_examples) = { values: ["2025-12-01"] }
+  ];
+  // End timestamp (RFC 3339 or YYYY-MM-DD).
+  string end = 4 [
+    (sebuf.http.query) = { name: "end" },
+    (sebuf.http.field_examples) = { values: ["2025-12-31"] }
+  ];
+  // Maximum number of bars to return.
+  int32 limit = 5 [
+    (sebuf.http.query) = { name: "limit" },
+    (buf.validate.field).int32 = { gte: 1, lte: 10000 },
+    (sebuf.http.field_examples) = { values: ["100"] }
+  ];
+}
+
+// GetStockBarsResponse contains the stock bars data.
+// The map values use the unwrap annotation for cleaner JSON serialization:
+// {"bars": {"AAPL": [...bars...]}} instead of {"bars": {"AAPL": {"bars": [...]}}}
+//
+// IMPORTANT: StockBarsList is imported from stock_bar.proto which is in the SAME
+// Go package but a DIFFERENT file. This tests same-package-different-file unwrap resolution.
+message GetStockBarsResponse {
+  // Map of symbol to list of bars. Each symbol maps directly to an array of bars.
+  map<string, StockBarsList> bars = 1;
+  // Next page token for pagination, null if no more pages.
+  string next_page_token = 2;
+}
+
+// StockDataService provides stock market data endpoints.
+service StockDataService {
+  option (sebuf.http.service_config) = {
+    base_path: "/v1/stocks"
+  };
+
+  // Service-level API key header for authentication
+  option (sebuf.http.service_headers) = {
+    required_headers: [
+      {
+        name: "X-API-Key"
+        description: "API key for authentication"
+        type: "string"
+        required: true
+        example: "sk_live_xxxxx"
+      }
+    ]
+  };
+
+  // GetStockBars retrieves historical stock bars for the specified symbols.
+  rpc GetStockBars(GetStockBarsRequest) returns (GetStockBarsResponse) {
+    option (sebuf.http.config) = {
+      path: "/bars"
+      method: HTTP_METHOD_GET
+    };
+  }
+}

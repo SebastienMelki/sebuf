@@ -14,6 +14,7 @@ import (
 type Generator struct {
 	plugin       *protogen.Plugin
 	generateMock bool
+	globalUnwrap *GlobalUnwrapInfo // Global unwrap info collected from all files
 }
 
 // Options configures the generator.
@@ -38,6 +39,11 @@ func NewWithOptions(plugin *protogen.Plugin, opts Options) *Generator {
 
 // Generate processes all files and generates HTTP handlers.
 func (g *Generator) Generate() error {
+	// Phase 1: Collect global unwrap information from ALL files first.
+	// This enables cross-file unwrap resolution within the same package.
+	g.globalUnwrap = CollectGlobalUnwrapInfo(g.plugin.Files)
+
+	// Phase 2: Generate code for each file
 	for _, file := range g.plugin.Files {
 		if !file.Generate {
 			continue

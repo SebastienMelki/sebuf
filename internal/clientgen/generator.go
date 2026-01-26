@@ -70,11 +70,11 @@ func (g *Generator) fileNeedsRequestBody(file *protogen.File) bool {
 	for _, service := range file.Services {
 		for _, method := range service.Methods {
 			httpConfig := getMethodHTTPConfig(method)
-			httpMethod := "POST"
+			httpMethod := httpMethodPOST
 			if httpConfig != nil && httpConfig.Method != "" {
 				httpMethod = httpConfig.Method
 			}
-			if httpMethod == "POST" || httpMethod == "PUT" || httpMethod == "PATCH" {
+			if httpMethod == httpMethodPOST || httpMethod == httpMethodPUT || httpMethod == httpMethodPATCH {
 				return true
 			}
 		}
@@ -369,7 +369,7 @@ func (g *Generator) buildRPCMethodConfig(service *protogen.Service, method *prot
 
 	// Get HTTP config
 	httpConfig := getMethodHTTPConfig(method)
-	httpMethod := "POST"
+	httpMethod := httpMethodPOST
 	httpPath := "/" + lowerFirst(methodName)
 	var pathParams []string
 
@@ -408,7 +408,7 @@ func (g *Generator) buildRPCMethodConfig(service *protogen.Service, method *prot
 		fullPath:    fullPath,
 		pathParams:  pathParams,
 		queryParams: getQueryParams(method.Input),
-		hasBody:     httpMethod == "POST" || httpMethod == "PUT" || httpMethod == "PATCH",
+		hasBody:     httpMethod == httpMethodPOST || httpMethod == httpMethodPUT || httpMethod == httpMethodPATCH,
 	}
 }
 
@@ -557,7 +557,7 @@ func (g *Generator) generateURLBuilding(
 	gf.P("reqURL := c.baseURL + path")
 
 	// Add query parameters for GET/DELETE
-	if (httpMethod == "GET" || httpMethod == "DELETE") && len(queryParams) > 0 {
+	if (httpMethod == httpMethodGET || httpMethod == httpMethodDELETE) && len(queryParams) > 0 {
 		gf.P()
 		gf.P("// Add query parameters")
 		gf.P("queryParams := url.Values{}")
