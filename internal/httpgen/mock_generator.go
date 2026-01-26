@@ -7,6 +7,19 @@ import (
 	"google.golang.org/protobuf/reflect/protoreflect"
 )
 
+// Go type name constants for code generation.
+const (
+	goTypeInterface = "interface{}"
+	goTypeString    = "string"
+	goTypeBool      = "bool"
+	goTypeInt32     = "int32"
+	goTypeInt64     = "int64"
+	goTypeUint32    = "uint32"
+	goTypeUint64    = "uint64"
+	goTypeFloat32   = "float32"
+	goTypeFloat64   = "float64"
+)
+
 // generateMockFile generates a mock server implementation file.
 func (g *Generator) generateMockFile(file *protogen.File) error {
 	filename := file.GeneratedFilenamePrefix + "_http_mock.pb.go"
@@ -175,49 +188,65 @@ func (g *Generator) generateMockFieldAssignments(
 		fieldPath := messageName + "." + string(field.Desc.Name())
 
 		// Generate assignment based on field type
-		switch field.Desc.Kind() {
-		case protoreflect.StringKind:
-			gf.P(
-				varName,
-				".",
-				fieldName,
-				" = selectStringExample(\"",
-				fieldPath,
-				"\", ",
-				g.getDefaultGenerator(field),
-				")",
-			)
-		case protoreflect.Int32Kind, protoreflect.Int64Kind:
-			gf.P(varName, ".", fieldName, " = selectIntExample(\"", fieldPath, "\", ", g.getDefaultValue(field), ")")
-		case protoreflect.BoolKind:
-			gf.P(varName, ".", fieldName, " = selectBoolExample(\"", fieldPath, "\", ", g.getDefaultValue(field), ")")
-		case protoreflect.FloatKind, protoreflect.DoubleKind:
-			gf.P(varName, ".", fieldName, " = selectFloatExample(\"", fieldPath, "\", ", g.getDefaultValue(field), ")")
-		case protoreflect.MessageKind:
-			if field.Desc.IsMap() {
-				// Handle map fields
-				g.generateMockMapFieldAssignment(gf, field, varName)
-			} else if field.Desc.IsList() {
-				gf.P("// TODO: Handle repeated message field ", fieldName)
-			} else {
-				gf.P(varName, ".", fieldName, " = &", field.Message.GoIdent, "{}")
-				g.generateMockFieldAssignments(gf, field.Message, varName+"."+fieldName)
-			}
-		case protoreflect.EnumKind,
-			protoreflect.Sint32Kind,
-			protoreflect.Uint32Kind,
-			protoreflect.Sint64Kind,
-			protoreflect.Uint64Kind,
-			protoreflect.Sfixed32Kind,
-			protoreflect.Fixed32Kind,
-			protoreflect.Sfixed64Kind,
-			protoreflect.Fixed64Kind,
-			protoreflect.BytesKind,
-			protoreflect.GroupKind:
-			gf.P("// TODO: Handle field ", fieldName, " of type ", field.Desc.Kind())
-		default:
-			gf.P("// TODO: Handle field ", fieldName, " of type ", field.Desc.Kind())
-		}
+		g.generateFieldAssignment(gf, field, varName, fieldName, fieldPath)
+	}
+}
+
+// generateFieldAssignment generates the assignment code for a single field.
+func (g *Generator) generateFieldAssignment(
+	gf *protogen.GeneratedFile,
+	field *protogen.Field,
+	varName, fieldName, fieldPath string,
+) {
+	switch field.Desc.Kind() {
+	case protoreflect.StringKind:
+		gf.P(
+			varName,
+			".",
+			fieldName,
+			" = selectStringExample(\"",
+			fieldPath,
+			"\", ",
+			g.getDefaultGenerator(field),
+			")",
+		)
+	case protoreflect.Int32Kind, protoreflect.Int64Kind:
+		gf.P(varName, ".", fieldName, " = selectIntExample(\"", fieldPath, "\", ", g.getDefaultValue(field), ")")
+	case protoreflect.BoolKind:
+		gf.P(varName, ".", fieldName, " = selectBoolExample(\"", fieldPath, "\", ", g.getDefaultValue(field), ")")
+	case protoreflect.FloatKind, protoreflect.DoubleKind:
+		gf.P(varName, ".", fieldName, " = selectFloatExample(\"", fieldPath, "\", ", g.getDefaultValue(field), ")")
+	case protoreflect.MessageKind:
+		g.generateMessageFieldAssignment(gf, field, varName, fieldName)
+	case protoreflect.EnumKind,
+		protoreflect.Sint32Kind,
+		protoreflect.Uint32Kind,
+		protoreflect.Sint64Kind,
+		protoreflect.Uint64Kind,
+		protoreflect.Sfixed32Kind,
+		protoreflect.Fixed32Kind,
+		protoreflect.Sfixed64Kind,
+		protoreflect.Fixed64Kind,
+		protoreflect.BytesKind,
+		protoreflect.GroupKind:
+		gf.P("// TODO: Handle field ", fieldName, " of type ", field.Desc.Kind())
+	}
+}
+
+// generateMessageFieldAssignment generates assignment code for message-type fields.
+func (g *Generator) generateMessageFieldAssignment(
+	gf *protogen.GeneratedFile,
+	field *protogen.Field,
+	varName, fieldName string,
+) {
+	switch {
+	case field.Desc.IsMap():
+		g.generateMockMapFieldAssignment(gf, field, varName)
+	case field.Desc.IsList():
+		gf.P("// TODO: Handle repeated message field ", fieldName)
+	default:
+		gf.P(varName, ".", fieldName, " = &", field.Message.GoIdent, "{}")
+		g.generateMockFieldAssignments(gf, field.Message, varName+"."+fieldName)
 	}
 }
 
@@ -242,7 +271,8 @@ func (g *Generator) generateMockMapFieldAssignment(
 	// Generate map entry based on value type
 	if valueField.Desc.Kind() == protoreflect.MessageKind {
 		// Value is a message type - use QualifiedGoIdent for proper imports
-		gf.P(varName, ".", fieldName, " = make(map[", keyType, "]*", gf.QualifiedGoIdent(valueField.Message.GoIdent), ")")
+		valueIdent := gf.QualifiedGoIdent(valueField.Message.GoIdent)
+		gf.P(varName, ".", fieldName, " = make(map[", keyType, "]*", valueIdent, ")")
 		gf.P(varName, ".", fieldName, "[", sampleKey, "] = &", valueField.Message.GoIdent, "{}")
 		// Populate the value message fields
 		mapValueVar := varName + "." + fieldName + "[" + sampleKey + "]"
@@ -260,28 +290,31 @@ func (g *Generator) generateMockMapFieldAssignment(
 func (g *Generator) getGoTypeScalar(field *protogen.Field) string {
 	switch field.Desc.Kind() {
 	case protoreflect.StringKind:
-		return "string"
+		return goTypeString
 	case protoreflect.Int32Kind, protoreflect.Sint32Kind, protoreflect.Sfixed32Kind:
-		return "int32"
+		return goTypeInt32
 	case protoreflect.Int64Kind, protoreflect.Sint64Kind, protoreflect.Sfixed64Kind:
-		return "int64"
+		return goTypeInt64
 	case protoreflect.Uint32Kind, protoreflect.Fixed32Kind:
-		return "uint32"
+		return goTypeUint32
 	case protoreflect.Uint64Kind, protoreflect.Fixed64Kind:
-		return "uint64"
+		return goTypeUint64
 	case protoreflect.BoolKind:
-		return "bool"
+		return goTypeBool
 	case protoreflect.FloatKind:
-		return "float32"
+		return goTypeFloat32
 	case protoreflect.DoubleKind:
-		return "float64"
+		return goTypeFloat64
 	case protoreflect.BytesKind:
 		return "[]byte"
 	case protoreflect.MessageKind:
 		return "*" + field.Message.GoIdent.GoName
-	default:
-		return "interface{}"
+	case protoreflect.EnumKind:
+		return goTypeInt32 // Enums are represented as int32 in Go
+	case protoreflect.GroupKind:
+		return goTypeInterface // Groups are deprecated, use interface{}
 	}
+	return goTypeInterface
 }
 
 // getSampleMapKey returns a sample key value for a map field.
@@ -298,9 +331,14 @@ func (g *Generator) getSampleMapKey(keyField *protogen.Field) string {
 		return "1"
 	case protoreflect.BoolKind:
 		return "true"
-	default:
+	case protoreflect.EnumKind:
+		return "0" // Enums use int value
+	case protoreflect.FloatKind, protoreflect.DoubleKind,
+		protoreflect.BytesKind, protoreflect.MessageKind, protoreflect.GroupKind:
+		// These types cannot be map keys in protobuf
 		return `"key"`
 	}
+	return `"key"`
 }
 
 // getDefaultGenerator returns a function name for generating default values.
