@@ -279,6 +279,8 @@ func getQueryParams(message *protogen.Message) []QueryParam {
 type UnwrapFieldInfo struct {
 	Field       *protogen.Field   // The field with unwrap=true
 	ElementType *protogen.Message // The element type of the repeated field (if message type)
+	IsRootUnwrap bool              // True if this is a root-level unwrap (single field in message)
+	IsMapField   bool              // True if the unwrap field is a map (only for root unwrap)
 }
 
 // hasUnwrapAnnotation checks if a field has the unwrap=true annotation.
@@ -303,7 +305,14 @@ func hasUnwrapAnnotation(field *protogen.Field) bool {
 }
 
 // getUnwrapField returns the unwrap field info for a message, or nil if none exists.
-// Returns an error if the annotation is invalid (e.g., on non-repeated field, multiple unwrap fields).
+// Returns an error if the annotation is invalid (e.g., on non-repeated/non-map field, multiple unwrap fields).
+//
+// Root-level unwrap: When a message has exactly one field with unwrap=true on a map or repeated field,
+// the entire message serializes to just that field's value (object for maps, array for repeated).
+// This is detected by checking if the message has exactly one field total.
+//
+// Map-value unwrap (existing): When a repeated field has unwrap=true and the message is used as a map value,
+// the wrapper is collapsed to just the array.
 func getUnwrapField(message *protogen.Message) (*UnwrapFieldInfo, error) {
 	var unwrapField *protogen.Field
 
@@ -312,12 +321,14 @@ func getUnwrapField(message *protogen.Message) (*UnwrapFieldInfo, error) {
 			continue
 		}
 
-		// Validate: must be a repeated field
-		if !field.Desc.IsList() {
+		// Validate: must be a repeated field or a map field
+		isMap := field.Desc.IsMap()
+		isList := field.Desc.IsList()
+		if !isList && !isMap {
 			return nil, &UnwrapValidationError{
 				MessageName: string(message.Desc.Name()),
 				FieldName:   string(field.Desc.Name()),
-				Reason:      "unwrap annotation can only be used on repeated fields",
+				Reason:      "unwrap annotation can only be used on repeated or map fields",
 			}
 		}
 
@@ -337,12 +348,32 @@ func getUnwrapField(message *protogen.Message) (*UnwrapFieldInfo, error) {
 		return nil, nil //nolint:nilnil // nil,nil is intentional: no unwrap field exists, not an error
 	}
 
+	isMapField := unwrapField.Desc.IsMap()
+
+	// Check for root-level unwrap: single field with unwrap annotation
+	// Root unwrap is only valid when the message has exactly one field
+	isRootUnwrap := len(message.Fields) == 1
+
+	// For root unwrap on maps, validate that we're dealing with a map field
+	// For non-root unwrap (map-value unwrap), the field must be a repeated field (not a map)
+	if !isRootUnwrap && isMapField {
+		return nil, &UnwrapValidationError{
+			MessageName: string(message.Desc.Name()),
+			FieldName:   string(unwrapField.Desc.Name()),
+			Reason:      "map fields with unwrap annotation require the message to have exactly one field (root unwrap)",
+		}
+	}
+
 	info := &UnwrapFieldInfo{
-		Field: unwrapField,
+		Field:        unwrapField,
+		IsRootUnwrap: isRootUnwrap,
+		IsMapField:   isMapField,
 	}
 
 	// If the element type is a message, capture it
-	if unwrapField.Message != nil {
+	// For repeated fields, this is the element message type
+	// For map fields, we don't set ElementType here (handled separately in root unwrap logic)
+	if unwrapField.Message != nil && !isMapField {
 		info.ElementType = unwrapField.Message
 	}
 
