@@ -546,6 +546,51 @@ bars:
       $ref: '#/components/schemas/Bar'
 ```
 
+**Root-Level Unwrap (Map or Array at Root):**
+
+When a message has a single field with `unwrap`, the entire schema becomes that field's type:
+
+```protobuf
+// Root map unwrap - response is a plain object
+message UsersResponse {
+  map<string, User> users = 1 [(sebuf.http.unwrap) = true];
+}
+```
+```yaml
+UsersResponse:
+  type: object
+  additionalProperties:
+    $ref: '#/components/schemas/User'
+```
+
+```protobuf
+// Root repeated unwrap - response is a plain array
+message UserList {
+  repeated User users = 1 [(sebuf.http.unwrap) = true];
+}
+```
+```yaml
+UserList:
+  type: array
+  items:
+    $ref: '#/components/schemas/User'
+```
+
+```protobuf
+// Combined unwrap - root map + value unwrap
+message BarsResponse {
+  map<string, BarList> data = 1 [(sebuf.http.unwrap) = true];
+}
+```
+```yaml
+BarsResponse:
+  type: object
+  additionalProperties:
+    type: array
+    items:
+      $ref: '#/components/schemas/Bar'
+```
+
 See [JSON/Protobuf Compatibility](./json-protobuf-compatibility.md) for details.
 
 **Enums:**
