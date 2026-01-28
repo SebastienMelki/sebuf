@@ -151,7 +151,9 @@ service UserService {
 }
 ```
 
-**Unwrap Annotation** - For map values that should serialize as arrays in JSON:
+**Unwrap Annotation** - For map values that should serialize as arrays in JSON, or for root-level unwrapping:
+
+**Map-value unwrap** - Collapses wrapper when used as map value:
 ```protobuf
 // Wrapper message with unwrap annotation
 message BarList {
@@ -163,6 +165,30 @@ message Response {
   // Without unwrap: {"bars": {"AAPL": {"bars": [...]}, ...}}
   map<string, BarList> bars = 1;
 }
+```
+
+**Root-level unwrap** - Message with single field unwraps at root:
+```protobuf
+// Root map unwrap - entire message becomes the map
+message UsersResponse {
+  map<string, User> users = 1 [(sebuf.http.unwrap) = true];
+}
+// JSON: {"user-1": {...}, "user-2": {...}}
+// Without unwrap: {"users": {"user-1": {...}, "user-2": {...}}}
+
+// Root repeated unwrap - entire message becomes the array
+message UserList {
+  repeated User users = 1 [(sebuf.http.unwrap) = true];
+}
+// JSON: [{...}, {...}]
+// Without unwrap: {"users": [{...}, {...}]}
+
+// Combined unwrap - root map + value unwrap for clean map-of-arrays
+message BarsResponse {
+  map<string, BarList> data = 1 [(sebuf.http.unwrap) = true];
+}
+// JSON: {"AAPL": [...], "GOOG": [...]}
+// Without unwrap: {"data": {"AAPL": {"bars": [...]}, ...}}
 ```
 
 ## Development Commands
