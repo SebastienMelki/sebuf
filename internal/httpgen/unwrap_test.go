@@ -197,3 +197,116 @@ func TestUnwrapValidationError(t *testing.T) {
 		t.Errorf("Expected error message %q, got %q", expected, err.Error())
 	}
 }
+
+
+// TestRootUnwrapFileGeneration tests that root unwrap methods are generated correctly.
+func TestRootUnwrapFileGeneration(t *testing.T) {
+	// Skip if protoc is not available
+	if _, err := exec.LookPath("protoc"); err != nil {
+		t.Skip("protoc not found, skipping root unwrap tests")
+	}
+
+	baseDir, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("Failed to get working directory: %v", err)
+	}
+
+	projectRoot := filepath.Join(baseDir, "..", "..")
+	protoDir := filepath.Join(baseDir, "testdata", "proto")
+	tempDir := t.TempDir()
+	pluginPath := filepath.Join(projectRoot, "bin", "protoc-gen-go-http")
+
+	// Build the plugin if it doesn't exist
+	if _, buildStatErr := os.Stat(pluginPath); os.IsNotExist(buildStatErr) {
+		buildCmd := exec.Command("make", "build")
+		buildCmd.Dir = projectRoot
+		if buildErr := buildCmd.Run(); buildErr != nil {
+			t.Fatalf("Failed to build plugin: %v", buildErr)
+		}
+	}
+
+	// Generate code
+	cmd := exec.Command("protoc",
+		"--plugin=protoc-gen-go-http="+pluginPath,
+		"--go_out="+tempDir,
+		"--go_opt=paths=source_relative",
+		"--go-http_out="+tempDir,
+		"--go-http_opt=paths=source_relative",
+		"--proto_path="+protoDir,
+		"--proto_path="+filepath.Join(projectRoot, "proto"),
+		"unwrap.proto",
+	)
+	cmd.Dir = protoDir
+
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
+
+	if runErr := cmd.Run(); runErr != nil {
+		t.Fatalf("protoc failed: %v\nstderr: %s", runErr, stderr.String())
+	}
+
+	// Read generated unwrap file
+	unwrapPath := filepath.Join(tempDir, "unwrap_unwrap.pb.go")
+	unwrapContent, err := os.ReadFile(unwrapPath)
+	if err != nil {
+		t.Fatalf("Failed to read generated unwrap file: %v", err)
+	}
+
+	content := string(unwrapContent)
+
+	t.Run("RootMapResponse MarshalJSON is generated", func(t *testing.T) {
+		if !strings.Contains(content, "func (x *RootMapResponse) MarshalJSON() ([]byte, error)") {
+			t.Error("MarshalJSON not generated for RootMapResponse")
+		}
+	})
+
+	t.Run("RootMapResponse UnmarshalJSON is generated", func(t *testing.T) {
+		if !strings.Contains(content, "func (x *RootMapResponse) UnmarshalJSON(data []byte) error") {
+			t.Error("UnmarshalJSON not generated for RootMapResponse")
+		}
+	})
+
+	t.Run("RootRepeatedResponse MarshalJSON is generated", func(t *testing.T) {
+		if !strings.Contains(content, "func (x *RootRepeatedResponse) MarshalJSON() ([]byte, error)") {
+			t.Error("MarshalJSON not generated for RootRepeatedResponse")
+		}
+	})
+
+	t.Run("RootRepeatedResponse UnmarshalJSON is generated", func(t *testing.T) {
+		if !strings.Contains(content, "func (x *RootRepeatedResponse) UnmarshalJSON(data []byte) error") {
+			t.Error("UnmarshalJSON not generated for RootRepeatedResponse")
+		}
+	})
+
+	t.Run("RootMapWithValueUnwrapResponse MarshalJSON is generated", func(t *testing.T) {
+		if !strings.Contains(content, "func (x *RootMapWithValueUnwrapResponse) MarshalJSON() ([]byte, error)") {
+			t.Error("MarshalJSON not generated for RootMapWithValueUnwrapResponse")
+		}
+	})
+
+	t.Run("ScalarRootMapResponse MarshalJSON is generated", func(t *testing.T) {
+		if !strings.Contains(content, "func (x *ScalarRootMapResponse) MarshalJSON() ([]byte, error)") {
+			t.Error("MarshalJSON not generated for ScalarRootMapResponse")
+		}
+	})
+
+	t.Run("ScalarRootRepeatedResponse MarshalJSON is generated", func(t *testing.T) {
+		if !strings.Contains(content, "func (x *ScalarRootRepeatedResponse) MarshalJSON() ([]byte, error)") {
+			t.Error("MarshalJSON not generated for ScalarRootRepeatedResponse")
+		}
+	})
+
+	t.Run("Root map marshal uses protojson for message values", func(t *testing.T) {
+		// RootMapResponse has message values, should use protojson.Marshal
+		if !strings.Contains(content, "// This method performs root-level unwrap, serializing the message as just the map value.") {
+			t.Error("Root map unwrap documentation not found")
+		}
+	})
+
+	t.Run("Root repeated marshal uses protojson for items", func(t *testing.T) {
+		// RootRepeatedResponse has message items, should use protojson.Marshal
+		if !strings.Contains(content, "// This method performs root-level unwrap, serializing the message as just the array value.") {
+			t.Error("Root repeated unwrap documentation not found")
+		}
+	})
+}
