@@ -40,6 +40,99 @@ paths:
                                         type: string
                                     code:
                                         type: integer
+    /api/v1/root/map:
+        get:
+            tags:
+                - UnwrapService
+            summary: GetRootMap
+            description: GetRootMap tests root-level map unwrap response
+            operationId: GetRootMap
+            responses:
+                "200":
+                    description: Successful response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/RootMapResponse'
+                "400":
+                    description: Validation error
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ValidationError'
+                default:
+                    description: Error response
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    error:
+                                        type: string
+                                    code:
+                                        type: integer
+    /api/v1/root/repeated:
+        get:
+            tags:
+                - UnwrapService
+            summary: GetRootRepeated
+            description: GetRootRepeated tests root-level repeated unwrap response
+            operationId: GetRootRepeated
+            responses:
+                "200":
+                    description: Successful response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/RootRepeatedResponse'
+                "400":
+                    description: Validation error
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ValidationError'
+                default:
+                    description: Error response
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    error:
+                                        type: string
+                                    code:
+                                        type: integer
+    /api/v1/root/map-value-unwrap:
+        get:
+            tags:
+                - UnwrapService
+            summary: GetRootMapWithValueUnwrap
+            description: GetRootMapWithValueUnwrap tests combined unwrap response
+            operationId: GetRootMapWithValueUnwrap
+            responses:
+                "200":
+                    description: Successful response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/RootMapWithValueUnwrapResponse'
+                "400":
+                    description: Validation error
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ValidationError'
+                default:
+                    description: Error response
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    error:
+                                        type: string
+                                    code:
+                                        type: integer
 components:
     schemas:
         FieldViolation:
@@ -99,12 +192,9 @@ components:
                 value:
                     $ref: '#/components/schemas/OptionBarsList'
         OptionBarsList:
-            type: object
-            properties:
-                bars:
-                    type: array
-                    items:
-                        $ref: '#/components/schemas/OptionBar'
+            type: array
+            items:
+                $ref: '#/components/schemas/OptionBar'
             description: OptionBarsList is a wrapper message with an unwrap field
         OptionBar:
             type: object
@@ -120,3 +210,40 @@ components:
                 timestamp:
                     type: string
             description: OptionBar represents a single option bar data point
+        RootMapResponse:
+            type: object
+            additionalProperties:
+                $ref: '#/components/schemas/OptionBar'
+            description: |-
+                RootMapResponse tests root-level map unwrap with message values.
+                 OpenAPI: type=object with additionalProperties referencing OptionBar
+        PeopleEntry:
+            type: object
+            properties:
+                key:
+                    type: string
+                value:
+                    $ref: '#/components/schemas/OptionBar'
+        RootRepeatedResponse:
+            type: array
+            items:
+                $ref: '#/components/schemas/OptionBar'
+            description: |-
+                RootRepeatedResponse tests root-level repeated unwrap.
+                 OpenAPI: type=array with items referencing OptionBar
+        RootMapWithValueUnwrapResponse:
+            type: object
+            additionalProperties:
+                type: array
+                items:
+                    $ref: '#/components/schemas/OptionBar'
+            description: |-
+                RootMapWithValueUnwrapResponse tests combined unwrap (root map + value unwrap).
+                 OpenAPI: type=object with additionalProperties being array of OptionBar
+        DataEntry:
+            type: object
+            properties:
+                key:
+                    type: string
+                value:
+                    $ref: '#/components/schemas/OptionBarsList'
