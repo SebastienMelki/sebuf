@@ -29,6 +29,18 @@ const (
 type UnwrapContext struct {
 	// Messages that contain map fields whose value type has an unwrap field
 	ContainingMessages []*UnwrapContainingMessage
+	// Messages that have root-level unwrap (single field with unwrap on map or repeated)
+	RootUnwrapMessages []*RootUnwrapMessage
+}
+
+// RootUnwrapMessage represents a message that should unwrap at the root level.
+// This means the entire message serializes to just the unwrap field's value.
+type RootUnwrapMessage struct {
+	Message      *protogen.Message // The message with root unwrap
+	UnwrapField  *protogen.Field   // The single field with unwrap=true
+	IsMap        bool              // True if the unwrap field is a map
+	ValueMessage *protogen.Message // For maps: the map value message type
+	ValueUnwrap  *UnwrapFieldInfo  // For maps: if the value message also has an unwrap field
 }
 
 // UnwrapContainingMessage represents a message that contains map fields with unwrap values.
@@ -51,7 +63,11 @@ func (g *Generator) collectUnwrapContext(file *protogen.File) *UnwrapContext {
 	// First, collect all messages that have unwrap fields (including nested messages)
 	unwrapMessages := collectAllUnwrapFields(file.Messages)
 
+	// Collect root unwrap messages (single field with unwrap on map/repeated)
+	collectRootUnwrapMessages(file.Messages, unwrapMessages, ctx)
+
 	// Now find messages that have map fields whose value type is in unwrapMessages
+	// Only include messages that are NOT root unwrap messages (those are handled separately)
 	findMapFieldsWithUnwrap(file.Messages, unwrapMessages, ctx)
 
 	return ctx
@@ -69,14 +85,56 @@ func collectUnwrapFieldsRecursive(messages []*protogen.Message, result map[strin
 	for _, msg := range messages {
 		info, err := getUnwrapField(msg)
 		if err != nil {
-			// Log error but continue
+			// Log error but continue - store error for debugging
+			// NOTE: This suppresses errors for messages that fail validation
 			continue
 		}
 		if info != nil {
-			result[string(msg.Desc.FullName())] = info
+			fullName := string(msg.Desc.FullName())
+			result[fullName] = info
 		}
 		// Check nested messages too
 		collectUnwrapFieldsRecursive(msg.Messages, result)
+	}
+}
+
+// collectRootUnwrapMessages finds messages that have root-level unwrap.
+// Root unwrap means the message has exactly one field with unwrap=true on a map or repeated field.
+func collectRootUnwrapMessages(
+	messages []*protogen.Message,
+	unwrapMessages map[string]*UnwrapFieldInfo,
+	ctx *UnwrapContext,
+) {
+	for _, msg := range messages {
+		info, ok := unwrapMessages[string(msg.Desc.FullName())]
+		if !ok || !info.IsRootUnwrap {
+			// Check nested messages
+			collectRootUnwrapMessages(msg.Messages, unwrapMessages, ctx)
+			continue
+		}
+
+		rootUnwrap := &RootUnwrapMessage{
+			Message:     msg,
+			UnwrapField: info.Field,
+			IsMap:       info.IsMapField,
+		}
+
+		// For map fields, get the value message and check if it also has unwrap
+		if info.IsMapField {
+			valueMsg := getMapValueMessage(info.Field)
+			if valueMsg != nil {
+				rootUnwrap.ValueMessage = valueMsg
+				// Check if the value message also has an unwrap field (combined unwrap)
+				if valueUnwrap, valueErr := getUnwrapField(valueMsg); valueErr == nil && valueUnwrap != nil {
+					rootUnwrap.ValueUnwrap = valueUnwrap
+				}
+			}
+		}
+
+		ctx.RootUnwrapMessages = append(ctx.RootUnwrapMessages, rootUnwrap)
+
+		// Check nested messages
+		collectRootUnwrapMessages(msg.Messages, unwrapMessages, ctx)
 	}
 }
 
@@ -87,6 +145,13 @@ func findMapFieldsWithUnwrap(
 	ctx *UnwrapContext,
 ) {
 	for _, msg := range messages {
+		// Skip if this message is already a root unwrap message
+		if isRootUnwrapMessage(msg, ctx) {
+			// Check nested messages too
+			findMapFieldsWithUnwrap(msg.Messages, unwrapMessages, ctx)
+			continue
+		}
+
 		mapFields := collectUnwrapMapFields(msg, unwrapMessages)
 
 		if len(mapFields) > 0 {
@@ -99,6 +164,16 @@ func findMapFieldsWithUnwrap(
 		// Check nested messages too
 		findMapFieldsWithUnwrap(msg.Messages, unwrapMessages, ctx)
 	}
+}
+
+// isRootUnwrapMessage checks if a message is already in the root unwrap list.
+func isRootUnwrapMessage(msg *protogen.Message, ctx *UnwrapContext) bool {
+	for _, rootUnwrap := range ctx.RootUnwrapMessages {
+		if rootUnwrap.Message == msg {
+			return true
+		}
+	}
+	return false
 }
 
 // collectUnwrapMapFields collects map fields whose value types have unwrap fields.
@@ -159,7 +234,7 @@ func (g *Generator) generateUnwrapFile(file *protogen.File) error {
 	ctx := g.collectUnwrapContext(file)
 
 	// If no messages need unwrap methods, skip generation
-	if len(ctx.ContainingMessages) == 0 {
+	if len(ctx.ContainingMessages) == 0 && len(ctx.RootUnwrapMessages) == 0 {
 		return nil
 	}
 
@@ -169,6 +244,18 @@ func (g *Generator) generateUnwrapFile(file *protogen.File) error {
 	g.writeHeader(gf, file)
 	g.writeUnwrapImports(gf)
 
+	// Generate root unwrap methods first
+	for _, rootUnwrap := range ctx.RootUnwrapMessages {
+		if rootUnwrap.IsMap {
+			g.generateRootMapUnwrapMarshalJSON(gf, rootUnwrap)
+			g.generateRootMapUnwrapUnmarshalJSON(gf, rootUnwrap)
+		} else {
+			g.generateRootRepeatedUnwrapMarshalJSON(gf, rootUnwrap)
+			g.generateRootRepeatedUnwrapUnmarshalJSON(gf, rootUnwrap)
+		}
+	}
+
+	// Generate map-value unwrap methods
 	for _, containing := range ctx.ContainingMessages {
 		g.generateUnwrapMarshalJSON(gf, containing)
 		g.generateUnwrapUnmarshalJSON(gf, containing)
@@ -556,4 +643,258 @@ func getScalarTypeName(field *protogen.Field) string {
 	default:
 		return kindInterface
 	}
+}
+
+// =============================================================================
+// Root Unwrap Generation Methods
+// =============================================================================
+
+// generateRootMapUnwrapMarshalJSON generates MarshalJSON for root-level map unwrap.
+// The message serializes to {"key1": ..., "key2": ...} instead of {"fieldName": {"key1": ..., ...}}.
+func (g *Generator) generateRootMapUnwrapMarshalJSON(gf *protogen.GeneratedFile, rootUnwrap *RootUnwrapMessage) {
+	msgName := rootUnwrap.Message.GoIdent.GoName
+	fieldName := rootUnwrap.UnwrapField.GoName
+
+	gf.P("// MarshalJSON implements json.Marshaler for ", msgName, ".")
+	gf.P("// This method performs root-level unwrap, serializing the message as just the map value.")
+	gf.P("func (x *", msgName, ") MarshalJSON() ([]byte, error) {")
+	gf.P("if x == nil {")
+	gf.P("return []byte(\"null\"), nil")
+	gf.P("}")
+	gf.P()
+
+	// Check if we have combined unwrap (root map + value unwrap)
+	if rootUnwrap.ValueUnwrap != nil {
+		// Combined unwrap: root map with value that also has unwrap
+		g.generateRootMapWithValueUnwrapMarshal(gf, rootUnwrap, fieldName)
+	} else if rootUnwrap.ValueMessage != nil {
+		// Root map with message values (no value unwrap)
+		g.generateRootMapMessageValueMarshal(gf, rootUnwrap, fieldName)
+	} else {
+		// Root map with scalar values
+		gf.P("return json.Marshal(x.", fieldName, ")")
+	}
+
+	gf.P("}")
+	gf.P()
+}
+
+// generateRootMapWithValueUnwrapMarshal handles the case where root map value also has unwrap.
+// Example: {"AAPL": [...], "GOOG": [...]} where each value is an unwrapped array.
+func (g *Generator) generateRootMapWithValueUnwrapMarshal(
+	gf *protogen.GeneratedFile,
+	rootUnwrap *RootUnwrapMessage,
+	fieldName string,
+) {
+	unwrapFieldName := rootUnwrap.ValueUnwrap.Field.GoName
+	isMessageType := rootUnwrap.ValueUnwrap.ElementType != nil
+
+	gf.P("out := make(map[string]json.RawMessage)")
+	gf.P("for k, wrapper := range x.", fieldName, " {")
+	gf.P("if wrapper != nil {")
+
+	if isMessageType {
+		gf.P("items := make([]json.RawMessage, 0, len(wrapper.Get", unwrapFieldName, "()))")
+		gf.P("for _, item := range wrapper.Get", unwrapFieldName, "() {")
+		gf.P("data, err := protojson.Marshal(item)")
+		gf.P("if err != nil {")
+		gf.P("return nil, err")
+		gf.P("}")
+		gf.P("items = append(items, data)")
+		gf.P("}")
+		gf.P("arrayData, err := json.Marshal(items)")
+	} else {
+		gf.P("arrayData, err := json.Marshal(wrapper.Get", unwrapFieldName, "())")
+	}
+
+	gf.P("if err != nil {")
+	gf.P("return nil, err")
+	gf.P("}")
+	gf.P("out[k] = arrayData")
+	gf.P("}")
+	gf.P("}")
+	gf.P("return json.Marshal(out)")
+}
+
+// generateRootMapMessageValueMarshal handles root map with message values (no value unwrap).
+func (g *Generator) generateRootMapMessageValueMarshal(
+	gf *protogen.GeneratedFile,
+	rootUnwrap *RootUnwrapMessage,
+	fieldName string,
+) {
+	gf.P("out := make(map[string]json.RawMessage)")
+	gf.P("for k, v := range x.", fieldName, " {")
+	gf.P("if v != nil {")
+	gf.P("data, err := protojson.Marshal(v)")
+	gf.P("if err != nil {")
+	gf.P("return nil, err")
+	gf.P("}")
+	gf.P("out[k] = data")
+	gf.P("}")
+	gf.P("}")
+	gf.P("return json.Marshal(out)")
+}
+
+// generateRootMapUnwrapUnmarshalJSON generates UnmarshalJSON for root-level map unwrap.
+func (g *Generator) generateRootMapUnwrapUnmarshalJSON(gf *protogen.GeneratedFile, rootUnwrap *RootUnwrapMessage) {
+	msgName := rootUnwrap.Message.GoIdent.GoName
+	fieldName := rootUnwrap.UnwrapField.GoName
+
+	gf.P("// UnmarshalJSON implements json.Unmarshaler for ", msgName, ".")
+	gf.P("// This method performs root-level unwrap, deserializing from just the map value.")
+	gf.P("func (x *", msgName, ") UnmarshalJSON(data []byte) error {")
+
+	// Check if we have combined unwrap (root map + value unwrap)
+	if rootUnwrap.ValueUnwrap != nil {
+		g.generateRootMapWithValueUnwrapUnmarshal(gf, rootUnwrap, fieldName)
+	} else if rootUnwrap.ValueMessage != nil {
+		g.generateRootMapMessageValueUnmarshal(gf, rootUnwrap, fieldName)
+	} else {
+		// Root map with scalar values
+		gf.P("return json.Unmarshal(data, &x.", fieldName, ")")
+	}
+
+	gf.P("}")
+	gf.P()
+}
+
+// generateRootMapWithValueUnwrapUnmarshal handles unmarshaling combined unwrap.
+func (g *Generator) generateRootMapWithValueUnwrapUnmarshal(
+	gf *protogen.GeneratedFile,
+	rootUnwrap *RootUnwrapMessage,
+	fieldName string,
+) {
+	valueTypeIdent := rootUnwrap.ValueMessage.GoIdent
+	unwrapFieldName := rootUnwrap.ValueUnwrap.Field.GoName
+	var elementTypeIdent *protogen.GoIdent
+	if rootUnwrap.ValueUnwrap.ElementType != nil {
+		ident := rootUnwrap.ValueUnwrap.ElementType.GoIdent
+		elementTypeIdent = &ident
+	}
+
+	gf.P("var mapRaw map[string]json.RawMessage")
+	gf.P("if err := json.Unmarshal(data, &mapRaw); err != nil {")
+	gf.P("return err")
+	gf.P("}")
+	gf.P("x.", fieldName, " = make(map[string]*", gf.QualifiedGoIdent(valueTypeIdent), ")")
+	gf.P("for k, arrayRaw := range mapRaw {")
+
+	if elementTypeIdent != nil {
+		gf.P("var itemsRaw []json.RawMessage")
+		gf.P("if err := json.Unmarshal(arrayRaw, &itemsRaw); err != nil {")
+		gf.P("return err")
+		gf.P("}")
+		gf.P("items := make([]*", gf.QualifiedGoIdent(*elementTypeIdent), ", 0, len(itemsRaw))")
+		gf.P("for _, itemRaw := range itemsRaw {")
+		gf.P("item := &", *elementTypeIdent, "{}")
+		gf.P("if err := protojson.Unmarshal(itemRaw, item); err != nil {")
+		gf.P("return err")
+		gf.P("}")
+		gf.P("items = append(items, item)")
+		gf.P("}")
+	} else {
+		gf.P("var items []", getScalarTypeName(rootUnwrap.ValueUnwrap.Field))
+		gf.P("if err := json.Unmarshal(arrayRaw, &items); err != nil {")
+		gf.P("return err")
+		gf.P("}")
+	}
+
+	gf.P("x.", fieldName, "[k] = &", valueTypeIdent, "{", unwrapFieldName, ": items}")
+	gf.P("}")
+	gf.P("return nil")
+}
+
+// generateRootMapMessageValueUnmarshal handles root map with message values (no value unwrap).
+func (g *Generator) generateRootMapMessageValueUnmarshal(
+	gf *protogen.GeneratedFile,
+	rootUnwrap *RootUnwrapMessage,
+	fieldName string,
+) {
+	valueTypeIdent := rootUnwrap.ValueMessage.GoIdent
+
+	gf.P("var mapRaw map[string]json.RawMessage")
+	gf.P("if err := json.Unmarshal(data, &mapRaw); err != nil {")
+	gf.P("return err")
+	gf.P("}")
+	gf.P("x.", fieldName, " = make(map[string]*", gf.QualifiedGoIdent(valueTypeIdent), ")")
+	gf.P("for k, v := range mapRaw {")
+	gf.P("item := &", valueTypeIdent, "{}")
+	gf.P("if err := protojson.Unmarshal(v, item); err != nil {")
+	gf.P("return err")
+	gf.P("}")
+	gf.P("x.", fieldName, "[k] = item")
+	gf.P("}")
+	gf.P("return nil")
+}
+
+// generateRootRepeatedUnwrapMarshalJSON generates MarshalJSON for root-level repeated unwrap.
+// The message serializes to [...] instead of {"fieldName": [...]}.
+func (g *Generator) generateRootRepeatedUnwrapMarshalJSON(gf *protogen.GeneratedFile, rootUnwrap *RootUnwrapMessage) {
+	msgName := rootUnwrap.Message.GoIdent.GoName
+	fieldName := rootUnwrap.UnwrapField.GoName
+
+	gf.P("// MarshalJSON implements json.Marshaler for ", msgName, ".")
+	gf.P("// This method performs root-level unwrap, serializing the message as just the array value.")
+	gf.P("func (x *", msgName, ") MarshalJSON() ([]byte, error) {")
+	gf.P("if x == nil {")
+	gf.P("return []byte(\"null\"), nil")
+	gf.P("}")
+	gf.P()
+
+	// Check if element is a message type
+	if rootUnwrap.UnwrapField.Message != nil {
+		elementTypeIdent := rootUnwrap.UnwrapField.Message.GoIdent
+		gf.P("items := make([]json.RawMessage, 0, len(x.", fieldName, "))")
+		gf.P("for _, item := range x.", fieldName, " {")
+		gf.P("data, err := protojson.Marshal(item)")
+		gf.P("if err != nil {")
+		gf.P("return nil, err")
+		gf.P("}")
+		gf.P("items = append(items, data)")
+		gf.P("}")
+		gf.P("return json.Marshal(items)")
+		gf.P()
+		// Suppress unused variable warning
+		_ = elementTypeIdent
+	} else {
+		// Scalar type - marshal directly
+		gf.P("return json.Marshal(x.", fieldName, ")")
+	}
+
+	gf.P("}")
+	gf.P()
+}
+
+// generateRootRepeatedUnwrapUnmarshalJSON generates UnmarshalJSON for root-level repeated unwrap.
+func (g *Generator) generateRootRepeatedUnwrapUnmarshalJSON(gf *protogen.GeneratedFile, rootUnwrap *RootUnwrapMessage) {
+	msgName := rootUnwrap.Message.GoIdent.GoName
+	fieldName := rootUnwrap.UnwrapField.GoName
+
+	gf.P("// UnmarshalJSON implements json.Unmarshaler for ", msgName, ".")
+	gf.P("// This method performs root-level unwrap, deserializing from just the array value.")
+	gf.P("func (x *", msgName, ") UnmarshalJSON(data []byte) error {")
+
+	// Check if element is a message type
+	if rootUnwrap.UnwrapField.Message != nil {
+		elementTypeIdent := rootUnwrap.UnwrapField.Message.GoIdent
+		gf.P("var itemsRaw []json.RawMessage")
+		gf.P("if err := json.Unmarshal(data, &itemsRaw); err != nil {")
+		gf.P("return err")
+		gf.P("}")
+		gf.P("x.", fieldName, " = make([]*", gf.QualifiedGoIdent(elementTypeIdent), ", 0, len(itemsRaw))")
+		gf.P("for _, itemRaw := range itemsRaw {")
+		gf.P("item := &", elementTypeIdent, "{}")
+		gf.P("if err := protojson.Unmarshal(itemRaw, item); err != nil {")
+		gf.P("return err")
+		gf.P("}")
+		gf.P("x.", fieldName, " = append(x.", fieldName, ", item)")
+		gf.P("}")
+		gf.P("return nil")
+	} else {
+		// Scalar type - unmarshal directly
+		gf.P("return json.Unmarshal(data, &x.", fieldName, ")")
+	}
+
+	gf.P("}")
+	gf.P()
 }
