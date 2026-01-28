@@ -1,0 +1,127 @@
+syntax = "proto3";
+
+package testdata.user;
+
+option go_package = "github.com/SebastienMelki/sebuf/rust/testdata/user";
+
+import "sebuf/http/annotations.proto";
+
+// User represents a system user
+message User {
+  string id = 1;
+  string email = 2;
+  string name = 3;
+  UserStatus status = 4;
+  int64 created_at = 5;
+  optional string phone = 6;
+  repeated string roles = 7;
+  map<string, string> metadata = 8;
+}
+
+// UserStatus represents the user's account status
+enum UserStatus {
+  USER_STATUS_UNSPECIFIED = 0;
+  USER_STATUS_ACTIVE = 1;
+  USER_STATUS_INACTIVE = 2;
+  USER_STATUS_SUSPENDED = 3;
+}
+
+// LoginRequest with multiple auth methods
+message LoginRequest {
+  oneof auth_method {
+    EmailAuth email = 1;
+    PhoneAuth phone = 2;
+    OAuthAuth oauth = 3;
+  }
+  
+  message EmailAuth {
+    string email = 1;
+    string password = 2;
+  }
+  
+  message PhoneAuth {
+    string phone = 1;
+    string code = 2;
+  }
+  
+  message OAuthAuth {
+    string provider = 1;
+    string token = 2;
+  }
+}
+
+// CreateUserRequest for creating new users
+message CreateUserRequest {
+  string email = 1;
+  string name = 2;
+  string password = 3;
+  repeated string initial_roles = 4;
+}
+
+// GetUserRequest for fetching user by ID
+message GetUserRequest {
+  string user_id = 1;
+}
+
+// UpdateUserRequest for updating user details
+message UpdateUserRequest {
+  string user_id = 1;
+  optional string name = 2;
+  optional string email = 3;
+  optional UserStatus status = 4;
+}
+
+// ListUsersRequest for listing users
+message ListUsersRequest {
+  int32 page_size = 1;
+  string page_token = 2;
+  optional UserStatus filter_status = 3;
+}
+
+// ListUsersResponse with pagination
+message ListUsersResponse {
+  repeated User users = 1;
+  string next_page_token = 2;
+  int32 total_count = 3;
+}
+
+// UserService provides user management operations
+service UserService {
+  // CreateUser creates a new user account
+  rpc CreateUser(CreateUserRequest) returns (User) {
+    option (sebuf.http) = {
+      post: "/api/v1/users"
+      body: "*"
+    };
+  }
+  
+  // GetUser retrieves a user by ID
+  rpc GetUser(GetUserRequest) returns (User) {
+    option (sebuf.http) = {
+      get: "/api/v1/users/{user_id}"
+    };
+  }
+  
+  // UpdateUser updates user information
+  rpc UpdateUser(UpdateUserRequest) returns (User) {
+    option (sebuf.http) = {
+      patch: "/api/v1/users/{user_id}"
+      body: "*"
+    };
+  }
+  
+  // ListUsers returns a paginated list of users
+  rpc ListUsers(ListUsersRequest) returns (ListUsersResponse) {
+    option (sebuf.http) = {
+      get: "/api/v1/users"
+    };
+  }
+  
+  // Login authenticates a user
+  rpc Login(LoginRequest) returns (User) {
+    option (sebuf.http) = {
+      post: "/api/v1/auth/login"
+      body: "*"
+    };
+  }
+}
