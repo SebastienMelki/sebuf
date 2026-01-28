@@ -1,0 +1,72 @@
+//
+//  GeneratorPlugin.swift
+//  SwiftSebuf
+//
+//  Created by Khaled Chehabeddine on 11/01/2026.
+//  Copyright © 2026 Sebuf. All rights reserved.
+//
+
+import SwiftProtobuf
+import SwiftProtobufPluginLibrary
+import SwiftSebuf
+
+@main
+internal struct GeneratorPlugin: CodeGenerator {
+	
+	internal func generate(
+		files: [FileDescriptor],
+		parameter: any CodeGeneratorParameter,
+		protoCompilerContext: any ProtoCompilerContext,
+		generatorOutputs: any GeneratorOutputs
+	) throws {
+		let options = try GeneratorOptions(parameter: parameter)
+		for fileDescriptor in files {
+			do {
+				let fileGenerator = FileGenerator(descriptor: fileDescriptor, options: options)
+				var printer = CodePrinter(addNewlines: true)
+				try fileGenerator.generate(printer: &printer)
+				try generatorOutputs.add(fileName: fileGenerator.name, contents: printer.content)
+			} catch let error as GeneratorError {
+				throw GenerationError.generator(error)
+			} catch {
+				throw error
+			}
+		}
+	}
+	
+	// MARK: Confirm with Codeowner on supported protobuf features
+	internal let supportedFeatures: [Google_Protobuf_Compiler_CodeGeneratorResponse.Feature] = [
+		.proto3Optional, .supportsEditions
+	]
+	// MARK: Confirm with Codeowner on the supported range
+	internal let supportedEditionRange: ClosedRange<Google_Protobuf_Edition> = .proto3 ... .edition2024
+	internal let version: String? = SwiftSebuf.Version.description
+	internal let projectURL: String? = "https://github.com/SebastienMelki/sebuf"
+	internal let copyrightLine: String? = Version.copyright
+	
+	internal func printHelp() {
+		// TODO: Figure out later, use swift-protobuf as reference
+	}
+}
+
+/*
+ 
+ TODO: Should be removed later, only for testing purposes
+ 
+ Build Steps:
+ 
+ swift build
+ 
+ protoc \
+	 --proto_path=Tests/protoc-gen-swift-httpTests/Golden/SimpleService \
+	 --swift_out=Tests/protoc-gen-swift-httpTests/Golden/SimpleService \
+	 --plugin=protoc-gen-swift=$(which protoc-gen-swift) \
+	 Tests/protoc-gen-swift-httpTests/Golden/SimpleService/simple_user_service.proto
+ 
+ protoc \
+	 --proto_path=Tests/protoc-gen-swift-httpTests/Golden/SimpleService \
+	 --swift-sebuf_out=Tests/protoc-gen-swift-httpTests/Golden/SimpleService \
+	 --plugin=protoc-gen-swift-sebuf=.build/debug/protoc-gen-swift-http \
+	 Tests/protoc-gen-swift-httpTests/Golden/SimpleService/simple_user_service.proto
+ 
+ */
