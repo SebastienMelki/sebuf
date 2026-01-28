@@ -48,4 +48,62 @@ service UnwrapService {
       method: HTTP_METHOD_POST
     };
   }
+
+  // GetRootMap tests root-level map unwrap response
+  rpc GetRootMap(GetOptionBarsRequest) returns (RootMapResponse) {
+    option (sebuf.http.config) = {
+      path: "/root/map"
+      method: HTTP_METHOD_GET
+    };
+  }
+
+  // GetRootRepeated tests root-level repeated unwrap response
+  rpc GetRootRepeated(GetOptionBarsRequest) returns (RootRepeatedResponse) {
+    option (sebuf.http.config) = {
+      path: "/root/repeated"
+      method: HTTP_METHOD_GET
+    };
+  }
+
+  // GetRootMapWithValueUnwrap tests combined unwrap response
+  rpc GetRootMapWithValueUnwrap(GetOptionBarsRequest) returns (RootMapWithValueUnwrapResponse) {
+    option (sebuf.http.config) = {
+      path: "/root/map-value-unwrap"
+      method: HTTP_METHOD_GET
+    };
+  }
+}
+
+// =============================================================================
+// Root-Level Unwrap Test Messages
+// =============================================================================
+
+// RootMapResponse tests root-level map unwrap with message values.
+// OpenAPI: type=object with additionalProperties referencing OptionBar
+message RootMapResponse {
+  map<string, OptionBar> people = 1 [(sebuf.http.unwrap) = true];
+}
+
+// RootRepeatedResponse tests root-level repeated unwrap.
+// OpenAPI: type=array with items referencing OptionBar
+message RootRepeatedResponse {
+  repeated OptionBar items = 1 [(sebuf.http.unwrap) = true];
+}
+
+// RootMapWithValueUnwrapResponse tests combined unwrap (root map + value unwrap).
+// OpenAPI: type=object with additionalProperties being array of OptionBar
+message RootMapWithValueUnwrapResponse {
+  map<string, OptionBarsList> data = 1 [(sebuf.http.unwrap) = true];
+}
+
+// ScalarRootMapResponse tests root-level map unwrap with scalar values.
+// OpenAPI: type=object with additionalProperties being integer
+message ScalarRootMapResponse {
+  map<string, int32> counts = 1 [(sebuf.http.unwrap) = true];
+}
+
+// ScalarRootRepeatedResponse tests root-level repeated unwrap with scalars.
+// OpenAPI: type=array with items being string
+message ScalarRootRepeatedResponse {
+  repeated string names = 1 [(sebuf.http.unwrap) = true];
 }

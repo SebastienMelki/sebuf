@@ -10,6 +10,7 @@ Protobuf and JSON have different type systems and serialization behaviors. While
 
 - [Overview](#overview)
 - [Map Value Unwrapping](#map-value-unwrapping)
+- [Root-Level Unwrapping](#root-level-unwrapping)
 - [When to Use Unwrap](#when-to-use-unwrap)
 - [Limitations](#limitations)
 - [Best Practices](#best-practices)
@@ -222,38 +223,181 @@ message ScoresResponse {
 }
 ```
 
+## Root-Level Unwrapping
+
+Root-level unwrap is a special case where a message has **exactly one field** with the `unwrap` annotation on a map or repeated field. In this case, the entire message serializes to just that field's value, removing the outer object wrapper entirely.
+
+### Root Map Unwrap
+
+When a message has a single map field with `unwrap=true`, the message serializes as a plain object instead of `{"fieldName": {...}}`:
+
+```protobuf
+// Root-level map unwrap - single field with unwrap
+message UsersByID {
+  map<string, User> users = 1 [(sebuf.http.unwrap) = true];
+}
+```
+
+**Without root unwrap** (normal behavior):
+```json
+{
+  "users": {
+    "user-1": {"name": "Alice", "email": "alice@example.com"},
+    "user-2": {"name": "Bob", "email": "bob@example.com"}
+  }
+}
+```
+
+**With root unwrap** (one field only):
+```json
+{
+  "user-1": {"name": "Alice", "email": "alice@example.com"},
+  "user-2": {"name": "Bob", "email": "bob@example.com"}
+}
+```
+
+This is useful for API responses that should return a plain object at the root level.
+
+### Root Repeated Unwrap
+
+Similarly, when a message has a single repeated field with `unwrap=true`, it serializes as a plain array:
+
+```protobuf
+// Root-level repeated unwrap - single field with unwrap
+message UserList {
+  repeated User users = 1 [(sebuf.http.unwrap) = true];
+}
+```
+
+**Without root unwrap**:
+```json
+{
+  "users": [
+    {"name": "Alice", "email": "alice@example.com"},
+    {"name": "Bob", "email": "bob@example.com"}
+  ]
+}
+```
+
+**With root unwrap**:
+```json
+[
+  {"name": "Alice", "email": "alice@example.com"},
+  {"name": "Bob", "email": "bob@example.com"}
+]
+```
+
+### Combined Unwrap (Root Map + Value Unwrap)
+
+The most powerful use case combines root map unwrap with map-value unwrap. This produces a clean map-of-arrays structure:
+
+```protobuf
+// Value wrapper with unwrap
+message BarList {
+  repeated Bar bars = 1 [(sebuf.http.unwrap) = true];
+}
+
+// Root-level map unwrap with value unwrap
+message BarsResponse {
+  map<string, BarList> data = 1 [(sebuf.http.unwrap) = true];
+}
+```
+
+**Result** - Double unwrap creates clean map-of-arrays:
+```json
+{
+  "AAPL": [{"price": 150.0}, {"price": 151.0}],
+  "GOOG": [{"price": 2800.0}, {"price": 2810.0}]
+}
+```
+
+Instead of:
+```json
+{
+  "data": {
+    "AAPL": {"bars": [{"price": 150.0}, {"price": 151.0}]},
+    "GOOG": {"bars": [{"price": 2800.0}, {"price": 2810.0}]}
+  }
+}
+```
+
+### Root Unwrap with Scalar Types
+
+Root unwrap also works with scalar map and repeated fields:
+
+```protobuf
+// Root map with scalar values
+message ScoresMap {
+  map<string, int32> scores = 1 [(sebuf.http.unwrap) = true];
+}
+
+// Root repeated with scalar values
+message TagList {
+  repeated string tags = 1 [(sebuf.http.unwrap) = true];
+}
+```
+
+**JSON Output:**
+```json
+// ScoresMap
+{"team1": 100, "team2": 95, "team3": 88}
+
+// TagList
+["urgent", "bug", "frontend"]
+```
+
 ## When to Use Unwrap
 
 Use the `unwrap` annotation when:
 
-1. **You need map values to be arrays in JSON** - The most common use case
-2. **You're matching an existing API contract** - When integrating with external systems that expect this format
-3. **You want cleaner JSON output** - Removing unnecessary wrapper nesting
+1. **You need map values to be arrays in JSON** - Map-value unwrap for `map<string, WrapperList>`
+2. **You need root-level objects/arrays** - Root unwrap for single-field response messages
+3. **You're matching an existing API contract** - When integrating with external systems that expect this format
+4. **You want cleaner JSON output** - Removing unnecessary wrapper nesting
+5. **Combined unwrap for map-of-arrays** - Root map + value unwrap for clean `{"key": [...]}`
 
 **Don't use unwrap when:**
 
-1. The wrapper message has other fields besides the repeated field
+1. The wrapper message has other fields besides the repeated/map field (root unwrap requires exactly one field)
 2. You need the wrapper structure for other purposes (like additional metadata per array)
 3. You're not using JSON serialization (binary protobuf doesn't need it)
+4. The message is used in contexts other than as a map value or response root
 
 ## Limitations
 
 ### Constraints
 
 1. **One unwrap field per message** - Only one field can have the `unwrap` annotation
-2. **Must be a repeated field** - The annotation is only valid on `repeated` fields
-3. **Wrapper message must be a map value** - The unwrap behavior only applies when the containing message is used as a map value
+2. **Must be a repeated or map field** - The annotation is only valid on `repeated` or `map` fields
+3. **Map fields require root unwrap** - Map fields with unwrap must be the only field in the message (root unwrap)
+4. **Root unwrap requires single field** - Root-level unwrap only works when the message has exactly one field
+
+### Two Unwrap Modes
+
+**Map-Value Unwrap** (existing):
+- Applied to repeated fields in messages used as map values
+- Collapses the wrapper when the message is a map value
+- Message can have other fields (but only the unwrap field is used)
+
+**Root Unwrap** (new):
+- Applied to the single field in a message (map or repeated)
+- Entire message serializes to just that field's value
+- Message **must have exactly one field**
 
 ### Validation Errors
 
 If constraints are violated, you'll get clear error messages:
 
 ```
-unwrap annotation can only be used on repeated fields
+unwrap annotation can only be used on repeated or map fields
 ```
 
 ```
 only one field per message can have the unwrap annotation
+```
+
+```
+map fields with unwrap annotation require the message to have exactly one field (root unwrap)
 ```
 
 ## Best Practices
@@ -276,18 +420,33 @@ message OptionBarsWrapper {
 
 ### 2. Keep Wrapper Messages Simple
 
-The wrapper should only contain the unwrapped field:
+**For map-value unwrap**, the wrapper should typically only contain the unwrapped field:
 
 ```protobuf
-// Good: Single purpose wrapper
+// Good: Single purpose wrapper for map values
 message BarList {
   repeated Bar bars = 1 [(sebuf.http.unwrap) = true];
 }
 
-// Avoid: Extra fields defeat the purpose
+// Acceptable: Other fields preserved when not used as map value
 message BarList {
   repeated Bar bars = 1 [(sebuf.http.unwrap) = true];
-  string extra_info = 2;  // This field will be lost in JSON!
+  string metadata = 2;  // Works if used in other contexts
+}
+```
+
+**For root unwrap**, the message **must have exactly one field**:
+
+```protobuf
+// Good: Root unwrap - single field only
+message BarsResponse {
+  map<string, BarList> data = 1 [(sebuf.http.unwrap) = true];
+}
+
+// Invalid: Root unwrap requires exactly one field
+message BarsResponse {
+  map<string, BarList> data = 1 [(sebuf.http.unwrap) = true];
+  string next_page = 2;  // Compilation error!
 }
 ```
 
@@ -309,8 +468,9 @@ message GetBarsResponse {
 
 Ensure your tests cover both marshaling and unmarshaling:
 
+**Map-value unwrap test:**
 ```go
-func TestUnwrapRoundTrip(t *testing.T) {
+func TestMapValueUnwrapRoundTrip(t *testing.T) {
     original := &GetBarsResponse{
         Bars: map[string]*BarsList{
             "AAPL": {Bars: []*Bar{{Symbol: "AAPL", Price: 150.0}}},
@@ -333,6 +493,39 @@ func TestUnwrapRoundTrip(t *testing.T) {
     require.NoError(t, err)
 
     assert.Equal(t, original.Bars["AAPL"].Bars[0].Symbol, restored.Bars["AAPL"].Bars[0].Symbol)
+}
+```
+
+**Root unwrap test:**
+```go
+func TestRootUnwrapRoundTrip(t *testing.T) {
+    original := &BarsResponse{
+        Data: map[string]*BarList{
+            "AAPL": {Bars: []*Bar{{Symbol: "AAPL", Price: 150.0}}},
+        },
+    }
+
+    // Marshal to JSON
+    data, err := json.Marshal(original)
+    require.NoError(t, err)
+
+    // Verify root-level unwrap - should be object at root, not {"data": {...}}
+    var raw map[string]interface{}
+    json.Unmarshal(data, &raw)
+    _, hasData := raw["data"]
+    assert.False(t, hasData, "Root unwrap should not have 'data' key")
+
+    // Should have direct symbol keys
+    aapl := raw["AAPL"]
+    assert.NotNil(t, aapl, "Should have AAPL at root level")
+    assert.IsType(t, []interface{}{}, aapl) // Combined unwrap: should be array
+
+    // Unmarshal back
+    var restored BarsResponse
+    err = json.Unmarshal(data, &restored)
+    require.NoError(t, err)
+
+    assert.Equal(t, original.Data["AAPL"].Bars[0].Symbol, restored.Data["AAPL"].Bars[0].Symbol)
 }
 ```
 

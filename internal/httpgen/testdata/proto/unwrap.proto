@@ -77,3 +77,43 @@ message MixedResponse {
   // Simple scalar field
   string status = 3;
 }
+
+// =============================================================================
+// Root-Level Unwrap Test Cases
+// =============================================================================
+
+// RootMapResponse tests root-level map unwrap with message values.
+// JSON: {"AAPL": {...}, "GOOG": {...}} instead of {"people": {"AAPL": {...}, ...}}
+message RootMapResponse {
+  map<string, OptionBar> people = 1 [(sebuf.http.unwrap) = true];
+}
+
+// RootRepeatedResponse tests root-level repeated unwrap.
+// JSON: [{...}, {...}] instead of {"items": [{...}, {...}]}
+message RootRepeatedResponse {
+  repeated OptionBar items = 1 [(sebuf.http.unwrap) = true];
+}
+
+// RootMapWithValueUnwrapResponse tests combined unwrap (root map + value unwrap).
+// JSON: {"AAPL": [...], "GOOG": [...]} where each value is an unwrapped array
+message RootMapWithValueUnwrapResponse {
+  map<string, OptionBarsList> data = 1 [(sebuf.http.unwrap) = true];
+}
+
+// ScalarRootMapResponse tests root-level map unwrap with scalar values.
+// JSON: {"key1": 100, "key2": 200}
+message ScalarRootMapResponse {
+  map<string, int32> counts = 1 [(sebuf.http.unwrap) = true];
+}
+
+// ScalarRootRepeatedResponse tests root-level repeated unwrap with scalars.
+// JSON: ["item1", "item2", "item3"]
+message ScalarRootRepeatedResponse {
+  repeated string names = 1 [(sebuf.http.unwrap) = true];
+}
+
+// RootMapScalarListResponse tests root map with scalar list values (combined unwrap).
+// JSON: {"group1": [1, 2, 3], "group2": [4, 5, 6]}
+message RootMapScalarListResponse {
+  map<string, IntList> groups = 1 [(sebuf.http.unwrap) = true];
+}
