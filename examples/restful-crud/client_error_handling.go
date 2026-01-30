@@ -38,7 +38,7 @@ func main() {
 	fmt.Println("   Sending invalid request (empty name, negative price)...")
 
 	_, err := client.CreateProduct(ctx, &models.CreateProductRequest{
-		Name:  "", // Invalid: name is required
+		Name:  "",  // Invalid: name is required
 		Price: -10, // Invalid: price must be positive
 	})
 

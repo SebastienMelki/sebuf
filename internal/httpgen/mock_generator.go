@@ -194,12 +194,13 @@ func (g *Generator) generateMockFieldAssignments(
 		case protoreflect.FloatKind, protoreflect.DoubleKind:
 			gf.P(varName, ".", fieldName, " = selectFloatExample(\"", fieldPath, "\", ", g.getDefaultValue(field), ")")
 		case protoreflect.MessageKind:
-			if field.Desc.IsMap() {
+			switch {
+			case field.Desc.IsMap():
 				// Handle map fields
 				g.generateMockMapFieldAssignment(gf, field, varName)
-			} else if field.Desc.IsList() {
+			case field.Desc.IsList():
 				gf.P("// TODO: Handle repeated message field ", fieldName)
-			} else {
+			default:
 				gf.P(varName, ".", fieldName, " = &", field.Message.GoIdent, "{}")
 				g.generateMockFieldAssignments(gf, field.Message, varName+"."+fieldName)
 			}
@@ -242,7 +243,16 @@ func (g *Generator) generateMockMapFieldAssignment(
 	// Generate map entry based on value type
 	if valueField.Desc.Kind() == protoreflect.MessageKind {
 		// Value is a message type - use QualifiedGoIdent for proper imports
-		gf.P(varName, ".", fieldName, " = make(map[", keyType, "]*", gf.QualifiedGoIdent(valueField.Message.GoIdent), ")")
+		gf.P(
+			varName,
+			".",
+			fieldName,
+			" = make(map[",
+			keyType,
+			"]*",
+			gf.QualifiedGoIdent(valueField.Message.GoIdent),
+			")",
+		)
 		gf.P(varName, ".", fieldName, "[", sampleKey, "] = &", valueField.Message.GoIdent, "{}")
 		// Populate the value message fields
 		mapValueVar := varName + "." + fieldName + "[" + sampleKey + "]"
@@ -260,17 +270,17 @@ func (g *Generator) generateMockMapFieldAssignment(
 func (g *Generator) getGoTypeScalar(field *protogen.Field) string {
 	switch field.Desc.Kind() {
 	case protoreflect.StringKind:
-		return "string"
+		return kindString
 	case protoreflect.Int32Kind, protoreflect.Sint32Kind, protoreflect.Sfixed32Kind:
-		return "int32"
+		return kindInt32
 	case protoreflect.Int64Kind, protoreflect.Sint64Kind, protoreflect.Sfixed64Kind:
-		return "int64"
+		return kindInt64
 	case protoreflect.Uint32Kind, protoreflect.Fixed32Kind:
-		return "uint32"
+		return kindUint32
 	case protoreflect.Uint64Kind, protoreflect.Fixed64Kind:
-		return "uint64"
+		return kindUint64
 	case protoreflect.BoolKind:
-		return "bool"
+		return kindBool
 	case protoreflect.FloatKind:
 		return "float32"
 	case protoreflect.DoubleKind:
@@ -279,8 +289,12 @@ func (g *Generator) getGoTypeScalar(field *protogen.Field) string {
 		return "[]byte"
 	case protoreflect.MessageKind:
 		return "*" + field.Message.GoIdent.GoName
+	case protoreflect.EnumKind:
+		return kindInt32
+	case protoreflect.GroupKind:
+		return kindInterface
 	default:
-		return "interface{}"
+		return kindInterface
 	}
 }
 
@@ -298,6 +312,12 @@ func (g *Generator) getSampleMapKey(keyField *protogen.Field) string {
 		return "1"
 	case protoreflect.BoolKind:
 		return "true"
+	case protoreflect.EnumKind:
+		return "0"
+	case protoreflect.FloatKind, protoreflect.DoubleKind:
+		return "1.0"
+	case protoreflect.BytesKind, protoreflect.MessageKind, protoreflect.GroupKind:
+		return `"key"`
 	default:
 		return `"key"`
 	}

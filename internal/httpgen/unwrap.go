@@ -6,22 +6,23 @@ import (
 
 // Proto field kind constants for type checking.
 const (
-	kindString   = "string"
-	kindBool     = "bool"
-	kindInt32    = "int32"
-	kindUint32   = "uint32"
-	kindSint32   = "sint32"
-	kindSfixed32 = "sfixed32"
-	kindInt64    = "int64"
-	kindSint64   = "sint64"
-	kindSfixed64 = "sfixed64"
-	kindUint64   = "uint64"
-	kindFixed32  = "fixed32"
-	kindFixed64  = "fixed64"
-	kindFloat    = "float"
-	kindDouble   = "double"
-	kindBytes    = "bytes"
-	kindEnum     = "enum"
+	kindString    = "string"
+	kindBool      = "bool"
+	kindInt32     = "int32"
+	kindUint32    = "uint32"
+	kindSint32    = "sint32"
+	kindSfixed32  = "sfixed32"
+	kindInt64     = "int64"
+	kindSint64    = "sint64"
+	kindSfixed64  = "sfixed64"
+	kindUint64    = "uint64"
+	kindFixed32   = "fixed32"
+	kindFixed64   = "fixed64"
+	kindFloat     = "float"
+	kindDouble    = "double"
+	kindBytes     = "bytes"
+	kindEnum      = "enum"
+	kindInterface = "interface{}"
 )
 
 // UnwrapContext holds information about messages that need unwrap JSON methods.
@@ -640,7 +641,7 @@ func getScalarTypeName(field *protogen.Field) string {
 	case kindBytes:
 		return "[]byte"
 	default:
-		return "interface{}"
+		return kindInterface
 	}
 }
 

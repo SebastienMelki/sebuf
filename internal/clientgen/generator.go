@@ -2,11 +2,12 @@ package clientgen
 
 import (
 	"fmt"
+	"net/http"
 	"strings"
 
 	"google.golang.org/protobuf/compiler/protogen"
 
-	"github.com/SebastienMelki/sebuf/http"
+	sebufhttp "github.com/SebastienMelki/sebuf/http"
 )
 
 // Generator handles HTTP client code generation for protobuf services.
@@ -70,11 +71,11 @@ func (g *Generator) fileNeedsRequestBody(file *protogen.File) bool {
 	for _, service := range file.Services {
 		for _, method := range service.Methods {
 			httpConfig := getMethodHTTPConfig(method)
-			httpMethod := "POST"
+			httpMethod := http.MethodPost
 			if httpConfig != nil && httpConfig.Method != "" {
 				httpMethod = httpConfig.Method
 			}
-			if httpMethod == "POST" || httpMethod == "PUT" || httpMethod == "PATCH" {
+			if httpMethod == http.MethodPost || httpMethod == http.MethodPut || httpMethod == http.MethodPatch {
 				return true
 			}
 		}
@@ -295,7 +296,7 @@ func (g *Generator) generateHeaderHelperOptions(gf *protogen.GeneratedFile, serv
 func (g *Generator) generateHeaderOption(
 	gf *protogen.GeneratedFile,
 	serviceName string,
-	header *http.Header,
+	header *sebufhttp.Header,
 	isClientOption bool,
 ) {
 	headerName := header.GetName()
@@ -369,7 +370,7 @@ func (g *Generator) buildRPCMethodConfig(service *protogen.Service, method *prot
 
 	// Get HTTP config
 	httpConfig := getMethodHTTPConfig(method)
-	httpMethod := "POST"
+	httpMethod := http.MethodPost
 	httpPath := "/" + lowerFirst(methodName)
 	var pathParams []string
 
