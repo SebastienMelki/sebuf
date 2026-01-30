@@ -9,6 +9,258 @@ import (
 	"google.golang.org/protobuf/encoding/protojson"
 )
 
+// MarshalJSON implements json.Marshaler for OptionBarsList.
+// This method performs root-level unwrap, serializing the message as just the array value.
+func (x *OptionBarsList) MarshalJSON() ([]byte, error) {
+	if x == nil {
+		return []byte("null"), nil
+	}
+
+	items := make([]json.RawMessage, 0, len(x.Bars))
+	for _, item := range x.Bars {
+		data, err := protojson.Marshal(item)
+		if err != nil {
+			return nil, err
+		}
+		items = append(items, data)
+	}
+	return json.Marshal(items)
+
+}
+
+// UnmarshalJSON implements json.Unmarshaler for OptionBarsList.
+// This method performs root-level unwrap, deserializing from just the array value.
+func (x *OptionBarsList) UnmarshalJSON(data []byte) error {
+	var itemsRaw []json.RawMessage
+	if err := json.Unmarshal(data, &itemsRaw); err != nil {
+		return err
+	}
+	x.Bars = make([]*OptionBar, 0, len(itemsRaw))
+	for _, itemRaw := range itemsRaw {
+		item := &OptionBar{}
+		if err := protojson.Unmarshal(itemRaw, item); err != nil {
+			return err
+		}
+		x.Bars = append(x.Bars, item)
+	}
+	return nil
+}
+
+// MarshalJSON implements json.Marshaler for IntList.
+// This method performs root-level unwrap, serializing the message as just the array value.
+func (x *IntList) MarshalJSON() ([]byte, error) {
+	if x == nil {
+		return []byte("null"), nil
+	}
+
+	return json.Marshal(x.Values)
+}
+
+// UnmarshalJSON implements json.Unmarshaler for IntList.
+// This method performs root-level unwrap, deserializing from just the array value.
+func (x *IntList) UnmarshalJSON(data []byte) error {
+	return json.Unmarshal(data, &x.Values)
+}
+
+// MarshalJSON implements json.Marshaler for RootMapResponse.
+// This method performs root-level unwrap, serializing the message as just the map value.
+func (x *RootMapResponse) MarshalJSON() ([]byte, error) {
+	if x == nil {
+		return []byte("null"), nil
+	}
+
+	out := make(map[string]json.RawMessage)
+	for k, v := range x.People {
+		if v != nil {
+			data, err := protojson.Marshal(v)
+			if err != nil {
+				return nil, err
+			}
+			out[k] = data
+		}
+	}
+	return json.Marshal(out)
+}
+
+// UnmarshalJSON implements json.Unmarshaler for RootMapResponse.
+// This method performs root-level unwrap, deserializing from just the map value.
+func (x *RootMapResponse) UnmarshalJSON(data []byte) error {
+	var mapRaw map[string]json.RawMessage
+	if err := json.Unmarshal(data, &mapRaw); err != nil {
+		return err
+	}
+	x.People = make(map[string]*OptionBar)
+	for k, v := range mapRaw {
+		item := &OptionBar{}
+		if err := protojson.Unmarshal(v, item); err != nil {
+			return err
+		}
+		x.People[k] = item
+	}
+	return nil
+}
+
+// MarshalJSON implements json.Marshaler for RootRepeatedResponse.
+// This method performs root-level unwrap, serializing the message as just the array value.
+func (x *RootRepeatedResponse) MarshalJSON() ([]byte, error) {
+	if x == nil {
+		return []byte("null"), nil
+	}
+
+	items := make([]json.RawMessage, 0, len(x.Items))
+	for _, item := range x.Items {
+		data, err := protojson.Marshal(item)
+		if err != nil {
+			return nil, err
+		}
+		items = append(items, data)
+	}
+	return json.Marshal(items)
+
+}
+
+// UnmarshalJSON implements json.Unmarshaler for RootRepeatedResponse.
+// This method performs root-level unwrap, deserializing from just the array value.
+func (x *RootRepeatedResponse) UnmarshalJSON(data []byte) error {
+	var itemsRaw []json.RawMessage
+	if err := json.Unmarshal(data, &itemsRaw); err != nil {
+		return err
+	}
+	x.Items = make([]*OptionBar, 0, len(itemsRaw))
+	for _, itemRaw := range itemsRaw {
+		item := &OptionBar{}
+		if err := protojson.Unmarshal(itemRaw, item); err != nil {
+			return err
+		}
+		x.Items = append(x.Items, item)
+	}
+	return nil
+}
+
+// MarshalJSON implements json.Marshaler for RootMapWithValueUnwrapResponse.
+// This method performs root-level unwrap, serializing the message as just the map value.
+func (x *RootMapWithValueUnwrapResponse) MarshalJSON() ([]byte, error) {
+	if x == nil {
+		return []byte("null"), nil
+	}
+
+	out := make(map[string]json.RawMessage)
+	for k, wrapper := range x.Data {
+		if wrapper != nil {
+			items := make([]json.RawMessage, 0, len(wrapper.GetBars()))
+			for _, item := range wrapper.GetBars() {
+				data, err := protojson.Marshal(item)
+				if err != nil {
+					return nil, err
+				}
+				items = append(items, data)
+			}
+			arrayData, err := json.Marshal(items)
+			if err != nil {
+				return nil, err
+			}
+			out[k] = arrayData
+		}
+	}
+	return json.Marshal(out)
+}
+
+// UnmarshalJSON implements json.Unmarshaler for RootMapWithValueUnwrapResponse.
+// This method performs root-level unwrap, deserializing from just the map value.
+func (x *RootMapWithValueUnwrapResponse) UnmarshalJSON(data []byte) error {
+	var mapRaw map[string]json.RawMessage
+	if err := json.Unmarshal(data, &mapRaw); err != nil {
+		return err
+	}
+	x.Data = make(map[string]*OptionBarsList)
+	for k, arrayRaw := range mapRaw {
+		var itemsRaw []json.RawMessage
+		if err := json.Unmarshal(arrayRaw, &itemsRaw); err != nil {
+			return err
+		}
+		items := make([]*OptionBar, 0, len(itemsRaw))
+		for _, itemRaw := range itemsRaw {
+			item := &OptionBar{}
+			if err := protojson.Unmarshal(itemRaw, item); err != nil {
+				return err
+			}
+			items = append(items, item)
+		}
+		x.Data[k] = &OptionBarsList{Bars: items}
+	}
+	return nil
+}
+
+// MarshalJSON implements json.Marshaler for ScalarRootMapResponse.
+// This method performs root-level unwrap, serializing the message as just the map value.
+func (x *ScalarRootMapResponse) MarshalJSON() ([]byte, error) {
+	if x == nil {
+		return []byte("null"), nil
+	}
+
+	return json.Marshal(x.Counts)
+}
+
+// UnmarshalJSON implements json.Unmarshaler for ScalarRootMapResponse.
+// This method performs root-level unwrap, deserializing from just the map value.
+func (x *ScalarRootMapResponse) UnmarshalJSON(data []byte) error {
+	return json.Unmarshal(data, &x.Counts)
+}
+
+// MarshalJSON implements json.Marshaler for ScalarRootRepeatedResponse.
+// This method performs root-level unwrap, serializing the message as just the array value.
+func (x *ScalarRootRepeatedResponse) MarshalJSON() ([]byte, error) {
+	if x == nil {
+		return []byte("null"), nil
+	}
+
+	return json.Marshal(x.Names)
+}
+
+// UnmarshalJSON implements json.Unmarshaler for ScalarRootRepeatedResponse.
+// This method performs root-level unwrap, deserializing from just the array value.
+func (x *ScalarRootRepeatedResponse) UnmarshalJSON(data []byte) error {
+	return json.Unmarshal(data, &x.Names)
+}
+
+// MarshalJSON implements json.Marshaler for RootMapScalarListResponse.
+// This method performs root-level unwrap, serializing the message as just the map value.
+func (x *RootMapScalarListResponse) MarshalJSON() ([]byte, error) {
+	if x == nil {
+		return []byte("null"), nil
+	}
+
+	out := make(map[string]json.RawMessage)
+	for k, wrapper := range x.Groups {
+		if wrapper != nil {
+			arrayData, err := json.Marshal(wrapper.GetValues())
+			if err != nil {
+				return nil, err
+			}
+			out[k] = arrayData
+		}
+	}
+	return json.Marshal(out)
+}
+
+// UnmarshalJSON implements json.Unmarshaler for RootMapScalarListResponse.
+// This method performs root-level unwrap, deserializing from just the map value.
+func (x *RootMapScalarListResponse) UnmarshalJSON(data []byte) error {
+	var mapRaw map[string]json.RawMessage
+	if err := json.Unmarshal(data, &mapRaw); err != nil {
+		return err
+	}
+	x.Groups = make(map[string]*IntList)
+	for k, arrayRaw := range mapRaw {
+		var items []int32
+		if err := json.Unmarshal(arrayRaw, &items); err != nil {
+			return err
+		}
+		x.Groups[k] = &IntList{Values: items}
+	}
+	return nil
+}
+
 // MarshalJSON implements json.Marshaler for GetOptionBarsResponse.
 // This method handles unwrap field serialization for map values.
 func (x *GetOptionBarsResponse) MarshalJSON() ([]byte, error) {

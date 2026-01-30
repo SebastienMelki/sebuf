@@ -160,6 +160,11 @@ func (g *Generator) processMessage(message *protogen.Message) {
 
 // buildObjectSchema creates an OpenAPI object schema from a protobuf message.
 func (g *Generator) buildObjectSchema(message *protogen.Message) *base.SchemaProxy {
+	// Check for root-level unwrap
+	if rootUnwrap := getRootUnwrapInfo(message); rootUnwrap != nil {
+		return g.buildRootUnwrapSchema(message, rootUnwrap)
+	}
+
 	properties := orderedmap.New[string, *base.SchemaProxy]()
 	var required []string
 
@@ -189,6 +194,118 @@ func (g *Generator) buildObjectSchema(message *protogen.Message) *base.SchemaPro
 	}
 
 	return base.CreateSchemaProxy(schema)
+}
+
+// rootUnwrapInfo holds information about a root unwrap field.
+type rootUnwrapInfo struct {
+	field        *protogen.Field
+	isMap        bool
+	valueMessage *protogen.Message // For maps: the value message type
+	valueUnwrap  *protogen.Field   // For maps: if value has unwrap field
+}
+
+// getRootUnwrapInfo checks if a message has root-level unwrap and returns info about it.
+// Root unwrap requires exactly one field with unwrap=true on a map or repeated field.
+func getRootUnwrapInfo(message *protogen.Message) *rootUnwrapInfo {
+	// Root unwrap requires exactly one field
+	if len(message.Fields) != 1 {
+		return nil
+	}
+
+	field := message.Fields[0]
+	if !hasUnwrapAnnotation(field) {
+		return nil
+	}
+
+	// Must be a map or repeated field
+	isMap := field.Desc.IsMap()
+	isList := field.Desc.IsList()
+	if !isMap && !isList {
+		return nil
+	}
+
+	info := &rootUnwrapInfo{
+		field: field,
+		isMap: isMap,
+	}
+
+	// For maps, get value message and check for nested unwrap
+	if isMap {
+		valueField := getMapValueField(field)
+		if valueField != nil && valueField.Message != nil {
+			info.valueMessage = valueField.Message
+			// Check if value has unwrap
+			if unwrapField := getUnwrapField(valueField.Message); unwrapField != nil {
+				info.valueUnwrap = unwrapField
+			}
+		}
+	}
+
+	return info
+}
+
+// buildRootUnwrapSchema creates a schema for a root-level unwrap message.
+func (g *Generator) buildRootUnwrapSchema(message *protogen.Message, rootUnwrap *rootUnwrapInfo) *base.SchemaProxy {
+	var schema *base.Schema
+
+	if rootUnwrap.isMap {
+		// Root map unwrap: type=object with additionalProperties
+		schema = g.buildRootMapUnwrapSchema(rootUnwrap)
+	} else {
+		// Root repeated unwrap: type=array
+		itemSchema := g.convertScalarField(rootUnwrap.field)
+		schema = &base.Schema{
+			Type: []string{"array"},
+			Items: &base.DynamicValue[*base.SchemaProxy, bool]{
+				A: itemSchema,
+			},
+		}
+	}
+
+	// Add description from message comments
+	if message.Comments.Leading != "" {
+		schema.Description = strings.TrimSpace(string(message.Comments.Leading))
+	}
+
+	return base.CreateSchemaProxy(schema)
+}
+
+// buildRootMapUnwrapSchema builds the schema for a root map unwrap.
+func (g *Generator) buildRootMapUnwrapSchema(rootUnwrap *rootUnwrapInfo) *base.Schema {
+	schema := &base.Schema{
+		Type: []string{"object"},
+	}
+
+	// Determine the additionalProperties schema
+	switch {
+	case rootUnwrap.valueUnwrap != nil:
+		// Combined unwrap: map values are unwrapped arrays
+		schema.AdditionalProperties = g.createUnwrapArraySchema(rootUnwrap.valueUnwrap)
+	case rootUnwrap.valueMessage != nil:
+		// Map with message values
+		schemaRef := fmt.Sprintf("#/components/schemas/%s", g.getSchemaName(rootUnwrap.valueMessage))
+		schema.AdditionalProperties = &base.DynamicValue[*base.SchemaProxy, bool]{
+			A: base.CreateSchemaProxyRef(schemaRef),
+		}
+	default:
+		// Map with scalar values
+		schema.AdditionalProperties = g.buildScalarAdditionalProperties(rootUnwrap)
+	}
+
+	return schema
+}
+
+// buildScalarAdditionalProperties builds additionalProperties for scalar map values.
+func (g *Generator) buildScalarAdditionalProperties(
+	rootUnwrap *rootUnwrapInfo,
+) *base.DynamicValue[*base.SchemaProxy, bool] {
+	valueField := getMapValueField(rootUnwrap.field)
+	if valueField != nil {
+		return &base.DynamicValue[*base.SchemaProxy, bool]{
+			A: g.convertScalarField(valueField),
+		}
+	}
+	return &base.DynamicValue[*base.SchemaProxy, bool]{B: true}
 }
 
 // processService converts a protobuf service to OpenAPI paths.
