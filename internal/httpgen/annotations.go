@@ -277,8 +277,8 @@ func getQueryParams(message *protogen.Message) []QueryParam {
 
 // UnwrapFieldInfo contains information about an unwrap field in a message.
 type UnwrapFieldInfo struct {
-	Field       *protogen.Field   // The field with unwrap=true
-	ElementType *protogen.Message // The element type of the repeated field (if message type)
+	Field        *protogen.Field   // The field with unwrap=true
+	ElementType  *protogen.Message // The element type of the repeated field (if message type)
 	IsRootUnwrap bool              // True if this is a root-level unwrap (single field in message)
 	IsMapField   bool              // True if the unwrap field is a map (only for root unwrap)
 }
