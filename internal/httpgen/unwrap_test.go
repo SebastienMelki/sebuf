@@ -198,7 +198,6 @@ func TestUnwrapValidationError(t *testing.T) {
 	}
 }
 
-
 // TestRootUnwrapFileGeneration tests that root unwrap methods are generated correctly.
 func TestRootUnwrapFileGeneration(t *testing.T) {
 	// Skip if protoc is not available
@@ -298,14 +297,18 @@ func TestRootUnwrapFileGeneration(t *testing.T) {
 
 	t.Run("Root map marshal uses protojson for message values", func(t *testing.T) {
 		// RootMapResponse has message values, should use protojson.Marshal
-		if !strings.Contains(content, "// This method performs root-level unwrap, serializing the message as just the map value.") {
+		expectedDoc := "// This method performs root-level unwrap, " +
+			"serializing the message as just the map value."
+		if !strings.Contains(content, expectedDoc) {
 			t.Error("Root map unwrap documentation not found")
 		}
 	})
 
 	t.Run("Root repeated marshal uses protojson for items", func(t *testing.T) {
 		// RootRepeatedResponse has message items, should use protojson.Marshal
-		if !strings.Contains(content, "// This method performs root-level unwrap, serializing the message as just the array value.") {
+		expectedDoc := "// This method performs root-level unwrap, " +
+			"serializing the message as just the array value."
+		if !strings.Contains(content, expectedDoc) {
 			t.Error("Root repeated unwrap documentation not found")
 		}
 	})

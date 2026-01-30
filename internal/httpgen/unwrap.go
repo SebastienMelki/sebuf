@@ -664,13 +664,14 @@ func (g *Generator) generateRootMapUnwrapMarshalJSON(gf *protogen.GeneratedFile,
 	gf.P()
 
 	// Check if we have combined unwrap (root map + value unwrap)
-	if rootUnwrap.ValueUnwrap != nil {
+	switch {
+	case rootUnwrap.ValueUnwrap != nil:
 		// Combined unwrap: root map with value that also has unwrap
 		g.generateRootMapWithValueUnwrapMarshal(gf, rootUnwrap, fieldName)
-	} else if rootUnwrap.ValueMessage != nil {
+	case rootUnwrap.ValueMessage != nil:
 		// Root map with message values (no value unwrap)
 		g.generateRootMapMessageValueMarshal(gf, rootUnwrap, fieldName)
-	} else {
+	default:
 		// Root map with scalar values
 		gf.P("return json.Marshal(x.", fieldName, ")")
 	}
@@ -719,7 +720,7 @@ func (g *Generator) generateRootMapWithValueUnwrapMarshal(
 // generateRootMapMessageValueMarshal handles root map with message values (no value unwrap).
 func (g *Generator) generateRootMapMessageValueMarshal(
 	gf *protogen.GeneratedFile,
-	rootUnwrap *RootUnwrapMessage,
+	_ *RootUnwrapMessage,
 	fieldName string,
 ) {
 	gf.P("out := make(map[string]json.RawMessage)")
@@ -745,11 +746,12 @@ func (g *Generator) generateRootMapUnwrapUnmarshalJSON(gf *protogen.GeneratedFil
 	gf.P("func (x *", msgName, ") UnmarshalJSON(data []byte) error {")
 
 	// Check if we have combined unwrap (root map + value unwrap)
-	if rootUnwrap.ValueUnwrap != nil {
+	switch {
+	case rootUnwrap.ValueUnwrap != nil:
 		g.generateRootMapWithValueUnwrapUnmarshal(gf, rootUnwrap, fieldName)
-	} else if rootUnwrap.ValueMessage != nil {
+	case rootUnwrap.ValueMessage != nil:
 		g.generateRootMapMessageValueUnmarshal(gf, rootUnwrap, fieldName)
-	} else {
+	default:
 		// Root map with scalar values
 		gf.P("return json.Unmarshal(data, &x.", fieldName, ")")
 	}

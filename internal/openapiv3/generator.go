@@ -250,30 +250,7 @@ func (g *Generator) buildRootUnwrapSchema(message *protogen.Message, rootUnwrap 
 
 	if rootUnwrap.isMap {
 		// Root map unwrap: type=object with additionalProperties
-		schema = &base.Schema{
-			Type: []string{"object"},
-		}
-
-		// Determine the additionalProperties schema
-		if rootUnwrap.valueUnwrap != nil {
-			// Combined unwrap: map values are unwrapped arrays
-			schema.AdditionalProperties = g.createUnwrapArraySchema(rootUnwrap.valueUnwrap)
-		} else if rootUnwrap.valueMessage != nil {
-			// Map with message values
-			schema.AdditionalProperties = &base.DynamicValue[*base.SchemaProxy, bool]{
-				A: base.CreateSchemaProxyRef(fmt.Sprintf("#/components/schemas/%s", g.getSchemaName(rootUnwrap.valueMessage))),
-			}
-		} else {
-			// Map with scalar values
-			valueField := getMapValueField(rootUnwrap.field)
-			if valueField != nil {
-				schema.AdditionalProperties = &base.DynamicValue[*base.SchemaProxy, bool]{
-					A: g.convertScalarField(valueField),
-				}
-			} else {
-				schema.AdditionalProperties = &base.DynamicValue[*base.SchemaProxy, bool]{B: true}
-			}
-		}
+		schema = g.buildRootMapUnwrapSchema(rootUnwrap)
 	} else {
 		// Root repeated unwrap: type=array
 		itemSchema := g.convertScalarField(rootUnwrap.field)
@@ -291,6 +268,44 @@ func (g *Generator) buildRootUnwrapSchema(message *protogen.Message, rootUnwrap 
 	}
 
 	return base.CreateSchemaProxy(schema)
+}
+
+// buildRootMapUnwrapSchema builds the schema for a root map unwrap.
+func (g *Generator) buildRootMapUnwrapSchema(rootUnwrap *rootUnwrapInfo) *base.Schema {
+	schema := &base.Schema{
+		Type: []string{"object"},
+	}
+
+	// Determine the additionalProperties schema
+	switch {
+	case rootUnwrap.valueUnwrap != nil:
+		// Combined unwrap: map values are unwrapped arrays
+		schema.AdditionalProperties = g.createUnwrapArraySchema(rootUnwrap.valueUnwrap)
+	case rootUnwrap.valueMessage != nil:
+		// Map with message values
+		schemaRef := fmt.Sprintf("#/components/schemas/%s", g.getSchemaName(rootUnwrap.valueMessage))
+		schema.AdditionalProperties = &base.DynamicValue[*base.SchemaProxy, bool]{
+			A: base.CreateSchemaProxyRef(schemaRef),
+		}
+	default:
+		// Map with scalar values
+		schema.AdditionalProperties = g.buildScalarAdditionalProperties(rootUnwrap)
+	}
+
+	return schema
+}
+
+// buildScalarAdditionalProperties builds additionalProperties for scalar map values.
+func (g *Generator) buildScalarAdditionalProperties(
+	rootUnwrap *rootUnwrapInfo,
+) *base.DynamicValue[*base.SchemaProxy, bool] {
+	valueField := getMapValueField(rootUnwrap.field)
+	if valueField != nil {
+		return &base.DynamicValue[*base.SchemaProxy, bool]{
+			A: g.convertScalarField(valueField),
+		}
+	}
+	return &base.DynamicValue[*base.SchemaProxy, bool]{B: true}
 }
 
 // processService converts a protobuf service to OpenAPI paths.
