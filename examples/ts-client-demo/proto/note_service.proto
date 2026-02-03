@@ -4,6 +4,121 @@ package ts_demo;
 
 import "sebuf/http/annotations.proto";
 import "sebuf/http/headers.proto";
+import "buf/validate/validate.proto";
+
+// --- Enums ---
+
+enum Priority {
+  PRIORITY_UNSPECIFIED = 0;
+  PRIORITY_LOW = 1;
+  PRIORITY_MEDIUM = 2;
+  PRIORITY_HIGH = 3;
+  PRIORITY_URGENT = 4;
+}
+
+enum Status {
+  STATUS_UNSPECIFIED = 0;
+  STATUS_PENDING = 1;
+  STATUS_IN_PROGRESS = 2;
+  STATUS_DONE = 3;
+  STATUS_ARCHIVED = 4;
+}
+
+// --- Nested message ---
+
+message Tag {
+  string name = 1;
+  string color = 2;
+}
+
+// --- Custom proto error (auto-implements Go error interface) ---
+
+message NotFoundError {
+  string resource_type = 1;
+  string resource_id = 2;
+}
+
+// --- Core message ---
+
+message Note {
+  string id = 1;
+  string title = 2;
+  string content = 3;
+  Priority priority = 4;
+  Status status = 5;
+  repeated Tag tags = 6;
+  map<string, string> metadata = 7;
+  optional string due_date = 8;
+  string created_at = 9;
+}
+
+// --- Unwrap response: returns Note[] directly ---
+
+message NoteList {
+  repeated Note notes = 1 [(sebuf.http.unwrap) = true];
+}
+
+// --- Request/Response messages ---
+
+message ListNotesRequest {
+  string status = 1 [(sebuf.http.query) = { name: "status" }];
+  int32 limit = 2 [(sebuf.http.query) = { name: "limit" }];
+  int32 offset = 3 [(sebuf.http.query) = { name: "offset" }];
+  string priority = 4 [(sebuf.http.query) = { name: "priority" }];
+  string sort = 5 [(sebuf.http.query) = { name: "sort" }];
+}
+
+message ListNotesResponse {
+  repeated Note notes = 1;
+  int32 total = 2;
+}
+
+message GetNoteRequest {
+  string id = 1;
+}
+
+message CreateNoteRequest {
+  string title = 1 [(buf.validate.field).string = {
+    min_len: 1,
+    max_len: 200
+  }];
+  string content = 2 [(buf.validate.field).string = {
+    max_len: 5000
+  }];
+  Priority priority = 3;
+  repeated Tag tags = 4;
+  map<string, string> metadata = 5;
+  optional string due_date = 6;
+}
+
+message UpdateNoteRequest {
+  string id = 1;
+  string title = 2;
+  string content = 3;
+  Priority priority = 4;
+  Status status = 5;
+  repeated Tag tags = 6;
+  map<string, string> metadata = 7;
+  optional string due_date = 8;
+}
+
+message ArchiveNoteRequest {
+  string id = 1;
+}
+
+message GetNotesByTagRequest {
+  string tag = 1 [(sebuf.http.query) = { name: "tag" }];
+}
+
+message DeleteNoteRequest {
+  string id = 1;
+}
+
+message DeleteNoteResponse {
+  bool success = 1;
+}
+
+// --- Service ---
 
 service NoteService {
   option (sebuf.http.service_config) = {
@@ -14,8 +129,15 @@ service NoteService {
     required_headers: [
       {
         name: "X-API-Key"
-        description: "API key for authentication"
+        description: "API authentication key"
         type: "string"
+        required: true
+        format: "uuid"
+      },
+      {
+        name: "X-Tenant-ID"
+        description: "Tenant identifier"
+        type: "integer"
         required: true
       }
     ]
@@ -57,6 +179,23 @@ service NoteService {
       path: "/notes/{id}"
       method: HTTP_METHOD_PUT
     };
+    option (sebuf.http.method_headers) = {
+      required_headers: [
+        {
+          name: "X-Idempotency-Key"
+          description: "Idempotency key for safe retries"
+          type: "string"
+          required: true
+        }
+      ]
+    };
+  }
+
+  rpc ArchiveNote(ArchiveNoteRequest) returns (Note) {
+    option (sebuf.http.config) = {
+      path: "/notes/{id}/archive"
+      method: HTTP_METHOD_PATCH
+    };
   }
 
   rpc DeleteNote(DeleteNoteRequest) returns (DeleteNoteResponse) {
@@ -65,46 +204,11 @@ service NoteService {
       method: HTTP_METHOD_DELETE
     };
   }
-}
 
-message Note {
-  string id = 1;
-  string title = 2;
-  string content = 3;
-  bool done = 4;
-  string created_at = 5;
-}
-
-message ListNotesRequest {
-  string status = 1 [(sebuf.http.query) = { name: "status" }];
-  int32 limit = 2 [(sebuf.http.query) = { name: "limit" }];
-}
-
-message ListNotesResponse {
-  repeated Note notes = 1;
-  int32 total = 2;
-}
-
-message GetNoteRequest {
-  string id = 1;
-}
-
-message CreateNoteRequest {
-  string title = 1;
-  string content = 2;
-}
-
-message UpdateNoteRequest {
-  string id = 1;
-  string title = 2;
-  string content = 3;
-  bool done = 4;
-}
-
-message DeleteNoteRequest {
-  string id = 1;
-}
-
-message DeleteNoteResponse {
-  bool success = 1;
+  rpc GetNotesByTag(GetNotesByTagRequest) returns (NoteList) {
+    option (sebuf.http.config) = {
+      path: "/notes/by-tag"
+      method: HTTP_METHOD_GET
+    };
+  }
 }
