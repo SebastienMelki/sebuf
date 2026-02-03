@@ -46,6 +46,13 @@ func TestTSClientGenGoldenFiles(t *testing.T) {
 				"backward_compat_client.ts",
 			},
 		},
+		{
+			name:      "complex features",
+			protoFile: "complex_features.proto",
+			expectedFiles: []string{
+				"complex_features_client.ts",
+			},
+		},
 	}
 
 	baseDir, err := os.Getwd()

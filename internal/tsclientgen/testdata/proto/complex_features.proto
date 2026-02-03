@@ -1,0 +1,242 @@
+// Test proto file for comprehensive TypeScript client feature testing
+syntax = "proto3";
+
+package test.tsclientgen;
+
+option go_package = "github.com/SebastienMelki/sebuf/internal/tsclientgen/testdata/generated;generated";
+
+import "sebuf/http/annotations.proto";
+import "sebuf/http/headers.proto";
+
+// Enums
+
+enum Priority {
+  PRIORITY_UNSPECIFIED = 0;
+  PRIORITY_LOW = 1;
+  PRIORITY_MEDIUM = 2;
+  PRIORITY_HIGH = 3;
+  PRIORITY_URGENT = 4;
+}
+
+enum Status {
+  STATUS_UNSPECIFIED = 0;
+  STATUS_PENDING = 1;
+  STATUS_IN_PROGRESS = 2;
+  STATUS_DONE = 3;
+  STATUS_ARCHIVED = 4;
+}
+
+// Nested messages
+
+message Address {
+  string street = 1;
+  string city = 2;
+  string zip_code = 3;
+}
+
+message Tag {
+  string name = 1;
+  string color = 2;
+}
+
+// Full-featured message
+message Note {
+  string id = 1;
+  string title = 2;
+  string content = 3;
+  Priority priority = 4;
+  Status status = 5;
+  repeated Tag tags = 6;
+  map<string, string> metadata = 7;
+  optional string due_date = 8;
+  Address address = 9;
+}
+
+// Unwrap test messages
+
+message NoteList {
+  repeated Note notes = 1 [(sebuf.http.unwrap) = true];
+}
+
+message NoteMap {
+  map<string, Note> notes = 1 [(sebuf.http.unwrap) = true];
+}
+
+message Bar {
+  string symbol = 1;
+  double price = 2;
+  int64 volume = 3;
+}
+
+message BarWrapper {
+  repeated Bar bars = 1 [(sebuf.http.unwrap) = true];
+}
+
+message BarsBySymbol {
+  map<string, BarWrapper> data = 1;
+}
+
+message CombinedUnwrap {
+  map<string, BarWrapper> data = 1 [(sebuf.http.unwrap) = true];
+}
+
+// Request/Response messages
+
+message ListNotesRequest {
+  int32 page = 1 [(sebuf.http.query) = { name: "page" }];
+  int32 page_size = 2 [(sebuf.http.query) = { name: "page_size" }];
+  string filter = 3 [(sebuf.http.query) = { name: "filter" }];
+}
+
+message ListNotesResponse {
+  repeated Note notes = 1;
+  int32 total_count = 2;
+}
+
+message GetNoteRequest {
+  string note_id = 1;
+}
+
+message CreateNoteRequest {
+  string title = 1;
+  string content = 2;
+  Priority priority = 3;
+  Status status = 4;
+  repeated Tag tags = 5;
+  map<string, string> metadata = 6;
+  optional string due_date = 7;
+  Address address = 8;
+}
+
+message UpdateNoteRequest {
+  string note_id = 1;
+  string title = 2;
+  string content = 3;
+  Priority priority = 4;
+}
+
+message GetNoteListRequest {
+  string category = 1;
+}
+
+message GetNoteMapRequest {
+  string owner_id = 1;
+}
+
+message GetBarsBySymbolRequest {
+  repeated string symbols = 1;
+}
+
+message GetCombinedUnwrapRequest {
+  string market = 1;
+}
+
+// Service with multiple headers and all feature variants
+
+service FeatureService {
+  option (sebuf.http.service_config) = {
+    base_path: "/api/v1"
+  };
+
+  option (sebuf.http.service_headers) = {
+    required_headers: [
+      {
+        name: "X-API-Key"
+        description: "API authentication key"
+        type: "string"
+        required: true
+        format: "uuid"
+      },
+      {
+        name: "X-Tenant-ID"
+        description: "Tenant identifier"
+        type: "integer"
+        required: true
+      }
+    ]
+  };
+
+  // GET with query params
+  rpc ListNotes(ListNotesRequest) returns (ListNotesResponse) {
+    option (sebuf.http.config) = {
+      path: "/notes"
+      method: HTTP_METHOD_GET
+    };
+  }
+
+  // GET with path param
+  rpc GetNote(GetNoteRequest) returns (Note) {
+    option (sebuf.http.config) = {
+      path: "/notes/{note_id}"
+      method: HTTP_METHOD_GET
+    };
+  }
+
+  // POST with method header (X-Request-ID) - has enums, repeated, maps, optional
+  rpc CreateNote(CreateNoteRequest) returns (Note) {
+    option (sebuf.http.config) = {
+      path: "/notes"
+      method: HTTP_METHOD_POST
+    };
+    option (sebuf.http.method_headers) = {
+      required_headers: [
+        {
+          name: "X-Request-ID"
+          type: "string"
+          format: "uuid"
+          required: true
+        }
+      ]
+    };
+  }
+
+  // PUT with different method header (X-Idempotency-Key) - tests header dedup
+  rpc UpdateNote(UpdateNoteRequest) returns (Note) {
+    option (sebuf.http.config) = {
+      path: "/notes/{note_id}"
+      method: HTTP_METHOD_PUT
+    };
+    option (sebuf.http.method_headers) = {
+      required_headers: [
+        {
+          name: "X-Idempotency-Key"
+          type: "string"
+          format: "uuid"
+          required: true
+        }
+      ]
+    };
+  }
+
+  // Root repeated unwrap -> Note[]
+  rpc GetNoteList(GetNoteListRequest) returns (NoteList) {
+    option (sebuf.http.config) = {
+      path: "/notes/list"
+      method: HTTP_METHOD_POST
+    };
+  }
+
+  // Root map unwrap -> Record<string, Note>
+  rpc GetNoteMap(GetNoteMapRequest) returns (NoteMap) {
+    option (sebuf.http.config) = {
+      path: "/notes/map"
+      method: HTTP_METHOD_POST
+    };
+  }
+
+  // Map-value unwrap -> data: Record<string, Bar[]>
+  rpc GetBarsBySymbol(GetBarsBySymbolRequest) returns (BarsBySymbol) {
+    option (sebuf.http.config) = {
+      path: "/bars"
+      method: HTTP_METHOD_POST
+    };
+  }
+
+  // Combined root + value unwrap -> Record<string, Bar[]>
+  rpc GetCombinedUnwrap(GetCombinedUnwrapRequest) returns (CombinedUnwrap) {
+    option (sebuf.http.config) = {
+      path: "/bars/combined"
+      method: HTTP_METHOD_POST
+    };
+  }
+}
