@@ -88,14 +88,14 @@ export class QueryParamServiceClient {
   async searchWithTypes(req: SearchWithTypesRequest, options?: QueryParamServiceCallOptions): Promise<SearchResponse> {
     let path = "/api/search/typed";
     const params = new URLSearchParams();
-    if (req.query !== "") params.set("q", String(req.query));
-    if (req.limit !== 0) params.set("limit", String(req.limit));
-    if (req.offset !== "0") params.set("offset", String(req.offset));
+    if (req.query != null && req.query !== "") params.set("q", String(req.query));
+    if (req.limit != null && req.limit !== 0) params.set("limit", String(req.limit));
+    if (req.offset != null && req.offset !== "0") params.set("offset", String(req.offset));
     if (req.active) params.set("active", String(req.active));
-    if (req.minScore !== 0) params.set("min_score", String(req.minScore));
-    if (req.maxScore !== 0) params.set("max_score", String(req.maxScore));
-    if (req.page !== 0) params.set("page", String(req.page));
-    if (req.timestamp !== "0") params.set("ts", String(req.timestamp));
+    if (req.minScore != null && req.minScore !== 0) params.set("min_score", String(req.minScore));
+    if (req.maxScore != null && req.maxScore !== 0) params.set("max_score", String(req.maxScore));
+    if (req.page != null && req.page !== 0) params.set("page", String(req.page));
+    if (req.timestamp != null && req.timestamp !== "0") params.set("ts", String(req.timestamp));
     const url = this.baseURL + path + (params.toString() ? "?" + params.toString() : "");
 
     const headers: Record<string, string> = {
@@ -120,9 +120,9 @@ export class QueryParamServiceClient {
   async searchRequired(req: SearchRequiredRequest, options?: QueryParamServiceCallOptions): Promise<SearchResponse> {
     let path = "/api/search/required";
     const params = new URLSearchParams();
-    if (req.query !== "") params.set("q", String(req.query));
-    if (req.page !== 0) params.set("page", String(req.page));
-    if (req.pageSize !== 0) params.set("page_size", String(req.pageSize));
+    if (req.query != null && req.query !== "") params.set("q", String(req.query));
+    if (req.page != null && req.page !== 0) params.set("page", String(req.page));
+    if (req.pageSize != null && req.pageSize !== 0) params.set("page_size", String(req.pageSize));
     const url = this.baseURL + path + (params.toString() ? "?" + params.toString() : "");
 
     const headers: Record<string, string> = {
@@ -147,10 +147,10 @@ export class QueryParamServiceClient {
   async searchCustomNames(req: SearchCustomNamesRequest, options?: QueryParamServiceCallOptions): Promise<SearchResponse> {
     let path = "/api/search/custom";
     const params = new URLSearchParams();
-    if (req.searchTerm !== "") params.set("q", String(req.searchTerm));
-    if (req.resultsPerPage !== 0) params.set("limit", String(req.resultsPerPage));
-    if (req.pageNumber !== 0) params.set("page", String(req.pageNumber));
-    if (req.sortField !== "") params.set("sort", String(req.sortField));
+    if (req.searchTerm != null && req.searchTerm !== "") params.set("q", String(req.searchTerm));
+    if (req.resultsPerPage != null && req.resultsPerPage !== 0) params.set("limit", String(req.resultsPerPage));
+    if (req.pageNumber != null && req.pageNumber !== 0) params.set("page", String(req.pageNumber));
+    if (req.sortField != null && req.sortField !== "") params.set("sort", String(req.sortField));
     if (req.descendingOrder) params.set("desc", String(req.descendingOrder));
     const url = this.baseURL + path + (params.toString() ? "?" + params.toString() : "");
 
@@ -177,8 +177,8 @@ export class QueryParamServiceClient {
     let path = "/api/resources/{resource_id}/items";
     path = path.replace("{resource_id}", encodeURIComponent(String(req.resourceId)));
     const params = new URLSearchParams();
-    if (req.filter !== "") params.set("filter", String(req.filter));
-    if (req.limit !== 0) params.set("limit", String(req.limit));
+    if (req.filter != null && req.filter !== "") params.set("filter", String(req.filter));
+    if (req.limit != null && req.limit !== 0) params.set("limit", String(req.limit));
     const url = this.baseURL + path + (params.toString() ? "?" + params.toString() : "");
 
     const headers: Record<string, string> = {
