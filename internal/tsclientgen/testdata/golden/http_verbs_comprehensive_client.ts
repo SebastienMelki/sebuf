@@ -133,9 +133,9 @@ export class RESTfulAPIServiceClient {
   async listResources(req: ListResourcesRequest, options?: RESTfulAPIServiceCallOptions): Promise<ListResourcesResponse> {
     let path = "/api/v1/resources";
     const params = new URLSearchParams();
-    if (req.page !== 0) params.set("page", String(req.page));
-    if (req.pageSize !== 0) params.set("page_size", String(req.pageSize));
-    if (req.filter !== "") params.set("filter", String(req.filter));
+    if (req.page != null && req.page !== 0) params.set("page", String(req.page));
+    if (req.pageSize != null && req.pageSize !== 0) params.set("page_size", String(req.pageSize));
+    if (req.filter != null && req.filter !== "") params.set("filter", String(req.filter));
     if (req.includeDeleted) params.set("include_deleted", String(req.includeDeleted));
     const url = this.baseURL + path + (params.toString() ? "?" + params.toString() : "");
 

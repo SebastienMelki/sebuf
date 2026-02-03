@@ -351,12 +351,13 @@ func (g *Generator) generateURLBuilding(p printer, cfg *rpcMethodConfig) {
 		for _, qp := range cfg.queryParams {
 			check := tsZeroCheck(qp.FieldKind)
 			if check == "" {
-				// bool: only add if true
+				// bool: only add if true (undefined is already falsy)
 				p("    if (req.%s) params.set(\"%s\", String(req.%s));",
 					qp.FieldJSONName, qp.ParamName, qp.FieldJSONName)
 			} else {
-				p("    if (req.%s%s) params.set(\"%s\", String(req.%s));",
-					qp.FieldJSONName, check, qp.ParamName, qp.FieldJSONName)
+				// Guard against undefined/null before zero-value check
+				p("    if (req.%s != null && req.%s%s) params.set(\"%s\", String(req.%s));",
+					qp.FieldJSONName, qp.FieldJSONName, check, qp.ParamName, qp.FieldJSONName)
 			}
 		}
 		p(`    const url = this.baseURL + path + (params.toString() ? "?" + params.toString() : "");`)
