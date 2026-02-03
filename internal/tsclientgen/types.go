@@ -168,7 +168,8 @@ func tsFieldType(field *protogen.Field) string {
 			unwrapField := findUnwrapField(valueField.Message)
 			if unwrapField != nil && !unwrapField.Desc.IsMap() {
 				// Map-value unwrap: collapse wrapper to inner type array
-				valueType = tsFieldType(unwrapField) + "[]"
+				// Use tsElementType since unwrapField is always repeated
+				valueType = tsElementType(unwrapField) + "[]"
 			}
 		}
 
@@ -236,7 +237,8 @@ func rootUnwrapTSType(msg *protogen.Message) string {
 		if valueField.Desc.Kind() == protoreflect.MessageKind && valueField.Message != nil {
 			unwrapField := findUnwrapField(valueField.Message)
 			if unwrapField != nil {
-				valueType = tsFieldType(unwrapField) + "[]"
+				// Use tsElementType since unwrapField is always repeated
+				valueType = tsElementType(unwrapField) + "[]"
 			}
 		}
 
