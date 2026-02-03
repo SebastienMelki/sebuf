@@ -1,0 +1,110 @@
+syntax = "proto3";
+
+package ts_demo;
+
+import "sebuf/http/annotations.proto";
+import "sebuf/http/headers.proto";
+
+service NoteService {
+  option (sebuf.http.service_config) = {
+    base_path: "/api/v1"
+  };
+
+  option (sebuf.http.service_headers) = {
+    required_headers: [
+      {
+        name: "X-API-Key"
+        description: "API key for authentication"
+        type: "string"
+        required: true
+      }
+    ]
+  };
+
+  rpc ListNotes(ListNotesRequest) returns (ListNotesResponse) {
+    option (sebuf.http.config) = {
+      path: "/notes"
+      method: HTTP_METHOD_GET
+    };
+  }
+
+  rpc GetNote(GetNoteRequest) returns (Note) {
+    option (sebuf.http.config) = {
+      path: "/notes/{id}"
+      method: HTTP_METHOD_GET
+    };
+  }
+
+  rpc CreateNote(CreateNoteRequest) returns (Note) {
+    option (sebuf.http.config) = {
+      path: "/notes"
+      method: HTTP_METHOD_POST
+    };
+    option (sebuf.http.method_headers) = {
+      required_headers: [
+        {
+          name: "X-Request-ID"
+          description: "Unique request identifier"
+          type: "string"
+          required: true
+        }
+      ]
+    };
+  }
+
+  rpc UpdateNote(UpdateNoteRequest) returns (Note) {
+    option (sebuf.http.config) = {
+      path: "/notes/{id}"
+      method: HTTP_METHOD_PUT
+    };
+  }
+
+  rpc DeleteNote(DeleteNoteRequest) returns (DeleteNoteResponse) {
+    option (sebuf.http.config) = {
+      path: "/notes/{id}"
+      method: HTTP_METHOD_DELETE
+    };
+  }
+}
+
+message Note {
+  string id = 1;
+  string title = 2;
+  string content = 3;
+  bool done = 4;
+  string created_at = 5;
+}
+
+message ListNotesRequest {
+  string status = 1 [(sebuf.http.query) = { name: "status" }];
+  int32 limit = 2 [(sebuf.http.query) = { name: "limit" }];
+}
+
+message ListNotesResponse {
+  repeated Note notes = 1;
+  int32 total = 2;
+}
+
+message GetNoteRequest {
+  string id = 1;
+}
+
+message CreateNoteRequest {
+  string title = 1;
+  string content = 2;
+}
+
+message UpdateNoteRequest {
+  string id = 1;
+  string title = 2;
+  string content = 3;
+  bool done = 4;
+}
+
+message DeleteNoteRequest {
+  string id = 1;
+}
+
+message DeleteNoteResponse {
+  bool success = 1;
+}

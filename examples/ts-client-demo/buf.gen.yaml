@@ -1,0 +1,34 @@
+version: v2
+
+managed:
+  enabled: true
+  override:
+    - file_option: go_package_prefix
+      value: github.com/SebastienMelki/sebuf/examples/ts-client-demo/api
+    - file_option: go_package_prefix
+      module: buf.build/googleapis/googleapis
+      value: ""
+    - file_option: go_package_prefix
+      module: buf.build/bufbuild/protovalidate
+      value: ""
+    - file_option: go_package_prefix
+      module: buf.build/sebmelki/sebuf
+      value: ""
+
+plugins:
+  # Go protobuf types
+  - local: protoc-gen-go
+    out: ./api
+    opt: module=github.com/SebastienMelki/sebuf/examples/ts-client-demo/api
+
+  # Go HTTP server handlers
+  - local: ../../bin/protoc-gen-go-http
+    out: api
+    opt:
+      - module=github.com/SebastienMelki/sebuf/examples/ts-client-demo/api
+      - generate_mock=false
+
+  # TypeScript HTTP client
+  - local: ../../bin/protoc-gen-ts-client
+    out: ./client/generated
+    opt: paths=source_relative
