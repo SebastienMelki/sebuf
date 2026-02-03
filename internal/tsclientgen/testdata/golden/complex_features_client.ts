@@ -78,7 +78,7 @@ export interface GetBarsBySymbolRequest {
 }
 
 export interface BarsBySymbol {
-  data: Record<string, Bar[][]>;
+  data: Record<string, Bar[]>;
 }
 
 export interface BarWrapper {
@@ -96,7 +96,7 @@ export interface GetCombinedUnwrapRequest {
 }
 
 export interface CombinedUnwrap {
-  data: Record<string, Bar[][]>;
+  data: Record<string, Bar[]>;
 }
 
 export type Priority = "PRIORITY_UNSPECIFIED" | "PRIORITY_LOW" | "PRIORITY_MEDIUM" | "PRIORITY_HIGH" | "PRIORITY_URGENT";
@@ -351,7 +351,7 @@ export class FeatureServiceClient {
     return await resp.json() as BarsBySymbol;
   }
 
-  async getCombinedUnwrap(req: GetCombinedUnwrapRequest, options?: FeatureServiceCallOptions): Promise<Record<string, Bar[][]>> {
+  async getCombinedUnwrap(req: GetCombinedUnwrapRequest, options?: FeatureServiceCallOptions): Promise<Record<string, Bar[]>> {
     let path = "/api/v1/bars/combined";
     const url = this.baseURL + path;
 
@@ -374,7 +374,7 @@ export class FeatureServiceClient {
       return this.handleError(resp);
     }
 
-    return await resp.json() as Record<string, Bar[][]>;
+    return await resp.json() as Record<string, Bar[]>;
   }
 
   private async handleError(resp: Response): Promise<never> {
