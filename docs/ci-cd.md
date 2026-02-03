@@ -23,7 +23,7 @@ The sebuf project uses GitHub Actions for CI/CD with the following key features:
 - **Lint**: Code formatting and quality checks
 - **Test**: Matrix testing across Go 1.20-1.22 and Linux/macOS/Windows
 - **Coverage**: Coverage analysis with 85% threshold
-- **Build**: Binary compilation for all plugins
+- **Build**: Binary compilation for all plugins (go-http, go-client, ts-client, openapiv3)
 - **Integration**: End-to-end testing with real proto files
 
 **Key Features**:

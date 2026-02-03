@@ -492,6 +492,27 @@ if err != nil {
 }
 ```
 
+## TypeScript Client Generation
+
+For TypeScript/JavaScript projects, sebuf also provides `protoc-gen-ts-client` which generates TypeScript HTTP clients with full type safety. See the [ts-client-demo example](../examples/ts-client-demo/) for a complete walkthrough.
+
+Add it to your `buf.gen.yaml`:
+
+```yaml
+plugins:
+  - local: protoc-gen-ts-client
+    out: ./client/generated
+    opt: paths=source_relative
+```
+
+The TypeScript client generates:
+- Typed request/response interfaces from protobuf messages
+- A client class with methods for each RPC
+- Service-level headers as constructor options (e.g., `apiKey` from `X-API-Key`)
+- Method-level headers as call options (e.g., `requestId` from `X-Request-ID`)
+- `ValidationError` and `ApiError` classes for structured error handling
+- Automatic query parameter encoding and path parameter substitution
+
 ## See Also
 
 - **[HTTP Generation Guide](./http-generation.md)** - Server-side handler generation

@@ -28,6 +28,7 @@ brew install bufbuild/buf/buf
 # Install sebuf plugins
 go install github.com/SebastienMelki/sebuf/cmd/protoc-gen-go-http@latest
 go install github.com/SebastienMelki/sebuf/cmd/protoc-gen-go-client@latest
+go install github.com/SebastienMelki/sebuf/cmd/protoc-gen-ts-client@latest
 go install github.com/SebastienMelki/sebuf/cmd/protoc-gen-openapiv3@latest
 ```
 
@@ -190,7 +191,8 @@ curl -X GET http://localhost:8080/api/v1/users/1
 ## What you just built
 
 - ✅ **HTTP endpoints** from protobuf services
-- ✅ **Type-safe HTTP client** with functional options
+- ✅ **Type-safe Go HTTP client** with functional options
+- ✅ **TypeScript HTTP client** (add `protoc-gen-ts-client` to buf.gen.yaml)
 - ✅ **JSON and binary** protobuf support
 - ✅ **OpenAPI documentation** (`api.yaml`)
 - ✅ **Type safety** throughout your API
