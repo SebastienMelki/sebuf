@@ -30,7 +30,8 @@ This starts a working HTTP API with JSON endpoints and OpenAPI docs - all genera
 ## What you get
 
 - **HTTP handlers** from protobuf services (JSON + binary support)
-- **Type-safe HTTP clients** with functional options pattern and per-call customization
+- **Type-safe Go HTTP clients** with functional options pattern and per-call customization
+- **TypeScript HTTP clients** with full type safety, header helpers, and error handling
 - **Mock server generation** with realistic field examples for rapid prototyping
 - **Automatic request validation** using protovalidate with buf.validate annotations
 - **HTTP header validation** with type checking and format validation (UUID, email, datetime)
@@ -86,7 +87,7 @@ sebuf generates:
 // HTTP handlers with automatic validation (both headers and body)
 api.RegisterUserServiceServer(userService, api.WithMux(mux))
 
-// Type-safe HTTP client with functional options
+// Type-safe Go HTTP client with functional options
 client := api.NewUserServiceClient("http://localhost:8080",
     api.WithUserServiceAPIKey("your-api-key"),
 )
@@ -102,6 +103,14 @@ api.RegisterUserServiceServer(mockService, api.WithMux(mux))
 // OpenAPI docs (UserService.openapi.yaml) - includes validation rules, headers, and examples
 ```
 
+```typescript
+// TypeScript HTTP client with full type safety
+const client = new UserServiceClient("http://localhost:8080", {
+  apiKey: "your-api-key",
+});
+const user = await client.createUser({ name: "John", email: "john@example.com" });
+```
+
 ## Quick setup
 
 ```bash
@@ -109,6 +118,7 @@ api.RegisterUserServiceServer(mockService, api.WithMux(mux))
 go install github.com/SebastienMelki/sebuf/cmd/protoc-gen-go-http@latest
 go install github.com/SebastienMelki/sebuf/cmd/protoc-gen-go-client@latest
 go install github.com/SebastienMelki/sebuf/cmd/protoc-gen-openapiv3@latest
+go install github.com/SebastienMelki/sebuf/cmd/protoc-gen-ts-client@latest
 
 # Try the complete example
 cd examples/simple-api && make demo
@@ -125,7 +135,7 @@ cd examples/simple-api && make demo
 - **Web & mobile APIs** - JSON/HTTP endpoints from protobuf definitions
 - **API documentation** - OpenAPI specs that never get out of sync
 - **Type-safe development** - Leverage protobuf's type system for HTTP APIs
-- **Client generation** - Generate clients for any language from your API spec
+- **Client generation** - Generate Go and TypeScript clients directly from your protobuf definitions
 
 ## Built on Great Tools
 

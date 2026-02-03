@@ -4,10 +4,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is `sebuf`, a specialized Go protobuf toolkit for building HTTP APIs. It consists of three complementary protoc plugins that together enable modern, type-safe API development:
+This is `sebuf`, a specialized Go protobuf toolkit for building HTTP APIs. It consists of four complementary protoc plugins that together enable modern, type-safe API development:
 
 - **`protoc-gen-go-http`**: Generates HTTP handlers, routing, request/response binding, and automatic validation
-- **`protoc-gen-go-client`**: Generates type-safe HTTP clients with functional options pattern
+- **`protoc-gen-go-client`**: Generates type-safe Go HTTP clients with functional options pattern
+- **`protoc-gen-ts-client`**: Generates TypeScript HTTP clients with full type safety, header helpers, and error handling
 - **`protoc-gen-openapiv3`**: Creates comprehensive OpenAPI v3.1 specifications
 
 The toolkit enables developers to build HTTP APIs directly from protobuf definitions without gRPC dependencies, targeting web and mobile API development with built-in request validation.
@@ -18,10 +19,12 @@ The project follows a clean Go protoc plugin architecture with separated concern
 
 ### Plugin Structure
 - **cmd/protoc-gen-go-http/**: HTTP handler generator entry point
-- **cmd/protoc-gen-go-client/**: HTTP client generator entry point
+- **cmd/protoc-gen-go-client/**: Go HTTP client generator entry point
+- **cmd/protoc-gen-ts-client/**: TypeScript HTTP client generator entry point
 - **cmd/protoc-gen-openapiv3/**: OpenAPI specification generator entry point
 - **internal/httpgen/**: HTTP handler generation logic, annotations, and header validation middleware
-- **internal/clientgen/**: HTTP client generation logic and annotations
+- **internal/clientgen/**: Go HTTP client generation logic and annotations
+- **internal/tsclientgen/**: TypeScript HTTP client generation logic, type mapping, and annotations
 - **internal/openapiv3/**: OpenAPI generation logic, type mapping, and header parameter generation
 - **proto/sebuf/http/**: HTTP annotation definitions including headers.proto for header validation
 - **scripts/**: Test automation and build scripts
@@ -29,8 +32,9 @@ The project follows a clean Go protoc plugin architecture with separated concern
 ### Core Components
 
 1. **HTTP Handler Generator** (`internal/httpgen/generator.go:22`): Generates HTTP handlers, request binding, routing configuration, automatic body validation, and header validation middleware
-2. **HTTP Client Generator** (`internal/clientgen/generator.go:13`): Generates type-safe HTTP clients with functional options pattern, automatic request/response marshaling, and error handling
-3. **OpenAPI Generator** (`internal/openapiv3/generator.go:53`): Creates comprehensive OpenAPI v3.1 specifications from protobuf definitions with full header parameter support, generating one file per service for better organization
+2. **Go HTTP Client Generator** (`internal/clientgen/generator.go:13`): Generates type-safe Go HTTP clients with functional options pattern, automatic request/response marshaling, and error handling
+3. **TypeScript HTTP Client Generator** (`internal/tsclientgen/generator.go`): Generates TypeScript HTTP clients with typed interfaces, service/method header helpers, query parameter encoding, path parameter substitution, and structured error handling (ValidationError/ApiError)
+4. **OpenAPI Generator** (`internal/openapiv3/generator.go:53`): Creates comprehensive OpenAPI v3.1 specifications from protobuf definitions with full header parameter support, generating one file per service for better organization
 4. **HTTP Annotations** (`proto/sebuf/http/annotations.proto`): Custom protobuf extensions for HTTP configuration
 5. **Header Validation** (`proto/sebuf/http/headers.proto`): Protobuf definitions for service and method-level header validation
 6. **Validation System**: Automatic request body validation via buf.validate/protovalidate and header validation middleware
@@ -67,6 +71,31 @@ user, err := client.CreateUser(ctx, req,
     WithUserServiceHeader("X-Request-ID", "req-123"),
     WithUserServiceCallContentType(ContentTypeProto),
 )
+```
+
+**TypeScript HTTP Clients** - Type-safe client with header helpers:
+```typescript
+// Generated client with typed interfaces
+const client = new UserServiceClient("http://localhost:8080", {
+  apiKey: "your-api-key",  // From service_headers annotation
+});
+
+// Make requests with per-call options
+const user = await client.createUser(
+  { name: "John", email: "john@example.com" },
+  { requestId: "req-123" },  // From method_headers annotation
+);
+
+// Error handling with typed errors
+try {
+  await client.getUser({ id: "not-found" });
+} catch (e) {
+  if (e instanceof ValidationError) {
+    console.log(e.violations);  // Field-level validation errors
+  } else if (e instanceof ApiError) {
+    console.log(e.statusCode, e.message);
+  }
+}
 ```
 
 **OpenAPI Specifications** - Comprehensive API documentation (one file per service):
@@ -219,6 +248,7 @@ make build
 
 # Build individual plugins
 go build -o protoc-gen-go-http ./cmd/protoc-gen-go-http
+go build -o protoc-gen-ts-client ./cmd/protoc-gen-ts-client
 go build -o protoc-gen-openapiv3 ./cmd/protoc-gen-openapiv3
 
 # Format code
@@ -242,13 +272,13 @@ The project uses a comprehensive two-tier testing approach:
 ### Golden File Tests (Primary)
 - **Exhaustive regression detection**: Catches ANY change in generated output down to single characters
 - **Real protoc execution**: Tests actual plugin behavior, not mocked components
-- **File locations**: internal/openapiv3/exhaustive_golden_test.go
-- **Test data**: internal/openapiv3/testdata/ for OpenAPI generation testing
+- **File locations**: internal/openapiv3/exhaustive_golden_test.go, internal/tsclientgen/golden_test.go
+- **Test data**: internal/openapiv3/testdata/ for OpenAPI, internal/tsclientgen/testdata/ for TypeScript client
 
 ### Unit Tests (Secondary)
-- **Function-level testing**: Tests individual functions for HTTP and OpenAPI generators
+- **Function-level testing**: Tests individual functions for HTTP, OpenAPI, and TypeScript client generators
 - **Mocked components**: Uses protogen mocks for isolated testing
-- **File locations**: internal/httpgen/ and internal/openapiv3/ test files
+- **File locations**: internal/httpgen/, internal/openapiv3/, and internal/tsclientgen/ test files
 - **Unwrap tests**: internal/httpgen/unwrap_test.go for map value unwrapping
 
 ## Validation System
@@ -388,9 +418,14 @@ The plugin handles comprehensive protobuf-to-Go type mapping in `getFieldType()`
 
 The repository contains:
 - **cmd/protoc-gen-go-http/**: HTTP handler plugin entry point
+- **cmd/protoc-gen-go-client/**: Go HTTP client plugin entry point
+- **cmd/protoc-gen-ts-client/**: TypeScript HTTP client plugin entry point
 - **cmd/protoc-gen-openapiv3/**: OpenAPI generation plugin entry point
 - **internal/httpgen/**: HTTP handler generation logic and tests
+- **internal/clientgen/**: Go HTTP client generation logic and tests
+- **internal/tsclientgen/**: TypeScript HTTP client generation logic and tests
 - **internal/openapiv3/**: OpenAPI generation logic and comprehensive test suite
+- **examples/ts-client-demo/**: End-to-end TypeScript client example with NoteService CRUD API
 - **scripts/run_tests.sh**: Advanced test runner with coverage analysis and reporting
 
 ## Acknowledgments & Ecosystem

@@ -28,6 +28,7 @@ This starts a working HTTP API with user management, authentication, and OpenAPI
 | **[nested-resources](../../examples/nested-resources/)** | Organization hierarchy API | Deep path nesting (3 levels), multiple path params per endpoint |
 | **[multi-service-api](../../examples/multi-service-api/)** | Multi-tenant platform | Multiple services, different auth levels, service/method headers |
 | **[market-data-unwrap](../../examples/market-data-unwrap/)** | Financial market data API | Unwrap annotation for map values, JSON/protobuf compatibility |
+| **[ts-client-demo](../../examples/ts-client-demo/)** | TypeScript client demo | TypeScript HTTP client, CRUD API, query params, headers, error handling |
 
 ---
 
@@ -122,6 +123,21 @@ cd examples/market-data-unwrap && make client # Run client example
 
 See [JSON/Protobuf Compatibility Guide](../json-protobuf-compatibility.md) for details.
 
+### ts-client-demo
+End-to-end TypeScript HTTP client demo with a NoteService CRUD API.
+- Generated TypeScript client from `protoc-gen-ts-client`
+- Full CRUD: create, list, get, update, delete notes
+- Query parameters: filter by status, limit results
+- Service-level headers (X-API-Key) and method-level headers (X-Request-ID)
+- Structured error handling: `ValidationError` and `ApiError`
+- Go server implementing `NoteServiceServer` with in-memory store
+
+```bash
+cd examples/ts-client-demo && make demo
+```
+
+**Prerequisites**: Node.js (for the TypeScript client)
+
 ---
 
 ## Running Examples
@@ -141,19 +157,20 @@ make clean     # Remove generated files
 
 ## What Each Example Demonstrates
 
-| Feature | simple-api | restful-crud | validation | nested | multi-service | market-data |
-|---------|:----------:|:------------:|:----------:|:------:|:-------------:|:-----------:|
-| HTTP verbs (GET/POST) | Yes | Yes | Yes | Yes | Yes | Yes |
-| PUT/PATCH/DELETE | - | Yes | - | Yes | Yes | - |
-| Path parameters | - | Yes | - | Yes | Yes | - |
-| Query parameters | - | Yes | - | Yes | - | Yes |
-| buf.validate | Basic | Basic | Comprehensive | Basic | Basic | Yes |
-| Header validation | - | Yes | - | - | Yes | Yes |
-| Multiple services | - | - | - | - | Yes | - |
-| Nested resources | - | - | - | Yes | - | - |
-| Oneof helpers | Yes | - | - | - | - | - |
-| **HTTP Client** | - | **Yes** | - | - | - | **Yes** |
-| **Unwrap annotation** | - | - | - | - | - | **Yes** |
+| Feature | simple-api | restful-crud | validation | nested | multi-service | market-data | ts-client-demo |
+|---------|:----------:|:------------:|:----------:|:------:|:-------------:|:-----------:|:--------------:|
+| HTTP verbs (GET/POST) | Yes | Yes | Yes | Yes | Yes | Yes | Yes |
+| PUT/PATCH/DELETE | - | Yes | - | Yes | Yes | - | Yes |
+| Path parameters | - | Yes | - | Yes | Yes | - | Yes |
+| Query parameters | - | Yes | - | Yes | - | Yes | Yes |
+| buf.validate | Basic | Basic | Comprehensive | Basic | Basic | Yes | - |
+| Header validation | - | Yes | - | - | Yes | Yes | Yes |
+| Multiple services | - | - | - | - | Yes | - | - |
+| Nested resources | - | - | - | Yes | - | - | - |
+| Oneof helpers | Yes | - | - | - | - | - | - |
+| **Go HTTP Client** | - | **Yes** | - | - | - | **Yes** | - |
+| **TS HTTP Client** | - | - | - | - | - | - | **Yes** |
+| **Unwrap annotation** | - | - | - | - | - | **Yes** | - |
 
 ---
 

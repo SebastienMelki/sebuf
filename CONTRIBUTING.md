@@ -177,11 +177,13 @@ Understanding the project structure helps you contribute effectively:
 sebuf/
 ├── cmd/                           # Command-line tools
 │   ├── protoc-gen-go-http/           # HTTP handler generator
-│   ├── protoc-gen-go-client/         # HTTP client generator
+│   ├── protoc-gen-go-client/         # Go HTTP client generator
+│   ├── protoc-gen-ts-client/         # TypeScript HTTP client generator
 │   └── protoc-gen-openapiv3/         # OpenAPI spec generator
 ├── internal/                      # Internal packages
 │   ├── httpgen/                      # HTTP generation logic
-│   ├── clientgen/                    # HTTP client generation logic
+│   ├── clientgen/                    # Go HTTP client generation logic
+│   ├── tsclientgen/                  # TypeScript HTTP client generation logic
 │   └── openapiv3/                    # OpenAPI generation logic
 ├── proto/                         # Protobuf definitions
 ├── http/                          # Generated HTTP annotations
@@ -392,6 +394,7 @@ make test
 # Run specific test suites
 go test ./internal/httpgen/...
 go test ./internal/openapiv3/...
+go test ./internal/tsclientgen/...
 
 # Run with coverage
 make test-coverage
@@ -399,6 +402,7 @@ make test-coverage
 # Update golden files (when output intentionally changes)
 UPDATE_GOLDEN=1 go test ./internal/httpgen/
 UPDATE_GOLDEN=1 go test ./internal/openapiv3/
+UPDATE_GOLDEN=1 go test ./internal/tsclientgen/
 ```
 
 ### Adding New Tests
