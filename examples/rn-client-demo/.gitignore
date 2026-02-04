@@ -1,0 +1,13 @@
+# Generated files
+api/
+app/generated/
+
+# Node.js
+app/node_modules/
+app/.expo/
+
+# Buf lock file (will be created on first buf dep update)
+buf.lock
+
+# Go sum file (will be created on first go mod tidy)
+go.sum
