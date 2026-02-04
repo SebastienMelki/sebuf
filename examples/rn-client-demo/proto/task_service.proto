@@ -1,0 +1,183 @@
+syntax = "proto3";
+
+package rn_demo;
+
+import "sebuf/http/annotations.proto";
+import "sebuf/http/headers.proto";
+import "buf/validate/validate.proto";
+
+// --- Enums ---
+
+enum Priority {
+  PRIORITY_UNSPECIFIED = 0;
+  PRIORITY_LOW = 1;
+  PRIORITY_MEDIUM = 2;
+  PRIORITY_HIGH = 3;
+}
+
+enum TaskStatus {
+  TASK_STATUS_UNSPECIFIED = 0;
+  TASK_STATUS_TODO = 1;
+  TASK_STATUS_IN_PROGRESS = 2;
+  TASK_STATUS_DONE = 3;
+}
+
+// --- Nested message ---
+
+message Label {
+  string name = 1;
+  string color = 2;
+}
+
+// --- Custom proto error (auto-implements Go error interface) ---
+
+message TaskNotFoundError {
+  string task_id = 1;
+  string message = 2;
+}
+
+// --- Core message ---
+
+message Task {
+  string id = 1;
+  string title = 2;
+  string description = 3;
+  Priority priority = 4;
+  TaskStatus status = 5;
+  repeated Label labels = 6;
+  map<string, string> metadata = 7;
+  optional string due_date = 8;
+  string created_at = 9;
+}
+
+// --- Unwrap response: returns Task[] directly ---
+
+message TaskList {
+  repeated Task tasks = 1 [(sebuf.http.unwrap) = true];
+}
+
+// --- Request/Response messages ---
+
+message ListTasksRequest {
+  string status = 1 [(sebuf.http.query) = { name: "status" }];
+  int32 limit = 2 [(sebuf.http.query) = { name: "limit" }];
+  int32 offset = 3 [(sebuf.http.query) = { name: "offset" }];
+}
+
+message ListTasksResponse {
+  repeated Task tasks = 1;
+  int32 total = 2;
+}
+
+message GetTaskRequest {
+  string id = 1;
+}
+
+message CreateTaskRequest {
+  string title = 1 [(buf.validate.field).string = {
+    min_len: 1,
+    max_len: 100
+  }];
+  string description = 2 [(buf.validate.field).string = {
+    max_len: 500
+  }];
+  Priority priority = 3;
+  repeated Label labels = 4;
+  map<string, string> metadata = 5;
+  optional string due_date = 6;
+}
+
+message UpdateTaskRequest {
+  string id = 1;
+  string title = 2;
+  string description = 3;
+  Priority priority = 4;
+  TaskStatus status = 5;
+  repeated Label labels = 6;
+  map<string, string> metadata = 7;
+  optional string due_date = 8;
+}
+
+message DeleteTaskRequest {
+  string id = 1;
+}
+
+message DeleteTaskResponse {
+  bool success = 1;
+}
+
+message GetTasksByLabelRequest {
+  string label = 1 [(sebuf.http.query) = { name: "label" }];
+}
+
+// --- Service ---
+
+service TaskService {
+  option (sebuf.http.service_config) = {
+    base_path: "/api/v1"
+  };
+
+  option (sebuf.http.service_headers) = {
+    required_headers: [
+      {
+        name: "X-API-Key"
+        description: "API authentication key"
+        type: "string"
+        required: true
+        format: "uuid"
+      }
+    ]
+  };
+
+  rpc ListTasks(ListTasksRequest) returns (ListTasksResponse) {
+    option (sebuf.http.config) = {
+      path: "/tasks"
+      method: HTTP_METHOD_GET
+    };
+  }
+
+  rpc GetTask(GetTaskRequest) returns (Task) {
+    option (sebuf.http.config) = {
+      path: "/tasks/{id}"
+      method: HTTP_METHOD_GET
+    };
+  }
+
+  rpc CreateTask(CreateTaskRequest) returns (Task) {
+    option (sebuf.http.config) = {
+      path: "/tasks"
+      method: HTTP_METHOD_POST
+    };
+    option (sebuf.http.method_headers) = {
+      required_headers: [
+        {
+          name: "X-Request-ID"
+          description: "Unique request identifier"
+          type: "string"
+          required: true
+        }
+      ]
+    };
+  }
+
+  rpc UpdateTask(UpdateTaskRequest) returns (Task) {
+    option (sebuf.http.config) = {
+      path: "/tasks/{id}"
+      method: HTTP_METHOD_PUT
+    };
+  }
+
+  rpc DeleteTask(DeleteTaskRequest) returns (DeleteTaskResponse) {
+    option (sebuf.http.config) = {
+      path: "/tasks/{id}"
+      method: HTTP_METHOD_DELETE
+    };
+  }
+
+  rpc GetTasksByLabel(GetTasksByLabelRequest) returns (TaskList) {
+    option (sebuf.http.config) = {
+      path: "/tasks/by-label"
+      method: HTTP_METHOD_GET
+    };
+  }
+}

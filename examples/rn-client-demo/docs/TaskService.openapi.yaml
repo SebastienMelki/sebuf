@@ -1,0 +1,468 @@
+openapi: 3.1.0
+info:
+    title: TaskService API
+    version: 1.0.0
+paths:
+    /api/v1/tasks:
+        get:
+            tags:
+                - TaskService
+            summary: ListTasks
+            operationId: ListTasks
+            parameters:
+                - name: X-API-Key
+                  in: header
+                  description: API authentication key
+                  required: true
+                  schema:
+                    type: string
+                    format: uuid
+                - name: status
+                  in: query
+                  required: false
+                  schema:
+                    type: string
+                - name: limit
+                  in: query
+                  required: false
+                  schema:
+                    type: integer
+                    format: int32
+                - name: offset
+                  in: query
+                  required: false
+                  schema:
+                    type: integer
+                    format: int32
+            responses:
+                "200":
+                    description: Successful response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ListTasksResponse'
+                "400":
+                    description: Validation error
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ValidationError'
+                default:
+                    description: Error response
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    error:
+                                        type: string
+                                    code:
+                                        type: integer
+        post:
+            tags:
+                - TaskService
+            summary: CreateTask
+            operationId: CreateTask
+            parameters:
+                - name: X-API-Key
+                  in: header
+                  description: API authentication key
+                  required: true
+                  schema:
+                    type: string
+                    format: uuid
+                - name: X-Request-ID
+                  in: header
+                  description: Unique request identifier
+                  required: true
+                  schema:
+                    type: string
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/CreateTaskRequest'
+                required: true
+            responses:
+                "200":
+                    description: Successful response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Task'
+                "400":
+                    description: Validation error
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ValidationError'
+                default:
+                    description: Error response
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    error:
+                                        type: string
+                                    code:
+                                        type: integer
+    /api/v1/tasks/{id}:
+        get:
+            tags:
+                - TaskService
+            summary: GetTask
+            operationId: GetTask
+            parameters:
+                - name: X-API-Key
+                  in: header
+                  description: API authentication key
+                  required: true
+                  schema:
+                    type: string
+                    format: uuid
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    description: Successful response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Task'
+                "400":
+                    description: Validation error
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ValidationError'
+                default:
+                    description: Error response
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    error:
+                                        type: string
+                                    code:
+                                        type: integer
+        put:
+            tags:
+                - TaskService
+            summary: UpdateTask
+            operationId: UpdateTask
+            parameters:
+                - name: X-API-Key
+                  in: header
+                  description: API authentication key
+                  required: true
+                  schema:
+                    type: string
+                    format: uuid
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                    type: string
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/UpdateTaskRequest'
+                required: true
+            responses:
+                "200":
+                    description: Successful response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Task'
+                "400":
+                    description: Validation error
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ValidationError'
+                default:
+                    description: Error response
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    error:
+                                        type: string
+                                    code:
+                                        type: integer
+        delete:
+            tags:
+                - TaskService
+            summary: DeleteTask
+            operationId: DeleteTask
+            parameters:
+                - name: X-API-Key
+                  in: header
+                  description: API authentication key
+                  required: true
+                  schema:
+                    type: string
+                    format: uuid
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    description: Successful response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/DeleteTaskResponse'
+                "400":
+                    description: Validation error
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ValidationError'
+                default:
+                    description: Error response
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    error:
+                                        type: string
+                                    code:
+                                        type: integer
+    /api/v1/tasks/by-label:
+        get:
+            tags:
+                - TaskService
+            summary: GetTasksByLabel
+            operationId: GetTasksByLabel
+            parameters:
+                - name: X-API-Key
+                  in: header
+                  description: API authentication key
+                  required: true
+                  schema:
+                    type: string
+                    format: uuid
+                - name: label
+                  in: query
+                  required: false
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    description: Successful response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/TaskList'
+                "400":
+                    description: Validation error
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ValidationError'
+                default:
+                    description: Error response
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    error:
+                                        type: string
+                                    code:
+                                        type: integer
+components:
+    schemas:
+        FieldViolation:
+            type: object
+            properties:
+                field:
+                    type: string
+                    description: The field path that failed validation (e.g., 'user.email' for nested fields). For header validation, this will be the header name (e.g., 'X-API-Key')
+                description:
+                    type: string
+                    description: Human-readable description of the validation violation (e.g., 'must be a valid email address', 'required field missing')
+            required:
+                - field
+                - description
+            description: FieldViolation describes a single validation error for a specific field.
+        ValidationError:
+            type: object
+            properties:
+                violations:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/FieldViolation'
+                    description: List of validation violations
+            required:
+                - violations
+            description: ValidationError is returned when request validation fails. It contains a list of field violations describing what went wrong.
+        ListTasksRequest:
+            type: object
+            properties:
+                status:
+                    type: string
+                limit:
+                    type: integer
+                    format: int32
+                offset:
+                    type: integer
+                    format: int32
+        ListTasksResponse:
+            type: object
+            properties:
+                tasks:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/Task'
+                total:
+                    type: integer
+                    format: int32
+        Task:
+            type: object
+            properties:
+                id:
+                    type: string
+                title:
+                    type: string
+                description:
+                    type: string
+                priority:
+                    type: string
+                    enum:
+                        - PRIORITY_UNSPECIFIED
+                        - PRIORITY_LOW
+                        - PRIORITY_MEDIUM
+                        - PRIORITY_HIGH
+                status:
+                    type: string
+                    enum:
+                        - TASK_STATUS_UNSPECIFIED
+                        - TASK_STATUS_TODO
+                        - TASK_STATUS_IN_PROGRESS
+                        - TASK_STATUS_DONE
+                labels:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/Label'
+                metadata:
+                    type: object
+                    additionalProperties:
+                        type: string
+                dueDate:
+                    type: string
+                createdAt:
+                    type: string
+        MetadataEntry:
+            type: object
+            properties:
+                key:
+                    type: string
+                value:
+                    type: string
+        Label:
+            type: object
+            properties:
+                name:
+                    type: string
+                color:
+                    type: string
+        GetTaskRequest:
+            type: object
+            properties:
+                id:
+                    type: string
+        CreateTaskRequest:
+            type: object
+            properties:
+                title:
+                    type: string
+                    maxLength: 100
+                    minLength: 1
+                description:
+                    type: string
+                    maxLength: 500
+                priority:
+                    type: string
+                    enum:
+                        - PRIORITY_UNSPECIFIED
+                        - PRIORITY_LOW
+                        - PRIORITY_MEDIUM
+                        - PRIORITY_HIGH
+                labels:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/Label'
+                metadata:
+                    type: object
+                    additionalProperties:
+                        type: string
+                dueDate:
+                    type: string
+        UpdateTaskRequest:
+            type: object
+            properties:
+                id:
+                    type: string
+                title:
+                    type: string
+                description:
+                    type: string
+                priority:
+                    type: string
+                    enum:
+                        - PRIORITY_UNSPECIFIED
+                        - PRIORITY_LOW
+                        - PRIORITY_MEDIUM
+                        - PRIORITY_HIGH
+                status:
+                    type: string
+                    enum:
+                        - TASK_STATUS_UNSPECIFIED
+                        - TASK_STATUS_TODO
+                        - TASK_STATUS_IN_PROGRESS
+                        - TASK_STATUS_DONE
+                labels:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/Label'
+                metadata:
+                    type: object
+                    additionalProperties:
+                        type: string
+                dueDate:
+                    type: string
+        DeleteTaskRequest:
+            type: object
+            properties:
+                id:
+                    type: string
+        DeleteTaskResponse:
+            type: object
+            properties:
+                success:
+                    type: boolean
+        GetTasksByLabelRequest:
+            type: object
+            properties:
+                label:
+                    type: string
+        TaskList:
+            type: object
+            properties:
+                tasks:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/Task'

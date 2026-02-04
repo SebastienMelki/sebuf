@@ -1,0 +1,13 @@
+{
+  "expo": {
+    "name": "rn-client-demo",
+    "slug": "rn-client-demo",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "scheme": "rn-client-demo",
+    "platforms": ["ios", "android", "web"],
+    "web": {
+      "bundler": "metro"
+    }
+  }
+}
