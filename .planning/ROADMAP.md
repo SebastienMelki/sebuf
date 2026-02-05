@@ -14,7 +14,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Foundation - Quick Wins** - Land PR #98, fix #105, close resolved issues #91 and #94
 - [x] **Phase 2: Foundation - Shared Annotations** - Extract shared annotation parsing, audit serialization consistency
-- [ ] **Phase 3: Existing Client Review** - Review and polish existing Go client and TypeScript client before building new features
+- [x] **Phase 3: Existing Client Review** - Review and polish existing Go client and TypeScript client before building new features
 - [ ] **Phase 4: JSON - Primitive Encoding** - int64/uint64 string encoding and enum string encoding across all generators
 - [ ] **Phase 5: JSON - Nullable & Empty** - Nullable primitives and empty object handling across all generators
 - [ ] **Phase 6: JSON - Data Encoding** - Timestamp formats and bytes encoding options across all generators
@@ -72,12 +72,12 @@ Plans:
 **Plans**: 6 plans
 
 Plans:
-- [ ] 03-01-PLAN.md -- Expand exhaustive test proto and align OpenAPI test infrastructure with shared symlinks
-- [ ] 03-02-PLAN.md -- Fix server Content-Type response headers and marshalResponse default behavior
-- [ ] 03-03-PLAN.md -- Audit and fix Go client consistency with server (unwrap coverage, query params, errors, headers)
-- [ ] 03-04-PLAN.md -- Audit and fix TypeScript client consistency (int64 as string, query params, errors, headers)
-- [ ] 03-05-PLAN.md -- Fix OpenAPI error schemas and type mapping for protojson consistency
-- [ ] 03-06-PLAN.md -- Cross-generator golden file verification and final semantic comparison
+- [x] 03-01-PLAN.md -- Expand exhaustive test proto and align OpenAPI test infrastructure with shared symlinks
+- [x] 03-02-PLAN.md -- Fix server Content-Type response headers and marshalResponse default behavior
+- [x] 03-03-PLAN.md -- Audit and fix Go client consistency with server (unwrap coverage, query params, errors, headers)
+- [x] 03-04-PLAN.md -- Audit and fix TypeScript client consistency (int64 as string, query params, errors, headers)
+- [x] 03-05-PLAN.md -- Fix OpenAPI error schemas and type mapping for protojson consistency
+- [x] 03-06-PLAN.md -- Cross-generator golden file verification and final semantic comparison
 
 ### Phase 4: JSON - Primitive Encoding
 **Goal**: Developers can control how int64/uint64 fields and enum fields are encoded in JSON across all generators
@@ -239,7 +239,7 @@ Note: Phases 8, 9, 10 (language clients) can execute in parallel after Phase 7 c
 |-------|----------------|--------|-----------|
 | 1. Foundation - Quick Wins | 2/2 | Complete | 2026-02-05 |
 | 2. Foundation - Shared Annotations | 4/4 | Complete | 2026-02-05 |
-| 3. Existing Client Review | 0/6 | Not started | - |
+| 3. Existing Client Review | 6/6 | Complete | 2026-02-05 |
 | 4. JSON - Primitive Encoding | 0/4 | Not started | - |
 | 5. JSON - Nullable & Empty | 0/4 | Not started | - |
 | 6. JSON - Data Encoding | 0/4 | Not started | - |

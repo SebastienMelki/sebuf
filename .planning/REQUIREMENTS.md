@@ -15,8 +15,8 @@ Requirements for v1.0 release. Each must work across all generators (go-http, go
 - [x] **FOUND-04**: Audit serialization path -- ensure protojson vs encoding/json consistency in HTTP handler generation
 - [x] **FOUND-05**: Verify #91 (root-level arrays) is fully covered by existing unwrap annotation, close GitHub issue
 - [x] **FOUND-06**: Close #94 (field name casing) on GitHub -- document proto3 `json_name` as the existing solution
-- [ ] **FOUND-07**: Review and polish existing Go HTTP client (protoc-gen-go-client) -- audit serialization consistency with server, error handling, header handling, and edge cases; fix any inconsistencies found
-- [ ] **FOUND-08**: Review and polish existing TypeScript HTTP client (protoc-gen-ts-client) -- audit cross-language consistency with Go client and server, error handling, header handling, and edge cases; fix any inconsistencies found
+- [x] **FOUND-07**: Review and polish existing Go HTTP client (protoc-gen-go-client) -- audit serialization consistency with server, error handling, header handling, and edge cases; fix any inconsistencies found
+- [x] **FOUND-08**: Review and polish existing TypeScript HTTP client (protoc-gen-ts-client) -- audit cross-language consistency with Go client and server, error handling, header handling, and edge cases; fix any inconsistencies found
 
 ### JSON Mapping
 
@@ -85,8 +85,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | FOUND-04 | Phase 2 | Complete |
 | FOUND-05 | Phase 1 | Complete |
 | FOUND-06 | Phase 1 | Complete |
-| FOUND-07 | Phase 3 | Pending |
-| FOUND-08 | Phase 3 | Pending |
+| FOUND-07 | Phase 3 | Complete |
+| FOUND-08 | Phase 3 | Complete |
 | JSON-01 | Phase 5 | Pending |
 | JSON-02 | Phase 4 | Pending |
 | JSON-03 | Phase 4 | Pending |
