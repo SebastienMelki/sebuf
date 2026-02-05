@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2026-02-05)
 
 **Core value:** Proto definitions are the single source of truth -- every generator must produce consistent, correct output that interoperates seamlessly.
-**Current focus:** Phase 4 IN PROGRESS -- JSON Mapping Features, enum encoding complete.
+**Current focus:** Phase 4 COMPLETE -- JSON Primitive Encoding. Ready for Phase 5.
 
 ## Current Position
 
-Phase: 4 of 11 (JSON Primitive Encoding)
-Plan: 4 of 5 in current phase (complete)
-Status: In progress
-Last activity: 2026-02-06 -- Completed 04-04-PLAN.md (Enum Encoding)
+Phase: 4 of 11 (JSON Primitive Encoding) - COMPLETE
+Plan: 5 of 5 in current phase (complete)
+Status: Phase complete
+Last activity: 2026-02-06 -- Completed 04-05-PLAN.md (Cross-Generator Consistency Tests)
 
-Progress: [################] 73% (16 plans of ~22 estimated total)
+Progress: [#################] 77% (17 plans of ~22 estimated total)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 15
-- Average duration: ~6.3m
-- Total execution time: ~1.6 hours
+- Total plans completed: 17
+- Average duration: ~6.5m
+- Total execution time: ~1.8 hours
 
 **By Phase:**
 
@@ -30,11 +30,11 @@ Progress: [################] 73% (16 plans of ~22 estimated total)
 | 01 - Foundation Quick Wins | 2/2 | ~17m | ~8.5m |
 | 02 - Shared Annotations | 4/4 | ~26m | ~6.5m |
 | 03 - Existing Client Review | 6/6 | ~36m | ~6.0m |
-| 04 - JSON Primitive Encoding | 4/5 | ~59m | ~14.8m |
+| 04 - JSON Primitive Encoding | 5/5 | ~65m | ~13.0m |
 
 **Recent Trend:**
-- Last 5 plans: 03-06 (5m), 04-01 (4m), 04-02 (15m), 04-03 (15m), 04-04 (25m)
-- Trend: Generator implementation plans take longer than annotation-only plans
+- Last 5 plans: 04-01 (4m), 04-02 (15m), 04-03 (15m), 04-04 (25m), 04-05 (6m)
+- Trend: Final consistency verification plans are faster than implementation plans
 
 *Updated after each plan completion*
 
@@ -91,6 +91,9 @@ Recent decisions affecting current work:
 - D-04-04-01: Separate enum_encoding.go files in httpgen/clientgen to avoid import conflicts with int64 encoding.go
 - D-04-04-02: Both proto name and custom value accepted in UnmarshalJSON for backward compatibility
 - D-04-04-03: NUMBER encoding returns 'number' type in TypeScript, 'integer' type in OpenAPI
+- D-04-05-01: Split TestEncodingConsistencyAcrossGenerators into separate test functions for linting compliance
+- D-04-05-02: Use normalizeGeneratorComment to allow byte-level comparison between go-http and go-client
+- D-04-05-03: Convert openapiv3 enum_encoding.proto from duplicate file to symlink for consistency
 
 ### Pending Todos
 
@@ -103,6 +106,6 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-06
-Stopped at: Completed 04-04-PLAN.md (Enum Encoding)
+Stopped at: Completed 04-05-PLAN.md (Cross-Generator Consistency Tests) - Phase 4 complete
 Resume file: None
-Next: 04-05-PLAN.md (Cross-Generator Consistency Tests)
+Next: Phase 5 (JSON - Nullable & Empty) planning
