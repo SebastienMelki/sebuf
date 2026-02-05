@@ -5,33 +5,33 @@
 See: .planning/PROJECT.md (updated 2026-02-05)
 
 **Core value:** Proto definitions are the single source of truth -- every generator must produce consistent, correct output that interoperates seamlessly.
-**Current focus:** Phase 1 - Foundation Quick Wins
+**Current focus:** Phase 1 complete. Ready for Phase 2 - Shared Annotations
 
 ## Current Position
 
 Phase: 1 of 11 (Foundation - Quick Wins)
-Plan: 0 of 2 in current phase
-Status: Ready to plan
-Last activity: 2026-02-05 -- Roadmap revised: added Phase 3 (Existing Client Review), cross-generator consistency criteria to all JSON/language phases, formal consistency audit to Phase 11
+Plan: 2 of 2 in current phase
+Status: Phase complete
+Last activity: 2026-02-05 -- Completed 01-01-PLAN.md (net/url fix + cross-file unwrap)
 
-Progress: [...........] 0%
+Progress: [##.........] 9% (2 plans of ~22 estimated total)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 0
-- Average duration: -
-- Total execution time: 0 hours
+- Total plans completed: 2
+- Average duration: ~10m
+- Total execution time: ~0.3 hours
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| - | - | - | - |
+| 01 - Foundation Quick Wins | 2/2 | ~17m | ~8.5m |
 
 **Recent Trend:**
-- Last 5 plans: -
-- Trend: -
+- Last 5 plans: 01-01 (7m), 01-02 (~10m)
+- Trend: Stable
 
 *Updated after each plan completion*
 
@@ -49,18 +49,19 @@ Recent decisions affecting current work:
 - Roadmap: JSON-01 (nullable) must precede JSON-06 (empty objects) due to dependency
 - Roadmap: Language clients (Phases 8-10) parallelizable after Phase 7 completes
 - Roadmap: JSON-08 (nested flattening) kept in v1 scope despite research suggesting deferral
+- D-01-01-01: Two-pass generation pattern for cross-file unwrap (collect all unwrap info globally first, then generate per-file)
+- D-01-01-02: Preserve root unwrap functionality while adding cross-file resolution
 
 ### Pending Todos
 
-None yet.
+None.
 
 ### Blockers/Concerns
 
-- PR #98 (cross-file unwrap) must be reviewed and landed in Phase 1 before Phase 2 refactoring
 - Research flags Phase 7 JSON-04 (oneof discriminated union) as HIGH complexity -- may need deeper research during planning
 
 ## Session Continuity
 
 Last session: 2026-02-05
-Stopped at: Roadmap revised, ready for Phase 1 planning
+Stopped at: Completed Phase 1 (both plans 01-01 and 01-02). Ready for Phase 2.
 Resume file: None
