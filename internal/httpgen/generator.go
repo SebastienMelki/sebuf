@@ -61,6 +61,11 @@ func (g *Generator) Generate() error {
 }
 
 func (g *Generator) generateFile(file *protogen.File) error {
+	// Validate enum annotations first - fail fast if conflicting annotations exist
+	if err := g.validateEnumAnnotationsInFile(file); err != nil {
+		return fmt.Errorf("enum annotation validation failed: %w", err)
+	}
+
 	// Generate error implementation file if there are messages ending with Error
 	if err := g.generateErrorImplFile(file); err != nil {
 		return err
@@ -73,6 +78,11 @@ func (g *Generator) generateFile(file *protogen.File) error {
 
 	// Generate encoding file if there are messages with int64_encoding=NUMBER annotations
 	if err := g.generateInt64EncodingFile(file); err != nil {
+		return err
+	}
+
+	// Generate enum encoding file if there are enums with custom enum_value annotations
+	if err := g.generateEnumEncodingFile(file); err != nil {
 		return err
 	}
 
