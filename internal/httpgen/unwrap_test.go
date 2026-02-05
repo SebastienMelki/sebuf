@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/SebastienMelki/sebuf/internal/annotations"
 )
 
 // TestUnwrapFileGeneration tests that the unwrap file is generated correctly.
@@ -186,7 +188,7 @@ func TestUnwrapBindingIntegration(t *testing.T) {
 
 // TestUnwrapValidationError tests the UnwrapValidationError type.
 func TestUnwrapValidationError(t *testing.T) {
-	err := &UnwrapValidationError{
+	err := &annotations.UnwrapValidationError{
 		MessageName: "TestMessage",
 		FieldName:   "test_field",
 		Reason:      "must be a repeated field",
