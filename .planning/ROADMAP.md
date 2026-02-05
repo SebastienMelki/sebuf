@@ -35,11 +35,11 @@ Decimal phases appear between their surrounding integers in numeric order.
   2. Protobuf messages referencing unwrap-annotated types from other `.proto` files in the same Go package resolve correctly at generation time
   3. GitHub issue #91 (root-level arrays) is closed with a comment documenting how existing unwrap annotation covers the use case
   4. GitHub issue #94 (field name casing) is closed with a comment documenting proto3 `json_name` as the existing solution
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 01-01: Fix conditional net/url import and land cross-file unwrap PR
-- [ ] 01-02: Verify and close resolved GitHub issues #91 and #94
+- [ ] 01-01-PLAN.md -- Fix conditional net/url import (#105) and land cross-file unwrap PR (#98)
+- [ ] 01-02-PLAN.md -- Verify and close resolved GitHub issues #91 and #94
 
 ### Phase 2: Foundation - Shared Annotations
 **Goal**: All generators consume annotation metadata through a single shared package, eliminating duplication and ensuring consistency for the 8 new annotations coming next
