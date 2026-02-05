@@ -1,6 +1,8 @@
 package httpgen
 
 import (
+	"fmt"
+
 	"google.golang.org/protobuf/compiler/protogen"
 
 	"github.com/SebastienMelki/sebuf/internal/annotations"
@@ -74,36 +76,42 @@ func NewGlobalUnwrapInfo() *GlobalUnwrapInfo {
 
 // CollectGlobalUnwrapInfo scans all files to be generated and collects unwrap field information.
 // This enables the generator to find unwrap annotations on messages defined in other files
-// within the same Go package.
-func CollectGlobalUnwrapInfo(files []*protogen.File) *GlobalUnwrapInfo {
+// within the same Go package. Returns an error if any unwrap annotation is invalid.
+func CollectGlobalUnwrapInfo(files []*protogen.File) (*GlobalUnwrapInfo, error) {
 	global := NewGlobalUnwrapInfo()
 	for _, file := range files {
 		if !file.Generate {
 			continue
 		}
-		collectFileUnwrapFields(file.Messages, global)
+		if err := collectFileUnwrapFields(file.Messages, global); err != nil {
+			return nil, fmt.Errorf("file %s: %w", file.Desc.Path(), err)
+		}
 	}
-	return global
+	return global, nil
 }
 
 // collectFileUnwrapFields recursively collects unwrap fields from messages.
-func collectFileUnwrapFields(messages []*protogen.Message, global *GlobalUnwrapInfo) {
+// Returns an error if any unwrap annotation is invalid (fail-hard).
+func collectFileUnwrapFields(messages []*protogen.Message, global *GlobalUnwrapInfo) error {
 	for _, msg := range messages {
 		info, err := annotations.GetUnwrapField(msg)
 		if err != nil {
-			// Log error but continue
-			continue
+			return fmt.Errorf("collecting unwrap fields for message %s: %w", msg.Desc.FullName(), err)
 		}
 		if info != nil {
 			global.UnwrapFields[string(msg.Desc.FullName())] = info
 		}
 		// Check nested messages too
-		collectFileUnwrapFields(msg.Messages, global)
+		if err = collectFileUnwrapFields(msg.Messages, global); err != nil {
+			return err
+		}
 	}
+	return nil
 }
 
 // collectUnwrapContext analyzes all messages in a file and collects unwrap information.
-func (g *Generator) collectUnwrapContext(file *protogen.File) *UnwrapContext {
+// Returns an error if any unwrap annotation is invalid (fail-hard).
+func (g *Generator) collectUnwrapContext(file *protogen.File) (*UnwrapContext, error) {
 	ctx := &UnwrapContext{}
 
 	// Use global unwrap map if available (two-pass mode), otherwise fall back to single-file mode
@@ -112,7 +120,11 @@ func (g *Generator) collectUnwrapContext(file *protogen.File) *UnwrapContext {
 		globalUnwrapMap = g.globalUnwrap.UnwrapFields
 	} else {
 		// Fallback for direct calls (e.g., in tests without full Generate() flow)
-		globalUnwrapMap = collectAllUnwrapFields(file.Messages)
+		var err error
+		globalUnwrapMap, err = collectAllUnwrapFields(file.Messages)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	// Collect root unwrap messages (single field with unwrap on map/repeated)
@@ -122,32 +134,37 @@ func (g *Generator) collectUnwrapContext(file *protogen.File) *UnwrapContext {
 	// Only include messages that are NOT root unwrap messages (those are handled separately)
 	findMapFieldsWithUnwrap(file.Messages, globalUnwrapMap, ctx)
 
-	return ctx
+	return ctx, nil
 }
 
 // collectAllUnwrapFields recursively collects all messages with unwrap fields.
-func collectAllUnwrapFields(messages []*protogen.Message) map[string]*annotations.UnwrapFieldInfo {
+// Returns an error if any unwrap annotation is invalid (fail-hard).
+func collectAllUnwrapFields(messages []*protogen.Message) (map[string]*annotations.UnwrapFieldInfo, error) {
 	result := make(map[string]*annotations.UnwrapFieldInfo)
-	collectUnwrapFieldsRecursive(messages, result)
-	return result
+	if err := collectUnwrapFieldsRecursive(messages, result); err != nil {
+		return nil, err
+	}
+	return result, nil
 }
 
 // collectUnwrapFieldsRecursive is a helper that recursively collects unwrap fields.
-func collectUnwrapFieldsRecursive(messages []*protogen.Message, result map[string]*annotations.UnwrapFieldInfo) {
+// Returns an error if any unwrap annotation is invalid (fail-hard).
+func collectUnwrapFieldsRecursive(messages []*protogen.Message, result map[string]*annotations.UnwrapFieldInfo) error {
 	for _, msg := range messages {
 		info, err := annotations.GetUnwrapField(msg)
 		if err != nil {
-			// Log error but continue - store error for debugging
-			// NOTE: This suppresses errors for messages that fail validation
-			continue
+			return fmt.Errorf("collecting unwrap fields for message %s: %w", msg.Desc.FullName(), err)
 		}
 		if info != nil {
 			fullName := string(msg.Desc.FullName())
 			result[fullName] = info
 		}
 		// Check nested messages too
-		collectUnwrapFieldsRecursive(msg.Messages, result)
+		if err = collectUnwrapFieldsRecursive(msg.Messages, result); err != nil {
+			return err
+		}
 	}
+	return nil
 }
 
 // collectRootUnwrapMessages finds messages that have root-level unwrap.
@@ -291,7 +308,10 @@ func getMapValueMessage(field *protogen.Field) *protogen.Message {
 
 // generateUnwrapFile generates the *_unwrap.pb.go file if needed.
 func (g *Generator) generateUnwrapFile(file *protogen.File) error {
-	ctx := g.collectUnwrapContext(file)
+	ctx, err := g.collectUnwrapContext(file)
+	if err != nil {
+		return fmt.Errorf("collecting unwrap context for %s: %w", file.Desc.Path(), err)
+	}
 
 	// If no messages need unwrap methods, skip generation
 	if len(ctx.ContainingMessages) == 0 && len(ctx.RootUnwrapMessages) == 0 {

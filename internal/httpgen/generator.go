@@ -42,14 +42,18 @@ func NewWithOptions(plugin *protogen.Plugin, opts Options) *Generator {
 func (g *Generator) Generate() error {
 	// Phase 1: Collect global unwrap information from ALL files first.
 	// This enables cross-file unwrap resolution within the same package.
-	g.globalUnwrap = CollectGlobalUnwrapInfo(g.plugin.Files)
+	var err error
+	g.globalUnwrap, err = CollectGlobalUnwrapInfo(g.plugin.Files)
+	if err != nil {
+		return fmt.Errorf("collecting global unwrap info: %w", err)
+	}
 
 	// Phase 2: Generate code for each file
 	for _, file := range g.plugin.Files {
 		if !file.Generate {
 			continue
 		}
-		if err := g.generateFile(file); err != nil {
+		if err = g.generateFile(file); err != nil {
 			return err
 		}
 	}
