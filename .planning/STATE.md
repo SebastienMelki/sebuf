@@ -12,7 +12,7 @@ See: .planning/PROJECT.md (updated 2026-02-05)
 Phase: 4 of 11 (JSON Primitive Encoding)
 Plan: 3 of 5 in current phase (complete)
 Status: In progress
-Last activity: 2026-02-06 -- Completed 04-03-PLAN.md (ts-client and OpenAPI Int64 Encoding)
+Last activity: 2026-02-06 -- Completed 04-02-PLAN.md (Go HTTP and Go Client Int64 Encoding)
 
 Progress: [###############] 68% (15 plans of ~22 estimated total)
 
@@ -30,11 +30,11 @@ Progress: [###############] 68% (15 plans of ~22 estimated total)
 | 01 - Foundation Quick Wins | 2/2 | ~17m | ~8.5m |
 | 02 - Shared Annotations | 4/4 | ~26m | ~6.5m |
 | 03 - Existing Client Review | 6/6 | ~36m | ~6.0m |
-| 04 - JSON Primitive Encoding | 3/5 | ~19m | ~6.3m |
+| 04 - JSON Primitive Encoding | 3/5 | ~34m | ~11.3m |
 
 **Recent Trend:**
-- Last 5 plans: 03-05 (7m), 03-06 (5m), 04-01 (4m), 04-02 (~?m), 04-03 (15m)
-- Trend: ts-client/OpenAPI integration takes longer than annotation-only plans
+- Last 5 plans: 03-05 (7m), 03-06 (5m), 04-01 (4m), 04-02 (15m), 04-03 (15m)
+- Trend: Generator implementation plans take longer than annotation-only plans
 
 *Updated after each plan completion*
 
@@ -85,6 +85,9 @@ Recent decisions affecting current work:
 - D-04-03-01: tsScalarTypeForField pattern - keep base tsScalarType unchanged, add encoding-aware variant
 - D-04-03-02: appendInt64PrecisionWarning called after description set - ensures comment text + warning combined
 - D-04-03-03: nolint directives for valid lint warnings - exhaustive (has default), funlen (big switch), nestif (existing pattern)
+- D-04-02-01: Use protojson for base serialization, then modify map for NUMBER fields - preserves all other field handling
+- D-04-02-02: Print precision warning to stderr during generation, not at runtime - developer sees during build
+- D-04-02-03: Identical encoding.go implementation in httpgen and clientgen - guarantees server/client JSON match
 
 ### Pending Todos
 
@@ -97,6 +100,6 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-06
-Stopped at: Completed 04-03-PLAN.md (ts-client and OpenAPI Int64 Encoding)
+Stopped at: Completed 04-02-PLAN.md (Go HTTP and Go Client Int64 Encoding)
 Resume file: None
 Next: 04-04-PLAN.md (Enum Encoding)
