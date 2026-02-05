@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2026-02-05)
 
 **Core value:** Proto definitions are the single source of truth -- every generator must produce consistent, correct output that interoperates seamlessly.
-**Current focus:** Phase 3 (Existing Client Review) -- shared test proto infrastructure established, fixing client correctness issues.
+**Current focus:** Phase 3 (Existing Client Review) -- OpenAPI generator corrected for proto3 JSON spec compliance.
 
 ## Current Position
 
 Phase: 3 of 11 (Existing Client Review)
-Plan: 4 of 6 in current phase (03-01, 03-02, 03-03, and 03-04 complete)
+Plan: 5 of 6 in current phase (03-01, 03-02, 03-03, 03-04, and 03-05 complete)
 Status: In progress
-Last activity: 2026-02-05 -- Completed 03-04-PLAN.md (TS Client Consistency Audit)
+Last activity: 2026-02-05 -- Completed 03-05-PLAN.md (OpenAPI Protojson Consistency)
 
-Progress: [##########.] 45% (10 plans of ~22 estimated total)
+Progress: [###########] 50% (11 plans of ~22 estimated total)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 10
-- Average duration: ~6.3m
-- Total execution time: ~1.05 hours
+- Total plans completed: 11
+- Average duration: ~6.2m
+- Total execution time: ~1.13 hours
 
 **By Phase:**
 
@@ -29,11 +29,11 @@ Progress: [##########.] 45% (10 plans of ~22 estimated total)
 |-------|-------|-------|----------|
 | 01 - Foundation Quick Wins | 2/2 | ~17m | ~8.5m |
 | 02 - Shared Annotations | 4/4 | ~26m | ~6.5m |
-| 03 - Existing Client Review | 4/6 | ~24m | ~6m |
+| 03 - Existing Client Review | 5/6 | ~31m | ~6.2m |
 
 **Recent Trend:**
-- Last 5 plans: 03-02 (4m), 03-01 (10m), 03-03 (3m), 03-04 (7m)
-- Trend: Consistent, audit/verification tasks fast
+- Last 5 plans: 03-01 (10m), 03-03 (3m), 03-04 (7m), 03-05 (7m)
+- Trend: Consistent, audit/fix tasks efficient
 
 *Updated after each plan completion*
 
@@ -73,6 +73,9 @@ Recent decisions affecting current work:
 - D-03-03-01: Go client already consistent with server - no fixes needed (audit verified 6 key areas: query params, Content-Type, errors, path params, headers, unwrap)
 - D-03-04-01: TS client already consistent with Go server - no fixes needed (int64 as string, query encoding, FieldViolation fields, header handling, all 4 unwrap variants)
 - D-03-04-02: No JSDoc generation by design - minimalist generated code
+- D-03-05-01: Error schema uses single 'message' field matching sebuf.http.Error proto (not error+code)
+- D-03-05-02: int64/uint64 mapped to type:string per proto3 JSON spec for JavaScript precision safety
+- D-03-05-03: Added headerTypeUint64 constant and removed minimum constraint since uint64 is now string type
 
 ### Pending Todos
 
@@ -85,5 +88,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-05
-Stopped at: Completed 03-04-PLAN.md (TS Client Consistency Audit)
+Stopped at: Completed 03-05-PLAN.md (OpenAPI Protojson Consistency)
 Resume file: None
