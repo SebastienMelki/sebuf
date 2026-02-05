@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2026-02-05)
 
 **Core value:** Proto definitions are the single source of truth -- every generator must produce consistent, correct output that interoperates seamlessly.
-**Current focus:** Phase 3 (Existing Client Review) -- fixing server and client correctness issues.
+**Current focus:** Phase 3 (Existing Client Review) -- shared test proto infrastructure established, fixing client correctness issues.
 
 ## Current Position
 
 Phase: 3 of 11 (Existing Client Review)
-Plan: 2 of 6 in current phase
+Plan: 2 of 6 in current phase (03-01 and 03-02 complete)
 Status: In progress
-Last activity: 2026-02-05 -- Completed 03-02-PLAN.md (Server Content-Type Response Headers)
+Last activity: 2026-02-05 -- Completed 03-01-PLAN.md (Shared Test Proto Infrastructure)
 
-Progress: [#######....] 32% (7 plans of ~22 estimated total)
+Progress: [########...] 36% (8 plans of ~22 estimated total)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 7
-- Average duration: ~6.4m
-- Total execution time: ~0.75 hours
+- Total plans completed: 8
+- Average duration: ~6.6m
+- Total execution time: ~0.88 hours
 
 **By Phase:**
 
@@ -29,11 +29,11 @@ Progress: [#######....] 32% (7 plans of ~22 estimated total)
 |-------|-------|-------|----------|
 | 01 - Foundation Quick Wins | 2/2 | ~17m | ~8.5m |
 | 02 - Shared Annotations | 4/4 | ~26m | ~6.5m |
-| 03 - Existing Client Review | 1/6 | ~4m | ~4m |
+| 03 - Existing Client Review | 2/6 | ~14m | ~7m |
 
 **Recent Trend:**
-- Last 5 plans: 02-02 (6m), 02-03 (5m), 02-04 (10m), 03-02 (4m)
-- Trend: Fast plan, focused surgical fix
+- Last 5 plans: 02-03 (5m), 02-04 (10m), 03-02 (4m), 03-01 (10m)
+- Trend: Consistent, infrastructure tasks slightly longer
 
 *Updated after each plan completion*
 
@@ -67,6 +67,9 @@ Recent decisions affecting current work:
 - D-02-04-04: Serialization audit confirmed no changes needed -- encoding/json correctly used for interface checks only
 - D-03-02-01: JSON default for unknown content types everywhere -- bindDataBasedOnContentType, marshalResponse, writeProtoMessageResponse, writeResponseBody all default to JSON
 - D-03-02-02: Content-Type set in three response-writing functions covering all paths: writeProtoMessageResponse, genericHandler success path, writeResponseBody
+- D-03-01-01: Added UnwrapService to httpgen unwrap.proto (alongside OptionDataService) for cross-generator root-level unwrap testing
+- D-03-01-02: Root-level unwrap RPCs use POST method (not GET) to satisfy httpgen GET-with-body validation
+- D-03-01-03: Proto3 optional support added to go-http and go-client plugins via SupportedFeatures declaration
 
 ### Pending Todos
 
@@ -79,5 +82,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-05
-Stopped at: Completed 03-02-PLAN.md (Server Content-Type Response Headers)
+Stopped at: Completed 03-01-PLAN.md (Shared Test Proto Infrastructure)
 Resume file: None
