@@ -19,6 +19,7 @@ type RESTfulAPIServiceServer interface {
 	PatchResource(context.Context, *PatchResourceRequest) (*Resource, error)
 	DeleteResource(context.Context, *DeleteResourceRequest) (*DeleteResourceResponse, error)
 	DefaultPostMethod(context.Context, *DefaultPostRequest) (*DefaultPostResponse, error)
+	SearchResources(context.Context, *SearchResourcesRequest) (*ListResourcesResponse, error)
 }
 
 // RegisterRESTfulAPIServiceServer registers the HTTP handlers for service RESTfulAPIService to the given mux.
@@ -99,6 +100,15 @@ func RegisterRESTfulAPIServiceServer(server RESTfulAPIServiceServer, opts ...Ser
 
 	config.mux.Handle("POST /api/v1/legacy/action", defaultPostMethodHandler)
 
+	methodHeaders = getSearchResourcesHeaders()
+	searchResourcesHandler := BindingMiddleware[SearchResourcesRequest](
+		genericHandler(server.SearchResources, config.errorHandler), serviceHeaders, methodHeaders,
+		searchResourcesPathParams, searchResourcesQueryParams,
+		"GET", config.errorHandler,
+	)
+
+	config.mux.Handle("GET /api/v1/resources/search", searchResourcesHandler)
+
 	return nil
 }
 
@@ -167,6 +177,11 @@ func getDefaultPostMethodHeaders() []*sebufhttp.Header {
 	return nil
 }
 
+// getSearchResourcesHeaders returns the method-level required headers for SearchResources
+func getSearchResourcesHeaders() []*sebufhttp.Header {
+	return nil
+}
+
 // listResourcesPathParams contains path parameter configuration for ListResources
 var listResourcesPathParams = []PathParamConfig{}
 
@@ -176,6 +191,10 @@ var listResourcesQueryParams = []QueryParamConfig{
 	{QueryName: "page_size", FieldName: "page_size", Required: false},
 	{QueryName: "filter", FieldName: "filter", Required: false},
 	{QueryName: "include_deleted", FieldName: "include_deleted", Required: false},
+	{QueryName: "since_timestamp", FieldName: "since_timestamp", Required: false},
+	{QueryName: "max_id", FieldName: "max_id", Required: false},
+	{QueryName: "min_score", FieldName: "min_score", Required: false},
+	{QueryName: "max_score", FieldName: "max_score", Required: false},
 }
 
 // getResourcePathParams contains path parameter configuration for GetResource
@@ -231,6 +250,15 @@ var defaultPostMethodPathParams = []PathParamConfig{}
 
 // defaultPostMethodQueryParams contains query parameter configuration for DefaultPostMethod
 var defaultPostMethodQueryParams = []QueryParamConfig{}
+
+// searchResourcesPathParams contains path parameter configuration for SearchResources
+var searchResourcesPathParams = []PathParamConfig{}
+
+// searchResourcesQueryParams contains query parameter configuration for SearchResources
+var searchResourcesQueryParams = []QueryParamConfig{
+	{QueryName: "status", FieldName: "status_filter", Required: false},
+	{QueryName: "q", FieldName: "query", Required: false},
+}
 
 // BackwardCompatServiceServer is the server API for BackwardCompatService service.
 type BackwardCompatServiceServer interface {

@@ -4,6 +4,7 @@ import (
 	"flag"
 
 	"google.golang.org/protobuf/compiler/protogen"
+	"google.golang.org/protobuf/types/pluginpb"
 
 	"github.com/SebastienMelki/sebuf/internal/httpgen"
 )
@@ -18,6 +19,7 @@ func main() {
 	}
 
 	options.Run(func(plugin *protogen.Plugin) error {
+		plugin.SupportedFeatures = uint64(pluginpb.CodeGeneratorResponse_FEATURE_PROTO3_OPTIONAL)
 		opts := httpgen.Options{
 			GenerateMock: generateMock,
 		}
