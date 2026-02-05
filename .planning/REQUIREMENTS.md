@@ -5,7 +5,7 @@
 
 ## v1 Requirements
 
-Requirements for v1.0 release. Each must work across all 4 generators (go-http, go-client, ts-client, openapiv3) unless noted.
+Requirements for v1.0 release. Each must work across all generators (go-http, go-client, ts-client, swift-client, kt-client, py-client, openapiv3) unless noted.
 
 ### Foundation
 
@@ -27,6 +27,12 @@ Requirements for v1.0 release. Each must work across all 4 generators (go-http, 
 - [ ] **JSON-07**: #95 Bytes encoding options — per-field `bytes_encoding` annotation (BASE64, BASE64_RAW, BASE64URL, BASE64URL_RAW, HEX)
 - [ ] **JSON-08**: #96 Nested message flattening — per-field `flatten` and `flatten_prefix` annotations with collision detection at generation time
 
+### Language Clients
+
+- [ ] **LANG-01**: Swift HTTP client generator (protoc-gen-swift-client) — idiomatic Swift using URLSession, Codable structs
+- [ ] **LANG-02**: Kotlin HTTP client generator (protoc-gen-kt-client) — idiomatic Kotlin using OkHttp/Ktor, data classes
+- [ ] **LANG-03**: Python HTTP client generator (protoc-gen-py-client) — idiomatic Python using httpx, dataclasses/Pydantic
+
 ### Polish
 
 - [ ] **POL-01**: Comprehensive README review and improvement
@@ -34,7 +40,7 @@ Requirements for v1.0 release. Each must work across all 4 generators (go-http, 
 - [ ] **POL-03**: Add multi-auth patterns example (#50)
 - [ ] **POL-04**: Expand test coverage — golden file tests for every annotation across all generators
 - [ ] **POL-05**: Review and improve inline documentation across all generators
-- [ ] **POL-06**: End-to-end consistency validation — verify proto definitions produce matching output across all 4 generators
+- [ ] **POL-06**: End-to-end consistency validation — verify proto definitions produce matching output across all generators (go-http, go-client, ts-client, swift-client, kt-client, py-client, openapiv3)
 
 ## v2 Requirements
 
@@ -42,10 +48,7 @@ Deferred to v2.0 milestone. Tracked but not in current roadmap.
 
 ### Multi-Language Clients
 
-- **LANG-01**: Python HTTP client generator (protoc-gen-py-client)
-- **LANG-02**: Rust HTTP client generator (protoc-gen-rs-client)
-- **LANG-03**: Swift HTTP client generator (protoc-gen-swift-client)
-- **LANG-04**: Kotlin HTTP client generator (protoc-gen-kt-client)
+- **LANG-04**: Rust HTTP client generator (protoc-gen-rs-client)
 - **LANG-05**: Java HTTP client generator (protoc-gen-java-client)
 - **LANG-06**: C# HTTP client generator (protoc-gen-csharp-client)
 - **LANG-07**: Ruby HTTP client generator (protoc-gen-rb-client)
@@ -88,6 +91,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | JSON-06 | — | Pending |
 | JSON-07 | — | Pending |
 | JSON-08 | — | Pending |
+| LANG-01 | — | Pending |
+| LANG-02 | — | Pending |
+| LANG-03 | — | Pending |
 | POL-01 | — | Pending |
 | POL-02 | — | Pending |
 | POL-03 | — | Pending |
@@ -96,9 +102,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | POL-06 | — | Pending |
 
 **Coverage:**
-- v1 requirements: 20 total
+- v1 requirements: 23 total
 - Mapped to phases: 0
-- Unmapped: 20 ⚠️
+- Unmapped: 23 ⚠️
 
 ---
 *Requirements defined: 2026-02-05*
