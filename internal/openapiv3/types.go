@@ -174,6 +174,8 @@ func (g *Generator) convertScalarField(field *protogen.Field) *base.SchemaProxy 
 }
 
 // convertEnumField converts a protobuf enum field to an OpenAPI schema.
+// If enum_encoding=NUMBER is set on the field, generates an integer enum.
+// If enum values have enum_value annotations, uses custom values instead of proto names.
 func (g *Generator) convertEnumField(field *protogen.Field) *base.SchemaProxy {
 	if field.Enum == nil {
 		// Fallback if enum is not available
@@ -182,16 +184,44 @@ func (g *Generator) convertEnumField(field *protogen.Field) *base.SchemaProxy {
 		})
 	}
 
+	// Check for NUMBER encoding
+	encoding := annotations.GetEnumEncoding(field)
+	if encoding == http.EnumEncoding_ENUM_ENCODING_NUMBER {
+		// Generate integer enum with numeric values
+		schema := &base.Schema{
+			Type: []string{headerTypeInteger},
+			Enum: make([]*yaml.Node, 0, len(field.Enum.Values)),
+		}
+		for _, value := range field.Enum.Values {
+			schema.Enum = append(schema.Enum, &yaml.Node{
+				Kind:  yaml.ScalarNode,
+				Tag:   "!!int",
+				Value: fmt.Sprintf("%d", value.Desc.Number()),
+			})
+		}
+		// Add description from enum comments
+		if field.Enum.Comments.Leading != "" {
+			schema.Description = strings.TrimSpace(string(field.Enum.Comments.Leading))
+		}
+		return base.CreateSchemaProxy(schema)
+	}
+
+	// Default: string enum with custom values or proto names
 	schema := &base.Schema{
 		Type: []string{"string"},
 		Enum: make([]*yaml.Node, 0, len(field.Enum.Values)),
 	}
 
-	// Add enum values
+	// Add enum values, using custom enum_value if present
 	for _, value := range field.Enum.Values {
+		customValue := annotations.GetEnumValueMapping(value)
+		enumValue := customValue
+		if enumValue == "" {
+			enumValue = string(value.Desc.Name())
+		}
 		schema.Enum = append(schema.Enum, &yaml.Node{
 			Kind:  yaml.ScalarNode,
-			Value: string(value.Desc.Name()),
+			Value: enumValue,
 		})
 	}
 

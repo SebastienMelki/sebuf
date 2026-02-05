@@ -8,6 +8,7 @@ import (
 	"google.golang.org/protobuf/compiler/protogen"
 	"google.golang.org/protobuf/reflect/protoreflect"
 
+	"github.com/SebastienMelki/sebuf/http"
 	"github.com/SebastienMelki/sebuf/internal/annotations"
 )
 
@@ -235,6 +236,11 @@ func tsFieldType(field *protogen.Field) string {
 
 	// Handle enum fields
 	if field.Desc.Kind() == protoreflect.EnumKind && field.Enum != nil {
+		// Check for NUMBER encoding - return number type instead of enum name
+		encoding := annotations.GetEnumEncoding(field)
+		if encoding == http.EnumEncoding_ENUM_ENCODING_NUMBER {
+			return tsNumber
+		}
 		return string(field.Enum.Desc.Name())
 	}
 
@@ -248,6 +254,11 @@ func tsElementType(field *protogen.Field) string {
 		return string(field.Message.Desc.Name())
 	}
 	if field.Desc.Kind() == protoreflect.EnumKind && field.Enum != nil {
+		// Check for NUMBER encoding - return number type instead of enum name
+		encoding := annotations.GetEnumEncoding(field)
+		if encoding == http.EnumEncoding_ENUM_ENCODING_NUMBER {
+			return tsNumber
+		}
 		return string(field.Enum.Desc.Name())
 	}
 	// Use field-aware function for encoding annotations
@@ -282,6 +293,7 @@ func rootUnwrapTSType(msg *protogen.Message) string {
 }
 
 // generateEnumType writes a TypeScript string union type for a protobuf enum.
+// Uses custom enum_value annotations if present, otherwise uses proto names.
 func generateEnumType(p printer, enum *protogen.Enum) {
 	name := string(enum.Desc.Name())
 	values := enum.Values
@@ -294,7 +306,13 @@ func generateEnumType(p printer, enum *protogen.Enum) {
 
 	var parts []string
 	for _, v := range values {
-		parts = append(parts, fmt.Sprintf(`"%s"`, string(v.Desc.Name())))
+		// Check for custom enum_value annotation
+		customValue := annotations.GetEnumValueMapping(v)
+		if customValue != "" {
+			parts = append(parts, fmt.Sprintf(`"%s"`, customValue))
+		} else {
+			parts = append(parts, fmt.Sprintf(`"%s"`, string(v.Desc.Name())))
+		}
 	}
 
 	p("export type %s = %s;", name, strings.Join(parts, " | "))
