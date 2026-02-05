@@ -4,14 +4,6 @@ import (
 	"strings"
 )
 
-// lowerFirst converts "FooBar" to "fooBar".
-func lowerFirst(s string) string {
-	if s == "" {
-		return ""
-	}
-	return strings.ToLower(s[:1]) + s[1:]
-}
-
 // snakeToLowerCamel converts "user_id" to "userId".
 func snakeToLowerCamel(s string) string {
 	parts := strings.Split(s, "_")
