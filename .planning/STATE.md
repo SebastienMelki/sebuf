@@ -5,33 +5,33 @@
 See: .planning/PROJECT.md (updated 2026-02-05)
 
 **Core value:** Proto definitions are the single source of truth -- every generator must produce consistent, correct output that interoperates seamlessly.
-**Current focus:** Phase 2 - Shared Annotations (plan 02 complete, httpgen migrated)
+**Current focus:** Phase 2 - Shared Annotations (plan 03 complete, 3 of 4 generators migrated)
 
 ## Current Position
 
 Phase: 2 of 11 (Foundation - Shared Annotations)
-Plan: 2 of 4 in current phase
+Plan: 3 of 4 in current phase
 Status: In progress
-Last activity: 2026-02-05 -- Completed 02-02-PLAN.md (httpgen migration to shared annotations)
+Last activity: 2026-02-05 -- Completed 02-03-PLAN.md (clientgen + tsclientgen migration to shared annotations)
 
-Progress: [####.......] 18% (4 plans of ~22 estimated total)
+Progress: [#####......] 23% (5 plans of ~22 estimated total)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 4
+- Total plans completed: 5
 - Average duration: ~7m
-- Total execution time: ~0.5 hours
+- Total execution time: ~0.6 hours
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 01 - Foundation Quick Wins | 2/2 | ~17m | ~8.5m |
-| 02 - Shared Annotations | 2/4 | ~11m | ~5.5m |
+| 02 - Shared Annotations | 3/4 | ~16m | ~5.3m |
 
 **Recent Trend:**
-- Last 5 plans: 01-01 (7m), 01-02 (~10m), 02-01 (5m), 02-02 (6m)
+- Last 5 plans: 01-02 (~10m), 02-01 (5m), 02-02 (6m), 02-03 (5m)
 - Trend: Consistent, accelerating
 
 *Updated after each plan completion*
@@ -58,6 +58,8 @@ Recent decisions affecting current work:
 - D-02-01-04: Convention-based extensibility -- one file per annotation concept, GetXxx() function signatures
 - D-02-02-01: Dead code removal -- parseExistingAnnotation removed during migration (always returned empty string)
 - D-02-02-02: Test deduplication -- httpgen annotation tests removed since covered by shared package
+- D-02-03-01: BuildHTTPPath safe for both generators -- httpPath always initialized before path building
+- D-02-03-02: Generator-specific naming helpers kept in respective packages (snakeToUpperCamel, snakeToLowerCamel, headerNameToPropertyName)
 
 ### Pending Todos
 
@@ -70,5 +72,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-05
-Stopped at: Completed 02-02-PLAN.md. Ready for 02-03-PLAN.md (clientgen + tsclientgen + openapiv3 migration).
+Stopped at: Completed 02-03-PLAN.md. Ready for 02-04-PLAN.md (openapiv3 migration -- final generator).
 Resume file: None
