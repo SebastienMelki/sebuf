@@ -460,6 +460,21 @@ func TestExhaustiveGoldenFiles(t *testing.T) {
 			goldenFile:  "testdata/golden/json/Int64EncodingService.openapi.json",
 			format:      "json",
 		},
+		// enum_encoding.proto -> EnumEncodingService (enum encoding variants)
+		{
+			name:        "enum_encoding_service_yaml",
+			protoFile:   "testdata/proto/enum_encoding.proto",
+			serviceName: "EnumEncodingService",
+			goldenFile:  "testdata/golden/yaml/EnumEncodingService.openapi.yaml",
+			format:      "yaml",
+		},
+		{
+			name:        "enum_encoding_service_json",
+			protoFile:   "testdata/proto/enum_encoding.proto",
+			serviceName: "EnumEncodingService",
+			goldenFile:  "testdata/golden/json/EnumEncodingService.openapi.json",
+			format:      "json",
+		},
 	}
 
 	for _, tc := range testCases {
@@ -558,6 +573,7 @@ func TestExhaustiveRegression(t *testing.T) {
 		"testdata/proto/query_params.proto":             {"QueryParamService"},
 		"testdata/proto/backward_compat.proto":          {"NoAnnotationsService", "BasePathOnlyService"},
 		"testdata/proto/int64_encoding.proto":           {"Int64EncodingService"},
+		"testdata/proto/enum_encoding.proto":            {"EnumEncodingService"},
 	}
 
 	formats := []string{"yaml", "json"}
