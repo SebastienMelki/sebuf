@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2026-02-05)
 
 **Core value:** Proto definitions are the single source of truth -- every generator must produce consistent, correct output that interoperates seamlessly.
-**Current focus:** Phase 4 IN PROGRESS -- JSON Mapping Features, starting with annotation infrastructure.
+**Current focus:** Phase 4 IN PROGRESS -- JSON Mapping Features, int64 encoding for ts-client and OpenAPI complete.
 
 ## Current Position
 
 Phase: 4 of 11 (JSON Primitive Encoding)
-Plan: 1 of 5 in current phase (complete)
+Plan: 3 of 5 in current phase (complete)
 Status: In progress
-Last activity: 2026-02-06 -- Completed 04-01-PLAN.md (Annotation Infrastructure)
+Last activity: 2026-02-06 -- Completed 04-03-PLAN.md (ts-client and OpenAPI Int64 Encoding)
 
-Progress: [#############] 59% (13 plans of ~22 estimated total)
+Progress: [###############] 68% (15 plans of ~22 estimated total)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 13
-- Average duration: ~5.8m
-- Total execution time: ~1.25 hours
+- Total plans completed: 15
+- Average duration: ~6.3m
+- Total execution time: ~1.6 hours
 
 **By Phase:**
 
@@ -30,11 +30,11 @@ Progress: [#############] 59% (13 plans of ~22 estimated total)
 | 01 - Foundation Quick Wins | 2/2 | ~17m | ~8.5m |
 | 02 - Shared Annotations | 4/4 | ~26m | ~6.5m |
 | 03 - Existing Client Review | 6/6 | ~36m | ~6.0m |
-| 04 - JSON Primitive Encoding | 1/5 | ~4m | ~4.0m |
+| 04 - JSON Primitive Encoding | 3/5 | ~19m | ~6.3m |
 
 **Recent Trend:**
-- Last 5 plans: 03-04 (7m), 03-05 (7m), 03-06 (5m), 04-01 (4m)
-- Trend: Annotation-only plan very fast
+- Last 5 plans: 03-05 (7m), 03-06 (5m), 04-01 (4m), 04-02 (~?m), 04-03 (15m)
+- Trend: ts-client/OpenAPI integration takes longer than annotation-only plans
 
 *Updated after each plan completion*
 
@@ -82,6 +82,9 @@ Recent decisions affecting current work:
 - D-04-01-01: Extension numbers 50010-50012 continue sequence from existing 50009 (unwrap)
 - D-04-01-02: UNSPECIFIED (0) always means "use protojson default" - explicit STRING value available for documentation
 - D-04-01-03: GetEnumValueMapping returns empty string (not nil) for consistency with Go string semantics
+- D-04-03-01: tsScalarTypeForField pattern - keep base tsScalarType unchanged, add encoding-aware variant
+- D-04-03-02: appendInt64PrecisionWarning called after description set - ensures comment text + warning combined
+- D-04-03-03: nolint directives for valid lint warnings - exhaustive (has default), funlen (big switch), nestif (existing pattern)
 
 ### Pending Todos
 
@@ -94,6 +97,6 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-06
-Stopped at: Completed 04-01-PLAN.md (Annotation Infrastructure)
+Stopped at: Completed 04-03-PLAN.md (ts-client and OpenAPI Int64 Encoding)
 Resume file: None
-Next: 04-02-PLAN.md (go-http Generator Integration)
+Next: 04-04-PLAN.md (Enum Encoding)
