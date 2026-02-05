@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2026-02-05)
 
 **Core value:** Proto definitions are the single source of truth -- every generator must produce consistent, correct output that interoperates seamlessly.
-**Current focus:** Phase 3 (Existing Client Review) -- OpenAPI generator corrected for proto3 JSON spec compliance.
+**Current focus:** Phase 3 COMPLETE -- All 4 generators verified consistent, ready for Phase 4 (JSON Mapping Features).
 
 ## Current Position
 
-Phase: 3 of 11 (Existing Client Review)
-Plan: 5 of 6 in current phase (03-01, 03-02, 03-03, 03-04, and 03-05 complete)
-Status: In progress
-Last activity: 2026-02-05 -- Completed 03-05-PLAN.md (OpenAPI Protojson Consistency)
+Phase: 3 of 11 (Existing Client Review) - COMPLETE
+Plan: 6 of 6 in current phase (all complete)
+Status: Phase complete
+Last activity: 2026-02-05 -- Completed 03-06-PLAN.md (Cross-Generator Consistency Verification)
 
-Progress: [###########] 50% (11 plans of ~22 estimated total)
+Progress: [############] 55% (12 plans of ~22 estimated total)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 11
-- Average duration: ~6.2m
-- Total execution time: ~1.13 hours
+- Total plans completed: 12
+- Average duration: ~6.0m
+- Total execution time: ~1.2 hours
 
 **By Phase:**
 
@@ -29,11 +29,11 @@ Progress: [###########] 50% (11 plans of ~22 estimated total)
 |-------|-------|-------|----------|
 | 01 - Foundation Quick Wins | 2/2 | ~17m | ~8.5m |
 | 02 - Shared Annotations | 4/4 | ~26m | ~6.5m |
-| 03 - Existing Client Review | 5/6 | ~31m | ~6.2m |
+| 03 - Existing Client Review | 6/6 | ~36m | ~6.0m |
 
 **Recent Trend:**
-- Last 5 plans: 03-01 (10m), 03-03 (3m), 03-04 (7m), 03-05 (7m)
-- Trend: Consistent, audit/fix tasks efficient
+- Last 5 plans: 03-03 (3m), 03-04 (7m), 03-05 (7m), 03-06 (5m)
+- Trend: Consistent, verification tasks efficient
 
 *Updated after each plan completion*
 
@@ -76,6 +76,8 @@ Recent decisions affecting current work:
 - D-03-05-01: Error schema uses single 'message' field matching sebuf.http.Error proto (not error+code)
 - D-03-05-02: int64/uint64 mapped to type:string per proto3 JSON spec for JavaScript precision safety
 - D-03-05-03: Added headerTypeUint64 constant and removed minimum constraint since uint64 is now string type
+- D-03-06-01: Default path inconsistency for services without HTTP annotations is accepted (backward compat fallback mode only)
+- D-03-06-02: Cross-generator consistency verified for all 10 key areas (paths, methods, params, schemas, errors, headers, unwrap)
 
 ### Pending Todos
 
@@ -88,5 +90,6 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-05
-Stopped at: Completed 03-05-PLAN.md (OpenAPI Protojson Consistency)
+Stopped at: Completed Phase 3 (all 6 plans)
 Resume file: None
+Next: Phase 4 (JSON Mapping Features)
