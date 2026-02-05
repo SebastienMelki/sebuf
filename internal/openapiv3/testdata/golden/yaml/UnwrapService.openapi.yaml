@@ -41,12 +41,18 @@ paths:
                                     code:
                                         type: integer
     /api/v1/root/map:
-        get:
+        post:
             tags:
                 - UnwrapService
             summary: GetRootMap
             description: GetRootMap tests root-level map unwrap response
             operationId: GetRootMap
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/GetOptionBarsRequest'
+                required: true
             responses:
                 "200":
                     description: Successful response
@@ -72,12 +78,18 @@ paths:
                                     code:
                                         type: integer
     /api/v1/root/repeated:
-        get:
+        post:
             tags:
                 - UnwrapService
             summary: GetRootRepeated
             description: GetRootRepeated tests root-level repeated unwrap response
             operationId: GetRootRepeated
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/GetOptionBarsRequest'
+                required: true
             responses:
                 "200":
                     description: Successful response
@@ -103,12 +115,18 @@ paths:
                                     code:
                                         type: integer
     /api/v1/root/map-value-unwrap:
-        get:
+        post:
             tags:
                 - UnwrapService
             summary: GetRootMapWithValueUnwrap
             description: GetRootMapWithValueUnwrap tests combined unwrap response
             operationId: GetRootMapWithValueUnwrap
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/GetOptionBarsRequest'
+                required: true
             responses:
                 "200":
                     description: Successful response
@@ -180,10 +198,15 @@ components:
                         type: array
                         items:
                             $ref: '#/components/schemas/OptionBar'
-                    description: 'Map from symbol to option bars - should be rendered as additionalProperties: array of OptionBar'
+                    description: |-
+                        Map from symbol to option bars list
+                         JSON output: {"bars": {"AAPL": [...], "GOOG": [...]}}
+                         instead of: {"bars": {"AAPL": {"bars": [...]}, "GOOG": {"bars": [...]}}}
                 nextPageToken:
                     type: string
-            description: GetOptionBarsResponse contains a map of symbol to OptionBarsList
+            description: |-
+                GetOptionBarsResponse contains a map of symbol to OptionBarsList
+                 When serialized to JSON, the OptionBarsList wrapper will be collapsed
         BarsEntry:
             type: object
             properties:
@@ -216,7 +239,7 @@ components:
                 $ref: '#/components/schemas/OptionBar'
             description: |-
                 RootMapResponse tests root-level map unwrap with message values.
-                 OpenAPI: type=object with additionalProperties referencing OptionBar
+                 JSON: {"AAPL": {...}, "GOOG": {...}} instead of {"people": {"AAPL": {...}, ...}}
         PeopleEntry:
             type: object
             properties:
@@ -230,7 +253,7 @@ components:
                 $ref: '#/components/schemas/OptionBar'
             description: |-
                 RootRepeatedResponse tests root-level repeated unwrap.
-                 OpenAPI: type=array with items referencing OptionBar
+                 JSON: [{...}, {...}] instead of {"items": [{...}, {...}]}
         RootMapWithValueUnwrapResponse:
             type: object
             additionalProperties:
@@ -239,7 +262,7 @@ components:
                     $ref: '#/components/schemas/OptionBar'
             description: |-
                 RootMapWithValueUnwrapResponse tests combined unwrap (root map + value unwrap).
-                 OpenAPI: type=object with additionalProperties being array of OptionBar
+                 JSON: {"AAPL": [...], "GOOG": [...]} where each value is an unwrapped array
         DataEntry:
             type: object
             properties:

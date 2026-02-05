@@ -53,6 +53,45 @@ service OptionDataService {
   }
 }
 
+// UnwrapService tests all unwrap variants including root-level unwrap
+service UnwrapService {
+  option (sebuf.http.service_config) = {
+    base_path: "/api/v1"
+  };
+
+  // GetOptionBars retrieves option bar data
+  rpc GetOptionBars(GetOptionBarsRequest) returns (GetOptionBarsResponse) {
+    option (sebuf.http.config) = {
+      path: "/options/bars"
+      method: HTTP_METHOD_POST
+    };
+  }
+
+  // GetRootMap tests root-level map unwrap response
+  rpc GetRootMap(GetOptionBarsRequest) returns (RootMapResponse) {
+    option (sebuf.http.config) = {
+      path: "/root/map"
+      method: HTTP_METHOD_POST
+    };
+  }
+
+  // GetRootRepeated tests root-level repeated unwrap response
+  rpc GetRootRepeated(GetOptionBarsRequest) returns (RootRepeatedResponse) {
+    option (sebuf.http.config) = {
+      path: "/root/repeated"
+      method: HTTP_METHOD_POST
+    };
+  }
+
+  // GetRootMapWithValueUnwrap tests combined unwrap response
+  rpc GetRootMapWithValueUnwrap(GetOptionBarsRequest) returns (RootMapWithValueUnwrapResponse) {
+    option (sebuf.http.config) = {
+      path: "/root/map-value-unwrap"
+      method: HTTP_METHOD_POST
+    };
+  }
+}
+
 // Additional test cases
 
 // ScalarUnwrap tests unwrap with scalar types

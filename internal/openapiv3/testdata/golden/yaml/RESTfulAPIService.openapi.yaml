@@ -1,0 +1,676 @@
+openapi: 3.1.0
+info:
+    title: RESTfulAPIService API
+    version: 1.0.0
+paths:
+    /api/v1/resources:
+        get:
+            tags:
+                - RESTfulAPIService
+            summary: ListResources
+            description: GET - List all resources with query parameters
+            operationId: ListResources
+            parameters:
+                - name: X-API-Key
+                  in: header
+                  description: API key for authentication
+                  required: true
+                  schema:
+                    type: string
+                    format: uuid
+                - name: page
+                  in: query
+                  description: Query parameters
+                  required: false
+                  schema:
+                    type: integer
+                    format: int32
+                - name: page_size
+                  in: query
+                  required: false
+                  schema:
+                    type: integer
+                    format: int32
+                - name: filter
+                  in: query
+                  required: false
+                  schema:
+                    type: string
+                - name: include_deleted
+                  in: query
+                  required: false
+                  schema:
+                    type: boolean
+                - name: since_timestamp
+                  in: query
+                  description: Extended scalar query params (int64, uint64, float, double)
+                  required: false
+                  schema:
+                    type: integer
+                    format: int64
+                - name: max_id
+                  in: query
+                  required: false
+                  schema:
+                    type: integer
+                    format: int64
+                - name: min_score
+                  in: query
+                  required: false
+                  schema:
+                    type: number
+                    format: float
+                - name: max_score
+                  in: query
+                  required: false
+                  schema:
+                    type: number
+                    format: double
+            responses:
+                "200":
+                    description: Successful response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ListResourcesResponse'
+                "400":
+                    description: Validation error
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ValidationError'
+                default:
+                    description: Error response
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    error:
+                                        type: string
+                                    code:
+                                        type: integer
+        post:
+            tags:
+                - RESTfulAPIService
+            summary: CreateResource
+            description: POST - Create new resource with request body
+            operationId: CreateResource
+            parameters:
+                - name: X-API-Key
+                  in: header
+                  description: API key for authentication
+                  required: true
+                  schema:
+                    type: string
+                    format: uuid
+                - name: X-Request-ID
+                  in: header
+                  required: true
+                  schema:
+                    type: string
+                    format: uuid
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/CreateResourceRequest'
+                required: true
+            responses:
+                "200":
+                    description: Successful response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Resource'
+                "400":
+                    description: Validation error
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ValidationError'
+                default:
+                    description: Error response
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    error:
+                                        type: string
+                                    code:
+                                        type: integer
+    /api/v1/resources/{resource_id}:
+        get:
+            tags:
+                - RESTfulAPIService
+            summary: GetResource
+            description: GET - Get single resource with path parameter
+            operationId: GetResource
+            parameters:
+                - name: X-API-Key
+                  in: header
+                  description: API key for authentication
+                  required: true
+                  schema:
+                    type: string
+                    format: uuid
+                - name: resource_id
+                  in: path
+                  required: true
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    description: Successful response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Resource'
+                "400":
+                    description: Validation error
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ValidationError'
+                default:
+                    description: Error response
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    error:
+                                        type: string
+                                    code:
+                                        type: integer
+        put:
+            tags:
+                - RESTfulAPIService
+            summary: UpdateResource
+            description: PUT - Full update with path param and body
+            operationId: UpdateResource
+            parameters:
+                - name: X-API-Key
+                  in: header
+                  description: API key for authentication
+                  required: true
+                  schema:
+                    type: string
+                    format: uuid
+                - name: resource_id
+                  in: path
+                  required: true
+                  schema:
+                    type: string
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/UpdateResourceRequest'
+                required: true
+            responses:
+                "200":
+                    description: Successful response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Resource'
+                "400":
+                    description: Validation error
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ValidationError'
+                default:
+                    description: Error response
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    error:
+                                        type: string
+                                    code:
+                                        type: integer
+        delete:
+            tags:
+                - RESTfulAPIService
+            summary: DeleteResource
+            description: DELETE - Delete resource with path parameter
+            operationId: DeleteResource
+            parameters:
+                - name: X-API-Key
+                  in: header
+                  description: API key for authentication
+                  required: true
+                  schema:
+                    type: string
+                    format: uuid
+                - name: resource_id
+                  in: path
+                  required: true
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    description: Successful response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/DeleteResourceResponse'
+                "400":
+                    description: Validation error
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ValidationError'
+                default:
+                    description: Error response
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    error:
+                                        type: string
+                                    code:
+                                        type: integer
+        patch:
+            tags:
+                - RESTfulAPIService
+            summary: PatchResource
+            description: PATCH - Partial update with path param and body
+            operationId: PatchResource
+            parameters:
+                - name: X-API-Key
+                  in: header
+                  description: API key for authentication
+                  required: true
+                  schema:
+                    type: string
+                    format: uuid
+                - name: resource_id
+                  in: path
+                  required: true
+                  schema:
+                    type: string
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/PatchResourceRequest'
+                required: true
+            responses:
+                "200":
+                    description: Successful response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Resource'
+                "400":
+                    description: Validation error
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ValidationError'
+                default:
+                    description: Error response
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    error:
+                                        type: string
+                                    code:
+                                        type: integer
+    /api/v1/orgs/{org_id}/teams/{team_id}/resources/{resource_id}:
+        get:
+            tags:
+                - RESTfulAPIService
+            summary: GetNestedResource
+            description: GET - Nested resource with multiple path parameters
+            operationId: GetNestedResource
+            parameters:
+                - name: X-API-Key
+                  in: header
+                  description: API key for authentication
+                  required: true
+                  schema:
+                    type: string
+                    format: uuid
+                - name: org_id
+                  in: path
+                  required: true
+                  schema:
+                    type: string
+                - name: team_id
+                  in: path
+                  required: true
+                  schema:
+                    type: string
+                - name: resource_id
+                  in: path
+                  required: true
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    description: Successful response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Resource'
+                "400":
+                    description: Validation error
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ValidationError'
+                default:
+                    description: Error response
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    error:
+                                        type: string
+                                    code:
+                                        type: integer
+    /api/v1/legacy/action:
+        post:
+            tags:
+                - RESTfulAPIService
+            summary: DefaultPostMethod
+            description: Default POST - Method without explicit HTTP method should default to POST
+            operationId: DefaultPostMethod
+            parameters:
+                - name: X-API-Key
+                  in: header
+                  description: API key for authentication
+                  required: true
+                  schema:
+                    type: string
+                    format: uuid
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/DefaultPostRequest'
+                required: true
+            responses:
+                "200":
+                    description: Successful response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/DefaultPostResponse'
+                "400":
+                    description: Validation error
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ValidationError'
+                default:
+                    description: Error response
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    error:
+                                        type: string
+                                    code:
+                                        type: integer
+    /api/v1/resources/search:
+        get:
+            tags:
+                - RESTfulAPIService
+            summary: SearchResources
+            description: GET - Search resources with enum and string query params
+            operationId: SearchResources
+            parameters:
+                - name: X-API-Key
+                  in: header
+                  description: API key for authentication
+                  required: true
+                  schema:
+                    type: string
+                    format: uuid
+                - name: status
+                  in: query
+                  required: false
+                  schema:
+                    type: string
+                - name: q
+                  in: query
+                  required: false
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    description: Successful response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ListResourcesResponse'
+                "400":
+                    description: Validation error
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ValidationError'
+                default:
+                    description: Error response
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    error:
+                                        type: string
+                                    code:
+                                        type: integer
+components:
+    schemas:
+        FieldViolation:
+            type: object
+            properties:
+                field:
+                    type: string
+                    description: The field path that failed validation (e.g., 'user.email' for nested fields). For header validation, this will be the header name (e.g., 'X-API-Key')
+                description:
+                    type: string
+                    description: Human-readable description of the validation violation (e.g., 'must be a valid email address', 'required field missing')
+            required:
+                - field
+                - description
+            description: FieldViolation describes a single validation error for a specific field.
+        ValidationError:
+            type: object
+            properties:
+                violations:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/FieldViolation'
+                    description: List of validation violations
+            required:
+                - violations
+            description: ValidationError is returned when request validation fails. It contains a list of field violations describing what went wrong.
+        ListResourcesRequest:
+            type: object
+            properties:
+                page:
+                    type: integer
+                    format: int32
+                    description: Query parameters
+                pageSize:
+                    type: integer
+                    format: int32
+                filter:
+                    type: string
+                includeDeleted:
+                    type: boolean
+                sinceTimestamp:
+                    type: integer
+                    format: int64
+                    description: Extended scalar query params (int64, uint64, float, double)
+                maxId:
+                    type: integer
+                    minimum: 0
+                    format: int64
+                minScore:
+                    type: number
+                    format: float
+                maxScore:
+                    type: number
+                    format: double
+        ListResourcesResponse:
+            type: object
+            properties:
+                resources:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/Resource'
+                totalCount:
+                    type: integer
+                    format: int32
+                page:
+                    type: integer
+                    format: int32
+        Resource:
+            type: object
+            properties:
+                id:
+                    type: string
+                name:
+                    type: string
+                description:
+                    type: string
+                metadata:
+                    type: object
+                    additionalProperties:
+                        type: string
+                createdAt:
+                    type: integer
+                    format: int64
+                updatedAt:
+                    type: integer
+                    format: int64
+                status:
+                    type: string
+                    enum:
+                        - RESOURCE_STATUS_UNSPECIFIED
+                        - RESOURCE_STATUS_ACTIVE
+                        - RESOURCE_STATUS_INACTIVE
+                        - RESOURCE_STATUS_ARCHIVED
+                    description: Enum for resource status
+                metadataDetail:
+                    $ref: '#/components/schemas/ResourceMetadata'
+                tag:
+                    type: string
+            description: Shared resource message
+        MetadataEntry:
+            type: object
+            properties:
+                key:
+                    type: string
+                value:
+                    type: string
+        ResourceMetadata:
+            type: object
+            properties:
+                createdBy:
+                    type: string
+                createdAtUnix:
+                    type: integer
+                    format: int64
+                version:
+                    type: integer
+                    format: int32
+            description: Nested message for resource metadata details
+        GetResourceRequest:
+            type: object
+            properties:
+                resourceId:
+                    type: string
+        GetNestedResourceRequest:
+            type: object
+            properties:
+                orgId:
+                    type: string
+                teamId:
+                    type: string
+                resourceId:
+                    type: string
+        CreateResourceRequest:
+            type: object
+            properties:
+                name:
+                    type: string
+                description:
+                    type: string
+                metadata:
+                    type: object
+                    additionalProperties:
+                        type: string
+        UpdateResourceRequest:
+            type: object
+            properties:
+                resourceId:
+                    type: string
+                name:
+                    type: string
+                    description: Body fields
+                description:
+                    type: string
+                metadata:
+                    type: object
+                    additionalProperties:
+                        type: string
+        PatchResourceRequest:
+            type: object
+            properties:
+                resourceId:
+                    type: string
+                name:
+                    type: string
+                    description: Fields for partial update (presence tracked via wrapper or empty check)
+                description:
+                    type: string
+        DeleteResourceRequest:
+            type: object
+            properties:
+                resourceId:
+                    type: string
+        DeleteResourceResponse:
+            type: object
+            properties:
+                success:
+                    type: boolean
+        DefaultPostRequest:
+            type: object
+            properties:
+                action:
+                    type: string
+        DefaultPostResponse:
+            type: object
+            properties:
+                result:
+                    type: string
+        SearchResourcesRequest:
+            type: object
+            properties:
+                statusFilter:
+                    type: string
+                    enum:
+                        - RESOURCE_STATUS_UNSPECIFIED
+                        - RESOURCE_STATUS_ACTIVE
+                        - RESOURCE_STATUS_INACTIVE
+                        - RESOURCE_STATUS_ARCHIVED
+                    description: Enum for resource status
+                query:
+                    type: string
+            description: SearchResourcesRequest uses enum and string query params

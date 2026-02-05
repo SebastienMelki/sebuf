@@ -339,7 +339,22 @@ func TestExhaustiveGoldenFiles(t *testing.T) {
 			goldenFile:  "testdata/golden/json/RESTfulUserService.openapi.json",
 			format:      "json",
 		},
-		// unwrap.proto -> UnwrapService (unwrap field option for map values)
+		// unwrap.proto (symlinked from httpgen) -> OptionDataService
+		{
+			name:        "option_data_service_yaml",
+			protoFile:   "testdata/proto/unwrap.proto",
+			serviceName: "OptionDataService",
+			goldenFile:  "testdata/golden/yaml/OptionDataService.openapi.yaml",
+			format:      "yaml",
+		},
+		{
+			name:        "option_data_service_json",
+			protoFile:   "testdata/proto/unwrap.proto",
+			serviceName: "OptionDataService",
+			goldenFile:  "testdata/golden/json/OptionDataService.openapi.json",
+			format:      "json",
+		},
+		// unwrap.proto (symlinked from httpgen) -> UnwrapService (root-level unwrap variants)
 		{
 			name:        "unwrap_service_yaml",
 			protoFile:   "testdata/proto/unwrap.proto",
@@ -352,6 +367,82 @@ func TestExhaustiveGoldenFiles(t *testing.T) {
 			protoFile:   "testdata/proto/unwrap.proto",
 			serviceName: "UnwrapService",
 			goldenFile:  "testdata/golden/json/UnwrapService.openapi.json",
+			format:      "json",
+		},
+		// === Shared test protos (symlinked from httpgen) ===
+		// http_verbs_comprehensive.proto -> RESTfulAPIService
+		{
+			name:        "shared_restful_api_service_yaml",
+			protoFile:   "testdata/proto/http_verbs_comprehensive.proto",
+			serviceName: "RESTfulAPIService",
+			goldenFile:  "testdata/golden/yaml/RESTfulAPIService.openapi.yaml",
+			format:      "yaml",
+		},
+		{
+			name:        "shared_restful_api_service_json",
+			protoFile:   "testdata/proto/http_verbs_comprehensive.proto",
+			serviceName: "RESTfulAPIService",
+			goldenFile:  "testdata/golden/json/RESTfulAPIService.openapi.json",
+			format:      "json",
+		},
+		// http_verbs_comprehensive.proto -> BackwardCompatService
+		{
+			name:        "shared_backward_compat_service_yaml",
+			protoFile:   "testdata/proto/http_verbs_comprehensive.proto",
+			serviceName: "BackwardCompatService",
+			goldenFile:  "testdata/golden/yaml/BackwardCompatService.openapi.yaml",
+			format:      "yaml",
+		},
+		{
+			name:        "shared_backward_compat_service_json",
+			protoFile:   "testdata/proto/http_verbs_comprehensive.proto",
+			serviceName: "BackwardCompatService",
+			goldenFile:  "testdata/golden/json/BackwardCompatService.openapi.json",
+			format:      "json",
+		},
+		// query_params.proto -> QueryParamService
+		{
+			name:        "shared_query_param_service_yaml",
+			protoFile:   "testdata/proto/query_params.proto",
+			serviceName: "QueryParamService",
+			goldenFile:  "testdata/golden/yaml/QueryParamService.openapi.yaml",
+			format:      "yaml",
+		},
+		{
+			name:        "shared_query_param_service_json",
+			protoFile:   "testdata/proto/query_params.proto",
+			serviceName: "QueryParamService",
+			goldenFile:  "testdata/golden/json/QueryParamService.openapi.json",
+			format:      "json",
+		},
+		// backward_compat.proto -> NoAnnotationsService
+		{
+			name:        "shared_no_annotations_service_yaml",
+			protoFile:   "testdata/proto/backward_compat.proto",
+			serviceName: "NoAnnotationsService",
+			goldenFile:  "testdata/golden/yaml/NoAnnotationsService.openapi.yaml",
+			format:      "yaml",
+		},
+		{
+			name:        "shared_no_annotations_service_json",
+			protoFile:   "testdata/proto/backward_compat.proto",
+			serviceName: "NoAnnotationsService",
+			goldenFile:  "testdata/golden/json/NoAnnotationsService.openapi.json",
+			format:      "json",
+		},
+		// backward_compat.proto -> BasePathOnlyService
+		{
+			name:        "shared_base_path_only_service_yaml",
+			protoFile:   "testdata/proto/backward_compat.proto",
+			serviceName: "BasePathOnlyService",
+			goldenFile:  "testdata/golden/yaml/BasePathOnlyService.openapi.yaml",
+			format:      "yaml",
+		},
+		{
+			name:        "shared_base_path_only_service_json",
+			protoFile:   "testdata/proto/backward_compat.proto",
+			serviceName: "BasePathOnlyService",
+			goldenFile:  "testdata/golden/json/BasePathOnlyService.openapi.json",
 			format:      "json",
 		},
 	}
@@ -446,6 +537,11 @@ func TestExhaustiveRegression(t *testing.T) {
 		},
 		"testdata/proto/multiple_services.proto": {"UserService", "AdminService", "NotificationService"},
 		"testdata/proto/http_annotations.proto":  {"BasicService"},
+		// Shared test protos (symlinked from httpgen)
+		"testdata/proto/unwrap.proto":                   {"OptionDataService", "UnwrapService"},
+		"testdata/proto/http_verbs_comprehensive.proto": {"RESTfulAPIService", "BackwardCompatService"},
+		"testdata/proto/query_params.proto":             {"QueryParamService"},
+		"testdata/proto/backward_compat.proto":          {"NoAnnotationsService", "BasePathOnlyService"},
 	}
 
 	formats := []string{"yaml", "json"}
