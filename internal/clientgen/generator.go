@@ -42,7 +42,16 @@ func (g *Generator) generateFile(file *protogen.File) error {
 	}
 
 	// Generate client file
-	return g.generateClientFile(file)
+	if err := g.generateClientFile(file); err != nil {
+		return err
+	}
+
+	// Generate encoding file if there are messages with int64_encoding=NUMBER annotations
+	if err := g.generateInt64EncodingFile(file); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (g *Generator) generateClientFile(file *protogen.File) error {
