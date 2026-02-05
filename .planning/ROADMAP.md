@@ -51,13 +51,13 @@ Plans:
   3. The duplicated annotation parsing code (~1,289 lines across httpgen, clientgen, tsclientgen, openapiv3) is removed and replaced with shared package calls
   4. The HTTP handler generator uses consistent protojson-based serialization (no accidental encoding/json usage for proto messages)
   5. Cross-file annotation resolution never silently suppresses errors
-**Plans**: TBD
+**Plans**: 4 plans
 
 Plans:
-- [ ] 02-01: Design and implement internal/annotations package with canonical types
-- [ ] 02-02: Migrate httpgen and clientgen to shared annotations
-- [ ] 02-03: Migrate tsclientgen and openapiv3 to shared annotations
-- [ ] 02-04: Audit serialization paths and fix cross-file resolution error handling
+- [ ] 02-01-PLAN.md -- Create internal/annotations package with canonical types, functions, and tests
+- [ ] 02-02-PLAN.md -- Migrate httpgen to shared annotations, delete old annotation code
+- [ ] 02-03-PLAN.md -- Migrate clientgen and tsclientgen to shared annotations
+- [ ] 02-04-PLAN.md -- Migrate openapiv3, fix error suppression, final verification
 
 ### Phase 3: Existing Client Review
 **Goal**: The existing Go HTTP client and TypeScript HTTP client are solid, consistent with each other and with the server, and ready to serve as the reference implementations that new language clients and JSON mapping features build upon
