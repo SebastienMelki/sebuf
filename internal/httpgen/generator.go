@@ -71,6 +71,11 @@ func (g *Generator) generateFile(file *protogen.File) error {
 		return err
 	}
 
+	// Generate encoding file if there are messages with int64_encoding=NUMBER annotations
+	if err := g.generateInt64EncodingFile(file); err != nil {
+		return err
+	}
+
 	if len(file.Services) == 0 {
 		return nil
 	}
