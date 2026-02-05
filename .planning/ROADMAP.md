@@ -13,7 +13,7 @@ sebuf v1.0 delivers complete JSON mapping control across all generators and adds
 Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Foundation - Quick Wins** - Land PR #98, fix #105, close resolved issues #91 and #94
-- [ ] **Phase 2: Foundation - Shared Annotations** - Extract shared annotation parsing, audit serialization consistency
+- [x] **Phase 2: Foundation - Shared Annotations** - Extract shared annotation parsing, audit serialization consistency
 - [ ] **Phase 3: Existing Client Review** - Review and polish existing Go client and TypeScript client before building new features
 - [ ] **Phase 4: JSON - Primitive Encoding** - int64/uint64 string encoding and enum string encoding across all generators
 - [ ] **Phase 5: JSON - Nullable & Empty** - Nullable primitives and empty object handling across all generators
@@ -54,10 +54,10 @@ Plans:
 **Plans**: 4 plans
 
 Plans:
-- [ ] 02-01-PLAN.md -- Create internal/annotations package with canonical types, functions, and tests
-- [ ] 02-02-PLAN.md -- Migrate httpgen to shared annotations, delete old annotation code
-- [ ] 02-03-PLAN.md -- Migrate clientgen and tsclientgen to shared annotations
-- [ ] 02-04-PLAN.md -- Migrate openapiv3, fix error suppression, final verification
+- [x] 02-01-PLAN.md -- Create internal/annotations package with canonical types, functions, and tests
+- [x] 02-02-PLAN.md -- Migrate httpgen to shared annotations, delete old annotation code
+- [x] 02-03-PLAN.md -- Migrate clientgen and tsclientgen to shared annotations
+- [x] 02-04-PLAN.md -- Migrate openapiv3, fix error suppression, final verification
 
 ### Phase 3: Existing Client Review
 **Goal**: The existing Go HTTP client and TypeScript HTTP client are solid, consistent with each other and with the server, and ready to serve as the reference implementations that new language clients and JSON mapping features build upon
@@ -235,7 +235,7 @@ Note: Phases 8, 9, 10 (language clients) can execute in parallel after Phase 7 c
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Foundation - Quick Wins | 2/2 | Complete | 2026-02-05 |
-| 2. Foundation - Shared Annotations | 0/4 | Not started | - |
+| 2. Foundation - Shared Annotations | 4/4 | Complete | 2026-02-05 |
 | 3. Existing Client Review | 0/3 | Not started | - |
 | 4. JSON - Primitive Encoding | 0/4 | Not started | - |
 | 5. JSON - Nullable & Empty | 0/4 | Not started | - |

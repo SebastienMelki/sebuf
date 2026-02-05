@@ -9,10 +9,10 @@ Requirements for v1.0 release. Each must work across all generators (go-http, go
 
 ### Foundation
 
-- [ ] **FOUND-01**: Extract shared annotation parsing into `internal/annotations/` package (eliminate 1,289 lines of duplication across 4 generators)
+- [x] **FOUND-01**: Extract shared annotation parsing into `internal/annotations/` package (eliminate 1,289 lines of duplication across 4 generators)
 - [x] **FOUND-02**: Fix #105 -- conditional net/url import in go-client (only when query params used)
 - [x] **FOUND-03**: Land PR #98 -- cross-file unwrap resolution in same Go package
-- [ ] **FOUND-04**: Audit serialization path -- ensure protojson vs encoding/json consistency in HTTP handler generation
+- [x] **FOUND-04**: Audit serialization path -- ensure protojson vs encoding/json consistency in HTTP handler generation
 - [x] **FOUND-05**: Verify #91 (root-level arrays) is fully covered by existing unwrap annotation, close GitHub issue
 - [x] **FOUND-06**: Close #94 (field name casing) on GitHub -- document proto3 `json_name` as the existing solution
 - [ ] **FOUND-07**: Review and polish existing Go HTTP client (protoc-gen-go-client) -- audit serialization consistency with server, error handling, header handling, and edge cases; fix any inconsistencies found
@@ -79,10 +79,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| FOUND-01 | Phase 2 | Pending |
+| FOUND-01 | Phase 2 | Complete |
 | FOUND-02 | Phase 1 | Complete |
 | FOUND-03 | Phase 1 | Complete |
-| FOUND-04 | Phase 2 | Pending |
+| FOUND-04 | Phase 2 | Complete |
 | FOUND-05 | Phase 1 | Complete |
 | FOUND-06 | Phase 1 | Complete |
 | FOUND-07 | Phase 3 | Pending |
