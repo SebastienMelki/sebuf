@@ -69,12 +69,15 @@ Plans:
   3. Error handling is consistent: both clients surface ValidationError and ApiError with the same HTTP status codes, the same error body structure, and the same field-level violation format
   4. Header handling is consistent: both clients send service-level and method-level headers identically, including the same default values, same required/optional semantics, and same header name casing
   5. All existing golden file tests pass, and any fixes made during the review are captured as new golden file test cases to prevent regression
-**Plans**: TBD
+**Plans**: 6 plans
 
 Plans:
-- [ ] 03-01: Audit Go client against server for serialization, error handling, and header consistency
-- [ ] 03-02: Audit TypeScript client against Go client and server for cross-language consistency
-- [ ] 03-03: Add golden file test cases for any inconsistencies found and fixed
+- [ ] 03-01-PLAN.md -- Expand exhaustive test proto and align OpenAPI test infrastructure with shared symlinks
+- [ ] 03-02-PLAN.md -- Fix server Content-Type response headers and marshalResponse default behavior
+- [ ] 03-03-PLAN.md -- Audit and fix Go client consistency with server (unwrap coverage, query params, errors, headers)
+- [ ] 03-04-PLAN.md -- Audit and fix TypeScript client consistency (int64 as string, query params, errors, headers)
+- [ ] 03-05-PLAN.md -- Fix OpenAPI error schemas and type mapping for protojson consistency
+- [ ] 03-06-PLAN.md -- Cross-generator golden file verification and final semantic comparison
 
 ### Phase 4: JSON - Primitive Encoding
 **Goal**: Developers can control how int64/uint64 fields and enum fields are encoded in JSON across all generators
@@ -236,7 +239,7 @@ Note: Phases 8, 9, 10 (language clients) can execute in parallel after Phase 7 c
 |-------|----------------|--------|-----------|
 | 1. Foundation - Quick Wins | 2/2 | Complete | 2026-02-05 |
 | 2. Foundation - Shared Annotations | 4/4 | Complete | 2026-02-05 |
-| 3. Existing Client Review | 0/3 | Not started | - |
+| 3. Existing Client Review | 0/6 | Not started | - |
 | 4. JSON - Primitive Encoding | 0/4 | Not started | - |
 | 5. JSON - Nullable & Empty | 0/4 | Not started | - |
 | 6. JSON - Data Encoding | 0/4 | Not started | - |
