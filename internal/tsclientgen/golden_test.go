@@ -60,6 +60,20 @@ func TestTSClientGenGoldenFiles(t *testing.T) {
 				"unwrap_client.ts",
 			},
 		},
+		{
+			name:      "int64 encoding",
+			protoFile: "int64_encoding.proto",
+			expectedFiles: []string{
+				"int64_encoding_client.ts",
+			},
+		},
+		{
+			name:      "enum encoding",
+			protoFile: "enum_encoding.proto",
+			expectedFiles: []string{
+				"enum_encoding_client.ts",
+			},
+		},
 	}
 
 	baseDir, err := os.Getwd()

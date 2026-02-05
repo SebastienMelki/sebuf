@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2026-02-05)
 
 **Core value:** Proto definitions are the single source of truth -- every generator must produce consistent, correct output that interoperates seamlessly.
-**Current focus:** Phase 3 COMPLETE -- All 4 generators verified consistent, ready for Phase 4 (JSON Mapping Features).
+**Current focus:** Phase 4 VERIFIED -- JSON Primitive Encoding complete. Ready for Phase 5.
 
 ## Current Position
 
-Phase: 3 of 11 (Existing Client Review) - COMPLETE
-Plan: 6 of 6 in current phase (all complete)
-Status: Phase complete
-Last activity: 2026-02-05 -- Completed 03-06-PLAN.md (Cross-Generator Consistency Verification)
+Phase: 4 of 11 (JSON Primitive Encoding) - VERIFIED
+Plan: 5 of 5 in current phase (complete)
+Status: Phase verified and complete
+Last activity: 2026-02-06 -- Phase 4 verification passed (6/6 must-haves)
 
-Progress: [############] 55% (12 plans of ~22 estimated total)
+Progress: [##################] 77% (17 plans of ~22 estimated total)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 12
-- Average duration: ~6.0m
-- Total execution time: ~1.2 hours
+- Total plans completed: 17
+- Average duration: ~6.5m
+- Total execution time: ~1.8 hours
 
 **By Phase:**
 
@@ -30,10 +30,11 @@ Progress: [############] 55% (12 plans of ~22 estimated total)
 | 01 - Foundation Quick Wins | 2/2 | ~17m | ~8.5m |
 | 02 - Shared Annotations | 4/4 | ~26m | ~6.5m |
 | 03 - Existing Client Review | 6/6 | ~36m | ~6.0m |
+| 04 - JSON Primitive Encoding | 5/5 | ~65m | ~13.0m |
 
 **Recent Trend:**
-- Last 5 plans: 03-03 (3m), 03-04 (7m), 03-05 (7m), 03-06 (5m)
-- Trend: Consistent, verification tasks efficient
+- Last 5 plans: 04-01 (4m), 04-02 (15m), 04-03 (15m), 04-04 (25m), 04-05 (6m)
+- Trend: Final consistency verification plans are faster than implementation plans
 
 *Updated after each plan completion*
 
@@ -78,6 +79,21 @@ Recent decisions affecting current work:
 - D-03-05-03: Added headerTypeUint64 constant and removed minimum constraint since uint64 is now string type
 - D-03-06-01: Default path inconsistency for services without HTTP annotations is accepted (backward compat fallback mode only)
 - D-03-06-02: Cross-generator consistency verified for all 10 key areas (paths, methods, params, schemas, errors, headers, unwrap)
+- D-04-01-01: Extension numbers 50010-50012 continue sequence from existing 50009 (unwrap)
+- D-04-01-02: UNSPECIFIED (0) always means "use protojson default" - explicit STRING value available for documentation
+- D-04-01-03: GetEnumValueMapping returns empty string (not nil) for consistency with Go string semantics
+- D-04-03-01: tsScalarTypeForField pattern - keep base tsScalarType unchanged, add encoding-aware variant
+- D-04-03-02: appendInt64PrecisionWarning called after description set - ensures comment text + warning combined
+- D-04-03-03: nolint directives for valid lint warnings - exhaustive (has default), funlen (big switch), nestif (existing pattern)
+- D-04-02-01: Use protojson for base serialization, then modify map for NUMBER fields - preserves all other field handling
+- D-04-02-02: Print precision warning to stderr during generation, not at runtime - developer sees during build
+- D-04-02-03: Identical encoding.go implementation in httpgen and clientgen - guarantees server/client JSON match
+- D-04-04-01: Separate enum_encoding.go files in httpgen/clientgen to avoid import conflicts with int64 encoding.go
+- D-04-04-02: Both proto name and custom value accepted in UnmarshalJSON for backward compatibility
+- D-04-04-03: NUMBER encoding returns 'number' type in TypeScript, 'integer' type in OpenAPI
+- D-04-05-01: Split TestEncodingConsistencyAcrossGenerators into separate test functions for linting compliance
+- D-04-05-02: Use normalizeGeneratorComment to allow byte-level comparison between go-http and go-client
+- D-04-05-03: Convert openapiv3 enum_encoding.proto from duplicate file to symlink for consistency
 
 ### Pending Todos
 
@@ -89,7 +105,7 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-02-05
-Stopped at: Completed Phase 3 (all 6 plans)
+Last session: 2026-02-06
+Stopped at: Phase 4 verification passed (6/6 must-haves) - phase complete
 Resume file: None
-Next: Phase 4 (JSON Mapping Features)
+Next: Phase 5 (JSON - Nullable & Empty) discussion or planning

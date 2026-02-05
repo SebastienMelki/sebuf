@@ -1,0 +1,132 @@
+openapi: 3.1.0
+info:
+    title: EnumEncodingService API
+    version: 1.0.0
+paths:
+    /api/v1/test/enum/{id}:
+        get:
+            tags:
+                - EnumEncodingService
+            summary: GetEnumTest
+            operationId: GetEnumTest
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    description: Successful response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/EnumEncodingTest'
+                "400":
+                    description: Validation error
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ValidationError'
+                default:
+                    description: Error response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Error'
+components:
+    schemas:
+        Error:
+            type: object
+            properties:
+                message:
+                    type: string
+                    description: Error message (e.g., 'user not found', 'database connection failed')
+            description: Error is returned when a handler encounters an error. It contains a simple error message that the developer can customize.
+        FieldViolation:
+            type: object
+            properties:
+                field:
+                    type: string
+                    description: The field path that failed validation (e.g., 'user.email' for nested fields). For header validation, this will be the header name (e.g., 'X-API-Key')
+                description:
+                    type: string
+                    description: Human-readable description of the validation violation (e.g., 'must be a valid email address', 'required field missing')
+            required:
+                - field
+                - description
+            description: FieldViolation describes a single validation error for a specific field.
+        ValidationError:
+            type: object
+            properties:
+                violations:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/FieldViolation'
+                    description: List of validation violations
+            required:
+                - violations
+            description: ValidationError is returned when request validation fails. It contains a list of field violations describing what went wrong.
+        GetEnumTestRequest:
+            type: object
+            properties:
+                id:
+                    type: string
+            description: Request message for testing
+        EnumEncodingTest:
+            type: object
+            properties:
+                status:
+                    type: string
+                    enum:
+                        - unknown
+                        - active
+                        - inactive
+                    description: Status enum with custom enum_value mappings
+                priorityAsNumber:
+                    type: integer
+                    enum:
+                        - 0
+                        - 1
+                        - 2
+                    description: Priority enum without custom values (uses proto names)
+                priorityAsString:
+                    type: string
+                    enum:
+                        - PRIORITY_LOW
+                        - PRIORITY_MEDIUM
+                        - PRIORITY_HIGH
+                    description: Priority enum without custom values (uses proto names)
+                defaultPriority:
+                    type: string
+                    enum:
+                        - PRIORITY_LOW
+                        - PRIORITY_MEDIUM
+                        - PRIORITY_HIGH
+                    description: Priority enum without custom values (uses proto names)
+                statusList:
+                    type: array
+                    items:
+                        type: string
+                        enum:
+                            - unknown
+                            - active
+                            - inactive
+                        description: Status enum with custom enum_value mappings
+                numberPriorityList:
+                    type: array
+                    items:
+                        type: integer
+                        enum:
+                            - 0
+                            - 1
+                            - 2
+                        description: Priority enum without custom values (uses proto names)
+                optionalStatus:
+                    type: string
+                    enum:
+                        - unknown
+                        - active
+                        - inactive
+                    description: Status enum with custom enum_value mappings
+            description: EnumEncodingTest demonstrates enum encoding variations
