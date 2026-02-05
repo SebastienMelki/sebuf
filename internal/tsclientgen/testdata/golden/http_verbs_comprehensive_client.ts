@@ -6,6 +6,10 @@ export interface ListResourcesRequest {
   pageSize: number;
   filter: string;
   includeDeleted: boolean;
+  sinceTimestamp: string;
+  maxId: string;
+  minScore: number;
+  maxScore: number;
 }
 
 export interface ListResourcesResponse {
@@ -21,6 +25,15 @@ export interface Resource {
   metadata: Record<string, string>;
   createdAt: string;
   updatedAt: string;
+  status: ResourceStatus;
+  metadataDetail?: ResourceMetadata;
+  tag?: string;
+}
+
+export interface ResourceMetadata {
+  createdBy: string;
+  createdAtUnix: string;
+  version: number;
 }
 
 export interface GetResourceRequest {
@@ -68,6 +81,11 @@ export interface DefaultPostResponse {
   result: string;
 }
 
+export interface SearchResourcesRequest {
+  statusFilter: ResourceStatus;
+  query: string;
+}
+
 export interface LegacyRequest {
   data: string;
 }
@@ -75,6 +93,8 @@ export interface LegacyRequest {
 export interface LegacyResponse {
   result: string;
 }
+
+export type ResourceStatus = "RESOURCE_STATUS_UNSPECIFIED" | "RESOURCE_STATUS_ACTIVE" | "RESOURCE_STATUS_INACTIVE" | "RESOURCE_STATUS_ARCHIVED";
 
 export interface FieldViolation {
   field: string;
@@ -137,6 +157,10 @@ export class RESTfulAPIServiceClient {
     if (req.pageSize != null && req.pageSize !== 0) params.set("page_size", String(req.pageSize));
     if (req.filter != null && req.filter !== "") params.set("filter", String(req.filter));
     if (req.includeDeleted) params.set("include_deleted", String(req.includeDeleted));
+    if (req.sinceTimestamp != null && req.sinceTimestamp !== "0") params.set("since_timestamp", String(req.sinceTimestamp));
+    if (req.maxId != null && req.maxId !== "0") params.set("max_id", String(req.maxId));
+    if (req.minScore != null && req.minScore !== 0) params.set("min_score", String(req.minScore));
+    if (req.maxScore != null && req.maxScore !== 0) params.set("max_score", String(req.maxScore));
     const url = this.baseURL + path + (params.toString() ? "?" + params.toString() : "");
 
     const headers: Record<string, string> = {
@@ -337,6 +361,33 @@ export class RESTfulAPIServiceClient {
     }
 
     return await resp.json() as DefaultPostResponse;
+  }
+
+  async searchResources(req: SearchResourcesRequest, options?: RESTfulAPIServiceCallOptions): Promise<ListResourcesResponse> {
+    let path = "/api/v1/resources/search";
+    const params = new URLSearchParams();
+    if (req.statusFilter != null && req.statusFilter !== "") params.set("status", String(req.statusFilter));
+    if (req.query != null && req.query !== "") params.set("q", String(req.query));
+    const url = this.baseURL + path + (params.toString() ? "?" + params.toString() : "");
+
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+      ...this.defaultHeaders,
+      ...options?.headers,
+    };
+    if (options?.apiKey) headers["X-API-Key"] = options.apiKey;
+
+    const resp = await this.fetchFn(url, {
+      method: "GET",
+      headers,
+      signal: options?.signal,
+    });
+
+    if (!resp.ok) {
+      return this.handleError(resp);
+    }
+
+    return await resp.json() as ListResourcesResponse;
   }
 
   private async handleError(resp: Response): Promise<never> {

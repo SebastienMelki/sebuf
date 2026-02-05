@@ -8,6 +8,7 @@ import (
 	"google.golang.org/protobuf/compiler/protogen"
 
 	sebufhttp "github.com/SebastienMelki/sebuf/http"
+	"github.com/SebastienMelki/sebuf/internal/annotations"
 )
 
 // Generator handles HTTP client code generation for protobuf services.
@@ -73,7 +74,7 @@ func (g *Generator) generateClientFile(file *protogen.File) error {
 func (g *Generator) fileNeedsURLImport(file *protogen.File) bool {
 	for _, service := range file.Services {
 		for _, method := range service.Methods {
-			httpConfig := getMethodHTTPConfig(method)
+			httpConfig := annotations.GetMethodHTTPConfig(method)
 			// Path params use url.PathEscape
 			if httpConfig != nil && len(httpConfig.PathParams) > 0 {
 				return true
@@ -85,7 +86,7 @@ func (g *Generator) fileNeedsURLImport(file *protogen.File) bool {
 			}
 			// GET/DELETE with query params use url.Values
 			if httpMethod == http.MethodGet || httpMethod == http.MethodDelete {
-				queryParams := getQueryParams(method.Input)
+				queryParams := annotations.GetQueryParams(method.Input)
 				if len(queryParams) > 0 {
 					return true
 				}
@@ -99,7 +100,7 @@ func (g *Generator) fileNeedsURLImport(file *protogen.File) bool {
 func (g *Generator) fileNeedsRequestBody(file *protogen.File) bool {
 	for _, service := range file.Services {
 		for _, method := range service.Methods {
-			httpConfig := getMethodHTTPConfig(method)
+			httpConfig := annotations.GetMethodHTTPConfig(method)
 			httpMethod := http.MethodPost
 			if httpConfig != nil && httpConfig.Method != "" {
 				httpMethod = httpConfig.Method
@@ -203,7 +204,7 @@ func (g *Generator) generateClientInterface(gf *protogen.GeneratedFile, service 
 }
 
 func (g *Generator) generateClientStruct(gf *protogen.GeneratedFile, serviceName string) {
-	lowerName := lowerFirst(serviceName)
+	lowerName := annotations.LowerFirst(serviceName)
 
 	gf.P("// ", lowerName, "Client is the implementation of ", serviceName, "Client.")
 	gf.P("type ", lowerName, "Client struct {")
@@ -230,7 +231,7 @@ func (g *Generator) generateContentTypeConstants(gf *protogen.GeneratedFile) {
 }
 
 func (g *Generator) generateClientOptions(gf *protogen.GeneratedFile, serviceName string) {
-	lowerName := lowerFirst(serviceName)
+	lowerName := annotations.LowerFirst(serviceName)
 
 	gf.P("// ", serviceName, "ClientOption configures a ", serviceName, " client.")
 	gf.P("type ", serviceName, "ClientOption func(*", lowerName, "Client)")
@@ -269,7 +270,7 @@ func (g *Generator) generateClientOptions(gf *protogen.GeneratedFile, serviceNam
 }
 
 func (g *Generator) generateCallOptions(gf *protogen.GeneratedFile, serviceName string) {
-	lowerName := lowerFirst(serviceName)
+	lowerName := annotations.LowerFirst(serviceName)
 
 	// CallOption type
 	gf.P("// ", serviceName, "CallOption configures a single RPC call.")
@@ -310,14 +311,14 @@ func (g *Generator) generateHeaderHelperOptions(gf *protogen.GeneratedFile, serv
 	serviceName := service.GoName
 
 	// Generate helper options from service headers
-	serviceHeaders := getServiceHeaders(service)
+	serviceHeaders := annotations.GetServiceHeaders(service)
 	for _, header := range serviceHeaders {
 		g.generateHeaderOption(gf, serviceName, header, true)
 	}
 
 	// Generate helper options from method headers
 	for _, method := range service.Methods {
-		methodHeaders := getMethodHeaders(method)
+		methodHeaders := annotations.GetMethodHeaders(method)
 		for _, header := range methodHeaders {
 			g.generateHeaderOption(gf, serviceName, header, false)
 		}
@@ -355,7 +356,7 @@ func (g *Generator) generateHeaderOption(
 }
 
 func (g *Generator) generateConstructor(gf *protogen.GeneratedFile, serviceName string) {
-	lowerName := lowerFirst(serviceName)
+	lowerName := annotations.LowerFirst(serviceName)
 
 	gf.P("// New", serviceName, "Client creates a new ", serviceName, " client.")
 	gf.P(
@@ -391,7 +392,7 @@ type rpcMethodConfig struct {
 	httpMethod  string
 	fullPath    string
 	pathParams  []string
-	queryParams []QueryParam
+	queryParams []annotations.QueryParam
 	hasBody     bool
 }
 
@@ -400,9 +401,9 @@ func (g *Generator) buildRPCMethodConfig(service *protogen.Service, method *prot
 	methodName := method.GoName
 
 	// Get HTTP config
-	httpConfig := getMethodHTTPConfig(method)
+	httpConfig := annotations.GetMethodHTTPConfig(method)
 	httpMethod := http.MethodPost
-	httpPath := "/" + lowerFirst(methodName)
+	httpPath := "/" + annotations.LowerFirst(methodName)
 	var pathParams []string
 
 	if httpConfig != nil {
@@ -416,30 +417,19 @@ func (g *Generator) buildRPCMethodConfig(service *protogen.Service, method *prot
 	}
 
 	// Get base path from service config
-	serviceConfig := getServiceHTTPConfig(service)
-	basePath := ""
-	if serviceConfig != nil {
-		basePath = serviceConfig.BasePath
-	}
+	basePath := annotations.GetServiceBasePath(service)
 
 	// Combine base path and method path
-	fullPath := httpPath
-	if basePath != "" {
-		basePath = strings.TrimSuffix(basePath, "/")
-		if !strings.HasPrefix(httpPath, "/") {
-			httpPath = "/" + httpPath
-		}
-		fullPath = basePath + httpPath
-	}
+	fullPath := annotations.BuildHTTPPath(basePath, httpPath)
 
 	return &rpcMethodConfig{
 		serviceName: serviceName,
-		lowerName:   lowerFirst(serviceName),
+		lowerName:   annotations.LowerFirst(serviceName),
 		methodName:  methodName,
 		httpMethod:  httpMethod,
 		fullPath:    fullPath,
 		pathParams:  pathParams,
-		queryParams: getQueryParams(method.Input),
+		queryParams: annotations.GetQueryParams(method.Input),
 		hasBody:     httpMethod == "POST" || httpMethod == "PUT" || httpMethod == "PATCH",
 	}
 }
@@ -566,7 +556,7 @@ func (g *Generator) generateURLBuilding(
 	gf *protogen.GeneratedFile,
 	fullPath string,
 	pathParams []string,
-	queryParams []QueryParam,
+	queryParams []annotations.QueryParam,
 	httpMethod string,
 ) {
 	// Start with base path
@@ -602,7 +592,7 @@ func (g *Generator) generateURLBuilding(
 	}
 }
 
-func (g *Generator) generateQueryParamEncoding(gf *protogen.GeneratedFile, qp QueryParam) {
+func (g *Generator) generateQueryParamEncoding(gf *protogen.GeneratedFile, qp annotations.QueryParam) {
 	fieldGoName := qp.FieldGoName
 	paramName := qp.ParamName
 
@@ -614,7 +604,7 @@ func (g *Generator) generateQueryParamEncoding(gf *protogen.GeneratedFile, qp Qu
 }
 
 func (g *Generator) generateHelperMethods(gf *protogen.GeneratedFile, serviceName string) {
-	lowerName := lowerFirst(serviceName)
+	lowerName := annotations.LowerFirst(serviceName)
 	g.generateMarshalRequestMethod(gf, lowerName)
 	g.generateHandleErrorResponseMethod(gf, lowerName)
 	g.generateUnmarshalResponseMethod(gf, lowerName)
@@ -688,13 +678,6 @@ func (g *Generator) generateUnmarshalResponseMethod(gf *protogen.GeneratedFile, 
 
 // Helper functions
 
-func lowerFirst(s string) string {
-	if s == "" {
-		return ""
-	}
-	return strings.ToLower(s[:1]) + s[1:]
-}
-
 func snakeToUpperCamel(s string) string {
 	parts := strings.Split(s, "_")
 	for i, part := range parts {
@@ -712,7 +695,7 @@ func headerNameToFuncName(headerName string) string {
 	return name
 }
 
-func getZeroValue(qp QueryParam) string {
+func getZeroValue(qp annotations.QueryParam) string {
 	// Return the appropriate zero value based on field kind
 	switch qp.FieldKind {
 	case "string":

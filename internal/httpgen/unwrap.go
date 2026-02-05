@@ -1,7 +1,11 @@
 package httpgen
 
 import (
+	"fmt"
+
 	"google.golang.org/protobuf/compiler/protogen"
+
+	"github.com/SebastienMelki/sebuf/internal/annotations"
 )
 
 // Proto field kind constants for type checking.
@@ -36,11 +40,11 @@ type UnwrapContext struct {
 // RootUnwrapMessage represents a message that should unwrap at the root level.
 // This means the entire message serializes to just the unwrap field's value.
 type RootUnwrapMessage struct {
-	Message      *protogen.Message // The message with root unwrap
-	UnwrapField  *protogen.Field   // The single field with unwrap=true
-	IsMap        bool              // True if the unwrap field is a map
-	ValueMessage *protogen.Message // For maps: the map value message type
-	ValueUnwrap  *UnwrapFieldInfo  // For maps: if the value message also has an unwrap field
+	Message      *protogen.Message            // The message with root unwrap
+	UnwrapField  *protogen.Field              // The single field with unwrap=true
+	IsMap        bool                         // True if the unwrap field is a map
+	ValueMessage *protogen.Message            // For maps: the map value message type
+	ValueUnwrap  *annotations.UnwrapFieldInfo // For maps: if the value message also has an unwrap field
 }
 
 // UnwrapContainingMessage represents a message that contains map fields with unwrap values.
@@ -51,66 +55,76 @@ type UnwrapContainingMessage struct {
 
 // UnwrapMapField represents a map field whose value type has an unwrap field.
 type UnwrapMapField struct {
-	Field        *protogen.Field   // The map field
-	ValueMessage *protogen.Message // The map value message type
-	UnwrapField  *UnwrapFieldInfo  // The unwrap field info from the value message
+	Field        *protogen.Field              // The map field
+	ValueMessage *protogen.Message            // The map value message type
+	UnwrapField  *annotations.UnwrapFieldInfo // The unwrap field info from the value message
 }
 
 // GlobalUnwrapInfo holds unwrap field information collected from all files.
 // This enables cross-file unwrap resolution within the same Go package.
 type GlobalUnwrapInfo struct {
 	// UnwrapFields maps message full names to their unwrap field info.
-	UnwrapFields map[string]*UnwrapFieldInfo
+	UnwrapFields map[string]*annotations.UnwrapFieldInfo
 }
 
 // NewGlobalUnwrapInfo creates a new GlobalUnwrapInfo instance.
 func NewGlobalUnwrapInfo() *GlobalUnwrapInfo {
 	return &GlobalUnwrapInfo{
-		UnwrapFields: make(map[string]*UnwrapFieldInfo),
+		UnwrapFields: make(map[string]*annotations.UnwrapFieldInfo),
 	}
 }
 
 // CollectGlobalUnwrapInfo scans all files to be generated and collects unwrap field information.
 // This enables the generator to find unwrap annotations on messages defined in other files
-// within the same Go package.
-func CollectGlobalUnwrapInfo(files []*protogen.File) *GlobalUnwrapInfo {
+// within the same Go package. Returns an error if any unwrap annotation is invalid.
+func CollectGlobalUnwrapInfo(files []*protogen.File) (*GlobalUnwrapInfo, error) {
 	global := NewGlobalUnwrapInfo()
 	for _, file := range files {
 		if !file.Generate {
 			continue
 		}
-		collectFileUnwrapFields(file.Messages, global)
+		if err := collectFileUnwrapFields(file.Messages, global); err != nil {
+			return nil, fmt.Errorf("file %s: %w", file.Desc.Path(), err)
+		}
 	}
-	return global
+	return global, nil
 }
 
 // collectFileUnwrapFields recursively collects unwrap fields from messages.
-func collectFileUnwrapFields(messages []*protogen.Message, global *GlobalUnwrapInfo) {
+// Returns an error if any unwrap annotation is invalid (fail-hard).
+func collectFileUnwrapFields(messages []*protogen.Message, global *GlobalUnwrapInfo) error {
 	for _, msg := range messages {
-		info, err := getUnwrapField(msg)
+		info, err := annotations.GetUnwrapField(msg)
 		if err != nil {
-			// Log error but continue
-			continue
+			return fmt.Errorf("collecting unwrap fields for message %s: %w", msg.Desc.FullName(), err)
 		}
 		if info != nil {
 			global.UnwrapFields[string(msg.Desc.FullName())] = info
 		}
 		// Check nested messages too
-		collectFileUnwrapFields(msg.Messages, global)
+		if err = collectFileUnwrapFields(msg.Messages, global); err != nil {
+			return err
+		}
 	}
+	return nil
 }
 
 // collectUnwrapContext analyzes all messages in a file and collects unwrap information.
-func (g *Generator) collectUnwrapContext(file *protogen.File) *UnwrapContext {
+// Returns an error if any unwrap annotation is invalid (fail-hard).
+func (g *Generator) collectUnwrapContext(file *protogen.File) (*UnwrapContext, error) {
 	ctx := &UnwrapContext{}
 
 	// Use global unwrap map if available (two-pass mode), otherwise fall back to single-file mode
-	var globalUnwrapMap map[string]*UnwrapFieldInfo
+	var globalUnwrapMap map[string]*annotations.UnwrapFieldInfo
 	if g.globalUnwrap != nil {
 		globalUnwrapMap = g.globalUnwrap.UnwrapFields
 	} else {
 		// Fallback for direct calls (e.g., in tests without full Generate() flow)
-		globalUnwrapMap = collectAllUnwrapFields(file.Messages)
+		var err error
+		globalUnwrapMap, err = collectAllUnwrapFields(file.Messages)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	// Collect root unwrap messages (single field with unwrap on map/repeated)
@@ -120,39 +134,44 @@ func (g *Generator) collectUnwrapContext(file *protogen.File) *UnwrapContext {
 	// Only include messages that are NOT root unwrap messages (those are handled separately)
 	findMapFieldsWithUnwrap(file.Messages, globalUnwrapMap, ctx)
 
-	return ctx
+	return ctx, nil
 }
 
 // collectAllUnwrapFields recursively collects all messages with unwrap fields.
-func collectAllUnwrapFields(messages []*protogen.Message) map[string]*UnwrapFieldInfo {
-	result := make(map[string]*UnwrapFieldInfo)
-	collectUnwrapFieldsRecursive(messages, result)
-	return result
+// Returns an error if any unwrap annotation is invalid (fail-hard).
+func collectAllUnwrapFields(messages []*protogen.Message) (map[string]*annotations.UnwrapFieldInfo, error) {
+	result := make(map[string]*annotations.UnwrapFieldInfo)
+	if err := collectUnwrapFieldsRecursive(messages, result); err != nil {
+		return nil, err
+	}
+	return result, nil
 }
 
 // collectUnwrapFieldsRecursive is a helper that recursively collects unwrap fields.
-func collectUnwrapFieldsRecursive(messages []*protogen.Message, result map[string]*UnwrapFieldInfo) {
+// Returns an error if any unwrap annotation is invalid (fail-hard).
+func collectUnwrapFieldsRecursive(messages []*protogen.Message, result map[string]*annotations.UnwrapFieldInfo) error {
 	for _, msg := range messages {
-		info, err := getUnwrapField(msg)
+		info, err := annotations.GetUnwrapField(msg)
 		if err != nil {
-			// Log error but continue - store error for debugging
-			// NOTE: This suppresses errors for messages that fail validation
-			continue
+			return fmt.Errorf("collecting unwrap fields for message %s: %w", msg.Desc.FullName(), err)
 		}
 		if info != nil {
 			fullName := string(msg.Desc.FullName())
 			result[fullName] = info
 		}
 		// Check nested messages too
-		collectUnwrapFieldsRecursive(msg.Messages, result)
+		if err = collectUnwrapFieldsRecursive(msg.Messages, result); err != nil {
+			return err
+		}
 	}
+	return nil
 }
 
 // collectRootUnwrapMessages finds messages that have root-level unwrap.
 // Root unwrap means the message has exactly one field with unwrap=true on a map or repeated field.
 func collectRootUnwrapMessages(
 	messages []*protogen.Message,
-	unwrapMessages map[string]*UnwrapFieldInfo,
+	unwrapMessages map[string]*annotations.UnwrapFieldInfo,
 	ctx *UnwrapContext,
 ) {
 	for _, msg := range messages {
@@ -175,7 +194,10 @@ func collectRootUnwrapMessages(
 			if valueMsg != nil {
 				rootUnwrap.ValueMessage = valueMsg
 				// Check if the value message also has an unwrap field (combined unwrap)
-				if valueUnwrap, valueErr := getUnwrapField(valueMsg); valueErr == nil && valueUnwrap != nil {
+				if valueUnwrap, valueErr := annotations.GetUnwrapField(
+					valueMsg,
+				); valueErr == nil &&
+					valueUnwrap != nil {
 					rootUnwrap.ValueUnwrap = valueUnwrap
 				}
 			}
@@ -191,7 +213,7 @@ func collectRootUnwrapMessages(
 // findMapFieldsWithUnwrap finds messages with map fields whose values have unwrap fields.
 func findMapFieldsWithUnwrap(
 	messages []*protogen.Message,
-	unwrapMessages map[string]*UnwrapFieldInfo,
+	unwrapMessages map[string]*annotations.UnwrapFieldInfo,
 	ctx *UnwrapContext,
 ) {
 	for _, msg := range messages {
@@ -228,7 +250,10 @@ func isRootUnwrapMessage(msg *protogen.Message, ctx *UnwrapContext) bool {
 
 // collectUnwrapMapFields collects map fields whose value types have unwrap fields.
 // This checks the value message directly, which works for both local and imported messages.
-func collectUnwrapMapFields(msg *protogen.Message, unwrapMessages map[string]*UnwrapFieldInfo) []*UnwrapMapField {
+func collectUnwrapMapFields(
+	msg *protogen.Message,
+	unwrapMessages map[string]*annotations.UnwrapFieldInfo,
+) []*UnwrapMapField {
 	var mapFields []*UnwrapMapField
 
 	for _, field := range msg.Fields {
@@ -249,7 +274,7 @@ func collectUnwrapMapFields(msg *protogen.Message, unwrapMessages map[string]*Un
 		if !ok {
 			// Check imported message directly for unwrap annotation
 			var err error
-			unwrapInfo, err = getUnwrapField(valueMsg)
+			unwrapInfo, err = annotations.GetUnwrapField(valueMsg)
 			if err != nil || unwrapInfo == nil {
 				continue
 			}
@@ -283,7 +308,10 @@ func getMapValueMessage(field *protogen.Field) *protogen.Message {
 
 // generateUnwrapFile generates the *_unwrap.pb.go file if needed.
 func (g *Generator) generateUnwrapFile(file *protogen.File) error {
-	ctx := g.collectUnwrapContext(file)
+	ctx, err := g.collectUnwrapContext(file)
+	if err != nil {
+		return fmt.Errorf("collecting unwrap context for %s: %w", file.Desc.Path(), err)
+	}
 
 	// If no messages need unwrap methods, skip generation
 	if len(ctx.ContainingMessages) == 0 && len(ctx.RootUnwrapMessages) == 0 {

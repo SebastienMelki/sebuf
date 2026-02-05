@@ -1,4 +1,4 @@
-package openapiv3
+package annotations
 
 import (
 	"reflect"
@@ -7,7 +7,38 @@ import (
 	"github.com/SebastienMelki/sebuf/http"
 )
 
-func TestHttpMethodToString(t *testing.T) {
+func TestHTTPMethodToString(t *testing.T) {
+	tests := []struct {
+		name     string
+		method   http.HttpMethod
+		expected string
+	}{
+		// Standard HTTP methods (uppercase)
+		{"GET method", http.HttpMethod_HTTP_METHOD_GET, "GET"},
+		{"POST method", http.HttpMethod_HTTP_METHOD_POST, "POST"},
+		{"PUT method", http.HttpMethod_HTTP_METHOD_PUT, "PUT"},
+		{"DELETE method", http.HttpMethod_HTTP_METHOD_DELETE, "DELETE"},
+		{"PATCH method", http.HttpMethod_HTTP_METHOD_PATCH, "PATCH"},
+
+		// Backward compatibility - UNSPECIFIED defaults to POST
+		{"UNSPECIFIED defaults to POST", http.HttpMethod_HTTP_METHOD_UNSPECIFIED, "POST"},
+
+		// Edge cases - unknown values default to POST
+		{"unknown positive value defaults to POST", http.HttpMethod(999), "POST"},
+		{"unknown negative value defaults to POST", http.HttpMethod(-1), "POST"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := HTTPMethodToString(tt.method)
+			if result != tt.expected {
+				t.Errorf("HTTPMethodToString(%v) = %q, expected %q", tt.method, result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestHTTPMethodToLower(t *testing.T) {
 	tests := []struct {
 		name     string
 		method   http.HttpMethod
@@ -20,19 +51,19 @@ func TestHttpMethodToString(t *testing.T) {
 		{"DELETE method", http.HttpMethod_HTTP_METHOD_DELETE, "delete"},
 		{"PATCH method", http.HttpMethod_HTTP_METHOD_PATCH, "patch"},
 
-		// Backward compatibility - UNSPECIFIED defaults to POST
+		// Backward compatibility - UNSPECIFIED defaults to post
 		{"UNSPECIFIED defaults to post", http.HttpMethod_HTTP_METHOD_UNSPECIFIED, "post"},
 
-		// Edge cases - unknown values default to POST
+		// Edge cases - unknown values default to post
 		{"unknown positive value defaults to post", http.HttpMethod(999), "post"},
 		{"unknown negative value defaults to post", http.HttpMethod(-1), "post"},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := httpMethodToString(tt.method)
+			result := HTTPMethodToLower(tt.method)
 			if result != tt.expected {
-				t.Errorf("httpMethodToString(%v) = %q, expected %q", tt.method, result, tt.expected)
+				t.Errorf("HTTPMethodToLower(%v) = %q, expected %q", tt.method, result, tt.expected)
 			}
 		})
 	}
@@ -53,24 +84,45 @@ func TestExtractPathParams(t *testing.T) {
 			"/orgs/{org_id}/teams/{team_id}/members/{member_id}",
 			[]string{"org_id", "team_id", "member_id"},
 		},
+		{"camelCase param", "/items/{itemId}", []string{"itemId"}},
 
 		// Empty/missing cases
 		{"no params", "/users", nil},
 		{"empty path", "", nil},
 		{"just slash", "/", nil},
+		{"only static segments", "/api/v1/users/list", nil},
 
-		// Edge cases
-		{"unclosed brace", "/users/{id", nil},
-		{"empty braces", "/users/{}", nil},
+		// Edge cases - malformed
+		{"unclosed brace should not match", "/users/{id", nil},
+		{"unopened brace should not match", "/users/id}", nil},
+		{"empty braces returns nil", "/users/{}", nil},
+
+		// Edge cases - special characters in param names
 		{"hyphenated param", "/users/{user-id}", []string{"user-id"}},
+		{"param with numbers", "/users/{id123}", []string{"id123"}},
+		{"param starting with number", "/users/{123id}", []string{"123id"}},
+		{"param with underscore prefix", "/users/{_private}", []string{"_private"}},
+
+		// Complex paths
+		{
+			"deeply nested path",
+			"/api/v1/orgs/{org_id}/teams/{team_id}/members/{member_id}/roles/{role_id}",
+			[]string{"org_id", "team_id", "member_id", "role_id"},
+		},
+		{"param at start", "/{version}/users", []string{"version"}},
+		{"param at end", "/users/{id}", []string{"id"}},
 		{"consecutive params", "/users/{type}/{id}", []string{"type", "id"}},
+		{"duplicate param names", "/users/{id}/items/{id}", []string{"id", "id"}},
+
+		// With trailing content
+		{"path with trailing content", "/users/{id}/profile", []string{"id"}},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := extractPathParams(tt.path)
+			result := ExtractPathParams(tt.path)
 			if !reflect.DeepEqual(result, tt.expected) {
-				t.Errorf("extractPathParams(%q) = %v, expected %v", tt.path, result, tt.expected)
+				t.Errorf("ExtractPathParams(%q) = %v, expected %v", tt.path, result, tt.expected)
 			}
 		})
 	}
@@ -110,9 +162,9 @@ func TestBuildHTTPPath(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := buildHTTPPath(tt.servicePath, tt.methodPath)
+			result := BuildHTTPPath(tt.servicePath, tt.methodPath)
 			if result != tt.expected {
-				t.Errorf("buildHTTPPath(%q, %q) = %q, expected %q", tt.servicePath, tt.methodPath, result, tt.expected)
+				t.Errorf("BuildHTTPPath(%q, %q) = %q, expected %q", tt.servicePath, tt.methodPath, result, tt.expected)
 			}
 		})
 	}
@@ -134,59 +186,9 @@ func TestEnsureLeadingSlash(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := ensureLeadingSlash(tt.path)
+			result := EnsureLeadingSlash(tt.path)
 			if result != tt.expected {
-				t.Errorf("ensureLeadingSlash(%q) = %q, expected %q", tt.path, result, tt.expected)
-			}
-		})
-	}
-}
-
-func TestMapHeaderTypeToOpenAPI(t *testing.T) {
-	tests := []struct {
-		name       string
-		headerType string
-		expected   string
-	}{
-		// String types
-		{"string", "string", "string"},
-		{"empty defaults to string", "", "string"},
-		{"STRING uppercase", "STRING", "string"},
-		{"String mixed case", "String", "string"},
-
-		// Integer types
-		{"integer", "integer", "integer"},
-		{"int", "int", "integer"},
-		{"int32", "int32", "integer"},
-		{"int64", "int64", "integer"},
-		{"INTEGER uppercase", "INTEGER", "integer"},
-
-		// Number types
-		{"number", "number", "number"},
-		{"float", "float", "number"},
-		{"double", "double", "number"},
-		{"NUMBER uppercase", "NUMBER", "number"},
-
-		// Boolean types
-		{"boolean", "boolean", "boolean"},
-		{"bool", "bool", "boolean"},
-		{"BOOLEAN uppercase", "BOOLEAN", "boolean"},
-
-		// Array type
-		{"array", "array", "array"},
-		{"ARRAY uppercase", "ARRAY", "array"},
-
-		// Unknown types default to string
-		{"unknown type", "unknown", "string"},
-		{"custom type", "custom", "string"},
-		{"object type", "object", "string"},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := mapHeaderTypeToOpenAPI(tt.headerType)
-			if result != tt.expected {
-				t.Errorf("mapHeaderTypeToOpenAPI(%q) = %q, expected %q", tt.headerType, result, tt.expected)
+				t.Errorf("EnsureLeadingSlash(%q) = %q, expected %q", tt.path, result, tt.expected)
 			}
 		})
 	}
@@ -250,18 +252,18 @@ func TestCombineHeaders(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := combineHeaders(tt.serviceHeaders, tt.methodHeaders)
+			result := CombineHeaders(tt.serviceHeaders, tt.methodHeaders)
 
 			// Check count
 			if len(result) != len(tt.expectedNames) {
-				t.Errorf("combineHeaders() returned %d headers, expected %d", len(result), len(tt.expectedNames))
+				t.Errorf("CombineHeaders() returned %d headers, expected %d", len(result), len(tt.expectedNames))
 				return
 			}
 
 			// Check names (should be sorted)
 			for i, name := range tt.expectedNames {
 				if result[i].GetName() != name {
-					t.Errorf("combineHeaders()[%d].Name = %q, expected %q", i, result[i].GetName(), name)
+					t.Errorf("CombineHeaders()[%d].Name = %q, expected %q", i, result[i].GetName(), name)
 				}
 			}
 		})
@@ -269,7 +271,6 @@ func TestCombineHeaders(t *testing.T) {
 }
 
 func TestCombineHeaders_MethodOverridesService(t *testing.T) {
-	// Test that method headers override service headers with the same name
 	serviceHeaders := []*http.Header{
 		{Name: "X-API-Key", Description: "Service API Key", Required: true},
 	}
@@ -277,7 +278,7 @@ func TestCombineHeaders_MethodOverridesService(t *testing.T) {
 		{Name: "X-API-Key", Description: "Method API Key", Required: false},
 	}
 
-	result := combineHeaders(serviceHeaders, methodHeaders)
+	result := CombineHeaders(serviceHeaders, methodHeaders)
 
 	if len(result) != 1 {
 		t.Fatalf("Expected 1 header, got %d", len(result))
@@ -287,23 +288,48 @@ func TestCombineHeaders_MethodOverridesService(t *testing.T) {
 	if result[0].GetDescription() != "Method API Key" {
 		t.Errorf("Method header should override service header, got description: %q", result[0].GetDescription())
 	}
-	if result[0].GetRequired() != false {
+	if result[0].GetRequired() {
 		t.Error("Method header should override service header's Required field")
+	}
+}
+
+func TestLowerFirst(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{"empty string", "", ""},
+		{"single uppercase char", "A", "a"},
+		{"single lowercase char", "a", "a"},
+		{"normal case", "FooBar", "fooBar"},
+		{"already lowercase", "fooBar", "fooBar"},
+		{"all uppercase", "FOO", "fOO"},
+		{"single word", "Hello", "hello"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := LowerFirst(tt.input)
+			if result != tt.expected {
+				t.Errorf("LowerFirst(%q) = %q, expected %q", tt.input, result, tt.expected)
+			}
+		})
 	}
 }
 
 func TestHTTPConfig_Struct(t *testing.T) {
 	config := HTTPConfig{
 		Path:       "/users/{id}",
-		Method:     "get",
+		Method:     "GET",
 		PathParams: []string{"id"},
 	}
 
 	if config.Path != "/users/{id}" {
 		t.Errorf("HTTPConfig.Path = %q, expected %q", config.Path, "/users/{id}")
 	}
-	if config.Method != "get" { //nolint:usestdlibvars // OpenAPI uses lowercase method names
-		t.Errorf("HTTPConfig.Method = %q, expected %q", config.Method, "get")
+	if config.Method != "GET" { //nolint:usestdlibvars // http here is sebuf/http, not net/http
+		t.Errorf("HTTPConfig.Method = %q, expected %q", config.Method, "GET")
 	}
 	if len(config.PathParams) != 1 || config.PathParams[0] != "id" {
 		t.Errorf("HTTPConfig.PathParams = %v, expected [id]", config.PathParams)
@@ -312,14 +338,23 @@ func TestHTTPConfig_Struct(t *testing.T) {
 
 func TestQueryParam_Struct(t *testing.T) {
 	param := QueryParam{
-		FieldName: "page_number",
-		ParamName: "page",
-		Required:  true,
-		// Field is left nil (zero value) for this test - protogen.Field can be nil
+		FieldName:     "page_number",
+		FieldGoName:   "PageNumber",
+		FieldJSONName: "pageNumber",
+		ParamName:     "page",
+		Required:      true,
+		FieldKind:     "int32",
+		Field:         nil, // protogen.Field can be nil in tests
 	}
 
 	if param.FieldName != "page_number" {
 		t.Errorf("QueryParam.FieldName = %q, expected %q", param.FieldName, "page_number")
+	}
+	if param.FieldGoName != "PageNumber" {
+		t.Errorf("QueryParam.FieldGoName = %q, expected %q", param.FieldGoName, "PageNumber")
+	}
+	if param.FieldJSONName != "pageNumber" {
+		t.Errorf("QueryParam.FieldJSONName = %q, expected %q", param.FieldJSONName, "pageNumber")
 	}
 	if param.ParamName != "page" {
 		t.Errorf("QueryParam.ParamName = %q, expected %q", param.ParamName, "page")
@@ -327,39 +362,70 @@ func TestQueryParam_Struct(t *testing.T) {
 	if !param.Required {
 		t.Error("QueryParam.Required = false, expected true")
 	}
+	if param.FieldKind != "int32" {
+		t.Errorf("QueryParam.FieldKind = %q, expected %q", param.FieldKind, "int32")
+	}
 	if param.Field != nil {
 		t.Error("QueryParam.Field should be nil")
 	}
 }
 
-func TestServiceHTTPConfig_Struct(t *testing.T) {
-	config := ServiceHTTPConfig{
+func TestServiceConfig_Struct(t *testing.T) {
+	config := ServiceConfig{
 		BasePath: "/api/v1",
 	}
 
 	if config.BasePath != "/api/v1" {
-		t.Errorf("ServiceHTTPConfig.BasePath = %q, expected %q", config.BasePath, "/api/v1")
+		t.Errorf("ServiceConfig.BasePath = %q, expected %q", config.BasePath, "/api/v1")
 	}
 }
 
-// Benchmark tests.
+func TestUnwrapValidationError(t *testing.T) {
+	err := &UnwrapValidationError{
+		MessageName: "MyMessage",
+		FieldName:   "items",
+		Reason:      "unwrap annotation can only be used on repeated or map fields",
+	}
+
+	expected := "invalid unwrap annotation on MyMessage.items: unwrap annotation can only be used on repeated or map fields"
+	if err.Error() != expected {
+		t.Errorf("UnwrapValidationError.Error() = %q, expected %q", err.Error(), expected)
+	}
+}
+
+// Benchmark tests for performance-critical functions.
+
+func BenchmarkExtractPathParams_SingleParam(b *testing.B) {
+	path := "/users/{user_id}"
+	for range b.N {
+		ExtractPathParams(path)
+	}
+}
+
+func BenchmarkExtractPathParams_MultipleParams(b *testing.B) {
+	path := "/orgs/{org_id}/teams/{team_id}/members/{member_id}"
+	for range b.N {
+		ExtractPathParams(path)
+	}
+}
+
+func BenchmarkExtractPathParams_NoParams(b *testing.B) {
+	path := "/api/v1/users/list"
+	for range b.N {
+		ExtractPathParams(path)
+	}
+}
+
 func BenchmarkBuildHTTPPath(b *testing.B) {
 	for range b.N {
-		buildHTTPPath("/api/v1", "/users/{user_id}")
+		BuildHTTPPath("/api/v1", "/users/{user_id}")
 	}
 }
 
 func BenchmarkEnsureLeadingSlash(b *testing.B) {
 	paths := []string{"/users", "users", "", "/", "api/v1/users"}
 	for i := range b.N {
-		ensureLeadingSlash(paths[i%len(paths)])
-	}
-}
-
-func BenchmarkMapHeaderTypeToOpenAPI(b *testing.B) {
-	types := []string{"string", "integer", "number", "boolean", "array", "", "unknown"}
-	for i := range b.N {
-		mapHeaderTypeToOpenAPI(types[i%len(types)])
+		EnsureLeadingSlash(paths[i%len(paths)])
 	}
 }
 
@@ -373,17 +439,26 @@ func BenchmarkCombineHeaders(b *testing.B) {
 		{Name: "X-API-Key"}, // Override
 	}
 	for range b.N {
-		combineHeaders(serviceHeaders, methodHeaders)
+		CombineHeaders(serviceHeaders, methodHeaders)
 	}
 }
 
-func BenchmarkExtractPathParams(b *testing.B) {
-	paths := []string{
-		"/users/{user_id}",
-		"/orgs/{org_id}/teams/{team_id}/members/{member_id}",
-		"/api/v1/users",
+func BenchmarkHTTPMethodToString(b *testing.B) {
+	methods := []http.HttpMethod{
+		http.HttpMethod_HTTP_METHOD_GET,
+		http.HttpMethod_HTTP_METHOD_POST,
+		http.HttpMethod_HTTP_METHOD_PUT,
+		http.HttpMethod_HTTP_METHOD_DELETE,
+		http.HttpMethod_HTTP_METHOD_PATCH,
 	}
 	for i := range b.N {
-		extractPathParams(paths[i%len(paths)])
+		HTTPMethodToString(methods[i%len(methods)])
+	}
+}
+
+func BenchmarkLowerFirst(b *testing.B) {
+	inputs := []string{"FooBar", "Hello", "fooBar", "", "A"}
+	for i := range b.N {
+		LowerFirst(inputs[i%len(inputs)])
 	}
 }

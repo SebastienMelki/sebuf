@@ -7,6 +7,8 @@ import (
 
 	"google.golang.org/protobuf/compiler/protogen"
 	"google.golang.org/protobuf/reflect/protoreflect"
+
+	"github.com/SebastienMelki/sebuf/internal/annotations"
 )
 
 const (
@@ -165,7 +167,7 @@ func tsFieldType(field *protogen.Field) string {
 
 		// Check if the map value is a message with unwrap annotation
 		if valueField.Desc.Kind() == protoreflect.MessageKind && valueField.Message != nil {
-			unwrapField := findUnwrapField(valueField.Message)
+			unwrapField := annotations.FindUnwrapField(valueField.Message)
 			if unwrapField != nil && !unwrapField.Desc.IsMap() {
 				// Map-value unwrap: collapse wrapper to inner type array
 				// Use tsElementType since unwrapField is always repeated
@@ -207,24 +209,6 @@ func tsElementType(field *protogen.Field) string {
 	return tsScalarType(field.Desc.Kind())
 }
 
-// findUnwrapField returns the unwrap-annotated repeated field in a message, or nil.
-func findUnwrapField(msg *protogen.Message) *protogen.Field {
-	for _, field := range msg.Fields {
-		if hasUnwrapAnnotation(field) && field.Desc.IsList() {
-			return field
-		}
-	}
-	return nil
-}
-
-// isRootUnwrap checks if a message has a single field with unwrap=true.
-func isRootUnwrap(msg *protogen.Message) bool {
-	if len(msg.Fields) != 1 {
-		return false
-	}
-	return hasUnwrapAnnotation(msg.Fields[0])
-}
-
 // rootUnwrapTSType returns the TypeScript type for a root-unwrapped message.
 func rootUnwrapTSType(msg *protogen.Message) string {
 	field := msg.Fields[0]
@@ -235,7 +219,7 @@ func rootUnwrapTSType(msg *protogen.Message) string {
 
 		// Check for combined unwrap: root map + value unwrap
 		if valueField.Desc.Kind() == protoreflect.MessageKind && valueField.Message != nil {
-			unwrapField := findUnwrapField(valueField.Message)
+			unwrapField := annotations.FindUnwrapField(valueField.Message)
 			if unwrapField != nil {
 				// Use tsElementType since unwrapField is always repeated
 				valueType = tsElementType(unwrapField) + "[]"

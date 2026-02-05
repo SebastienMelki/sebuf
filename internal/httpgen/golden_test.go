@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/SebastienMelki/sebuf/internal/annotations"
 )
 
 // TestHTTPGenGoldenFiles tests HTTP handler generation against golden files.
@@ -232,14 +234,14 @@ func TestHTTPGenValidation(t *testing.T) {
 	// These tests verify validation error messages are clear and actionable
 	tests := []struct {
 		name          string
-		config        HTTPConfig
+		config        annotations.HTTPConfig
 		pathParams    []string
-		queryParams   []QueryParam
+		queryParams   []annotations.QueryParam
 		errorContains string
 	}{
 		{
 			name: "GET with unbound fields should error",
-			config: HTTPConfig{
+			config: annotations.HTTPConfig{
 				Path:   "/users",
 				Method: "GET",
 			},

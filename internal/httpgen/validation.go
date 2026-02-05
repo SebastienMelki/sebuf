@@ -5,6 +5,8 @@ import (
 
 	"google.golang.org/protobuf/compiler/protogen"
 	"google.golang.org/protobuf/reflect/protoreflect"
+
+	"github.com/SebastienMelki/sebuf/internal/annotations"
 )
 
 // ValidationError represents a generation-time validation error.
@@ -19,7 +21,7 @@ type ValidationError struct {
 func ValidateMethodConfig(service *protogen.Service, method *protogen.Method) []ValidationError {
 	var errors []ValidationError
 
-	config := getMethodHTTPConfig(method)
+	config := annotations.GetMethodHTTPConfig(method)
 	if config == nil {
 		return nil
 	}
@@ -61,7 +63,7 @@ func ValidateMethodConfig(service *protogen.Service, method *protogen.Method) []
 	}
 
 	// 3. Validate query parameter fields don't conflict with path params
-	queryParams := getQueryParams(method.Input)
+	queryParams := annotations.GetQueryParams(method.Input)
 	for _, qp := range queryParams {
 		for _, pathParam := range config.PathParams {
 			if qp.FieldName == pathParam {
@@ -135,7 +137,11 @@ func isPathParamCompatible(field *protogen.Field) bool {
 }
 
 // getBodyFields returns fields that are not bound to path or query parameters.
-func getBodyFields(message *protogen.Message, pathParams []string, queryParams []QueryParam) []*protogen.Field {
+func getBodyFields(
+	message *protogen.Message,
+	pathParams []string,
+	queryParams []annotations.QueryParam,
+) []*protogen.Field {
 	pathParamSet := make(map[string]bool)
 	for _, p := range pathParams {
 		pathParamSet[p] = true

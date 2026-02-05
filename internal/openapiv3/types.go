@@ -5,13 +5,25 @@ import (
 	"strings"
 
 	"github.com/pb33f/libopenapi/datamodel/high/base"
+	v3 "github.com/pb33f/libopenapi/datamodel/high/v3"
 	yaml "go.yaml.in/yaml/v4"
 	"google.golang.org/protobuf/compiler/protogen"
-	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
-	"google.golang.org/protobuf/types/descriptorpb"
 
 	"github.com/SebastienMelki/sebuf/http"
+	"github.com/SebastienMelki/sebuf/internal/annotations"
+)
+
+// Header type constants for OpenAPI type mapping.
+const (
+	headerTypeString  = "string"
+	headerTypeInt32   = "int32"
+	headerTypeInt64   = "int64"
+	headerTypeUint64  = "uint64"
+	headerTypeInteger = "integer"
+	headerTypeNumber  = "number"
+	headerTypeFloat   = "float"
+	headerTypeDouble  = "double"
 )
 
 // convertField converts a protobuf field to an OpenAPI schema.
@@ -61,7 +73,8 @@ func (g *Generator) convertScalarField(field *protogen.Field) *base.SchemaProxy 
 		schema.Format = headerTypeInt32
 
 	case protoreflect.Int64Kind, protoreflect.Sint64Kind, protoreflect.Sfixed64Kind:
-		schema.Type = []string{headerTypeInteger}
+		// Per proto3 JSON spec, int64 serializes as a string to avoid JavaScript precision loss
+		schema.Type = []string{headerTypeString}
 		schema.Format = headerTypeInt64
 
 	case protoreflect.Uint32Kind, protoreflect.Fixed32Kind:
@@ -71,10 +84,10 @@ func (g *Generator) convertScalarField(field *protogen.Field) *base.SchemaProxy 
 		schema.Minimum = &zero
 
 	case protoreflect.Uint64Kind, protoreflect.Fixed64Kind:
-		schema.Type = []string{headerTypeInteger}
-		schema.Format = headerTypeInt64
-		zero := 0.0
-		schema.Minimum = &zero
+		// Per proto3 JSON spec, uint64 serializes as a string to avoid JavaScript precision loss
+		schema.Type = []string{headerTypeString}
+		schema.Format = headerTypeUint64
+		// Note: Minimum constraint removed since type is now string
 
 	case protoreflect.FloatKind:
 		schema.Type = []string{headerTypeNumber}
@@ -119,7 +132,7 @@ func (g *Generator) convertScalarField(field *protogen.Field) *base.SchemaProxy 
 	extractValidationConstraints(field, schema)
 
 	// Add field examples if available
-	if examples := getFieldExamples(field); len(examples) > 0 {
+	if examples := annotations.GetFieldExamples(field); len(examples) > 0 {
 		// Set the first example as the default example
 		schema.Example = &yaml.Node{
 			Kind:  yaml.ScalarNode,
@@ -199,7 +212,7 @@ func (g *Generator) getMapValueSchema(field *protogen.Field) *base.DynamicValue[
 
 	// Check if value is a message with an unwrap field
 	if valueField.Message != nil {
-		if unwrapField := getUnwrapField(valueField.Message); unwrapField != nil {
+		if unwrapField := annotations.FindUnwrapField(valueField.Message); unwrapField != nil {
 			return g.createUnwrapArraySchema(unwrapField)
 		}
 	}
@@ -239,60 +252,72 @@ func (g *Generator) createUnwrapArraySchema(unwrapField *protogen.Field) *base.D
 	}
 }
 
-// getUnwrapField returns the unwrap field from a message, or nil if none exists.
-func getUnwrapField(message *protogen.Message) *protogen.Field {
-	for _, field := range message.Fields {
-		if hasUnwrapAnnotation(field) && field.Desc.IsList() {
-			return field
+// convertHeadersToParameters converts proto headers to OpenAPI parameters.
+func convertHeadersToParameters(headers []*http.Header) []*v3.Parameter {
+	if len(headers) == 0 {
+		return nil
+	}
+
+	parameters := make([]*v3.Parameter, 0, len(headers))
+
+	for _, header := range headers {
+		if header.GetName() == "" {
+			continue // Skip headers without names
 		}
+
+		// Create the schema for the header
+		schema := &base.Schema{
+			Type: []string{mapHeaderTypeToOpenAPI(header.GetType())},
+		}
+
+		// Add format if specified
+		if header.GetFormat() != "" {
+			schema.Format = header.GetFormat()
+		}
+
+		// Add example if specified
+		if header.GetExample() != "" {
+			schema.Example = &yaml.Node{
+				Kind:  yaml.ScalarNode,
+				Value: header.GetExample(),
+			}
+		}
+
+		// Create the parameter
+		parameter := &v3.Parameter{
+			Name:        header.GetName(),
+			In:          "header",
+			Required:    &header.Required,
+			Schema:      base.CreateSchemaProxy(schema),
+			Description: header.GetDescription(),
+		}
+
+		// Set deprecated if specified
+		if header.GetDeprecated() {
+			parameter.Deprecated = true
+		}
+
+		parameters = append(parameters, parameter)
 	}
-	return nil
+
+	return parameters
 }
 
-// hasUnwrapAnnotation checks if a field has the unwrap=true annotation.
-func hasUnwrapAnnotation(field *protogen.Field) bool {
-	options := field.Desc.Options()
-	if options == nil {
-		return false
+// mapHeaderTypeToOpenAPI maps proto header types to OpenAPI schema types.
+func mapHeaderTypeToOpenAPI(headerType string) string {
+	switch strings.ToLower(headerType) {
+	case headerTypeString, "":
+		return headerTypeString
+	case headerTypeInteger, "int", headerTypeInt32, headerTypeInt64:
+		return headerTypeInteger
+	case headerTypeNumber, headerTypeFloat, headerTypeDouble:
+		return headerTypeNumber
+	case "boolean", "bool":
+		return "boolean"
+	case "array":
+		return "array"
+	default:
+		// Default to string for unknown types
+		return headerTypeString
 	}
-
-	fieldOptions, ok := options.(*descriptorpb.FieldOptions)
-	if !ok {
-		return false
-	}
-
-	ext := proto.GetExtension(fieldOptions, http.E_Unwrap)
-	if ext == nil {
-		return false
-	}
-
-	unwrap, ok := ext.(bool)
-	return ok && unwrap
-}
-
-// getFieldExamples extracts example values from field options.
-func getFieldExamples(field *protogen.Field) []string {
-	options := field.Desc.Options()
-	if options == nil {
-		return nil
-	}
-
-	// Get the raw options
-	fieldOptions, ok := options.(*descriptorpb.FieldOptions)
-	if !ok {
-		return nil
-	}
-
-	// Extract our custom extension using the generated code
-	ext := proto.GetExtension(fieldOptions, http.E_FieldExamples)
-	if ext == nil {
-		return nil
-	}
-
-	fieldExamples, ok := ext.(*http.FieldExamples)
-	if !ok || fieldExamples == nil {
-		return nil
-	}
-
-	return fieldExamples.GetValues()
 }

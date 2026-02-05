@@ -5,33 +5,35 @@
 See: .planning/PROJECT.md (updated 2026-02-05)
 
 **Core value:** Proto definitions are the single source of truth -- every generator must produce consistent, correct output that interoperates seamlessly.
-**Current focus:** Phase 1 complete and verified. Ready for Phase 2 - Shared Annotations
+**Current focus:** Phase 3 COMPLETE -- All 4 generators verified consistent, ready for Phase 4 (JSON Mapping Features).
 
 ## Current Position
 
-Phase: 1 of 11 (Foundation - Quick Wins)
-Plan: 2 of 2 in current phase
+Phase: 3 of 11 (Existing Client Review) - COMPLETE
+Plan: 6 of 6 in current phase (all complete)
 Status: Phase complete
-Last activity: 2026-02-05 -- Phase 1 complete and verified (6/6 must-haves passed)
+Last activity: 2026-02-05 -- Completed 03-06-PLAN.md (Cross-Generator Consistency Verification)
 
-Progress: [##.........] 9% (2 plans of ~22 estimated total)
+Progress: [############] 55% (12 plans of ~22 estimated total)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 2
-- Average duration: ~10m
-- Total execution time: ~0.3 hours
+- Total plans completed: 12
+- Average duration: ~6.0m
+- Total execution time: ~1.2 hours
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 01 - Foundation Quick Wins | 2/2 | ~17m | ~8.5m |
+| 02 - Shared Annotations | 4/4 | ~26m | ~6.5m |
+| 03 - Existing Client Review | 6/6 | ~36m | ~6.0m |
 
 **Recent Trend:**
-- Last 5 plans: 01-01 (7m), 01-02 (~10m)
-- Trend: Stable
+- Last 5 plans: 03-03 (3m), 03-04 (7m), 03-05 (7m), 03-06 (5m)
+- Trend: Consistent, verification tasks efficient
 
 *Updated after each plan completion*
 
@@ -51,6 +53,31 @@ Recent decisions affecting current work:
 - Roadmap: JSON-08 (nested flattening) kept in v1 scope despite research suggesting deferral
 - D-01-01-01: Two-pass generation pattern for cross-file unwrap (collect all unwrap info globally first, then generate per-file)
 - D-01-01-02: Preserve root unwrap functionality while adding cross-file resolution
+- D-02-01-01: Transparent structs with protogen parameters -- all exported structs have exported fields, all functions accept protogen types
+- D-02-01-02: Unified QueryParam struct with all 7 fields from all 4 generators (FieldName, FieldGoName, FieldJSONName, ParamName, Required, FieldKind, Field)
+- D-02-01-03: Two unwrap APIs -- GetUnwrapField (full validation) and FindUnwrapField (simple lookup) for different generator needs
+- D-02-01-04: Convention-based extensibility -- one file per annotation concept, GetXxx() function signatures
+- D-02-02-01: Dead code removal -- parseExistingAnnotation removed during migration (always returned empty string)
+- D-02-02-02: Test deduplication -- httpgen annotation tests removed since covered by shared package
+- D-02-03-01: BuildHTTPPath safe for both generators -- httpPath always initialized before path building
+- D-02-03-02: Generator-specific naming helpers kept in respective packages (snakeToUpperCamel, snakeToLowerCamel, headerNameToPropertyName)
+- D-02-04-01: Lowercase HTTP method constants in openapiv3 -- OpenAPI requires lowercase, shared package returns uppercase, resolved with strings.ToLower() + local constants
+- D-02-04-02: OpenAPI-specific functions (convertHeadersToParameters, mapHeaderTypeToOpenAPI) stay in openapiv3/types.go, not shared package
+- D-02-04-03: Cross-file error propagation -- 5 functions changed to return errors, fail-hard up to Generator.Generate()
+- D-02-04-04: Serialization audit confirmed no changes needed -- encoding/json correctly used for interface checks only
+- D-03-02-01: JSON default for unknown content types everywhere -- bindDataBasedOnContentType, marshalResponse, writeProtoMessageResponse, writeResponseBody all default to JSON
+- D-03-02-02: Content-Type set in three response-writing functions covering all paths: writeProtoMessageResponse, genericHandler success path, writeResponseBody
+- D-03-01-01: Added UnwrapService to httpgen unwrap.proto (alongside OptionDataService) for cross-generator root-level unwrap testing
+- D-03-01-02: Root-level unwrap RPCs use POST method (not GET) to satisfy httpgen GET-with-body validation
+- D-03-01-03: Proto3 optional support added to go-http and go-client plugins via SupportedFeatures declaration
+- D-03-03-01: Go client already consistent with server - no fixes needed (audit verified 6 key areas: query params, Content-Type, errors, path params, headers, unwrap)
+- D-03-04-01: TS client already consistent with Go server - no fixes needed (int64 as string, query encoding, FieldViolation fields, header handling, all 4 unwrap variants)
+- D-03-04-02: No JSDoc generation by design - minimalist generated code
+- D-03-05-01: Error schema uses single 'message' field matching sebuf.http.Error proto (not error+code)
+- D-03-05-02: int64/uint64 mapped to type:string per proto3 JSON spec for JavaScript precision safety
+- D-03-05-03: Added headerTypeUint64 constant and removed minimum constraint since uint64 is now string type
+- D-03-06-01: Default path inconsistency for services without HTTP annotations is accepted (backward compat fallback mode only)
+- D-03-06-02: Cross-generator consistency verified for all 10 key areas (paths, methods, params, schemas, errors, headers, unwrap)
 
 ### Pending Todos
 
@@ -63,5 +90,6 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-05
-Stopped at: Phase 1 complete and verified. Ready for Phase 2 planning.
+Stopped at: Completed Phase 3 (all 6 plans)
 Resume file: None
+Next: Phase 4 (JSON Mapping Features)

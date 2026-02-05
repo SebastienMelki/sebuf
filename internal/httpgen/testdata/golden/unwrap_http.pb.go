@@ -47,3 +47,105 @@ var getOptionBarsPathParams = []PathParamConfig{}
 
 // getOptionBarsQueryParams contains query parameter configuration for GetOptionBars
 var getOptionBarsQueryParams = []QueryParamConfig{}
+
+// UnwrapServiceServer is the server API for UnwrapService service.
+type UnwrapServiceServer interface {
+	GetOptionBars(context.Context, *GetOptionBarsRequest) (*GetOptionBarsResponse, error)
+	GetRootMap(context.Context, *GetOptionBarsRequest) (*RootMapResponse, error)
+	GetRootRepeated(context.Context, *GetOptionBarsRequest) (*RootRepeatedResponse, error)
+	GetRootMapWithValueUnwrap(context.Context, *GetOptionBarsRequest) (*RootMapWithValueUnwrapResponse, error)
+}
+
+// RegisterUnwrapServiceServer registers the HTTP handlers for service UnwrapService to the given mux.
+func RegisterUnwrapServiceServer(server UnwrapServiceServer, opts ...ServerOption) error {
+	config := getConfiguration(opts...)
+
+	serviceHeaders := getUnwrapServiceHeaders()
+
+	methodHeaders := getGetOptionBarsHeaders()
+	getOptionBarsHandler := BindingMiddleware[GetOptionBarsRequest](
+		genericHandler(server.GetOptionBars, config.errorHandler), serviceHeaders, methodHeaders,
+		getOptionBarsPathParams, getOptionBarsQueryParams,
+		"POST", config.errorHandler,
+	)
+
+	config.mux.Handle("POST /api/v1/options/bars", getOptionBarsHandler)
+
+	methodHeaders = getGetRootMapHeaders()
+	getRootMapHandler := BindingMiddleware[GetOptionBarsRequest](
+		genericHandler(server.GetRootMap, config.errorHandler), serviceHeaders, methodHeaders,
+		getRootMapPathParams, getRootMapQueryParams,
+		"POST", config.errorHandler,
+	)
+
+	config.mux.Handle("POST /api/v1/root/map", getRootMapHandler)
+
+	methodHeaders = getGetRootRepeatedHeaders()
+	getRootRepeatedHandler := BindingMiddleware[GetOptionBarsRequest](
+		genericHandler(server.GetRootRepeated, config.errorHandler), serviceHeaders, methodHeaders,
+		getRootRepeatedPathParams, getRootRepeatedQueryParams,
+		"POST", config.errorHandler,
+	)
+
+	config.mux.Handle("POST /api/v1/root/repeated", getRootRepeatedHandler)
+
+	methodHeaders = getGetRootMapWithValueUnwrapHeaders()
+	getRootMapWithValueUnwrapHandler := BindingMiddleware[GetOptionBarsRequest](
+		genericHandler(server.GetRootMapWithValueUnwrap, config.errorHandler), serviceHeaders, methodHeaders,
+		getRootMapWithValueUnwrapPathParams, getRootMapWithValueUnwrapQueryParams,
+		"POST", config.errorHandler,
+	)
+
+	config.mux.Handle("POST /api/v1/root/map-value-unwrap", getRootMapWithValueUnwrapHandler)
+
+	return nil
+}
+
+// getUnwrapServiceHeaders returns the service-level required headers for UnwrapService
+func getUnwrapServiceHeaders() []*sebufhttp.Header {
+	return nil
+}
+
+// getGetOptionBarsHeaders returns the method-level required headers for GetOptionBars
+func getGetOptionBarsHeaders() []*sebufhttp.Header {
+	return nil
+}
+
+// getGetRootMapHeaders returns the method-level required headers for GetRootMap
+func getGetRootMapHeaders() []*sebufhttp.Header {
+	return nil
+}
+
+// getGetRootRepeatedHeaders returns the method-level required headers for GetRootRepeated
+func getGetRootRepeatedHeaders() []*sebufhttp.Header {
+	return nil
+}
+
+// getGetRootMapWithValueUnwrapHeaders returns the method-level required headers for GetRootMapWithValueUnwrap
+func getGetRootMapWithValueUnwrapHeaders() []*sebufhttp.Header {
+	return nil
+}
+
+// getOptionBarsPathParams contains path parameter configuration for GetOptionBars
+var getOptionBarsPathParams = []PathParamConfig{}
+
+// getOptionBarsQueryParams contains query parameter configuration for GetOptionBars
+var getOptionBarsQueryParams = []QueryParamConfig{}
+
+// getRootMapPathParams contains path parameter configuration for GetRootMap
+var getRootMapPathParams = []PathParamConfig{}
+
+// getRootMapQueryParams contains query parameter configuration for GetRootMap
+var getRootMapQueryParams = []QueryParamConfig{}
+
+// getRootRepeatedPathParams contains path parameter configuration for GetRootRepeated
+var getRootRepeatedPathParams = []PathParamConfig{}
+
+// getRootRepeatedQueryParams contains query parameter configuration for GetRootRepeated
+var getRootRepeatedQueryParams = []QueryParamConfig{}
+
+// getRootMapWithValueUnwrapPathParams contains path parameter configuration for GetRootMapWithValueUnwrap
+var getRootMapWithValueUnwrapPathParams = []PathParamConfig{}
+
+// getRootMapWithValueUnwrapQueryParams contains query parameter configuration for GetRootMapWithValueUnwrap
+var getRootMapWithValueUnwrapQueryParams = []QueryParamConfig{}

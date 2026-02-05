@@ -36,6 +36,7 @@ type RESTfulAPIServiceClient interface {
 	PatchResource(ctx context.Context, req *PatchResourceRequest, opts ...RESTfulAPIServiceCallOption) (*Resource, error)
 	DeleteResource(ctx context.Context, req *DeleteResourceRequest, opts ...RESTfulAPIServiceCallOption) (*DeleteResourceResponse, error)
 	DefaultPostMethod(ctx context.Context, req *DefaultPostRequest, opts ...RESTfulAPIServiceCallOption) (*DefaultPostResponse, error)
+	SearchResources(ctx context.Context, req *SearchResourcesRequest, opts ...RESTfulAPIServiceCallOption) (*ListResourcesResponse, error)
 }
 
 // rESTfulAPIServiceClient is the implementation of RESTfulAPIServiceClient.
@@ -157,6 +158,18 @@ func (c *rESTfulAPIServiceClient) ListResources(ctx context.Context, req *ListRe
 	}
 	if req.IncludeDeleted != false {
 		queryParams.Set("include_deleted", fmt.Sprint(req.IncludeDeleted))
+	}
+	if req.SinceTimestamp != 0 {
+		queryParams.Set("since_timestamp", fmt.Sprint(req.SinceTimestamp))
+	}
+	if req.MaxId != 0 {
+		queryParams.Set("max_id", fmt.Sprint(req.MaxId))
+	}
+	if req.MinScore != 0 {
+		queryParams.Set("min_score", fmt.Sprint(req.MinScore))
+	}
+	if req.MaxScore != 0 {
+		queryParams.Set("max_score", fmt.Sprint(req.MaxScore))
 	}
 	if len(queryParams) > 0 {
 		reqURL += "?" + queryParams.Encode()
@@ -639,6 +652,76 @@ func (c *rESTfulAPIServiceClient) DefaultPostMethod(ctx context.Context, req *De
 
 	// Unmarshal response
 	result := &DefaultPostResponse{}
+	if err := c.unmarshalResponse(respBody, result, contentType); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal response: %w", err)
+	}
+
+	return result, nil
+}
+
+// SearchResources calls the SearchResources RPC.
+func (c *rESTfulAPIServiceClient) SearchResources(ctx context.Context, req *SearchResourcesRequest, opts ...RESTfulAPIServiceCallOption) (*ListResourcesResponse, error) {
+	callOpts := &rESTfulAPIServiceCallOptions{}
+	for _, opt := range opts {
+		opt(callOpts)
+	}
+
+	// Build URL
+	path := "/api/v1/resources/search"
+	reqURL := c.baseURL + path
+
+	// Add query parameters
+	queryParams := url.Values{}
+	if req.StatusFilter != "" {
+		queryParams.Set("status", fmt.Sprint(req.StatusFilter))
+	}
+	if req.Query != "" {
+		queryParams.Set("q", fmt.Sprint(req.Query))
+	}
+	if len(queryParams) > 0 {
+		reqURL += "?" + queryParams.Encode()
+	}
+
+	contentType := c.contentType
+	if callOpts.contentType != "" {
+		contentType = callOpts.contentType
+	}
+
+	// Create HTTP request
+	httpReq, err := http.NewRequestWithContext(ctx, "GET", reqURL, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	// Set headers
+	httpReq.Header.Set("Content-Type", contentType)
+	for k, v := range c.defaultHeaders {
+		httpReq.Header.Set(k, v)
+	}
+	for k, v := range callOpts.headers {
+		httpReq.Header.Set(k, v)
+	}
+
+	// Execute request
+	resp, err := c.httpClient.Do(httpReq)
+	if err != nil {
+		return nil, fmt.Errorf("failed to execute request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	// Read response body
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response body: %w", err)
+	}
+
+	// Check for error status codes
+	if resp.StatusCode >= 400 {
+		return nil, c.handleErrorResponse(resp.StatusCode, respBody, contentType)
+	}
+
+	// Unmarshal response
+	result := &ListResourcesResponse{}
 	if err := c.unmarshalResponse(respBody, result, contentType); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal response: %w", err)
 	}

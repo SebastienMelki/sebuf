@@ -12,6 +12,8 @@ import (
 	yaml "go.yaml.in/yaml/v4"
 	"google.golang.org/protobuf/compiler/protogen"
 	k8syaml "sigs.k8s.io/yaml"
+
+	"github.com/SebastienMelki/sebuf/internal/annotations"
 )
 
 // OutputFormat represents the output format for the OpenAPI document.
@@ -20,6 +22,15 @@ type OutputFormat string
 const (
 	FormatYAML OutputFormat = "yaml"
 	FormatJSON OutputFormat = "json"
+)
+
+// HTTP method constants (lowercase for OpenAPI).
+const (
+	httpMethodGet    = "get"
+	httpMethodPost   = "post"
+	httpMethodPut    = "put"
+	httpMethodDelete = "delete"
+	httpMethodPatch  = "patch"
 )
 
 // Generator generates OpenAPI v3.1 documents from Protocol Buffer definitions.
@@ -33,8 +44,8 @@ type Generator struct {
 func NewGenerator(format OutputFormat) *Generator {
 	schemas := orderedmap.New[string, *base.SchemaProxy]()
 
-	// Add built-in validation error schemas
-	addValidationErrorSchemas(schemas)
+	// Add built-in error schemas (Error, ValidationError, FieldViolation)
+	addBuiltinErrorSchemas(schemas)
 
 	return &Generator{
 		format:  format,
@@ -213,7 +224,7 @@ func getRootUnwrapInfo(message *protogen.Message) *rootUnwrapInfo {
 	}
 
 	field := message.Fields[0]
-	if !hasUnwrapAnnotation(field) {
+	if !annotations.HasUnwrapAnnotation(field) {
 		return nil
 	}
 
@@ -235,7 +246,7 @@ func getRootUnwrapInfo(message *protogen.Message) *rootUnwrapInfo {
 		if valueField != nil && valueField.Message != nil {
 			info.valueMessage = valueField.Message
 			// Check if value has unwrap
-			if unwrapField := getUnwrapField(valueField.Message); unwrapField != nil {
+			if unwrapField := annotations.FindUnwrapField(valueField.Message); unwrapField != nil {
 				info.valueUnwrap = unwrapField
 			}
 		}
@@ -324,26 +335,23 @@ type methodHTTPInfo struct {
 
 // extractMethodHTTPInfo extracts HTTP configuration from service and method annotations.
 func extractMethodHTTPInfo(service *protogen.Service, method *protogen.Method) methodHTTPInfo {
-	serviceConfig := getServiceHTTPConfig(service)
-	methodConfig := getMethodHTTPConfig(method)
+	servicePath := annotations.GetServiceBasePath(service)
+	methodConfig := annotations.GetMethodHTTPConfig(method)
 
 	var path, httpMethod string
 	var pathParams []string
 
-	if serviceConfig != nil || methodConfig != nil {
-		servicePath := ""
+	if servicePath != "" || methodConfig != nil {
 		methodPath := ""
 
-		if serviceConfig != nil {
-			servicePath = serviceConfig.BasePath
-		}
 		if methodConfig != nil {
 			methodPath = methodConfig.Path
-			httpMethod = methodConfig.Method
+			// Shared annotations return UPPERCASE methods; OpenAPI requires lowercase
+			httpMethod = strings.ToLower(methodConfig.Method)
 			pathParams = methodConfig.PathParams
 		}
 
-		path = buildHTTPPath(servicePath, methodPath)
+		path = annotations.BuildHTTPPath(servicePath, methodPath)
 	} else {
 		path = fmt.Sprintf("/%s/%s", service.Desc.Name(), method.Desc.Name())
 	}
@@ -379,7 +387,7 @@ func (g *Generator) buildPathParameters(method *protogen.Method, pathParams []st
 // buildQueryParameters creates OpenAPI query parameters from method input.
 func (g *Generator) buildQueryParameters(method *protogen.Method) []*v3.Parameter {
 	var parameters []*v3.Parameter
-	queryParams := getQueryParams(method.Input)
+	queryParams := annotations.GetQueryParams(method.Input)
 	for _, qp := range queryParams {
 		queryParam := &v3.Parameter{
 			Name:     qp.ParamName,
@@ -422,17 +430,15 @@ func (g *Generator) buildResponses(method *protogen.Method) *orderedmap.Map[stri
 	})
 	responses.Set("400", validationErrorResponse)
 
-	// Default error response
-	errorProps := orderedmap.New[string, *base.SchemaProxy]()
-	errorProps.Set("error", base.CreateSchemaProxy(&base.Schema{Type: []string{"string"}}))
-	errorProps.Set("code", base.CreateSchemaProxy(&base.Schema{Type: []string{"integer"}}))
-	errorSchema := base.CreateSchemaProxy(&base.Schema{Type: []string{"object"}, Properties: errorProps})
-
+	// Default error response - references the Error component schema
+	// which matches the sebuf.http.Error proto message (single "message" field)
 	errorResponse := &v3.Response{
 		Description: "Error response",
 		Content:     orderedmap.New[string, *v3.MediaType](),
 	}
-	errorResponse.Content.Set("application/json", &v3.MediaType{Schema: errorSchema})
+	errorResponse.Content.Set("application/json", &v3.MediaType{
+		Schema: base.CreateSchemaProxyRef("#/components/schemas/Error"),
+	})
 	responses.Set("default", errorResponse)
 
 	return responses
@@ -472,7 +478,10 @@ func (g *Generator) processMethod(service *protogen.Service, method *protogen.Me
 
 	// Build parameters
 	var parameters []*v3.Parameter
-	allHeaders := combineHeaders(getServiceHeaders(service), getMethodHeaders(method))
+	allHeaders := annotations.CombineHeaders(
+		annotations.GetServiceHeaders(service),
+		annotations.GetMethodHeaders(method),
+	)
 	if len(allHeaders) > 0 {
 		parameters = convertHeadersToParameters(allHeaders)
 	}
@@ -527,14 +536,16 @@ func (g *Generator) createFieldSchema(field *protogen.Field) *base.SchemaProxy {
 		schema.Type = []string{headerTypeInteger}
 		schema.Format = headerTypeInt32
 	case headerTypeInt64, "sint64", "sfixed64":
-		schema.Type = []string{headerTypeInteger}
+		// Per proto3 JSON spec, int64 serializes as a string
+		schema.Type = []string{headerTypeString}
 		schema.Format = headerTypeInt64
 	case "uint32", "fixed32":
 		schema.Type = []string{headerTypeInteger}
 		schema.Format = headerTypeInt32
 	case "uint64", "fixed64":
-		schema.Type = []string{headerTypeInteger}
-		schema.Format = headerTypeInt64
+		// Per proto3 JSON spec, uint64 serializes as a string
+		schema.Type = []string{headerTypeString}
+		schema.Format = headerTypeUint64
 	case "bool":
 		schema.Type = []string{"boolean"}
 	case headerTypeFloat:
@@ -550,9 +561,25 @@ func (g *Generator) createFieldSchema(field *protogen.Field) *base.SchemaProxy {
 	return base.CreateSchemaProxy(schema)
 }
 
-// addValidationErrorSchemas adds the ValidationError and FieldViolation schemas to the components.
-func addValidationErrorSchemas(schemas *orderedmap.Map[string, *base.SchemaProxy]) {
-	// Add FieldViolation schema
+// addBuiltinErrorSchemas adds the Error, ValidationError, and FieldViolation schemas to the components.
+// These schemas match the proto definitions in proto/sebuf/http/errors.proto.
+func addBuiltinErrorSchemas(schemas *orderedmap.Map[string, *base.SchemaProxy]) {
+	// Add Error schema - matches sebuf.http.Error proto message
+	// Error has a single "message" field (string)
+	errorProps := orderedmap.New[string, *base.SchemaProxy]()
+	errorProps.Set("message", base.CreateSchemaProxy(&base.Schema{
+		Type:        []string{"string"},
+		Description: "Error message (e.g., 'user not found', 'database connection failed')",
+	}))
+
+	errorSchema := base.CreateSchemaProxy(&base.Schema{
+		Type:        []string{"object"},
+		Description: "Error is returned when a handler encounters an error. It contains a simple error message that the developer can customize.",
+		Properties:  errorProps,
+	})
+	schemas.Set("Error", errorSchema)
+
+	// Add FieldViolation schema - matches sebuf.http.FieldViolation proto message
 	fieldViolationProps := orderedmap.New[string, *base.SchemaProxy]()
 	fieldViolationProps.Set("field", base.CreateSchemaProxy(&base.Schema{
 		Type:        []string{"string"},
@@ -571,7 +598,7 @@ func addValidationErrorSchemas(schemas *orderedmap.Map[string, *base.SchemaProxy
 	})
 	schemas.Set("FieldViolation", fieldViolationSchema)
 
-	// Add ValidationError schema
+	// Add ValidationError schema - matches sebuf.http.ValidationError proto message
 	validationErrorProps := orderedmap.New[string, *base.SchemaProxy]()
 	validationErrorProps.Set("violations", base.CreateSchemaProxy(&base.Schema{
 		Type:        []string{"array"},

@@ -34,12 +34,7 @@ paths:
                     content:
                         application/json:
                             schema:
-                                type: object
-                                properties:
-                                    error:
-                                        type: string
-                                    code:
-                                        type: integer
+                                $ref: '#/components/schemas/Error'
     /ComplexService/ValidateComplex:
         post:
             tags:
@@ -71,14 +66,16 @@ paths:
                     content:
                         application/json:
                             schema:
-                                type: object
-                                properties:
-                                    error:
-                                        type: string
-                                    code:
-                                        type: integer
+                                $ref: '#/components/schemas/Error'
 components:
     schemas:
+        Error:
+            type: object
+            properties:
+                message:
+                    type: string
+                    description: Error message (e.g., 'user not found', 'database connection failed')
+            description: Error is returned when a handler encounters an error. It contains a simple error message that the developer can customize.
         FieldViolation:
             type: object
             properties:
@@ -126,7 +123,7 @@ components:
                     format: int32
                     description: 32-bit signed integer
                 int64Value:
-                    type: integer
+                    type: string
                     format: int64
                     description: 64-bit signed integer
                 uint32Value:
@@ -135,16 +132,15 @@ components:
                     format: int32
                     description: 32-bit unsigned integer
                 uint64Value:
-                    type: integer
-                    minimum: 0
-                    format: int64
+                    type: string
+                    format: uint64
                     description: 64-bit unsigned integer
                 sint32Value:
                     type: integer
                     format: int32
                     description: 32-bit signed integer (sint32 encoding)
                 sint64Value:
-                    type: integer
+                    type: string
                     format: int64
                     description: 64-bit signed integer (sint64 encoding)
                 fixed32Value:
@@ -153,16 +149,15 @@ components:
                     format: int32
                     description: 32-bit fixed integer
                 fixed64Value:
-                    type: integer
-                    minimum: 0
-                    format: int64
+                    type: string
+                    format: uint64
                     description: 64-bit fixed integer
                 sfixed32Value:
                     type: integer
                     format: int32
                     description: 32-bit signed fixed integer
                 sfixed64Value:
-                    type: integer
+                    type: string
                     format: int64
                     description: 64-bit signed fixed integer
                 floatValue:

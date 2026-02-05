@@ -4,42 +4,6 @@ import (
 	"testing"
 )
 
-func TestLowerFirst(t *testing.T) {
-	tests := []struct {
-		name     string
-		input    string
-		expected string
-	}{
-		// Normal cases
-		{"PascalCase to camelCase", "CreateUser", "createUser"},
-		{"single word", "User", "user"},
-		{"already lowercase", "create", "create"},
-		{"camelCase unchanged after first", "getUser", "getUser"},
-
-		// Edge cases
-		{"empty string", "", ""},
-		{"single uppercase char", "A", "a"},
-		{"single lowercase char", "a", "a"},
-		{"all uppercase", "ABC", "aBC"},
-		{"starts with number", "123User", "123User"},
-
-		// Method name patterns
-		{"GetUser", "GetUser", "getUser"},
-		{"ListUsers", "ListUsers", "listUsers"},
-		{"CreateUserProfile", "CreateUserProfile", "createUserProfile"},
-		{"DeleteByID", "DeleteByID", "deleteByID"},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := lowerFirst(tt.input)
-			if result != tt.expected {
-				t.Errorf("lowerFirst(%q) = %q, expected %q", tt.input, result, tt.expected)
-			}
-		})
-	}
-}
-
 func TestCamelToSnake(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -129,13 +93,6 @@ func TestOptions_Struct(t *testing.T) {
 }
 
 // Benchmark tests.
-func BenchmarkLowerFirst(b *testing.B) {
-	inputs := []string{"CreateUser", "GetUser", "ListUsers", "DeleteUser", "UpdateUserProfile"}
-	for i := range b.N {
-		lowerFirst(inputs[i%len(inputs)])
-	}
-}
-
 func BenchmarkCamelToSnake(b *testing.B) {
 	inputs := []string{"CreateUser", "GetUserById", "ListAllUsers", "DeleteUserProfile", "UpdateUserStatus"}
 	for i := range b.N {

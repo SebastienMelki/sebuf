@@ -3,9 +3,10 @@ package tsclientgen
 import (
 	"fmt"
 	"net/http"
-	"strings"
 
 	"google.golang.org/protobuf/compiler/protogen"
+
+	"github.com/SebastienMelki/sebuf/internal/annotations"
 )
 
 // Generator handles TypeScript HTTP client code generation for protobuf services.
@@ -149,7 +150,7 @@ func (g *Generator) generateClientOptionsInterface(p printer, service *protogen.
 	p("  defaultHeaders?: Record<string, string>;")
 
 	// Add typed properties for service-level headers
-	serviceHeaders := getServiceHeaders(service)
+	serviceHeaders := annotations.GetServiceHeaders(service)
 	for _, header := range serviceHeaders {
 		propName := headerNameToPropertyName(header.GetName())
 		p("  %s?: string;", propName)
@@ -168,7 +169,7 @@ func (g *Generator) generateCallOptionsInterface(p printer, service *protogen.Se
 	p("  signal?: AbortSignal;")
 
 	// Add typed properties for service-level headers (also available per-call)
-	serviceHeaders := getServiceHeaders(service)
+	serviceHeaders := annotations.GetServiceHeaders(service)
 	for _, header := range serviceHeaders {
 		propName := headerNameToPropertyName(header.GetName())
 		p("  %s?: string;", propName)
@@ -177,7 +178,7 @@ func (g *Generator) generateCallOptionsInterface(p printer, service *protogen.Se
 	// Add typed properties for method-level headers
 	seen := make(map[string]bool)
 	for _, method := range service.Methods {
-		methodHeaders := getMethodHeaders(method)
+		methodHeaders := annotations.GetMethodHeaders(method)
 		for _, header := range methodHeaders {
 			propName := headerNameToPropertyName(header.GetName())
 			if seen[propName] {
@@ -229,7 +230,7 @@ func (g *Generator) generateConstructor(p printer, service *protogen.Service) {
 	p("    this.defaultHeaders = { ...options?.defaultHeaders };")
 
 	// Apply service-level headers from options
-	serviceHeaders := getServiceHeaders(service)
+	serviceHeaders := annotations.GetServiceHeaders(service)
 	for _, header := range serviceHeaders {
 		propName := headerNameToPropertyName(header.GetName())
 		headerName := header.GetName()
@@ -249,7 +250,7 @@ type rpcMethodConfig struct {
 	httpMethod  string
 	fullPath    string
 	pathParams  []string
-	queryParams []QueryParam
+	queryParams []annotations.QueryParam
 	hasBody     bool
 }
 
@@ -257,9 +258,9 @@ func (g *Generator) buildRPCMethodConfig(service *protogen.Service, method *prot
 	serviceName := service.GoName
 	methodName := method.GoName
 
-	httpConfig := getMethodHTTPConfig(method)
+	httpConfig := annotations.GetMethodHTTPConfig(method)
 	httpMethod := http.MethodPost
-	httpPath := "/" + lowerFirst(methodName)
+	httpPath := "/" + annotations.LowerFirst(methodName)
 	var pathParams []string
 
 	if httpConfig != nil {
@@ -272,20 +273,11 @@ func (g *Generator) buildRPCMethodConfig(service *protogen.Service, method *prot
 		pathParams = httpConfig.PathParams
 	}
 
-	serviceConfig := getServiceHTTPConfig(service)
-	basePath := ""
-	if serviceConfig != nil {
-		basePath = serviceConfig.BasePath
-	}
+	// Get base path from service config
+	basePath := annotations.GetServiceBasePath(service)
 
-	fullPath := httpPath
-	if basePath != "" {
-		basePath = strings.TrimSuffix(basePath, "/")
-		if !strings.HasPrefix(httpPath, "/") {
-			httpPath = "/" + httpPath
-		}
-		fullPath = basePath + httpPath
-	}
+	// Combine base path and method path
+	fullPath := annotations.BuildHTTPPath(basePath, httpPath)
 
 	return &rpcMethodConfig{
 		serviceName: serviceName,
@@ -293,7 +285,7 @@ func (g *Generator) buildRPCMethodConfig(service *protogen.Service, method *prot
 		httpMethod:  httpMethod,
 		fullPath:    fullPath,
 		pathParams:  pathParams,
-		queryParams: getQueryParams(method.Input),
+		queryParams: annotations.GetQueryParams(method.Input),
 		hasBody:     httpMethod == "POST" || httpMethod == "PUT" || httpMethod == "PATCH",
 	}
 }
@@ -305,7 +297,7 @@ func (g *Generator) generateRPCMethod(p printer, service *protogen.Service, meth
 	inputType := string(method.Input.Desc.Name())
 	outputType := g.resolveOutputType(method)
 
-	tsMethodName := lowerFirst(cfg.methodName)
+	tsMethodName := annotations.LowerFirst(cfg.methodName)
 
 	p("  async %s(req: %s, options?: %sCallOptions): Promise<%s> {",
 		tsMethodName, inputType, cfg.serviceName, outputType)
@@ -329,7 +321,7 @@ func (g *Generator) generateRPCMethod(p printer, service *protogen.Service, meth
 // resolveOutputType returns the TypeScript return type, handling root unwrap.
 func (g *Generator) resolveOutputType(method *protogen.Method) string {
 	msg := method.Output
-	if isRootUnwrap(msg) {
+	if annotations.IsRootUnwrap(msg) {
 		return rootUnwrapTSType(msg)
 	}
 	return string(msg.Desc.Name())
@@ -377,7 +369,7 @@ func (g *Generator) generateHeaderMerging(p printer, service *protogen.Service, 
 	p("    };")
 
 	// Apply service-level headers from call options
-	serviceHeaders := getServiceHeaders(service)
+	serviceHeaders := annotations.GetServiceHeaders(service)
 	for _, header := range serviceHeaders {
 		propName := headerNameToPropertyName(header.GetName())
 		headerName := header.GetName()
@@ -385,7 +377,7 @@ func (g *Generator) generateHeaderMerging(p printer, service *protogen.Service, 
 	}
 
 	// Apply method-level headers from call options
-	methodHeaders := getMethodHeaders(method)
+	methodHeaders := annotations.GetMethodHeaders(method)
 	for _, header := range methodHeaders {
 		propName := headerNameToPropertyName(header.GetName())
 		headerName := header.GetName()

@@ -13,8 +13,8 @@ sebuf v1.0 delivers complete JSON mapping control across all generators and adds
 Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Foundation - Quick Wins** - Land PR #98, fix #105, close resolved issues #91 and #94
-- [ ] **Phase 2: Foundation - Shared Annotations** - Extract shared annotation parsing, audit serialization consistency
-- [ ] **Phase 3: Existing Client Review** - Review and polish existing Go client and TypeScript client before building new features
+- [x] **Phase 2: Foundation - Shared Annotations** - Extract shared annotation parsing, audit serialization consistency
+- [x] **Phase 3: Existing Client Review** - Review and polish existing Go client and TypeScript client before building new features
 - [ ] **Phase 4: JSON - Primitive Encoding** - int64/uint64 string encoding and enum string encoding across all generators
 - [ ] **Phase 5: JSON - Nullable & Empty** - Nullable primitives and empty object handling across all generators
 - [ ] **Phase 6: JSON - Data Encoding** - Timestamp formats and bytes encoding options across all generators
@@ -51,13 +51,13 @@ Plans:
   3. The duplicated annotation parsing code (~1,289 lines across httpgen, clientgen, tsclientgen, openapiv3) is removed and replaced with shared package calls
   4. The HTTP handler generator uses consistent protojson-based serialization (no accidental encoding/json usage for proto messages)
   5. Cross-file annotation resolution never silently suppresses errors
-**Plans**: TBD
+**Plans**: 4 plans
 
 Plans:
-- [ ] 02-01: Design and implement internal/annotations package with canonical types
-- [ ] 02-02: Migrate httpgen and clientgen to shared annotations
-- [ ] 02-03: Migrate tsclientgen and openapiv3 to shared annotations
-- [ ] 02-04: Audit serialization paths and fix cross-file resolution error handling
+- [x] 02-01-PLAN.md -- Create internal/annotations package with canonical types, functions, and tests
+- [x] 02-02-PLAN.md -- Migrate httpgen to shared annotations, delete old annotation code
+- [x] 02-03-PLAN.md -- Migrate clientgen and tsclientgen to shared annotations
+- [x] 02-04-PLAN.md -- Migrate openapiv3, fix error suppression, final verification
 
 ### Phase 3: Existing Client Review
 **Goal**: The existing Go HTTP client and TypeScript HTTP client are solid, consistent with each other and with the server, and ready to serve as the reference implementations that new language clients and JSON mapping features build upon
@@ -69,12 +69,15 @@ Plans:
   3. Error handling is consistent: both clients surface ValidationError and ApiError with the same HTTP status codes, the same error body structure, and the same field-level violation format
   4. Header handling is consistent: both clients send service-level and method-level headers identically, including the same default values, same required/optional semantics, and same header name casing
   5. All existing golden file tests pass, and any fixes made during the review are captured as new golden file test cases to prevent regression
-**Plans**: TBD
+**Plans**: 6 plans
 
 Plans:
-- [ ] 03-01: Audit Go client against server for serialization, error handling, and header consistency
-- [ ] 03-02: Audit TypeScript client against Go client and server for cross-language consistency
-- [ ] 03-03: Add golden file test cases for any inconsistencies found and fixed
+- [x] 03-01-PLAN.md -- Expand exhaustive test proto and align OpenAPI test infrastructure with shared symlinks
+- [x] 03-02-PLAN.md -- Fix server Content-Type response headers and marshalResponse default behavior
+- [x] 03-03-PLAN.md -- Audit and fix Go client consistency with server (unwrap coverage, query params, errors, headers)
+- [x] 03-04-PLAN.md -- Audit and fix TypeScript client consistency (int64 as string, query params, errors, headers)
+- [x] 03-05-PLAN.md -- Fix OpenAPI error schemas and type mapping for protojson consistency
+- [x] 03-06-PLAN.md -- Cross-generator golden file verification and final semantic comparison
 
 ### Phase 4: JSON - Primitive Encoding
 **Goal**: Developers can control how int64/uint64 fields and enum fields are encoded in JSON across all generators
@@ -235,8 +238,8 @@ Note: Phases 8, 9, 10 (language clients) can execute in parallel after Phase 7 c
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Foundation - Quick Wins | 2/2 | Complete | 2026-02-05 |
-| 2. Foundation - Shared Annotations | 0/4 | Not started | - |
-| 3. Existing Client Review | 0/3 | Not started | - |
+| 2. Foundation - Shared Annotations | 4/4 | Complete | 2026-02-05 |
+| 3. Existing Client Review | 6/6 | Complete | 2026-02-05 |
 | 4. JSON - Primitive Encoding | 0/4 | Not started | - |
 | 5. JSON - Nullable & Empty | 0/4 | Not started | - |
 | 6. JSON - Data Encoding | 0/4 | Not started | - |

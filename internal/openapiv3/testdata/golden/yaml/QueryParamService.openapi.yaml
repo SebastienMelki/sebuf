@@ -1,0 +1,336 @@
+openapi: 3.1.0
+info:
+    title: QueryParamService API
+    version: 1.0.0
+paths:
+    /api/search/typed:
+        get:
+            tags:
+                - QueryParamService
+            summary: SearchWithTypes
+            description: All scalar types as query params
+            operationId: SearchWithTypes
+            parameters:
+                - name: q
+                  in: query
+                  description: Different scalar types as query params
+                  required: false
+                  schema:
+                    type: string
+                - name: limit
+                  in: query
+                  required: false
+                  schema:
+                    type: integer
+                    format: int32
+                - name: offset
+                  in: query
+                  required: false
+                  schema:
+                    type: string
+                    format: int64
+                - name: active
+                  in: query
+                  required: false
+                  schema:
+                    type: boolean
+                - name: min_score
+                  in: query
+                  required: false
+                  schema:
+                    type: number
+                    format: float
+                - name: max_score
+                  in: query
+                  required: false
+                  schema:
+                    type: number
+                    format: double
+                - name: page
+                  in: query
+                  required: false
+                  schema:
+                    type: integer
+                    format: int32
+                - name: ts
+                  in: query
+                  required: false
+                  schema:
+                    type: string
+                    format: uint64
+            responses:
+                "200":
+                    description: Successful response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/SearchResponse'
+                "400":
+                    description: Validation error
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ValidationError'
+                default:
+                    description: Error response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Error'
+    /api/search/required:
+        get:
+            tags:
+                - QueryParamService
+            summary: SearchRequired
+            description: Required vs optional query params
+            operationId: SearchRequired
+            parameters:
+                - name: q
+                  in: query
+                  description: Required query param
+                  required: true
+                  schema:
+                    type: string
+                - name: page
+                  in: query
+                  description: Optional query params
+                  required: false
+                  schema:
+                    type: integer
+                    format: int32
+                - name: page_size
+                  in: query
+                  required: false
+                  schema:
+                    type: integer
+                    format: int32
+            responses:
+                "200":
+                    description: Successful response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/SearchResponse'
+                "400":
+                    description: Validation error
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ValidationError'
+                default:
+                    description: Error response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Error'
+    /api/search/custom:
+        get:
+            tags:
+                - QueryParamService
+            summary: SearchCustomNames
+            description: Custom query param names
+            operationId: SearchCustomNames
+            parameters:
+                - name: q
+                  in: query
+                  description: Field name differs from query param name
+                  required: false
+                  schema:
+                    type: string
+                - name: limit
+                  in: query
+                  required: false
+                  schema:
+                    type: integer
+                    format: int32
+                - name: page
+                  in: query
+                  required: false
+                  schema:
+                    type: integer
+                    format: int32
+                - name: sort
+                  in: query
+                  required: false
+                  schema:
+                    type: string
+                - name: desc
+                  in: query
+                  required: false
+                  schema:
+                    type: boolean
+            responses:
+                "200":
+                    description: Successful response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/SearchResponse'
+                "400":
+                    description: Validation error
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ValidationError'
+                default:
+                    description: Error response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Error'
+    /api/resources/{resource_id}/items:
+        get:
+            tags:
+                - QueryParamService
+            summary: GetWithFilters
+            description: Mixed path and query params
+            operationId: GetWithFilters
+            parameters:
+                - name: resource_id
+                  in: path
+                  description: Path parameter
+                  required: true
+                  schema:
+                    type: string
+                - name: filter
+                  in: query
+                  description: Query parameters
+                  required: false
+                  schema:
+                    type: string
+                - name: limit
+                  in: query
+                  required: false
+                  schema:
+                    type: integer
+                    format: int32
+            responses:
+                "200":
+                    description: Successful response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/SearchResponse'
+                "400":
+                    description: Validation error
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ValidationError'
+                default:
+                    description: Error response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Error'
+components:
+    schemas:
+        Error:
+            type: object
+            properties:
+                message:
+                    type: string
+                    description: Error message (e.g., 'user not found', 'database connection failed')
+            description: Error is returned when a handler encounters an error. It contains a simple error message that the developer can customize.
+        FieldViolation:
+            type: object
+            properties:
+                field:
+                    type: string
+                    description: The field path that failed validation (e.g., 'user.email' for nested fields). For header validation, this will be the header name (e.g., 'X-API-Key')
+                description:
+                    type: string
+                    description: Human-readable description of the validation violation (e.g., 'must be a valid email address', 'required field missing')
+            required:
+                - field
+                - description
+            description: FieldViolation describes a single validation error for a specific field.
+        ValidationError:
+            type: object
+            properties:
+                violations:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/FieldViolation'
+                    description: List of validation violations
+            required:
+                - violations
+            description: ValidationError is returned when request validation fails. It contains a list of field violations describing what went wrong.
+        SearchWithTypesRequest:
+            type: object
+            properties:
+                query:
+                    type: string
+                    description: Different scalar types as query params
+                limit:
+                    type: integer
+                    format: int32
+                offset:
+                    type: string
+                    format: int64
+                active:
+                    type: boolean
+                minScore:
+                    type: number
+                    format: float
+                maxScore:
+                    type: number
+                    format: double
+                page:
+                    type: integer
+                    minimum: 0
+                    format: int32
+                timestamp:
+                    type: string
+                    format: uint64
+        SearchResponse:
+            type: object
+            properties:
+                results:
+                    type: array
+                    items:
+                        type: string
+                total:
+                    type: integer
+                    format: int32
+        SearchRequiredRequest:
+            type: object
+            properties:
+                query:
+                    type: string
+                    description: Required query param
+                page:
+                    type: integer
+                    format: int32
+                    description: Optional query params
+                pageSize:
+                    type: integer
+                    format: int32
+        SearchCustomNamesRequest:
+            type: object
+            properties:
+                searchTerm:
+                    type: string
+                    description: Field name differs from query param name
+                resultsPerPage:
+                    type: integer
+                    format: int32
+                pageNumber:
+                    type: integer
+                    format: int32
+                sortField:
+                    type: string
+                descendingOrder:
+                    type: boolean
+        GetWithFiltersRequest:
+            type: object
+            properties:
+                resourceId:
+                    type: string
+                    description: Path parameter
+                filter:
+                    type: string
+                    description: Query parameters
+                limit:
+                    type: integer
+                    format: int32
