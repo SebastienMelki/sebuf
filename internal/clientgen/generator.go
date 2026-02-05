@@ -50,9 +50,11 @@ func (g *Generator) generateClientFile(file *protogen.File) error {
 
 	// Check if any method needs a request body
 	needsBytes := g.fileNeedsRequestBody(file)
+	// Check if any method needs the net/url import (path params or query params)
+	needsURL := g.fileNeedsURLImport(file)
 
 	g.writeHeader(gf, file)
-	g.writeImports(gf, needsBytes)
+	g.writeImports(gf, needsBytes, needsURL)
 
 	// Generate content type constants once at file level
 	g.generateContentTypeConstants(gf)
@@ -64,6 +66,33 @@ func (g *Generator) generateClientFile(file *protogen.File) error {
 	}
 
 	return nil
+}
+
+// fileNeedsURLImport checks if any method in the file needs the "net/url" import.
+// This is true when path parameters (url.PathEscape) or query parameters (url.Values) are used.
+func (g *Generator) fileNeedsURLImport(file *protogen.File) bool {
+	for _, service := range file.Services {
+		for _, method := range service.Methods {
+			httpConfig := getMethodHTTPConfig(method)
+			// Path params use url.PathEscape
+			if httpConfig != nil && len(httpConfig.PathParams) > 0 {
+				return true
+			}
+			// Determine HTTP method
+			httpMethod := http.MethodPost
+			if httpConfig != nil && httpConfig.Method != "" {
+				httpMethod = httpConfig.Method
+			}
+			// GET/DELETE with query params use url.Values
+			if httpMethod == http.MethodGet || httpMethod == http.MethodDelete {
+				queryParams := getQueryParams(method.Input)
+				if len(queryParams) > 0 {
+					return true
+				}
+			}
+		}
+	}
+	return false
 }
 
 // fileNeedsRequestBody checks if any method in the file needs a request body.
@@ -91,7 +120,7 @@ func (g *Generator) writeHeader(gf *protogen.GeneratedFile, file *protogen.File)
 	gf.P()
 }
 
-func (g *Generator) writeImports(gf *protogen.GeneratedFile, needsBytes bool) {
+func (g *Generator) writeImports(gf *protogen.GeneratedFile, needsBytes, needsURL bool) {
 	gf.P("import (")
 	if needsBytes {
 		gf.P(`"bytes"`)
@@ -101,7 +130,9 @@ func (g *Generator) writeImports(gf *protogen.GeneratedFile, needsBytes bool) {
 	gf.P(`"fmt"`)
 	gf.P(`"io"`)
 	gf.P(`"net/http"`)
-	gf.P(`"net/url"`)
+	if needsURL {
+		gf.P(`"net/url"`)
+	}
 	gf.P(`"strings"`)
 	gf.P()
 	gf.P(`"google.golang.org/protobuf/encoding/protojson"`)
