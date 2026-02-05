@@ -77,6 +77,19 @@ enum EnumEncoding {
   ENUM_ENCODING_NUMBER = 2;
 }
 
+// EmptyBehavior controls how empty message fields serialize to JSON.
+// "Empty" means all fields at proto default (proto.Size() == 0).
+enum EmptyBehavior {
+  // Follow default behavior: serialize empty messages as {} (same as PRESERVE)
+  EMPTY_BEHAVIOR_UNSPECIFIED = 0;
+  // Serialize empty messages as {} (explicit same as default)
+  EMPTY_BEHAVIOR_PRESERVE = 1;
+  // Serialize empty messages as null
+  EMPTY_BEHAVIOR_NULL = 2;
+  // Omit the field entirely when message is empty
+  EMPTY_BEHAVIOR_OMIT = 3;
+}
+
 // Extension for field-level options
 extend google.protobuf.FieldOptions {
   // Example values for documentation/OpenAPI
@@ -101,6 +114,17 @@ extend google.protobuf.FieldOptions {
   // Valid on: enum fields only.
   // Default: STRING encoding (protojson default using proto enum names).
   optional EnumEncoding enum_encoding = 50011;
+
+  // Mark a primitive field as nullable (explicit null vs absent).
+  // Only valid on proto3 optional fields (HasOptionalKeyword=true).
+  // When true: unset field serializes as null, set field serializes normally.
+  // When false (default): unset field is omitted from JSON.
+  optional bool nullable = 50013;
+
+  // Controls how empty message fields serialize to JSON.
+  // Only valid on singular message fields (not repeated, not map).
+  // "Empty" = all fields at proto default (proto.Size() == 0).
+  optional EmptyBehavior empty_behavior = 50014;
 }
 
 // Extension for enum value options
