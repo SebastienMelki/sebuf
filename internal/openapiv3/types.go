@@ -73,9 +73,17 @@ func (g *Generator) convertScalarField(field *protogen.Field) *base.SchemaProxy 
 		schema.Format = headerTypeInt32
 
 	case protoreflect.Int64Kind, protoreflect.Sint64Kind, protoreflect.Sfixed64Kind:
-		// Per proto3 JSON spec, int64 serializes as a string to avoid JavaScript precision loss
-		schema.Type = []string{headerTypeString}
-		schema.Format = headerTypeInt64
+		if annotations.IsInt64NumberEncoding(field) {
+			// NUMBER encoding: JavaScript number (precision risk for > 2^53)
+			schema.Type = []string{headerTypeInteger}
+			schema.Format = headerTypeInt64
+			// Add precision warning to description
+			addInt64PrecisionWarning(schema, field)
+		} else {
+			// Default (STRING/UNSPECIFIED): safe string encoding per proto3 JSON spec
+			schema.Type = []string{headerTypeString}
+			schema.Format = headerTypeInt64
+		}
 
 	case protoreflect.Uint32Kind, protoreflect.Fixed32Kind:
 		schema.Type = []string{headerTypeInteger}
@@ -84,10 +92,20 @@ func (g *Generator) convertScalarField(field *protogen.Field) *base.SchemaProxy 
 		schema.Minimum = &zero
 
 	case protoreflect.Uint64Kind, protoreflect.Fixed64Kind:
-		// Per proto3 JSON spec, uint64 serializes as a string to avoid JavaScript precision loss
-		schema.Type = []string{headerTypeString}
-		schema.Format = headerTypeUint64
-		// Note: Minimum constraint removed since type is now string
+		if annotations.IsInt64NumberEncoding(field) {
+			// NUMBER encoding: JavaScript number (precision risk for > 2^53)
+			schema.Type = []string{headerTypeInteger}
+			schema.Format = headerTypeUint64
+			zero := 0.0
+			schema.Minimum = &zero
+			// Add precision warning to description
+			addInt64PrecisionWarning(schema, field)
+		} else {
+			// Default (STRING/UNSPECIFIED): safe string encoding per proto3 JSON spec
+			schema.Type = []string{headerTypeString}
+			schema.Format = headerTypeUint64
+			// Note: Minimum constraint not applicable for string type
+		}
 
 	case protoreflect.FloatKind:
 		schema.Type = []string{headerTypeNumber}
@@ -319,5 +337,25 @@ func mapHeaderTypeToOpenAPI(headerType string) string {
 	default:
 		// Default to string for unknown types
 		return headerTypeString
+	}
+}
+
+// int64PrecisionWarning is the warning message for NUMBER-encoded int64/uint64 fields.
+const int64PrecisionWarning = "Warning: Values > 2^53 may lose precision in JavaScript"
+
+// addInt64PrecisionWarning appends the precision warning to a schema's description.
+// This is used for NUMBER-encoded int64/uint64 fields that use integer type.
+func addInt64PrecisionWarning(schema *base.Schema, field *protogen.Field) {
+	// Start with existing description from field comments
+	existingDesc := ""
+	if field.Comments.Leading != "" {
+		existingDesc = strings.TrimSpace(string(field.Comments.Leading))
+	}
+
+	// Append precision warning
+	if existingDesc != "" {
+		schema.Description = existingDesc + ". " + int64PrecisionWarning
+	} else {
+		schema.Description = int64PrecisionWarning
 	}
 }
