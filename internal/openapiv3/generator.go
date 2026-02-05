@@ -12,6 +12,8 @@ import (
 	yaml "go.yaml.in/yaml/v4"
 	"google.golang.org/protobuf/compiler/protogen"
 	k8syaml "sigs.k8s.io/yaml"
+
+	"github.com/SebastienMelki/sebuf/internal/annotations"
 )
 
 // OutputFormat represents the output format for the OpenAPI document.
@@ -20,6 +22,15 @@ type OutputFormat string
 const (
 	FormatYAML OutputFormat = "yaml"
 	FormatJSON OutputFormat = "json"
+)
+
+// HTTP method constants (lowercase for OpenAPI).
+const (
+	httpMethodGet    = "get"
+	httpMethodPost   = "post"
+	httpMethodPut    = "put"
+	httpMethodDelete = "delete"
+	httpMethodPatch  = "patch"
 )
 
 // Generator generates OpenAPI v3.1 documents from Protocol Buffer definitions.
@@ -213,7 +224,7 @@ func getRootUnwrapInfo(message *protogen.Message) *rootUnwrapInfo {
 	}
 
 	field := message.Fields[0]
-	if !hasUnwrapAnnotation(field) {
+	if !annotations.HasUnwrapAnnotation(field) {
 		return nil
 	}
 
@@ -235,7 +246,7 @@ func getRootUnwrapInfo(message *protogen.Message) *rootUnwrapInfo {
 		if valueField != nil && valueField.Message != nil {
 			info.valueMessage = valueField.Message
 			// Check if value has unwrap
-			if unwrapField := getUnwrapField(valueField.Message); unwrapField != nil {
+			if unwrapField := annotations.FindUnwrapField(valueField.Message); unwrapField != nil {
 				info.valueUnwrap = unwrapField
 			}
 		}
@@ -324,26 +335,23 @@ type methodHTTPInfo struct {
 
 // extractMethodHTTPInfo extracts HTTP configuration from service and method annotations.
 func extractMethodHTTPInfo(service *protogen.Service, method *protogen.Method) methodHTTPInfo {
-	serviceConfig := getServiceHTTPConfig(service)
-	methodConfig := getMethodHTTPConfig(method)
+	servicePath := annotations.GetServiceBasePath(service)
+	methodConfig := annotations.GetMethodHTTPConfig(method)
 
 	var path, httpMethod string
 	var pathParams []string
 
-	if serviceConfig != nil || methodConfig != nil {
-		servicePath := ""
+	if servicePath != "" || methodConfig != nil {
 		methodPath := ""
 
-		if serviceConfig != nil {
-			servicePath = serviceConfig.BasePath
-		}
 		if methodConfig != nil {
 			methodPath = methodConfig.Path
-			httpMethod = methodConfig.Method
+			// Shared annotations return UPPERCASE methods; OpenAPI requires lowercase
+			httpMethod = strings.ToLower(methodConfig.Method)
 			pathParams = methodConfig.PathParams
 		}
 
-		path = buildHTTPPath(servicePath, methodPath)
+		path = annotations.BuildHTTPPath(servicePath, methodPath)
 	} else {
 		path = fmt.Sprintf("/%s/%s", service.Desc.Name(), method.Desc.Name())
 	}
@@ -379,7 +387,7 @@ func (g *Generator) buildPathParameters(method *protogen.Method, pathParams []st
 // buildQueryParameters creates OpenAPI query parameters from method input.
 func (g *Generator) buildQueryParameters(method *protogen.Method) []*v3.Parameter {
 	var parameters []*v3.Parameter
-	queryParams := getQueryParams(method.Input)
+	queryParams := annotations.GetQueryParams(method.Input)
 	for _, qp := range queryParams {
 		queryParam := &v3.Parameter{
 			Name:     qp.ParamName,
@@ -472,7 +480,10 @@ func (g *Generator) processMethod(service *protogen.Service, method *protogen.Me
 
 	// Build parameters
 	var parameters []*v3.Parameter
-	allHeaders := combineHeaders(getServiceHeaders(service), getMethodHeaders(method))
+	allHeaders := annotations.CombineHeaders(
+		annotations.GetServiceHeaders(service),
+		annotations.GetMethodHeaders(method),
+	)
 	if len(allHeaders) > 0 {
 		parameters = convertHeadersToParameters(allHeaders)
 	}
