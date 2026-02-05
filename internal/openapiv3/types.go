@@ -61,6 +61,8 @@ func (g *Generator) convertField(field *protogen.Field) *base.SchemaProxy {
 }
 
 // convertScalarField handles scalar field types and message references.
+//
+//nolint:funlen // Large switch statement for all protobuf scalar types
 func (g *Generator) convertScalarField(field *protogen.Field) *base.SchemaProxy {
 	schema := &base.Schema{}
 

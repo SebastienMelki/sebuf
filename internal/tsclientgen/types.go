@@ -53,6 +53,7 @@ func tsScalarTypeForField(field *protogen.Field) string {
 	kind := field.Desc.Kind()
 
 	// Check for int64/uint64 encoding annotation
+	//exhaustive:ignore - only int64 kinds need special handling, default covers all others
 	switch kind {
 	case protoreflect.Int64Kind, protoreflect.Sint64Kind, protoreflect.Sfixed64Kind,
 		protoreflect.Uint64Kind, protoreflect.Fixed64Kind:
@@ -95,6 +96,7 @@ func tsZeroCheckForField(field *protogen.Field) string {
 	kind := field.Desc.Kind()
 
 	// Check for int64/uint64 encoding annotation
+	//exhaustive:ignore - only int64 kinds need special handling, default covers all others
 	switch kind {
 	case protoreflect.Int64Kind, protoreflect.Sint64Kind, protoreflect.Sfixed64Kind,
 		protoreflect.Uint64Kind, protoreflect.Fixed64Kind:
