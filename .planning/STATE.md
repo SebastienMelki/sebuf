@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2026-02-05)
 
 **Core value:** Proto definitions are the single source of truth -- every generator must produce consistent, correct output that interoperates seamlessly.
-**Current focus:** Phase 2 verified and complete. Ready for Phase 3 (Existing Client Review).
+**Current focus:** Phase 3 (Existing Client Review) -- fixing server and client correctness issues.
 
 ## Current Position
 
-Phase: 2 of 11 (Foundation - Shared Annotations)
-Plan: 4 of 4 in current phase (COMPLETE)
-Status: Phase verified ✓ (5/5 must-haves passed)
-Last activity: 2026-02-05 -- Phase 2 verified and closed. ROADMAP, REQUIREMENTS updated.
+Phase: 3 of 11 (Existing Client Review)
+Plan: 2 of 6 in current phase
+Status: In progress
+Last activity: 2026-02-05 -- Completed 03-02-PLAN.md (Server Content-Type Response Headers)
 
-Progress: [######.....] 27% (6 plans of ~22 estimated total)
+Progress: [#######....] 32% (7 plans of ~22 estimated total)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 6
-- Average duration: ~7m
-- Total execution time: ~0.7 hours
+- Total plans completed: 7
+- Average duration: ~6.4m
+- Total execution time: ~0.75 hours
 
 **By Phase:**
 
@@ -29,10 +29,11 @@ Progress: [######.....] 27% (6 plans of ~22 estimated total)
 |-------|-------|-------|----------|
 | 01 - Foundation Quick Wins | 2/2 | ~17m | ~8.5m |
 | 02 - Shared Annotations | 4/4 | ~26m | ~6.5m |
+| 03 - Existing Client Review | 1/6 | ~4m | ~4m |
 
 **Recent Trend:**
-- Last 5 plans: 02-01 (5m), 02-02 (6m), 02-03 (5m), 02-04 (10m)
-- Trend: Consistent, final plan slightly longer due to error propagation + audit
+- Last 5 plans: 02-02 (6m), 02-03 (5m), 02-04 (10m), 03-02 (4m)
+- Trend: Fast plan, focused surgical fix
 
 *Updated after each plan completion*
 
@@ -64,6 +65,8 @@ Recent decisions affecting current work:
 - D-02-04-02: OpenAPI-specific functions (convertHeadersToParameters, mapHeaderTypeToOpenAPI) stay in openapiv3/types.go, not shared package
 - D-02-04-03: Cross-file error propagation -- 5 functions changed to return errors, fail-hard up to Generator.Generate()
 - D-02-04-04: Serialization audit confirmed no changes needed -- encoding/json correctly used for interface checks only
+- D-03-02-01: JSON default for unknown content types everywhere -- bindDataBasedOnContentType, marshalResponse, writeProtoMessageResponse, writeResponseBody all default to JSON
+- D-03-02-02: Content-Type set in three response-writing functions covering all paths: writeProtoMessageResponse, genericHandler success path, writeResponseBody
 
 ### Pending Todos
 
@@ -76,5 +79,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-05
-Stopped at: Phase 2 verified ✓ and closed. Ready for Phase 3 (Existing Client Review).
+Stopped at: Completed 03-02-PLAN.md (Server Content-Type Response Headers)
 Resume file: None
