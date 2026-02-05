@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-02-05)
 
 **Core value:** Proto definitions are the single source of truth -- every generator must produce consistent, correct output that interoperates seamlessly.
-**Current focus:** Phase 4 IN PROGRESS -- JSON Mapping Features, int64 encoding for ts-client and OpenAPI complete.
+**Current focus:** Phase 4 IN PROGRESS -- JSON Mapping Features, enum encoding complete.
 
 ## Current Position
 
 Phase: 4 of 11 (JSON Primitive Encoding)
-Plan: 3 of 5 in current phase (complete)
+Plan: 4 of 5 in current phase (complete)
 Status: In progress
-Last activity: 2026-02-06 -- Completed 04-02-PLAN.md (Go HTTP and Go Client Int64 Encoding)
+Last activity: 2026-02-06 -- Completed 04-04-PLAN.md (Enum Encoding)
 
-Progress: [###############] 68% (15 plans of ~22 estimated total)
+Progress: [################] 73% (16 plans of ~22 estimated total)
 
 ## Performance Metrics
 
@@ -30,10 +30,10 @@ Progress: [###############] 68% (15 plans of ~22 estimated total)
 | 01 - Foundation Quick Wins | 2/2 | ~17m | ~8.5m |
 | 02 - Shared Annotations | 4/4 | ~26m | ~6.5m |
 | 03 - Existing Client Review | 6/6 | ~36m | ~6.0m |
-| 04 - JSON Primitive Encoding | 3/5 | ~34m | ~11.3m |
+| 04 - JSON Primitive Encoding | 4/5 | ~59m | ~14.8m |
 
 **Recent Trend:**
-- Last 5 plans: 03-05 (7m), 03-06 (5m), 04-01 (4m), 04-02 (15m), 04-03 (15m)
+- Last 5 plans: 03-06 (5m), 04-01 (4m), 04-02 (15m), 04-03 (15m), 04-04 (25m)
 - Trend: Generator implementation plans take longer than annotation-only plans
 
 *Updated after each plan completion*
@@ -88,6 +88,9 @@ Recent decisions affecting current work:
 - D-04-02-01: Use protojson for base serialization, then modify map for NUMBER fields - preserves all other field handling
 - D-04-02-02: Print precision warning to stderr during generation, not at runtime - developer sees during build
 - D-04-02-03: Identical encoding.go implementation in httpgen and clientgen - guarantees server/client JSON match
+- D-04-04-01: Separate enum_encoding.go files in httpgen/clientgen to avoid import conflicts with int64 encoding.go
+- D-04-04-02: Both proto name and custom value accepted in UnmarshalJSON for backward compatibility
+- D-04-04-03: NUMBER encoding returns 'number' type in TypeScript, 'integer' type in OpenAPI
 
 ### Pending Todos
 
@@ -100,6 +103,6 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-06
-Stopped at: Completed 04-02-PLAN.md (Go HTTP and Go Client Int64 Encoding)
+Stopped at: Completed 04-04-PLAN.md (Enum Encoding)
 Resume file: None
-Next: 04-04-PLAN.md (Enum Encoding)
+Next: 04-05-PLAN.md (Cross-Generator Consistency Tests)
