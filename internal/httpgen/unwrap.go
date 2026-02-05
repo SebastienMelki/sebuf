@@ -56,19 +56,69 @@ type UnwrapMapField struct {
 	UnwrapField  *UnwrapFieldInfo  // The unwrap field info from the value message
 }
 
+// GlobalUnwrapInfo holds unwrap field information collected from all files.
+// This enables cross-file unwrap resolution within the same Go package.
+type GlobalUnwrapInfo struct {
+	// UnwrapFields maps message full names to their unwrap field info.
+	UnwrapFields map[string]*UnwrapFieldInfo
+}
+
+// NewGlobalUnwrapInfo creates a new GlobalUnwrapInfo instance.
+func NewGlobalUnwrapInfo() *GlobalUnwrapInfo {
+	return &GlobalUnwrapInfo{
+		UnwrapFields: make(map[string]*UnwrapFieldInfo),
+	}
+}
+
+// CollectGlobalUnwrapInfo scans all files to be generated and collects unwrap field information.
+// This enables the generator to find unwrap annotations on messages defined in other files
+// within the same Go package.
+func CollectGlobalUnwrapInfo(files []*protogen.File) *GlobalUnwrapInfo {
+	global := NewGlobalUnwrapInfo()
+	for _, file := range files {
+		if !file.Generate {
+			continue
+		}
+		collectFileUnwrapFields(file.Messages, global)
+	}
+	return global
+}
+
+// collectFileUnwrapFields recursively collects unwrap fields from messages.
+func collectFileUnwrapFields(messages []*protogen.Message, global *GlobalUnwrapInfo) {
+	for _, msg := range messages {
+		info, err := getUnwrapField(msg)
+		if err != nil {
+			// Log error but continue
+			continue
+		}
+		if info != nil {
+			global.UnwrapFields[string(msg.Desc.FullName())] = info
+		}
+		// Check nested messages too
+		collectFileUnwrapFields(msg.Messages, global)
+	}
+}
+
 // collectUnwrapContext analyzes all messages in a file and collects unwrap information.
 func (g *Generator) collectUnwrapContext(file *protogen.File) *UnwrapContext {
 	ctx := &UnwrapContext{}
 
-	// First, collect all messages that have unwrap fields (including nested messages)
-	unwrapMessages := collectAllUnwrapFields(file.Messages)
+	// Use global unwrap map if available (two-pass mode), otherwise fall back to single-file mode
+	var globalUnwrapMap map[string]*UnwrapFieldInfo
+	if g.globalUnwrap != nil {
+		globalUnwrapMap = g.globalUnwrap.UnwrapFields
+	} else {
+		// Fallback for direct calls (e.g., in tests without full Generate() flow)
+		globalUnwrapMap = collectAllUnwrapFields(file.Messages)
+	}
 
 	// Collect root unwrap messages (single field with unwrap on map/repeated)
-	collectRootUnwrapMessages(file.Messages, unwrapMessages, ctx)
+	collectRootUnwrapMessages(file.Messages, globalUnwrapMap, ctx)
 
-	// Now find messages that have map fields whose value type is in unwrapMessages
+	// Now find messages that have map fields whose value type is in the unwrap map
 	// Only include messages that are NOT root unwrap messages (those are handled separately)
-	findMapFieldsWithUnwrap(file.Messages, unwrapMessages, ctx)
+	findMapFieldsWithUnwrap(file.Messages, globalUnwrapMap, ctx)
 
 	return ctx
 }
@@ -192,8 +242,10 @@ func collectUnwrapMapFields(msg *protogen.Message, unwrapMessages map[string]*Un
 			continue
 		}
 
-		// First check local cache (same file), then check the message directly (imported files)
-		unwrapInfo, ok := unwrapMessages[string(valueMsg.Desc.FullName())]
+		valueMsgFullName := string(valueMsg.Desc.FullName())
+
+		// First check global/local cache, then check the message directly (for cross-package imports)
+		unwrapInfo, ok := unwrapMessages[valueMsgFullName]
 		if !ok {
 			// Check imported message directly for unwrap annotation
 			var err error

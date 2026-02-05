@@ -313,3 +313,89 @@ func TestRootUnwrapFileGeneration(t *testing.T) {
 		}
 	})
 }
+
+// TestCrossFileUnwrapResolution tests that unwrap annotations are resolved across
+// proto files in the same Go package. This tests the GlobalUnwrapInfo feature.
+func TestCrossFileUnwrapResolution(t *testing.T) {
+	// Skip if protoc is not available
+	if _, err := exec.LookPath("protoc"); err != nil {
+		t.Skip("protoc not found, skipping cross-file unwrap tests")
+	}
+
+	baseDir, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("Failed to get working directory: %v", err)
+	}
+
+	projectRoot := filepath.Join(baseDir, "..", "..")
+	protoDir := filepath.Join(baseDir, "testdata", "proto")
+	tempDir := t.TempDir()
+	pluginPath := filepath.Join(projectRoot, "bin", "protoc-gen-go-http")
+
+	// Build the plugin if it doesn't exist
+	if _, buildStatErr := os.Stat(pluginPath); os.IsNotExist(buildStatErr) {
+		buildCmd := exec.Command("make", "build")
+		buildCmd.Dir = projectRoot
+		if buildErr := buildCmd.Run(); buildErr != nil {
+			t.Fatalf("Failed to build plugin: %v", buildErr)
+		}
+	}
+
+	// Generate code for BOTH proto files simultaneously (same package, different files)
+	// This is the key: protoc processes both files together, and our generator must
+	// resolve unwrap annotations across them
+	cmd := exec.Command("protoc",
+		"--plugin=protoc-gen-go-http="+pluginPath,
+		"--go_out="+tempDir,
+		"--go_opt=paths=source_relative",
+		"--go-http_out="+tempDir,
+		"--go-http_opt=paths=source_relative",
+		"--proto_path="+protoDir,
+		"--proto_path="+filepath.Join(projectRoot, "proto"),
+		"same_pkg_service.proto",
+		"same_pkg_wrapper.proto",
+	)
+	cmd.Dir = protoDir
+
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
+
+	if runErr := cmd.Run(); runErr != nil {
+		t.Fatalf("protoc failed: %v\nstderr: %s", runErr, stderr.String())
+	}
+
+	// The unwrap file should be generated for same_pkg_service.proto because
+	// GetBarsResponse has a map<string, BarList> where BarList (from same_pkg_wrapper.proto)
+	// has an unwrap field
+	unwrapPath := filepath.Join(tempDir, "same_pkg_service_unwrap.pb.go")
+	unwrapContent, err := os.ReadFile(unwrapPath)
+	if err != nil {
+		t.Fatalf("Failed to read generated unwrap file (cross-file resolution failed): %v", err)
+	}
+
+	content := string(unwrapContent)
+
+	t.Run("GetBarsResponse MarshalJSON is generated", func(t *testing.T) {
+		if !strings.Contains(content, "func (x *GetBarsResponse) MarshalJSON() ([]byte, error)") {
+			t.Error("MarshalJSON not generated for GetBarsResponse - cross-file unwrap resolution failed")
+		}
+	})
+
+	t.Run("GetBarsResponse UnmarshalJSON is generated", func(t *testing.T) {
+		if !strings.Contains(content, "func (x *GetBarsResponse) UnmarshalJSON(data []byte) error") {
+			t.Error("UnmarshalJSON not generated for GetBarsResponse - cross-file unwrap resolution failed")
+		}
+	})
+
+	t.Run("MarshalJSON accesses wrapper's Bars field", func(t *testing.T) {
+		if !strings.Contains(content, "wrapper.GetBars()") {
+			t.Error("MarshalJSON should call GetBars() on the wrapper from the other file")
+		}
+	})
+
+	t.Run("UnmarshalJSON creates BarList wrapper", func(t *testing.T) {
+		if !strings.Contains(content, "BarList{Bars: items}") {
+			t.Error("UnmarshalJSON should create BarList with Bars field")
+		}
+	})
+}

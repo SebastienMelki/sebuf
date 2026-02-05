@@ -1,0 +1,43 @@
+// Test proto file for unwrap field option - service using wrapper from different file
+// This file tests same-package, different-file unwrap resolution
+syntax = "proto3";
+
+package test.httpgen.samepkg;
+
+option go_package = "github.com/SebastienMelki/sebuf/internal/httpgen/testdata/generated/samepkg;samepkg";
+
+import "sebuf/http/annotations.proto";
+import "same_pkg_wrapper.proto";
+
+// GetBarsRequest is the request message
+message GetBarsRequest {
+  repeated string symbols = 1;
+  string start_date = 2;
+  string end_date = 3;
+}
+
+// GetBarsResponse contains a map of symbol to BarList
+// The BarList type is imported from same_pkg_wrapper.proto (same Go package)
+// When serialized to JSON, the BarList wrapper should be collapsed
+message GetBarsResponse {
+  // Map from symbol to bars list
+  // JSON output: {"bars": {"AAPL": [...], "GOOG": [...]}}
+  // instead of: {"bars": {"AAPL": {"bars": [...]}, "GOOG": {"bars": [...]}}}
+  map<string, BarList> bars = 1;
+  string next_page_token = 2;
+}
+
+// BarService provides bar market data
+service BarService {
+  option (sebuf.http.service_config) = {
+    base_path: "/api/v1"
+  };
+
+  // GetBars retrieves bar data for multiple symbols
+  rpc GetBars(GetBarsRequest) returns (GetBarsResponse) {
+    option (sebuf.http.config) = {
+      path: "/bars"
+      method: HTTP_METHOD_POST
+    };
+  }
+}
