@@ -46,14 +46,14 @@ paths:
                   description: Extended scalar query params (int64, uint64, float, double)
                   required: false
                   schema:
-                    type: integer
+                    type: string
                     format: int64
                 - name: max_id
                   in: query
                   required: false
                   schema:
-                    type: integer
-                    format: int64
+                    type: string
+                    format: uint64
                 - name: min_score
                   in: query
                   required: false
@@ -476,13 +476,12 @@ components:
                 includeDeleted:
                     type: boolean
                 sinceTimestamp:
-                    type: integer
+                    type: string
                     format: int64
                     description: Extended scalar query params (int64, uint64, float, double)
                 maxId:
-                    type: integer
-                    minimum: 0
-                    format: int64
+                    type: string
+                    format: uint64
                 minScore:
                     type: number
                     format: float
@@ -516,10 +515,10 @@ components:
                     additionalProperties:
                         type: string
                 createdAt:
-                    type: integer
+                    type: string
                     format: int64
                 updatedAt:
-                    type: integer
+                    type: string
                     format: int64
                 status:
                     type: string
@@ -547,7 +546,7 @@ components:
                 createdBy:
                     type: string
                 createdAtUnix:
-                    type: integer
+                    type: string
                     format: int64
                 version:
                     type: integer

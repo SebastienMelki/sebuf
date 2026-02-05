@@ -536,14 +536,16 @@ func (g *Generator) createFieldSchema(field *protogen.Field) *base.SchemaProxy {
 		schema.Type = []string{headerTypeInteger}
 		schema.Format = headerTypeInt32
 	case headerTypeInt64, "sint64", "sfixed64":
-		schema.Type = []string{headerTypeInteger}
+		// Per proto3 JSON spec, int64 serializes as a string
+		schema.Type = []string{headerTypeString}
 		schema.Format = headerTypeInt64
 	case "uint32", "fixed32":
 		schema.Type = []string{headerTypeInteger}
 		schema.Format = headerTypeInt32
 	case "uint64", "fixed64":
-		schema.Type = []string{headerTypeInteger}
-		schema.Format = headerTypeInt64
+		// Per proto3 JSON spec, uint64 serializes as a string
+		schema.Type = []string{headerTypeString}
+		schema.Format = headerTypeUint64
 	case "bool":
 		schema.Type = []string{"boolean"}
 	case headerTypeFloat:

@@ -27,7 +27,7 @@ paths:
                   in: query
                   required: false
                   schema:
-                    type: integer
+                    type: string
                     format: int64
                 - name: active
                   in: query
@@ -56,8 +56,8 @@ paths:
                   in: query
                   required: false
                   schema:
-                    type: integer
-                    format: int64
+                    type: string
+                    format: uint64
             responses:
                 "200":
                     description: Successful response
@@ -266,7 +266,7 @@ components:
                     type: integer
                     format: int32
                 offset:
-                    type: integer
+                    type: string
                     format: int64
                 active:
                     type: boolean
@@ -281,9 +281,8 @@ components:
                     minimum: 0
                     format: int32
                 timestamp:
-                    type: integer
-                    minimum: 0
-                    format: int64
+                    type: string
+                    format: uint64
         SearchResponse:
             type: object
             properties:

@@ -124,7 +124,7 @@ components:
                     type: boolean
                     description: Success indicator
                 timestamp:
-                    type: integer
+                    type: string
                     format: int64
                     description: Response timestamp
             description: Simple response message

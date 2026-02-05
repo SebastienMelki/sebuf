@@ -123,7 +123,7 @@ components:
                     format: int32
                     description: 32-bit signed integer
                 int64Value:
-                    type: integer
+                    type: string
                     format: int64
                     description: 64-bit signed integer
                 uint32Value:
@@ -132,16 +132,15 @@ components:
                     format: int32
                     description: 32-bit unsigned integer
                 uint64Value:
-                    type: integer
-                    minimum: 0
-                    format: int64
+                    type: string
+                    format: uint64
                     description: 64-bit unsigned integer
                 sint32Value:
                     type: integer
                     format: int32
                     description: 32-bit signed integer (sint32 encoding)
                 sint64Value:
-                    type: integer
+                    type: string
                     format: int64
                     description: 64-bit signed integer (sint64 encoding)
                 fixed32Value:
@@ -150,16 +149,15 @@ components:
                     format: int32
                     description: 32-bit fixed integer
                 fixed64Value:
-                    type: integer
-                    minimum: 0
-                    format: int64
+                    type: string
+                    format: uint64
                     description: 64-bit fixed integer
                 sfixed32Value:
                     type: integer
                     format: int32
                     description: 32-bit signed fixed integer
                 sfixed64Value:
-                    type: integer
+                    type: string
                     format: int64
                     description: 64-bit signed fixed integer
                 floatValue:

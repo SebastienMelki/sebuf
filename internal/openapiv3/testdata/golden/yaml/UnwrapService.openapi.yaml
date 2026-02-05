@@ -215,7 +215,7 @@ components:
                     type: number
                     format: double
                 volume:
-                    type: integer
+                    type: string
                     format: int64
                 timestamp:
                     type: string

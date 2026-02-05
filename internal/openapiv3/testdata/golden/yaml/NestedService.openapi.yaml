@@ -135,10 +135,10 @@ components:
                 description:
                     type: string
                 startDate:
-                    type: integer
+                    type: string
                     format: int64
                 endDate:
-                    type: integer
+                    type: string
                     format: int64
                 phases:
                     type: array
@@ -183,7 +183,7 @@ components:
                     type: string
                     description: Member role
                 joinedAt:
-                    type: integer
+                    type: string
                     format: int64
                     description: Join date
                 active:
@@ -323,10 +323,10 @@ components:
                 description:
                     type: string
                 startDate:
-                    type: integer
+                    type: string
                     format: int64
                 endDate:
-                    type: integer
+                    type: string
                     format: int64
                 tasks:
                     type: array
@@ -370,7 +370,7 @@ components:
             type: object
             properties:
                 processingTimeMs:
-                    type: integer
+                    type: string
                     format: int64
                     description: Processing time (milliseconds)
                 validation:

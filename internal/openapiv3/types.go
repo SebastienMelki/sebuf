@@ -19,6 +19,7 @@ const (
 	headerTypeString  = "string"
 	headerTypeInt32   = "int32"
 	headerTypeInt64   = "int64"
+	headerTypeUint64  = "uint64"
 	headerTypeInteger = "integer"
 	headerTypeNumber  = "number"
 	headerTypeFloat   = "float"
@@ -72,7 +73,8 @@ func (g *Generator) convertScalarField(field *protogen.Field) *base.SchemaProxy 
 		schema.Format = headerTypeInt32
 
 	case protoreflect.Int64Kind, protoreflect.Sint64Kind, protoreflect.Sfixed64Kind:
-		schema.Type = []string{headerTypeInteger}
+		// Per proto3 JSON spec, int64 serializes as a string to avoid JavaScript precision loss
+		schema.Type = []string{headerTypeString}
 		schema.Format = headerTypeInt64
 
 	case protoreflect.Uint32Kind, protoreflect.Fixed32Kind:
@@ -82,10 +84,10 @@ func (g *Generator) convertScalarField(field *protogen.Field) *base.SchemaProxy 
 		schema.Minimum = &zero
 
 	case protoreflect.Uint64Kind, protoreflect.Fixed64Kind:
-		schema.Type = []string{headerTypeInteger}
-		schema.Format = headerTypeInt64
-		zero := 0.0
-		schema.Minimum = &zero
+		// Per proto3 JSON spec, uint64 serializes as a string to avoid JavaScript precision loss
+		schema.Type = []string{headerTypeString}
+		schema.Format = headerTypeUint64
+		// Note: Minimum constraint removed since type is now string
 
 	case protoreflect.FloatKind:
 		schema.Type = []string{headerTypeNumber}
