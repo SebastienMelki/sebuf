@@ -8,6 +8,7 @@ import (
 	"google.golang.org/protobuf/compiler/protogen"
 
 	"github.com/SebastienMelki/sebuf/http"
+	"github.com/SebastienMelki/sebuf/internal/annotations"
 )
 
 // Generator handles HTTP code generation for protobuf services.
@@ -159,7 +160,7 @@ func (g *Generator) generateService(gf *protogen.GeneratedFile, file *protogen.F
 		httpPath := g.getMethodPath(method, basePath, file.GoPackageName)
 		httpMethod := g.getHTTPMethod(method)
 
-		handlerName := fmt.Sprintf("%sHandler", lowerFirst(method.GoName))
+		handlerName := fmt.Sprintf("%sHandler", annotations.LowerFirst(method.GoName))
 		if i == 0 {
 			gf.P("methodHeaders := get", method.GoName, "Headers()")
 		} else {
@@ -167,7 +168,12 @@ func (g *Generator) generateService(gf *protogen.GeneratedFile, file *protogen.F
 		}
 		gf.P(handlerName, " := BindingMiddleware[", method.Input.GoIdent, "](")
 		gf.P("genericHandler(server.", method.GoName, ", config.errorHandler), serviceHeaders, methodHeaders,")
-		gf.P(lowerFirst(method.GoName), "PathParams, ", lowerFirst(method.GoName), "QueryParams,")
+		gf.P(
+			annotations.LowerFirst(method.GoName),
+			"PathParams, ",
+			annotations.LowerFirst(method.GoName),
+			"QueryParams,",
+		)
 		gf.P(`"`, httpMethod, `", config.errorHandler,`)
 		gf.P(")")
 		gf.P()
@@ -787,27 +793,22 @@ func (g *Generator) getMethodPath(method *protogen.Method, basePath string, pack
 
 // getCustomPath extracts custom HTTP path from method options.
 func (g *Generator) getCustomPath(method *protogen.Method) string {
-	config := getMethodHTTPConfig(method)
+	config := annotations.GetMethodHTTPConfig(method)
 	if config != nil && config.Path != "" {
 		return config.Path
 	}
 
-	// Try to parse existing annotation format (temporary)
-	return parseExistingAnnotation(method)
+	return ""
 }
 
 // getServiceBasePath extracts base path from service options.
 func (g *Generator) getServiceBasePath(service *protogen.Service) string {
-	config := getServiceHTTPConfig(service)
-	if config != nil && config.BasePath != "" {
-		return config.BasePath
-	}
-	return ""
+	return annotations.GetServiceBasePath(service)
 }
 
 // getHTTPMethod returns the HTTP method for a method. Defaults to POST for backward compatibility.
 func (g *Generator) getHTTPMethod(method *protogen.Method) string {
-	config := getMethodHTTPConfig(method)
+	config := annotations.GetMethodHTTPConfig(method)
 	if config != nil && config.Method != "" {
 		return config.Method
 	}
@@ -816,19 +817,11 @@ func (g *Generator) getHTTPMethod(method *protogen.Method) string {
 
 // getPathParams extracts path parameter names from method configuration.
 func (g *Generator) getPathParams(method *protogen.Method) []string {
-	config := getMethodHTTPConfig(method)
+	config := annotations.GetMethodHTTPConfig(method)
 	if config != nil {
 		return config.PathParams
 	}
 	return nil
-}
-
-// Helper functions.
-func lowerFirst(s string) string {
-	if s == "" {
-		return ""
-	}
-	return strings.ToLower(s[:1]) + s[1:]
 }
 
 func camelToSnake(s string) string {
@@ -1414,7 +1407,7 @@ func (g *Generator) generateHeaderGetters(gf *protogen.GeneratedFile, service *p
 	gf.P("func get", serviceName, "Headers() []*sebufhttp.Header {")
 
 	// Get actual service headers if they exist
-	serviceHeaders := getServiceHeaders(service)
+	serviceHeaders := annotations.GetServiceHeaders(service)
 	if len(serviceHeaders) > 0 {
 		gf.P("return []*sebufhttp.Header{")
 		for _, header := range serviceHeaders {
@@ -1433,7 +1426,7 @@ func (g *Generator) generateHeaderGetters(gf *protogen.GeneratedFile, service *p
 		gf.P("func get", method.GoName, "Headers() []*sebufhttp.Header {")
 
 		// Get actual method headers if they exist
-		methodHeaders := getMethodHeaders(method)
+		methodHeaders := annotations.GetMethodHeaders(method)
 		if len(methodHeaders) > 0 {
 			gf.P("return []*sebufhttp.Header{")
 			for _, header := range methodHeaders {
@@ -1466,7 +1459,7 @@ func (g *Generator) generateHeaderLiteral(gf *protogen.GeneratedFile, header *ht
 // generateParamConfigs generates path and query parameter configurations for each method.
 func (g *Generator) generateParamConfigs(gf *protogen.GeneratedFile, service *protogen.Service) error {
 	for _, method := range service.Methods {
-		methodName := lowerFirst(method.GoName)
+		methodName := annotations.LowerFirst(method.GoName)
 
 		// Generate path params config
 		pathParams := g.getPathParams(method)
@@ -1479,7 +1472,7 @@ func (g *Generator) generateParamConfigs(gf *protogen.GeneratedFile, service *pr
 		gf.P()
 
 		// Generate query params config
-		queryParams := getQueryParams(method.Input)
+		queryParams := annotations.GetQueryParams(method.Input)
 		gf.P("// ", methodName, "QueryParams contains query parameter configuration for ", method.GoName)
 		gf.P("var ", methodName, "QueryParams = []QueryParamConfig{")
 		for _, qp := range queryParams {

@@ -5,6 +5,8 @@ import (
 
 	"google.golang.org/protobuf/compiler/protogen"
 	"google.golang.org/protobuf/reflect/protoreflect"
+
+	"github.com/SebastienMelki/sebuf/internal/annotations"
 )
 
 // generateMockFile generates a mock server implementation file.
@@ -66,7 +68,7 @@ func (g *Generator) collectMessageFieldExamples(gf *protogen.GeneratedFile, mess
 	messagePath := prefix + string(message.Desc.Name())
 
 	for _, field := range message.Fields {
-		examples := getFieldExamples(field)
+		examples := annotations.GetFieldExamples(field)
 		if len(examples) > 0 {
 			fieldPath := messagePath + "." + string(field.Desc.Name())
 			gf.P(`"`, fieldPath, `": {`)
