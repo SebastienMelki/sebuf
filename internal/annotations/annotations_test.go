@@ -328,7 +328,7 @@ func TestHTTPConfig_Struct(t *testing.T) {
 	if config.Path != "/users/{id}" {
 		t.Errorf("HTTPConfig.Path = %q, expected %q", config.Path, "/users/{id}")
 	}
-	if config.Method != http.MethodGet {
+	if config.Method != "GET" { //nolint:usestdlibvars // http here is sebuf/http, not net/http
 		t.Errorf("HTTPConfig.Method = %q, expected %q", config.Method, "GET")
 	}
 	if len(config.PathParams) != 1 || config.PathParams[0] != "id" {
