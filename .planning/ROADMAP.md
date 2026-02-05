@@ -12,7 +12,7 @@ sebuf v1.0 delivers complete JSON mapping control across all generators and adds
 
 Decimal phases appear between their surrounding integers in numeric order.
 
-- [ ] **Phase 1: Foundation - Quick Wins** - Land PR #98, fix #105, close resolved issues #91 and #94
+- [x] **Phase 1: Foundation - Quick Wins** - Land PR #98, fix #105, close resolved issues #91 and #94
 - [ ] **Phase 2: Foundation - Shared Annotations** - Extract shared annotation parsing, audit serialization consistency
 - [ ] **Phase 3: Existing Client Review** - Review and polish existing Go client and TypeScript client before building new features
 - [ ] **Phase 4: JSON - Primitive Encoding** - int64/uint64 string encoding and enum string encoding across all generators
@@ -38,8 +38,8 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Plans**: 2 plans
 
 Plans:
-- [ ] 01-01-PLAN.md -- Fix conditional net/url import (#105) and land cross-file unwrap PR (#98)
-- [ ] 01-02-PLAN.md -- Verify and close resolved GitHub issues #91 and #94
+- [x] 01-01-PLAN.md -- Fix conditional net/url import (#105) and land cross-file unwrap PR (#98)
+- [x] 01-02-PLAN.md -- Verify and close resolved GitHub issues #91 and #94
 
 ### Phase 2: Foundation - Shared Annotations
 **Goal**: All generators consume annotation metadata through a single shared package, eliminating duplication and ensuring consistency for the 8 new annotations coming next
@@ -234,7 +234,7 @@ Note: Phases 8, 9, 10 (language clients) can execute in parallel after Phase 7 c
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Foundation - Quick Wins | 0/2 | Not started | - |
+| 1. Foundation - Quick Wins | 2/2 | Complete | 2026-02-05 |
 | 2. Foundation - Shared Annotations | 0/4 | Not started | - |
 | 3. Existing Client Review | 0/3 | Not started | - |
 | 4. JSON - Primitive Encoding | 0/4 | Not started | - |
