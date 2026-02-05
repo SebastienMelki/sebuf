@@ -84,12 +84,7 @@ paths:
                     content:
                         application/json:
                             schema:
-                                type: object
-                                properties:
-                                    error:
-                                        type: string
-                                    code:
-                                        type: integer
+                                $ref: '#/components/schemas/Error'
         post:
             tags:
                 - RESTfulAPIService
@@ -134,12 +129,7 @@ paths:
                     content:
                         application/json:
                             schema:
-                                type: object
-                                properties:
-                                    error:
-                                        type: string
-                                    code:
-                                        type: integer
+                                $ref: '#/components/schemas/Error'
     /api/v1/resources/{resource_id}:
         get:
             tags:
@@ -178,12 +168,7 @@ paths:
                     content:
                         application/json:
                             schema:
-                                type: object
-                                properties:
-                                    error:
-                                        type: string
-                                    code:
-                                        type: integer
+                                $ref: '#/components/schemas/Error'
         put:
             tags:
                 - RESTfulAPIService
@@ -227,12 +212,7 @@ paths:
                     content:
                         application/json:
                             schema:
-                                type: object
-                                properties:
-                                    error:
-                                        type: string
-                                    code:
-                                        type: integer
+                                $ref: '#/components/schemas/Error'
         delete:
             tags:
                 - RESTfulAPIService
@@ -270,12 +250,7 @@ paths:
                     content:
                         application/json:
                             schema:
-                                type: object
-                                properties:
-                                    error:
-                                        type: string
-                                    code:
-                                        type: integer
+                                $ref: '#/components/schemas/Error'
         patch:
             tags:
                 - RESTfulAPIService
@@ -319,12 +294,7 @@ paths:
                     content:
                         application/json:
                             schema:
-                                type: object
-                                properties:
-                                    error:
-                                        type: string
-                                    code:
-                                        type: integer
+                                $ref: '#/components/schemas/Error'
     /api/v1/orgs/{org_id}/teams/{team_id}/resources/{resource_id}:
         get:
             tags:
@@ -373,12 +343,7 @@ paths:
                     content:
                         application/json:
                             schema:
-                                type: object
-                                properties:
-                                    error:
-                                        type: string
-                                    code:
-                                        type: integer
+                                $ref: '#/components/schemas/Error'
     /api/v1/legacy/action:
         post:
             tags:
@@ -418,12 +383,7 @@ paths:
                     content:
                         application/json:
                             schema:
-                                type: object
-                                properties:
-                                    error:
-                                        type: string
-                                    code:
-                                        type: integer
+                                $ref: '#/components/schemas/Error'
     /api/v1/resources/search:
         get:
             tags:
@@ -467,14 +427,16 @@ paths:
                     content:
                         application/json:
                             schema:
-                                type: object
-                                properties:
-                                    error:
-                                        type: string
-                                    code:
-                                        type: integer
+                                $ref: '#/components/schemas/Error'
 components:
     schemas:
+        Error:
+            type: object
+            properties:
+                message:
+                    type: string
+                    description: Error message (e.g., 'user not found', 'database connection failed')
+            description: Error is returned when a handler encounters an error. It contains a simple error message that the developer can customize.
         FieldViolation:
             type: object
             properties:

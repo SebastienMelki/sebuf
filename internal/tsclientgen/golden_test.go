@@ -53,6 +53,13 @@ func TestTSClientGenGoldenFiles(t *testing.T) {
 				"complex_features_client.ts",
 			},
 		},
+		{
+			name:      "unwrap variants",
+			protoFile: "unwrap.proto",
+			expectedFiles: []string{
+				"unwrap_client.ts",
+			},
+		},
 	}
 
 	baseDir, err := os.Getwd()

@@ -44,8 +44,8 @@ type Generator struct {
 func NewGenerator(format OutputFormat) *Generator {
 	schemas := orderedmap.New[string, *base.SchemaProxy]()
 
-	// Add built-in validation error schemas
-	addValidationErrorSchemas(schemas)
+	// Add built-in error schemas (Error, ValidationError, FieldViolation)
+	addBuiltinErrorSchemas(schemas)
 
 	return &Generator{
 		format:  format,
@@ -430,17 +430,15 @@ func (g *Generator) buildResponses(method *protogen.Method) *orderedmap.Map[stri
 	})
 	responses.Set("400", validationErrorResponse)
 
-	// Default error response
-	errorProps := orderedmap.New[string, *base.SchemaProxy]()
-	errorProps.Set("error", base.CreateSchemaProxy(&base.Schema{Type: []string{"string"}}))
-	errorProps.Set("code", base.CreateSchemaProxy(&base.Schema{Type: []string{"integer"}}))
-	errorSchema := base.CreateSchemaProxy(&base.Schema{Type: []string{"object"}, Properties: errorProps})
-
+	// Default error response - references the Error component schema
+	// which matches the sebuf.http.Error proto message (single "message" field)
 	errorResponse := &v3.Response{
 		Description: "Error response",
 		Content:     orderedmap.New[string, *v3.MediaType](),
 	}
-	errorResponse.Content.Set("application/json", &v3.MediaType{Schema: errorSchema})
+	errorResponse.Content.Set("application/json", &v3.MediaType{
+		Schema: base.CreateSchemaProxyRef("#/components/schemas/Error"),
+	})
 	responses.Set("default", errorResponse)
 
 	return responses
@@ -561,9 +559,25 @@ func (g *Generator) createFieldSchema(field *protogen.Field) *base.SchemaProxy {
 	return base.CreateSchemaProxy(schema)
 }
 
-// addValidationErrorSchemas adds the ValidationError and FieldViolation schemas to the components.
-func addValidationErrorSchemas(schemas *orderedmap.Map[string, *base.SchemaProxy]) {
-	// Add FieldViolation schema
+// addBuiltinErrorSchemas adds the Error, ValidationError, and FieldViolation schemas to the components.
+// These schemas match the proto definitions in proto/sebuf/http/errors.proto.
+func addBuiltinErrorSchemas(schemas *orderedmap.Map[string, *base.SchemaProxy]) {
+	// Add Error schema - matches sebuf.http.Error proto message
+	// Error has a single "message" field (string)
+	errorProps := orderedmap.New[string, *base.SchemaProxy]()
+	errorProps.Set("message", base.CreateSchemaProxy(&base.Schema{
+		Type:        []string{"string"},
+		Description: "Error message (e.g., 'user not found', 'database connection failed')",
+	}))
+
+	errorSchema := base.CreateSchemaProxy(&base.Schema{
+		Type:        []string{"object"},
+		Description: "Error is returned when a handler encounters an error. It contains a simple error message that the developer can customize.",
+		Properties:  errorProps,
+	})
+	schemas.Set("Error", errorSchema)
+
+	// Add FieldViolation schema - matches sebuf.http.FieldViolation proto message
 	fieldViolationProps := orderedmap.New[string, *base.SchemaProxy]()
 	fieldViolationProps.Set("field", base.CreateSchemaProxy(&base.Schema{
 		Type:        []string{"string"},
@@ -582,7 +596,7 @@ func addValidationErrorSchemas(schemas *orderedmap.Map[string, *base.SchemaProxy
 	})
 	schemas.Set("FieldViolation", fieldViolationSchema)
 
-	// Add ValidationError schema
+	// Add ValidationError schema - matches sebuf.http.ValidationError proto message
 	validationErrorProps := orderedmap.New[string, *base.SchemaProxy]()
 	validationErrorProps.Set("violations", base.CreateSchemaProxy(&base.Schema{
 		Type:        []string{"array"},
