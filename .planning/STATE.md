@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2026-02-05)
 
 **Core value:** Proto definitions are the single source of truth -- every generator must produce consistent, correct output that interoperates seamlessly.
-**Current focus:** Phase 3 COMPLETE -- All 4 generators verified consistent, ready for Phase 4 (JSON Mapping Features).
+**Current focus:** Phase 4 IN PROGRESS -- JSON Mapping Features, starting with annotation infrastructure.
 
 ## Current Position
 
-Phase: 3 of 11 (Existing Client Review) - COMPLETE
-Plan: 6 of 6 in current phase (all complete)
-Status: Phase complete
-Last activity: 2026-02-05 -- Completed 03-06-PLAN.md (Cross-Generator Consistency Verification)
+Phase: 4 of 11 (JSON Primitive Encoding)
+Plan: 1 of 5 in current phase (complete)
+Status: In progress
+Last activity: 2026-02-06 -- Completed 04-01-PLAN.md (Annotation Infrastructure)
 
-Progress: [############] 55% (12 plans of ~22 estimated total)
+Progress: [#############] 59% (13 plans of ~22 estimated total)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 12
-- Average duration: ~6.0m
-- Total execution time: ~1.2 hours
+- Total plans completed: 13
+- Average duration: ~5.8m
+- Total execution time: ~1.25 hours
 
 **By Phase:**
 
@@ -30,10 +30,11 @@ Progress: [############] 55% (12 plans of ~22 estimated total)
 | 01 - Foundation Quick Wins | 2/2 | ~17m | ~8.5m |
 | 02 - Shared Annotations | 4/4 | ~26m | ~6.5m |
 | 03 - Existing Client Review | 6/6 | ~36m | ~6.0m |
+| 04 - JSON Primitive Encoding | 1/5 | ~4m | ~4.0m |
 
 **Recent Trend:**
-- Last 5 plans: 03-03 (3m), 03-04 (7m), 03-05 (7m), 03-06 (5m)
-- Trend: Consistent, verification tasks efficient
+- Last 5 plans: 03-04 (7m), 03-05 (7m), 03-06 (5m), 04-01 (4m)
+- Trend: Annotation-only plan very fast
 
 *Updated after each plan completion*
 
@@ -78,6 +79,9 @@ Recent decisions affecting current work:
 - D-03-05-03: Added headerTypeUint64 constant and removed minimum constraint since uint64 is now string type
 - D-03-06-01: Default path inconsistency for services without HTTP annotations is accepted (backward compat fallback mode only)
 - D-03-06-02: Cross-generator consistency verified for all 10 key areas (paths, methods, params, schemas, errors, headers, unwrap)
+- D-04-01-01: Extension numbers 50010-50012 continue sequence from existing 50009 (unwrap)
+- D-04-01-02: UNSPECIFIED (0) always means "use protojson default" - explicit STRING value available for documentation
+- D-04-01-03: GetEnumValueMapping returns empty string (not nil) for consistency with Go string semantics
 
 ### Pending Todos
 
@@ -89,7 +93,7 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-02-05
-Stopped at: Completed Phase 3 (all 6 plans)
+Last session: 2026-02-06
+Stopped at: Completed 04-01-PLAN.md (Annotation Infrastructure)
 Resume file: None
-Next: Phase 4 (JSON Mapping Features)
+Next: 04-02-PLAN.md (go-http Generator Integration)
