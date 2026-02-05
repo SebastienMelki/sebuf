@@ -445,6 +445,21 @@ func TestExhaustiveGoldenFiles(t *testing.T) {
 			goldenFile:  "testdata/golden/json/BasePathOnlyService.openapi.json",
 			format:      "json",
 		},
+		// int64_encoding.proto -> Int64EncodingService (int64 encoding variants)
+		{
+			name:        "int64_encoding_service_yaml",
+			protoFile:   "testdata/proto/int64_encoding.proto",
+			serviceName: "Int64EncodingService",
+			goldenFile:  "testdata/golden/yaml/Int64EncodingService.openapi.yaml",
+			format:      "yaml",
+		},
+		{
+			name:        "int64_encoding_service_json",
+			protoFile:   "testdata/proto/int64_encoding.proto",
+			serviceName: "Int64EncodingService",
+			goldenFile:  "testdata/golden/json/Int64EncodingService.openapi.json",
+			format:      "json",
+		},
 	}
 
 	for _, tc := range testCases {
@@ -542,6 +557,7 @@ func TestExhaustiveRegression(t *testing.T) {
 		"testdata/proto/http_verbs_comprehensive.proto": {"RESTfulAPIService", "BackwardCompatService"},
 		"testdata/proto/query_params.proto":             {"QueryParamService"},
 		"testdata/proto/backward_compat.proto":          {"NoAnnotationsService", "BasePathOnlyService"},
+		"testdata/proto/int64_encoding.proto":           {"Int64EncodingService"},
 	}
 
 	formats := []string{"yaml", "json"}

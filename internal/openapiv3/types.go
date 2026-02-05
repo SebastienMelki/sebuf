@@ -77,8 +77,6 @@ func (g *Generator) convertScalarField(field *protogen.Field) *base.SchemaProxy 
 			// NUMBER encoding: JavaScript number (precision risk for > 2^53)
 			schema.Type = []string{headerTypeInteger}
 			schema.Format = headerTypeInt64
-			// Add precision warning to description
-			addInt64PrecisionWarning(schema, field)
 		} else {
 			// Default (STRING/UNSPECIFIED): safe string encoding per proto3 JSON spec
 			schema.Type = []string{headerTypeString}
@@ -98,8 +96,6 @@ func (g *Generator) convertScalarField(field *protogen.Field) *base.SchemaProxy 
 			schema.Format = headerTypeUint64
 			zero := 0.0
 			schema.Minimum = &zero
-			// Add precision warning to description
-			addInt64PrecisionWarning(schema, field)
 		} else {
 			// Default (STRING/UNSPECIFIED): safe string encoding per proto3 JSON spec
 			schema.Type = []string{headerTypeString}
@@ -144,6 +140,11 @@ func (g *Generator) convertScalarField(field *protogen.Field) *base.SchemaProxy 
 	// Add description from field comments
 	if field.Comments.Leading != "" {
 		schema.Description = strings.TrimSpace(string(field.Comments.Leading))
+	}
+
+	// Append precision warning for NUMBER-encoded int64/uint64 fields
+	if annotations.IsInt64NumberEncoding(field) {
+		appendInt64PrecisionWarning(schema)
 	}
 
 	// Apply buf.validate constraints
@@ -343,18 +344,12 @@ func mapHeaderTypeToOpenAPI(headerType string) string {
 // int64PrecisionWarning is the warning message for NUMBER-encoded int64/uint64 fields.
 const int64PrecisionWarning = "Warning: Values > 2^53 may lose precision in JavaScript"
 
-// addInt64PrecisionWarning appends the precision warning to a schema's description.
+// appendInt64PrecisionWarning appends the precision warning to a schema's description.
 // This is used for NUMBER-encoded int64/uint64 fields that use integer type.
-func addInt64PrecisionWarning(schema *base.Schema, field *protogen.Field) {
-	// Start with existing description from field comments
-	existingDesc := ""
-	if field.Comments.Leading != "" {
-		existingDesc = strings.TrimSpace(string(field.Comments.Leading))
-	}
-
-	// Append precision warning
-	if existingDesc != "" {
-		schema.Description = existingDesc + ". " + int64PrecisionWarning
+// It should be called after the description has been set from field comments.
+func appendInt64PrecisionWarning(schema *base.Schema) {
+	if schema.Description != "" {
+		schema.Description = schema.Description + ". " + int64PrecisionWarning
 	} else {
 		schema.Description = int64PrecisionWarning
 	}
