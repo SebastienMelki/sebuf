@@ -1,7 +1,7 @@
 # Requirements: sebuf v1.0
 
 **Defined:** 2026-02-05
-**Core Value:** Proto definitions are the single source of truth — every generator must produce consistent, correct output that interoperates seamlessly.
+**Core Value:** Proto definitions are the single source of truth -- every generator must produce consistent, correct output that interoperates seamlessly.
 
 ## v1 Requirements
 
@@ -10,37 +10,39 @@ Requirements for v1.0 release. Each must work across all generators (go-http, go
 ### Foundation
 
 - [ ] **FOUND-01**: Extract shared annotation parsing into `internal/annotations/` package (eliminate 1,289 lines of duplication across 4 generators)
-- [ ] **FOUND-02**: Fix #105 — conditional net/url import in go-client (only when query params used)
-- [ ] **FOUND-03**: Land PR #98 — cross-file unwrap resolution in same Go package
-- [ ] **FOUND-04**: Audit serialization path — ensure protojson vs encoding/json consistency in HTTP handler generation
+- [ ] **FOUND-02**: Fix #105 -- conditional net/url import in go-client (only when query params used)
+- [ ] **FOUND-03**: Land PR #98 -- cross-file unwrap resolution in same Go package
+- [ ] **FOUND-04**: Audit serialization path -- ensure protojson vs encoding/json consistency in HTTP handler generation
 - [ ] **FOUND-05**: Verify #91 (root-level arrays) is fully covered by existing unwrap annotation, close GitHub issue
-- [ ] **FOUND-06**: Close #94 (field name casing) on GitHub — document proto3 `json_name` as the existing solution
+- [ ] **FOUND-06**: Close #94 (field name casing) on GitHub -- document proto3 `json_name` as the existing solution
+- [ ] **FOUND-07**: Review and polish existing Go HTTP client (protoc-gen-go-client) -- audit serialization consistency with server, error handling, header handling, and edge cases; fix any inconsistencies found
+- [ ] **FOUND-08**: Review and polish existing TypeScript HTTP client (protoc-gen-ts-client) -- audit cross-language consistency with Go client and server, error handling, header handling, and edge cases; fix any inconsistencies found
 
 ### JSON Mapping
 
-- [ ] **JSON-01**: #87 Nullable primitives — per-field `nullable` annotation; generates pointer types in Go, `| null` union in TS, `nullable: true` in OpenAPI
-- [ ] **JSON-02**: #88 int64/uint64 as string encoding — per-field `int64_encoding` annotation with NUMBER/STRING options
-- [ ] **JSON-03**: #89 Enum string encoding with custom values — per-enum `enum_encoding` and per-value `enum_value` annotations
-- [ ] **JSON-04**: #90 Oneof as discriminated union — per-oneof `oneof_discriminator` and `oneof_flatten` annotations with field collision detection at generation time
-- [ ] **JSON-05**: #92 Multiple timestamp formats — per-field `timestamp_format` annotation (RFC3339, UNIX_SECONDS, UNIX_MILLIS, DATE)
-- [ ] **JSON-06**: #93 Empty object handling — per-field `omit_empty` and `empty_behavior` annotations (PRESERVE, NULL, OMIT)
-- [ ] **JSON-07**: #95 Bytes encoding options — per-field `bytes_encoding` annotation (BASE64, BASE64_RAW, BASE64URL, BASE64URL_RAW, HEX)
-- [ ] **JSON-08**: #96 Nested message flattening — per-field `flatten` and `flatten_prefix` annotations with collision detection at generation time
+- [ ] **JSON-01**: #87 Nullable primitives -- per-field `nullable` annotation; generates pointer types in Go, `| null` union in TS, `nullable: true` in OpenAPI
+- [ ] **JSON-02**: #88 int64/uint64 as string encoding -- per-field `int64_encoding` annotation with NUMBER/STRING options
+- [ ] **JSON-03**: #89 Enum string encoding with custom values -- per-enum `enum_encoding` and per-value `enum_value` annotations
+- [ ] **JSON-04**: #90 Oneof as discriminated union -- per-oneof `oneof_discriminator` and `oneof_flatten` annotations with field collision detection at generation time
+- [ ] **JSON-05**: #92 Multiple timestamp formats -- per-field `timestamp_format` annotation (RFC3339, UNIX_SECONDS, UNIX_MILLIS, DATE)
+- [ ] **JSON-06**: #93 Empty object handling -- per-field `omit_empty` and `empty_behavior` annotations (PRESERVE, NULL, OMIT)
+- [ ] **JSON-07**: #95 Bytes encoding options -- per-field `bytes_encoding` annotation (BASE64, BASE64_RAW, BASE64URL, BASE64URL_RAW, HEX)
+- [ ] **JSON-08**: #96 Nested message flattening -- per-field `flatten` and `flatten_prefix` annotations with collision detection at generation time
 
 ### Language Clients
 
-- [ ] **LANG-01**: Swift HTTP client generator (protoc-gen-swift-client) — idiomatic Swift using URLSession, Codable structs
-- [ ] **LANG-02**: Kotlin HTTP client generator (protoc-gen-kt-client) — idiomatic Kotlin using OkHttp/Ktor, data classes
-- [ ] **LANG-03**: Python HTTP client generator (protoc-gen-py-client) — idiomatic Python using httpx, dataclasses/Pydantic
+- [ ] **LANG-01**: Swift HTTP client generator (protoc-gen-swift-client) -- idiomatic Swift using URLSession, Codable structs
+- [ ] **LANG-02**: Kotlin HTTP client generator (protoc-gen-kt-client) -- idiomatic Kotlin using OkHttp/Ktor, data classes
+- [ ] **LANG-03**: Python HTTP client generator (protoc-gen-py-client) -- idiomatic Python using httpx, dataclasses/Pydantic
 
 ### Polish
 
 - [ ] **POL-01**: Comprehensive README review and improvement
 - [ ] **POL-02**: Add examples for all JSON mapping features (proto definitions + expected JSON output)
 - [ ] **POL-03**: Add multi-auth patterns example (#50)
-- [ ] **POL-04**: Expand test coverage — golden file tests for every annotation across all generators
+- [ ] **POL-04**: Expand test coverage -- golden file tests for every annotation across all generators
 - [ ] **POL-05**: Review and improve inline documentation across all generators
-- [ ] **POL-06**: End-to-end consistency validation — verify proto definitions produce matching output across all generators (go-http, go-client, ts-client, swift-client, kt-client, py-client, openapiv3)
+- [ ] **POL-06**: End-to-end consistency validation -- verify proto definitions produce matching output across all generators (go-http, go-client, ts-client, swift-client, kt-client, py-client, openapiv3)
 
 ## v2 Requirements
 
@@ -77,35 +79,37 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| FOUND-01 | — | Pending |
-| FOUND-02 | — | Pending |
-| FOUND-03 | — | Pending |
-| FOUND-04 | — | Pending |
-| FOUND-05 | — | Pending |
-| FOUND-06 | — | Pending |
-| JSON-01 | — | Pending |
-| JSON-02 | — | Pending |
-| JSON-03 | — | Pending |
-| JSON-04 | — | Pending |
-| JSON-05 | — | Pending |
-| JSON-06 | — | Pending |
-| JSON-07 | — | Pending |
-| JSON-08 | — | Pending |
-| LANG-01 | — | Pending |
-| LANG-02 | — | Pending |
-| LANG-03 | — | Pending |
-| POL-01 | — | Pending |
-| POL-02 | — | Pending |
-| POL-03 | — | Pending |
-| POL-04 | — | Pending |
-| POL-05 | — | Pending |
-| POL-06 | — | Pending |
+| FOUND-01 | Phase 2 | Pending |
+| FOUND-02 | Phase 1 | Pending |
+| FOUND-03 | Phase 1 | Pending |
+| FOUND-04 | Phase 2 | Pending |
+| FOUND-05 | Phase 1 | Pending |
+| FOUND-06 | Phase 1 | Pending |
+| FOUND-07 | Phase 3 | Pending |
+| FOUND-08 | Phase 3 | Pending |
+| JSON-01 | Phase 5 | Pending |
+| JSON-02 | Phase 4 | Pending |
+| JSON-03 | Phase 4 | Pending |
+| JSON-04 | Phase 7 | Pending |
+| JSON-05 | Phase 6 | Pending |
+| JSON-06 | Phase 5 | Pending |
+| JSON-07 | Phase 6 | Pending |
+| JSON-08 | Phase 7 | Pending |
+| LANG-01 | Phase 8 | Pending |
+| LANG-02 | Phase 9 | Pending |
+| LANG-03 | Phase 10 | Pending |
+| POL-01 | Phase 11 | Pending |
+| POL-02 | Phase 11 | Pending |
+| POL-03 | Phase 11 | Pending |
+| POL-04 | Phase 11 | Pending |
+| POL-05 | Phase 11 | Pending |
+| POL-06 | Phase 11 | Pending |
 
 **Coverage:**
-- v1 requirements: 23 total
-- Mapped to phases: 0
-- Unmapped: 23 ⚠️
+- v1 requirements: 25 total
+- Mapped to phases: 25
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-02-05*
-*Last updated: 2026-02-05 after initial definition*
+*Last updated: 2026-02-05 after roadmap revision (added FOUND-07, FOUND-08 for existing client review)*
