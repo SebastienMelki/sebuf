@@ -341,7 +341,13 @@ func (g *Generator) generateURLBuilding(p printer, cfg *rpcMethodConfig) {
 	if (cfg.httpMethod == "GET" || cfg.httpMethod == "DELETE") && len(cfg.queryParams) > 0 {
 		p("    const params = new URLSearchParams();")
 		for _, qp := range cfg.queryParams {
-			check := tsZeroCheck(qp.FieldKind)
+			// Use field-aware zero check when field reference is available
+			var check string
+			if qp.Field != nil {
+				check = tsZeroCheckForField(qp.Field)
+			} else {
+				check = tsZeroCheck(qp.FieldKind)
+			}
 			if check == "" {
 				// bool: only add if true (undefined is already falsy)
 				p("    if (req.%s) params.set(\"%s\", String(req.%s));",

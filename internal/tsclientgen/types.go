@@ -18,6 +18,8 @@ const (
 )
 
 // tsScalarType returns the TypeScript type for a protobuf scalar kind.
+// This is the base helper that uses only kind information (no field context).
+// For int64/uint64 fields, callers should use tsScalarTypeForField to check encoding annotations.
 func tsScalarType(kind protoreflect.Kind) string {
 	switch kind {
 	case protoreflect.StringKind:
@@ -30,7 +32,7 @@ func tsScalarType(kind protoreflect.Kind) string {
 		return tsNumber
 	case protoreflect.Int64Kind, protoreflect.Sint64Kind, protoreflect.Sfixed64Kind,
 		protoreflect.Uint64Kind, protoreflect.Fixed64Kind:
-		// proto3 JSON encodes 64-bit integers as strings
+		// proto3 JSON default: 64-bit integers as strings (safe for JavaScript)
 		return tsString
 	case protoreflect.BytesKind:
 		// base64 encoded in JSON
@@ -45,8 +47,29 @@ func tsScalarType(kind protoreflect.Kind) string {
 	}
 }
 
+// tsScalarTypeForField returns the TypeScript type for a protobuf field,
+// checking encoding annotations for int64/uint64 fields.
+func tsScalarTypeForField(field *protogen.Field) string {
+	kind := field.Desc.Kind()
+
+	// Check for int64/uint64 encoding annotation
+	switch kind {
+	case protoreflect.Int64Kind, protoreflect.Sint64Kind, protoreflect.Sfixed64Kind,
+		protoreflect.Uint64Kind, protoreflect.Fixed64Kind:
+		if annotations.IsInt64NumberEncoding(field) {
+			return tsNumber // NUMBER encoding: JavaScript number (precision risk for > 2^53)
+		}
+		return tsString // Default (STRING/UNSPECIFIED): safe string encoding
+	default:
+		// All other types use the base helper
+		return tsScalarType(kind)
+	}
+}
+
 // tsZeroCheck returns the TypeScript zero-value check expression for a query param.
 // Uses the proto field kind (not TS type) to determine the appropriate check.
+// For int64/uint64 fields, this returns the STRING encoding check; use tsZeroCheckForField
+// when the full field context is available to check encoding annotations.
 func tsZeroCheck(fieldKind string) string {
 	switch fieldKind {
 	case "string":
@@ -59,10 +82,29 @@ func tsZeroCheck(fieldKind string) string {
 		return " !== 0"
 	case "int64", "sint64", "sfixed64",
 		"uint64", "fixed64":
-		// 64-bit integers are encoded as strings in proto3 JSON
+		// Default: 64-bit integers are encoded as strings in proto3 JSON
 		return ` !== "0"`
 	default:
 		return ` !== ""`
+	}
+}
+
+// tsZeroCheckForField returns the TypeScript zero-value check expression for a field,
+// checking encoding annotations for int64/uint64 fields.
+func tsZeroCheckForField(field *protogen.Field) string {
+	kind := field.Desc.Kind()
+
+	// Check for int64/uint64 encoding annotation
+	switch kind {
+	case protoreflect.Int64Kind, protoreflect.Sint64Kind, protoreflect.Sfixed64Kind,
+		protoreflect.Uint64Kind, protoreflect.Fixed64Kind:
+		if annotations.IsInt64NumberEncoding(field) {
+			return " !== 0" // NUMBER encoding: numeric zero check
+		}
+		return ` !== "0"` // Default (STRING/UNSPECIFIED): string zero check
+	default:
+		// All other types use the base helper
+		return tsZeroCheck(kind.String())
 	}
 }
 
@@ -194,8 +236,8 @@ func tsFieldType(field *protogen.Field) string {
 		return string(field.Enum.Desc.Name())
 	}
 
-	// Scalar types
-	return tsScalarType(field.Desc.Kind())
+	// Scalar types (use field-aware function for encoding annotations)
+	return tsScalarTypeForField(field)
 }
 
 // tsElementType returns the TypeScript type for the element of a repeated field.
@@ -206,7 +248,8 @@ func tsElementType(field *protogen.Field) string {
 	if field.Desc.Kind() == protoreflect.EnumKind && field.Enum != nil {
 		return string(field.Enum.Desc.Name())
 	}
-	return tsScalarType(field.Desc.Kind())
+	// Use field-aware function for encoding annotations
+	return tsScalarTypeForField(field)
 }
 
 // rootUnwrapTSType returns the TypeScript type for a root-unwrapped message.
