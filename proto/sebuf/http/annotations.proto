@@ -120,6 +120,27 @@ enum BytesEncoding {
   BYTES_ENCODING_HEX = 5;
 }
 
+// OneofConfig controls oneof serialization as a discriminated union.
+// Applied to a oneof definition via (sebuf.http.oneof_config).
+message OneofConfig {
+  // The JSON field name for the discriminator (e.g., "type", "kind").
+  // Required: if empty, the annotation is ignored.
+  string discriminator = 1;
+
+  // Whether to flatten variant message fields to the same level as the discriminator.
+  // When true: variant's child fields are promoted to the parent object alongside the discriminator.
+  // When false: variant stays nested under its field name with the discriminator alongside.
+  // Requires all variant fields to be message types when true.
+  bool flatten = 2;
+}
+
+// Extension for oneof-level options
+extend google.protobuf.OneofOptions {
+  // Controls oneof serialization as a discriminated union.
+  // When set, adds a discriminator field to the JSON output identifying which variant is set.
+  optional OneofConfig oneof_config = 50017;
+}
+
 // Extension for field-level options
 extend google.protobuf.FieldOptions {
   // Example values for documentation/OpenAPI
@@ -165,6 +186,21 @@ extend google.protobuf.FieldOptions {
   // Valid on: bytes fields only.
   // Default: BASE64 (protojson default).
   optional BytesEncoding bytes_encoding = 50016;
+
+  // Custom discriminator value for this oneof variant field.
+  // When set, this value is used in the discriminator field instead of the proto field name.
+  // Only valid on fields that are part of a oneof with oneof_config annotation.
+  optional string oneof_value = 50018;
+
+  // Flatten a nested message field, promoting its child fields to the parent level in JSON.
+  // Only valid on singular message fields (not repeated, not map, not oneof variant).
+  // When true: child message fields appear at the parent level (e.g., address.street becomes street).
+  optional bool flatten = 50019;
+
+  // Prefix to prepend to flattened field names to avoid collisions.
+  // Only valid when flatten=true is also set.
+  // Example: flatten_prefix="billing_" with child field "street" produces "billing_street" in JSON.
+  optional string flatten_prefix = 50020;
 }
 
 // Extension for enum value options

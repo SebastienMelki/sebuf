@@ -574,6 +574,66 @@ func (x *QueryConfig) GetRequired() bool {
 	return false
 }
 
+// OneofConfig controls oneof serialization as a discriminated union.
+// Applied to a oneof definition via (sebuf.http.oneof_config).
+type OneofConfig struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The JSON field name for the discriminator (e.g., "type", "kind").
+	// Required: if empty, the annotation is ignored.
+	Discriminator string `protobuf:"bytes,1,opt,name=discriminator,proto3" json:"discriminator,omitempty"`
+	// Whether to flatten variant message fields to the same level as the discriminator.
+	// When true: variant's child fields are promoted to the parent object alongside the discriminator.
+	// When false: variant stays nested under its field name with the discriminator alongside.
+	// Requires all variant fields to be message types when true.
+	Flatten       bool `protobuf:"varint,2,opt,name=flatten,proto3" json:"flatten,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *OneofConfig) Reset() {
+	*x = OneofConfig{}
+	mi := &file_proto_sebuf_http_annotations_proto_msgTypes[4]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *OneofConfig) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*OneofConfig) ProtoMessage() {}
+
+func (x *OneofConfig) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_sebuf_http_annotations_proto_msgTypes[4]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use OneofConfig.ProtoReflect.Descriptor instead.
+func (*OneofConfig) Descriptor() ([]byte, []int) {
+	return file_proto_sebuf_http_annotations_proto_rawDescGZIP(), []int{4}
+}
+
+func (x *OneofConfig) GetDiscriminator() string {
+	if x != nil {
+		return x.Discriminator
+	}
+	return ""
+}
+
+func (x *OneofConfig) GetFlatten() bool {
+	if x != nil {
+		return x.Flatten
+	}
+	return false
+}
+
 var file_proto_sebuf_http_annotations_proto_extTypes = []protoimpl.ExtensionInfo{
 	{
 		ExtendedType:  (*descriptorpb.MethodOptions)(nil),
@@ -589,6 +649,14 @@ var file_proto_sebuf_http_annotations_proto_extTypes = []protoimpl.ExtensionInfo
 		Field:         50004,
 		Name:          "sebuf.http.service_config",
 		Tag:           "bytes,50004,opt,name=service_config",
+		Filename:      "proto/sebuf/http/annotations.proto",
+	},
+	{
+		ExtendedType:  (*descriptorpb.OneofOptions)(nil),
+		ExtensionType: (*OneofConfig)(nil),
+		Field:         50017,
+		Name:          "sebuf.http.oneof_config",
+		Tag:           "bytes,50017,opt,name=oneof_config",
 		Filename:      "proto/sebuf/http/annotations.proto",
 	},
 	{
@@ -664,6 +732,30 @@ var file_proto_sebuf_http_annotations_proto_extTypes = []protoimpl.ExtensionInfo
 		Filename:      "proto/sebuf/http/annotations.proto",
 	},
 	{
+		ExtendedType:  (*descriptorpb.FieldOptions)(nil),
+		ExtensionType: (*string)(nil),
+		Field:         50018,
+		Name:          "sebuf.http.oneof_value",
+		Tag:           "bytes,50018,opt,name=oneof_value",
+		Filename:      "proto/sebuf/http/annotations.proto",
+	},
+	{
+		ExtendedType:  (*descriptorpb.FieldOptions)(nil),
+		ExtensionType: (*bool)(nil),
+		Field:         50019,
+		Name:          "sebuf.http.flatten",
+		Tag:           "varint,50019,opt,name=flatten",
+		Filename:      "proto/sebuf/http/annotations.proto",
+	},
+	{
+		ExtendedType:  (*descriptorpb.FieldOptions)(nil),
+		ExtensionType: (*string)(nil),
+		Field:         50020,
+		Name:          "sebuf.http.flatten_prefix",
+		Tag:           "bytes,50020,opt,name=flatten_prefix",
+		Filename:      "proto/sebuf/http/annotations.proto",
+	},
+	{
 		ExtendedType:  (*descriptorpb.EnumValueOptions)(nil),
 		ExtensionType: (*string)(nil),
 		Field:         50012,
@@ -685,16 +777,25 @@ var (
 	E_ServiceConfig = &file_proto_sebuf_http_annotations_proto_extTypes[1]
 )
 
+// Extension fields to descriptorpb.OneofOptions.
+var (
+	// Controls oneof serialization as a discriminated union.
+	// When set, adds a discriminator field to the JSON output identifying which variant is set.
+	//
+	// optional sebuf.http.OneofConfig oneof_config = 50017;
+	E_OneofConfig = &file_proto_sebuf_http_annotations_proto_extTypes[2]
+)
+
 // Extension fields to descriptorpb.FieldOptions.
 var (
 	// Example values for documentation/OpenAPI
 	//
 	// optional sebuf.http.FieldExamples field_examples = 50007;
-	E_FieldExamples = &file_proto_sebuf_http_annotations_proto_extTypes[2]
+	E_FieldExamples = &file_proto_sebuf_http_annotations_proto_extTypes[3]
 	// Query parameter configuration for a field
 	//
 	// optional sebuf.http.QueryConfig query = 50008;
-	E_Query = &file_proto_sebuf_http_annotations_proto_extTypes[3]
+	E_Query = &file_proto_sebuf_http_annotations_proto_extTypes[4]
 	// Mark a repeated field for unwrapping when parent message is a map value.
 	// When set to true on a repeated field, and the message containing this field
 	// is used as a map value, the JSON serialization will collapse the wrapper
@@ -702,44 +803,62 @@ var (
 	// Constraints: Only valid on repeated fields, only one per message.
 	//
 	// optional bool unwrap = 50009;
-	E_Unwrap = &file_proto_sebuf_http_annotations_proto_extTypes[4]
+	E_Unwrap = &file_proto_sebuf_http_annotations_proto_extTypes[5]
 	// Controls int64/uint64 JSON encoding for this field.
 	// Valid on: int64, sint64, sfixed64, uint64, fixed64 fields.
 	// Default: STRING encoding (protojson default for JavaScript precision safety).
 	//
 	// optional sebuf.http.Int64Encoding int64_encoding = 50010;
-	E_Int64Encoding = &file_proto_sebuf_http_annotations_proto_extTypes[5]
+	E_Int64Encoding = &file_proto_sebuf_http_annotations_proto_extTypes[6]
 	// Controls enum JSON encoding for this field.
 	// Valid on: enum fields only.
 	// Default: STRING encoding (protojson default using proto enum names).
 	//
 	// optional sebuf.http.EnumEncoding enum_encoding = 50011;
-	E_EnumEncoding = &file_proto_sebuf_http_annotations_proto_extTypes[6]
+	E_EnumEncoding = &file_proto_sebuf_http_annotations_proto_extTypes[7]
 	// Mark a primitive field as nullable (explicit null vs absent).
 	// Only valid on proto3 optional fields (HasOptionalKeyword=true).
 	// When true: unset field serializes as null, set field serializes normally.
 	// When false (default): unset field is omitted from JSON.
 	//
 	// optional bool nullable = 50013;
-	E_Nullable = &file_proto_sebuf_http_annotations_proto_extTypes[7]
+	E_Nullable = &file_proto_sebuf_http_annotations_proto_extTypes[8]
 	// Controls how empty message fields serialize to JSON.
 	// Only valid on singular message fields (not repeated, not map).
 	// "Empty" = all fields at proto default (proto.Size() == 0).
 	//
 	// optional sebuf.http.EmptyBehavior empty_behavior = 50014;
-	E_EmptyBehavior = &file_proto_sebuf_http_annotations_proto_extTypes[8]
+	E_EmptyBehavior = &file_proto_sebuf_http_annotations_proto_extTypes[9]
 	// Controls timestamp JSON encoding for this field.
 	// Valid on: google.protobuf.Timestamp fields only.
 	// Default: RFC3339 (protojson default).
 	//
 	// optional sebuf.http.TimestampFormat timestamp_format = 50015;
-	E_TimestampFormat = &file_proto_sebuf_http_annotations_proto_extTypes[9]
+	E_TimestampFormat = &file_proto_sebuf_http_annotations_proto_extTypes[10]
 	// Controls bytes JSON encoding for this field.
 	// Valid on: bytes fields only.
 	// Default: BASE64 (protojson default).
 	//
 	// optional sebuf.http.BytesEncoding bytes_encoding = 50016;
-	E_BytesEncoding = &file_proto_sebuf_http_annotations_proto_extTypes[10]
+	E_BytesEncoding = &file_proto_sebuf_http_annotations_proto_extTypes[11]
+	// Custom discriminator value for this oneof variant field.
+	// When set, this value is used in the discriminator field instead of the proto field name.
+	// Only valid on fields that are part of a oneof with oneof_config annotation.
+	//
+	// optional string oneof_value = 50018;
+	E_OneofValue = &file_proto_sebuf_http_annotations_proto_extTypes[12]
+	// Flatten a nested message field, promoting its child fields to the parent level in JSON.
+	// Only valid on singular message fields (not repeated, not map, not oneof variant).
+	// When true: child message fields appear at the parent level (e.g., address.street becomes street).
+	//
+	// optional bool flatten = 50019;
+	E_Flatten = &file_proto_sebuf_http_annotations_proto_extTypes[13]
+	// Prefix to prepend to flattened field names to avoid collisions.
+	// Only valid when flatten=true is also set.
+	// Example: flatten_prefix="billing_" with child field "street" produces "billing_street" in JSON.
+	//
+	// optional string flatten_prefix = 50020;
+	E_FlattenPrefix = &file_proto_sebuf_http_annotations_proto_extTypes[14]
 )
 
 // Extension fields to descriptorpb.EnumValueOptions.
@@ -749,7 +868,7 @@ var (
 	// Combines with enum_encoding=STRING on fields using this enum.
 	//
 	// optional string enum_value = 50012;
-	E_EnumValue = &file_proto_sebuf_http_annotations_proto_extTypes[11]
+	E_EnumValue = &file_proto_sebuf_http_annotations_proto_extTypes[15]
 )
 
 var File_proto_sebuf_http_annotations_proto protoreflect.FileDescriptor
@@ -768,7 +887,10 @@ const file_proto_sebuf_http_annotations_proto_rawDesc = "" +
 	"\x06values\x18\x01 \x03(\tR\x06values\"=\n" +
 	"\vQueryConfig\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x1a\n" +
-	"\brequired\x18\x02 \x01(\bR\brequired*\x98\x01\n" +
+	"\brequired\x18\x02 \x01(\bR\brequired\"M\n" +
+	"\vOneofConfig\x12$\n" +
+	"\rdiscriminator\x18\x01 \x01(\tR\rdiscriminator\x12\x18\n" +
+	"\aflatten\x18\x02 \x01(\bR\aflatten*\x98\x01\n" +
 	"\n" +
 	"HttpMethod\x12\x1b\n" +
 	"\x17HTTP_METHOD_UNSPECIFIED\x10\x00\x12\x13\n" +
@@ -804,7 +926,8 @@ const file_proto_sebuf_http_annotations_proto_rawDesc = "" +
 	"\x1cBYTES_ENCODING_BASE64URL_RAW\x10\x04\x12\x16\n" +
 	"\x12BYTES_ENCODING_HEX\x10\x05:P\n" +
 	"\x06config\x12\x1e.google.protobuf.MethodOptions\x18ӆ\x03 \x01(\v2\x16.sebuf.http.HttpConfigR\x06config:c\n" +
-	"\x0eservice_config\x12\x1f.google.protobuf.ServiceOptions\x18Ԇ\x03 \x01(\v2\x19.sebuf.http.ServiceConfigR\rserviceConfig:a\n" +
+	"\x0eservice_config\x12\x1f.google.protobuf.ServiceOptions\x18Ԇ\x03 \x01(\v2\x19.sebuf.http.ServiceConfigR\rserviceConfig:^\n" +
+	"\foneof_config\x12\x1d.google.protobuf.OneofOptions\x18\xe1\x86\x03 \x01(\v2\x17.sebuf.http.OneofConfigR\voneofConfig\x88\x01\x01:a\n" +
 	"\x0efield_examples\x12\x1d.google.protobuf.FieldOptions\x18׆\x03 \x01(\v2\x19.sebuf.http.FieldExamplesR\rfieldExamples:N\n" +
 	"\x05query\x12\x1d.google.protobuf.FieldOptions\x18؆\x03 \x01(\v2\x17.sebuf.http.QueryConfigR\x05query:7\n" +
 	"\x06unwrap\x12\x1d.google.protobuf.FieldOptions\x18ن\x03 \x01(\bR\x06unwrap:d\n" +
@@ -813,7 +936,11 @@ const file_proto_sebuf_http_annotations_proto_rawDesc = "" +
 	"\bnullable\x12\x1d.google.protobuf.FieldOptions\x18݆\x03 \x01(\bR\bnullable\x88\x01\x01:d\n" +
 	"\x0eempty_behavior\x12\x1d.google.protobuf.FieldOptions\x18ކ\x03 \x01(\x0e2\x19.sebuf.http.EmptyBehaviorR\remptyBehavior\x88\x01\x01:j\n" +
 	"\x10timestamp_format\x12\x1d.google.protobuf.FieldOptions\x18߆\x03 \x01(\x0e2\x1b.sebuf.http.TimestampFormatR\x0ftimestampFormat\x88\x01\x01:d\n" +
-	"\x0ebytes_encoding\x12\x1d.google.protobuf.FieldOptions\x18\xe0\x86\x03 \x01(\x0e2\x19.sebuf.http.BytesEncodingR\rbytesEncoding\x88\x01\x01:E\n" +
+	"\x0ebytes_encoding\x12\x1d.google.protobuf.FieldOptions\x18\xe0\x86\x03 \x01(\x0e2\x19.sebuf.http.BytesEncodingR\rbytesEncoding\x88\x01\x01:C\n" +
+	"\voneof_value\x12\x1d.google.protobuf.FieldOptions\x18\xe2\x86\x03 \x01(\tR\n" +
+	"oneofValue\x88\x01\x01:<\n" +
+	"\aflatten\x12\x1d.google.protobuf.FieldOptions\x18\xe3\x86\x03 \x01(\bR\aflatten\x88\x01\x01:I\n" +
+	"\x0eflatten_prefix\x12\x1d.google.protobuf.FieldOptions\x18\xe4\x86\x03 \x01(\tR\rflattenPrefix\x88\x01\x01:E\n" +
 	"\n" +
 	"enum_value\x12!.google.protobuf.EnumValueOptions\x18܆\x03 \x01(\tR\tenumValue\x88\x01\x01B+Z)github.com/SebastienMelki/sebuf/http;httpb\x06proto3"
 
@@ -830,7 +957,7 @@ func file_proto_sebuf_http_annotations_proto_rawDescGZIP() []byte {
 }
 
 var file_proto_sebuf_http_annotations_proto_enumTypes = make([]protoimpl.EnumInfo, 6)
-var file_proto_sebuf_http_annotations_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
+var file_proto_sebuf_http_annotations_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
 var file_proto_sebuf_http_annotations_proto_goTypes = []any{
 	(HttpMethod)(0),                       // 0: sebuf.http.HttpMethod
 	(Int64Encoding)(0),                    // 1: sebuf.http.Int64Encoding
@@ -842,38 +969,45 @@ var file_proto_sebuf_http_annotations_proto_goTypes = []any{
 	(*ServiceConfig)(nil),                 // 7: sebuf.http.ServiceConfig
 	(*FieldExamples)(nil),                 // 8: sebuf.http.FieldExamples
 	(*QueryConfig)(nil),                   // 9: sebuf.http.QueryConfig
-	(*descriptorpb.MethodOptions)(nil),    // 10: google.protobuf.MethodOptions
-	(*descriptorpb.ServiceOptions)(nil),   // 11: google.protobuf.ServiceOptions
-	(*descriptorpb.FieldOptions)(nil),     // 12: google.protobuf.FieldOptions
-	(*descriptorpb.EnumValueOptions)(nil), // 13: google.protobuf.EnumValueOptions
+	(*OneofConfig)(nil),                   // 10: sebuf.http.OneofConfig
+	(*descriptorpb.MethodOptions)(nil),    // 11: google.protobuf.MethodOptions
+	(*descriptorpb.ServiceOptions)(nil),   // 12: google.protobuf.ServiceOptions
+	(*descriptorpb.OneofOptions)(nil),     // 13: google.protobuf.OneofOptions
+	(*descriptorpb.FieldOptions)(nil),     // 14: google.protobuf.FieldOptions
+	(*descriptorpb.EnumValueOptions)(nil), // 15: google.protobuf.EnumValueOptions
 }
 var file_proto_sebuf_http_annotations_proto_depIdxs = []int32{
 	0,  // 0: sebuf.http.HttpConfig.method:type_name -> sebuf.http.HttpMethod
-	10, // 1: sebuf.http.config:extendee -> google.protobuf.MethodOptions
-	11, // 2: sebuf.http.service_config:extendee -> google.protobuf.ServiceOptions
-	12, // 3: sebuf.http.field_examples:extendee -> google.protobuf.FieldOptions
-	12, // 4: sebuf.http.query:extendee -> google.protobuf.FieldOptions
-	12, // 5: sebuf.http.unwrap:extendee -> google.protobuf.FieldOptions
-	12, // 6: sebuf.http.int64_encoding:extendee -> google.protobuf.FieldOptions
-	12, // 7: sebuf.http.enum_encoding:extendee -> google.protobuf.FieldOptions
-	12, // 8: sebuf.http.nullable:extendee -> google.protobuf.FieldOptions
-	12, // 9: sebuf.http.empty_behavior:extendee -> google.protobuf.FieldOptions
-	12, // 10: sebuf.http.timestamp_format:extendee -> google.protobuf.FieldOptions
-	12, // 11: sebuf.http.bytes_encoding:extendee -> google.protobuf.FieldOptions
-	13, // 12: sebuf.http.enum_value:extendee -> google.protobuf.EnumValueOptions
-	6,  // 13: sebuf.http.config:type_name -> sebuf.http.HttpConfig
-	7,  // 14: sebuf.http.service_config:type_name -> sebuf.http.ServiceConfig
-	8,  // 15: sebuf.http.field_examples:type_name -> sebuf.http.FieldExamples
-	9,  // 16: sebuf.http.query:type_name -> sebuf.http.QueryConfig
-	1,  // 17: sebuf.http.int64_encoding:type_name -> sebuf.http.Int64Encoding
-	2,  // 18: sebuf.http.enum_encoding:type_name -> sebuf.http.EnumEncoding
-	3,  // 19: sebuf.http.empty_behavior:type_name -> sebuf.http.EmptyBehavior
-	4,  // 20: sebuf.http.timestamp_format:type_name -> sebuf.http.TimestampFormat
-	5,  // 21: sebuf.http.bytes_encoding:type_name -> sebuf.http.BytesEncoding
-	22, // [22:22] is the sub-list for method output_type
-	22, // [22:22] is the sub-list for method input_type
-	13, // [13:22] is the sub-list for extension type_name
-	1,  // [1:13] is the sub-list for extension extendee
+	11, // 1: sebuf.http.config:extendee -> google.protobuf.MethodOptions
+	12, // 2: sebuf.http.service_config:extendee -> google.protobuf.ServiceOptions
+	13, // 3: sebuf.http.oneof_config:extendee -> google.protobuf.OneofOptions
+	14, // 4: sebuf.http.field_examples:extendee -> google.protobuf.FieldOptions
+	14, // 5: sebuf.http.query:extendee -> google.protobuf.FieldOptions
+	14, // 6: sebuf.http.unwrap:extendee -> google.protobuf.FieldOptions
+	14, // 7: sebuf.http.int64_encoding:extendee -> google.protobuf.FieldOptions
+	14, // 8: sebuf.http.enum_encoding:extendee -> google.protobuf.FieldOptions
+	14, // 9: sebuf.http.nullable:extendee -> google.protobuf.FieldOptions
+	14, // 10: sebuf.http.empty_behavior:extendee -> google.protobuf.FieldOptions
+	14, // 11: sebuf.http.timestamp_format:extendee -> google.protobuf.FieldOptions
+	14, // 12: sebuf.http.bytes_encoding:extendee -> google.protobuf.FieldOptions
+	14, // 13: sebuf.http.oneof_value:extendee -> google.protobuf.FieldOptions
+	14, // 14: sebuf.http.flatten:extendee -> google.protobuf.FieldOptions
+	14, // 15: sebuf.http.flatten_prefix:extendee -> google.protobuf.FieldOptions
+	15, // 16: sebuf.http.enum_value:extendee -> google.protobuf.EnumValueOptions
+	6,  // 17: sebuf.http.config:type_name -> sebuf.http.HttpConfig
+	7,  // 18: sebuf.http.service_config:type_name -> sebuf.http.ServiceConfig
+	10, // 19: sebuf.http.oneof_config:type_name -> sebuf.http.OneofConfig
+	8,  // 20: sebuf.http.field_examples:type_name -> sebuf.http.FieldExamples
+	9,  // 21: sebuf.http.query:type_name -> sebuf.http.QueryConfig
+	1,  // 22: sebuf.http.int64_encoding:type_name -> sebuf.http.Int64Encoding
+	2,  // 23: sebuf.http.enum_encoding:type_name -> sebuf.http.EnumEncoding
+	3,  // 24: sebuf.http.empty_behavior:type_name -> sebuf.http.EmptyBehavior
+	4,  // 25: sebuf.http.timestamp_format:type_name -> sebuf.http.TimestampFormat
+	5,  // 26: sebuf.http.bytes_encoding:type_name -> sebuf.http.BytesEncoding
+	27, // [27:27] is the sub-list for method output_type
+	27, // [27:27] is the sub-list for method input_type
+	17, // [17:27] is the sub-list for extension type_name
+	1,  // [1:17] is the sub-list for extension extendee
 	0,  // [0:1] is the sub-list for field type_name
 }
 
@@ -888,8 +1022,8 @@ func file_proto_sebuf_http_annotations_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_sebuf_http_annotations_proto_rawDesc), len(file_proto_sebuf_http_annotations_proto_rawDesc)),
 			NumEnums:      6,
-			NumMessages:   4,
-			NumExtensions: 12,
+			NumMessages:   5,
+			NumExtensions: 16,
 			NumServices:   0,
 		},
 		GoTypes:           file_proto_sebuf_http_annotations_proto_goTypes,
