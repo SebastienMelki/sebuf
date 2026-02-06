@@ -147,13 +147,13 @@ Plans:
   4. `flatten_prefix` annotation prepends a prefix to flattened field names to avoid collisions (e.g., `flatten_prefix = "billing_"` produces `billing_street`)
   5. OpenAPI schemas accurately represent discriminated unions using the `discriminator` keyword and flattened structures using `allOf`
   6. A cross-generator consistency test confirms that go-http, go-client, ts-client, and openapiv3 produce semantically identical JSON structure for every oneof and flatten combination
-**Plans**: TBD
+**Plans**: 4 plans
 
 Plans:
-- [ ] 07-01: Define oneof_discriminator, oneof_flatten, flatten, and flatten_prefix annotations
-- [ ] 07-02: Implement oneof discriminated union across all 4 generators
-- [ ] 07-03: Implement nested message flattening across all 4 generators
-- [ ] 07-04: Cross-generator consistency validation for structural transforms
+- [ ] 07-01-PLAN.md -- Define oneof_config, oneof_value, flatten, and flatten_prefix annotations in proto and shared annotations package
+- [ ] 07-02-PLAN.md -- Implement oneof discriminated union across all 4 generators
+- [ ] 07-03-PLAN.md -- Implement nested message flattening across all 4 generators
+- [ ] 07-04-PLAN.md -- Cross-generator consistency validation for structural transforms
 
 ### Phase 8: Language - Swift Client
 **Goal**: Swift developers can generate a type-safe HTTP client from proto definitions that supports all sebuf annotations including JSON mapping features
@@ -244,7 +244,7 @@ Note: Phases 8, 9, 10 (language clients) can execute in parallel after Phase 7 c
 | 4. JSON - Primitive Encoding | 5/5 | Complete | 2026-02-06 |
 | 5. JSON - Nullable & Empty | 4/4 | Complete | 2026-02-06 |
 | 6. JSON - Data Encoding | 4/4 | Complete | 2026-02-06 |
-| 7. JSON - Structural Transforms | 0/4 | Not started | - |
+| 7. JSON - Structural Transforms | 0/4 | Planned | - |
 | 8. Language - Swift Client | 0/4 | Not started | - |
 | 9. Language - Kotlin Client | 0/4 | Not started | - |
 | 10. Language - Python Client | 0/4 | Not started | - |
