@@ -86,6 +86,11 @@ func (g *Generator) generateFile(file *protogen.File) error {
 		return err
 	}
 
+	// Generate nullable encoding file if there are messages with nullable fields
+	if err := g.generateNullableEncodingFile(file); err != nil {
+		return err
+	}
+
 	if len(file.Services) == 0 {
 		return nil
 	}
