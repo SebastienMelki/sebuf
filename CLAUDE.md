@@ -220,6 +220,130 @@ message BarsResponse {
 // Without unwrap: {"data": {"AAPL": {"bars": [...]}, ...}}
 ```
 
+**JSON Mapping Annotations** - Control how protobuf fields serialize to JSON across all generators:
+
+**int64_encoding** - Controls int64/uint64 JSON encoding (ext 50010):
+```protobuf
+message Order {
+  // Serializes as JSON number: 12345 (precision warning for values > 2^53)
+  int64 amount = 1 [(sebuf.http.int64_encoding) = INT64_ENCODING_NUMBER];
+  // Serializes as JSON string: "12345" (default, safe for JavaScript)
+  uint64 id = 2 [(sebuf.http.int64_encoding) = INT64_ENCODING_STRING];
+}
+```
+
+**enum_encoding / enum_value** - Controls enum JSON encoding (ext 50011, 50012):
+```protobuf
+enum Status {
+  STATUS_UNSPECIFIED = 0;
+  STATUS_ACTIVE = 1 [(sebuf.http.enum_value) = "active"];
+  STATUS_INACTIVE = 2 [(sebuf.http.enum_value) = "inactive"];
+}
+
+message User {
+  // With enum_value: serializes as "active" instead of "STATUS_ACTIVE"
+  Status status = 1 [(sebuf.http.enum_encoding) = ENUM_ENCODING_STRING];
+  // Serializes as number: 1
+  Status role = 2 [(sebuf.http.enum_encoding) = ENUM_ENCODING_NUMBER];
+}
+```
+
+**nullable** - Explicit null semantics for primitive fields (ext 50013):
+```protobuf
+message Profile {
+  // Three states: absent (omitted), null, or "value"
+  // Requires proto3 optional keyword
+  optional string bio = 1 [(sebuf.http.nullable) = true];
+}
+// Set: {"bio": "hello"}  |  Null: {"bio": null}  |  Absent: {}
+```
+
+**empty_behavior** - Controls empty message field serialization (ext 50014):
+```protobuf
+message Response {
+  Metadata meta = 1 [(sebuf.http.empty_behavior) = EMPTY_BEHAVIOR_PRESERVE]; // {}
+  Metadata audit = 2 [(sebuf.http.empty_behavior) = EMPTY_BEHAVIOR_NULL];    // null
+  Metadata debug = 3 [(sebuf.http.empty_behavior) = EMPTY_BEHAVIOR_OMIT];    // omitted
+}
+```
+
+**timestamp_format** - Controls google.protobuf.Timestamp serialization (ext 50015):
+```protobuf
+message Event {
+  google.protobuf.Timestamp created_at = 1; // Default: "2024-01-15T09:30:00Z"
+  google.protobuf.Timestamp unix_ts = 2 [(sebuf.http.timestamp_format) = TIMESTAMP_FORMAT_UNIX_SECONDS]; // 1705312200
+  google.protobuf.Timestamp unix_ms = 3 [(sebuf.http.timestamp_format) = TIMESTAMP_FORMAT_UNIX_MILLIS];  // 1705312200000
+  google.protobuf.Timestamp date = 4 [(sebuf.http.timestamp_format) = TIMESTAMP_FORMAT_DATE];             // "2024-01-15"
+}
+```
+
+**bytes_encoding** - Controls bytes field serialization (ext 50016):
+```protobuf
+message Document {
+  bytes data = 1;  // Default: standard base64 "SGVsbG8="
+  bytes hash = 2 [(sebuf.http.bytes_encoding) = BYTES_ENCODING_HEX];          // "48656c6c6f"
+  bytes token = 3 [(sebuf.http.bytes_encoding) = BYTES_ENCODING_BASE64URL];    // URL-safe base64
+  bytes raw = 4 [(sebuf.http.bytes_encoding) = BYTES_ENCODING_BASE64_RAW];     // No padding
+}
+```
+
+**oneof_config / oneof_value** - Discriminated unions for oneof fields (ext 50017, 50018):
+```protobuf
+message Event {
+  string id = 1;
+  oneof payload {
+    option (sebuf.http.oneof_config) = {
+      discriminator: "type"
+      flatten: true
+    };
+    TextPayload text = 2 [(sebuf.http.oneof_value) = "text"];
+    ImagePayload image = 3 [(sebuf.http.oneof_value) = "image"];
+  }
+}
+// Flattened: {"id": "1", "type": "text", "body": "hello"}
+// Not flattened: {"id": "1", "type": "text", "text": {"body": "hello"}}
+```
+
+**flatten / flatten_prefix** - Promote nested message fields to parent (ext 50019, 50020):
+```protobuf
+message Order {
+  string id = 1;
+  Address billing = 2 [
+    (sebuf.http.flatten) = true,
+    (sebuf.http.flatten_prefix) = "billing_"
+  ];
+  Address shipping = 3 [
+    (sebuf.http.flatten) = true,
+    (sebuf.http.flatten_prefix) = "shipping_"
+  ];
+}
+// JSON: {"id": "1", "billing_street": "123 Main", "shipping_street": "456 Oak"}
+// Without flatten: {"id": "1", "billing": {"street": "123 Main"}, "shipping": {"street": "456 Oak"}}
+```
+
+### Annotation Extension Number Registry
+
+All custom annotations live in `proto/sebuf/http/annotations.proto`:
+
+| Ext # | Name | Target | Purpose |
+|-------|------|--------|---------|
+| 50003 | config | MethodOptions | HTTP path and method |
+| 50004 | service_config | ServiceOptions | Service base path |
+| 50007 | field_examples | FieldOptions | Example values for docs |
+| 50008 | query | FieldOptions | Query parameter config |
+| 50009 | unwrap | FieldOptions | Map value / root unwrapping |
+| 50010 | int64_encoding | FieldOptions | int64/uint64 JSON encoding |
+| 50011 | enum_encoding | FieldOptions | Enum JSON encoding |
+| 50012 | enum_value | EnumValueOptions | Custom enum value string |
+| 50013 | nullable | FieldOptions | Nullable primitive fields |
+| 50014 | empty_behavior | FieldOptions | Empty message handling |
+| 50015 | timestamp_format | FieldOptions | Timestamp JSON format |
+| 50016 | bytes_encoding | FieldOptions | Bytes JSON encoding |
+| 50017 | oneof_config | OneofOptions | Discriminated union config |
+| 50018 | oneof_value | FieldOptions | Custom discriminator value |
+| 50019 | flatten | FieldOptions | Nested message flattening |
+| 50020 | flatten_prefix | FieldOptions | Prefix for flattened fields |
+
 ## Development Commands
 
 ### Testing
@@ -421,6 +545,7 @@ The repository contains:
 - **cmd/protoc-gen-go-client/**: Go HTTP client plugin entry point
 - **cmd/protoc-gen-ts-client/**: TypeScript HTTP client plugin entry point
 - **cmd/protoc-gen-openapiv3/**: OpenAPI generation plugin entry point
+- **internal/annotations/**: Shared annotation parsing used by all 4 generators (unwrap, query params, headers, JSON mapping)
 - **internal/httpgen/**: HTTP handler generation logic and tests
 - **internal/clientgen/**: Go HTTP client generation logic and tests
 - **internal/tsclientgen/**: TypeScript HTTP client generation logic and tests
