@@ -16,7 +16,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 2: Foundation - Shared Annotations** - Extract shared annotation parsing, audit serialization consistency
 - [x] **Phase 3: Existing Client Review** - Review and polish existing Go client and TypeScript client before building new features
 - [x] **Phase 4: JSON - Primitive Encoding** - int64/uint64 string encoding and enum string encoding across all generators
-- [ ] **Phase 5: JSON - Nullable & Empty** - Nullable primitives and empty object handling across all generators
+- [x] **Phase 5: JSON - Nullable & Empty** - Nullable primitives and empty object handling across all generators
 - [ ] **Phase 6: JSON - Data Encoding** - Timestamp formats and bytes encoding options across all generators
 - [ ] **Phase 7: JSON - Structural Transforms** - Oneof discriminated unions and nested message flattening across all generators
 - [ ] **Phase 8: Language - Swift Client** - Idiomatic Swift HTTP client generator using URLSession and Codable
@@ -112,10 +112,10 @@ Plans:
 **Plans**: 4 plans
 
 Plans:
-- [ ] 05-01-PLAN.md -- Define nullable and empty_behavior annotations in proto and shared annotations package
-- [ ] 05-02-PLAN.md -- Implement nullable primitives across all 4 generators
-- [ ] 05-03-PLAN.md -- Implement empty object handling across all 4 generators
-- [ ] 05-04-PLAN.md -- Cross-generator consistency validation for nullable and empty semantics
+- [x] 05-01-PLAN.md -- Define nullable and empty_behavior annotations in proto and shared annotations package
+- [x] 05-02-PLAN.md -- Implement nullable primitives across all 4 generators
+- [x] 05-03-PLAN.md -- Implement empty object handling across all 4 generators
+- [x] 05-04-PLAN.md -- Cross-generator consistency validation for nullable and empty semantics
 
 ### Phase 6: JSON - Data Encoding
 **Goal**: Developers can choose timestamp formats and bytes encoding options for their API's JSON representation
@@ -242,7 +242,7 @@ Note: Phases 8, 9, 10 (language clients) can execute in parallel after Phase 7 c
 | 2. Foundation - Shared Annotations | 4/4 | Complete | 2026-02-05 |
 | 3. Existing Client Review | 6/6 | Complete | 2026-02-05 |
 | 4. JSON - Primitive Encoding | 5/5 | Complete | 2026-02-06 |
-| 5. JSON - Nullable & Empty | 0/4 | Planned | - |
+| 5. JSON - Nullable & Empty | 4/4 | Complete | 2026-02-06 |
 | 6. JSON - Data Encoding | 0/4 | Not started | - |
 | 7. JSON - Structural Transforms | 0/4 | Not started | - |
 | 8. Language - Swift Client | 0/4 | Not started | - |
