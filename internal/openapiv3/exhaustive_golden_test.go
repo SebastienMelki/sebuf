@@ -445,6 +445,66 @@ func TestExhaustiveGoldenFiles(t *testing.T) {
 			goldenFile:  "testdata/golden/json/BasePathOnlyService.openapi.json",
 			format:      "json",
 		},
+		// int64_encoding.proto -> Int64EncodingService (int64 encoding variants)
+		{
+			name:        "int64_encoding_service_yaml",
+			protoFile:   "testdata/proto/int64_encoding.proto",
+			serviceName: "Int64EncodingService",
+			goldenFile:  "testdata/golden/yaml/Int64EncodingService.openapi.yaml",
+			format:      "yaml",
+		},
+		{
+			name:        "int64_encoding_service_json",
+			protoFile:   "testdata/proto/int64_encoding.proto",
+			serviceName: "Int64EncodingService",
+			goldenFile:  "testdata/golden/json/Int64EncodingService.openapi.json",
+			format:      "json",
+		},
+		// enum_encoding.proto -> EnumEncodingService (enum encoding variants)
+		{
+			name:        "enum_encoding_service_yaml",
+			protoFile:   "testdata/proto/enum_encoding.proto",
+			serviceName: "EnumEncodingService",
+			goldenFile:  "testdata/golden/yaml/EnumEncodingService.openapi.yaml",
+			format:      "yaml",
+		},
+		{
+			name:        "enum_encoding_service_json",
+			protoFile:   "testdata/proto/enum_encoding.proto",
+			serviceName: "EnumEncodingService",
+			goldenFile:  "testdata/golden/json/EnumEncodingService.openapi.json",
+			format:      "json",
+		},
+		// nullable.proto -> NullableService (nullable field variants)
+		{
+			name:        "nullable_service_yaml",
+			protoFile:   "testdata/proto/nullable.proto",
+			serviceName: "NullableService",
+			goldenFile:  "testdata/golden/yaml/NullableService.openapi.yaml",
+			format:      "yaml",
+		},
+		{
+			name:        "nullable_service_json",
+			protoFile:   "testdata/proto/nullable.proto",
+			serviceName: "NullableService",
+			goldenFile:  "testdata/golden/json/NullableService.openapi.json",
+			format:      "json",
+		},
+		// empty_behavior.proto -> EmptyBehaviorService (empty behavior variants)
+		{
+			name:        "empty_behavior_service_yaml",
+			protoFile:   "testdata/proto/empty_behavior.proto",
+			serviceName: "EmptyBehaviorService",
+			goldenFile:  "testdata/golden/yaml/EmptyBehaviorService.openapi.yaml",
+			format:      "yaml",
+		},
+		{
+			name:        "empty_behavior_service_json",
+			protoFile:   "testdata/proto/empty_behavior.proto",
+			serviceName: "EmptyBehaviorService",
+			goldenFile:  "testdata/golden/json/EmptyBehaviorService.openapi.json",
+			format:      "json",
+		},
 	}
 
 	for _, tc := range testCases {
@@ -542,6 +602,10 @@ func TestExhaustiveRegression(t *testing.T) {
 		"testdata/proto/http_verbs_comprehensive.proto": {"RESTfulAPIService", "BackwardCompatService"},
 		"testdata/proto/query_params.proto":             {"QueryParamService"},
 		"testdata/proto/backward_compat.proto":          {"NoAnnotationsService", "BasePathOnlyService"},
+		"testdata/proto/int64_encoding.proto":           {"Int64EncodingService"},
+		"testdata/proto/enum_encoding.proto":            {"EnumEncodingService"},
+		"testdata/proto/nullable.proto":                 {"NullableService"},
+		"testdata/proto/empty_behavior.proto":           {"EmptyBehaviorService"},
 	}
 
 	formats := []string{"yaml", "json"}

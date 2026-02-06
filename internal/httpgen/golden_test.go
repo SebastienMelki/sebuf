@@ -67,6 +67,46 @@ func TestHTTPGenGoldenFiles(t *testing.T) {
 				"unwrap_unwrap.pb.go",
 			},
 		},
+		{
+			name:      "int64 encoding",
+			protoFile: "int64_encoding.proto",
+			expectedFiles: []string{
+				"int64_encoding_http.pb.go",
+				"int64_encoding_http_binding.pb.go",
+				"int64_encoding_http_config.pb.go",
+				"int64_encoding_encoding.pb.go",
+			},
+		},
+		{
+			name:      "enum encoding",
+			protoFile: "enum_encoding.proto",
+			expectedFiles: []string{
+				"enum_encoding_http.pb.go",
+				"enum_encoding_http_binding.pb.go",
+				"enum_encoding_http_config.pb.go",
+				"enum_encoding_enum_encoding.pb.go",
+			},
+		},
+		{
+			name:      "nullable fields",
+			protoFile: "nullable.proto",
+			expectedFiles: []string{
+				"nullable_http.pb.go",
+				"nullable_http_binding.pb.go",
+				"nullable_http_config.pb.go",
+				"nullable_nullable.pb.go",
+			},
+		},
+		{
+			name:      "empty behavior",
+			protoFile: "empty_behavior.proto",
+			expectedFiles: []string{
+				"empty_behavior_http.pb.go",
+				"empty_behavior_http_binding.pb.go",
+				"empty_behavior_http_config.pb.go",
+				"empty_behavior_empty_behavior.pb.go",
+			},
+		},
 	}
 
 	// Get paths

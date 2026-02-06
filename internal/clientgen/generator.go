@@ -37,12 +37,41 @@ func (g *Generator) Generate() error {
 }
 
 func (g *Generator) generateFile(file *protogen.File) error {
+	// Validate enum annotations first - fail fast if conflicting annotations exist
+	if err := g.validateEnumAnnotationsInFile(file); err != nil {
+		return fmt.Errorf("enum annotation validation failed: %w", err)
+	}
+
+	// Generate nullable encoding file if there are messages with nullable fields
+	if err := g.generateNullableEncodingFile(file); err != nil {
+		return err
+	}
+
+	// Generate empty_behavior encoding file if there are messages with empty_behavior fields
+	if err := g.generateEmptyBehaviorEncodingFile(file); err != nil {
+		return err
+	}
+
 	if len(file.Services) == 0 {
 		return nil
 	}
 
 	// Generate client file
-	return g.generateClientFile(file)
+	if err := g.generateClientFile(file); err != nil {
+		return err
+	}
+
+	// Generate encoding file if there are messages with int64_encoding=NUMBER annotations
+	if err := g.generateInt64EncodingFile(file); err != nil {
+		return err
+	}
+
+	// Generate enum encoding file if there are enums with custom enum_value annotations
+	if err := g.generateEnumEncodingFile(file); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (g *Generator) generateClientFile(file *protogen.File) error {

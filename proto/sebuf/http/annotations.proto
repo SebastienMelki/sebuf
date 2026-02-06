@@ -57,6 +57,39 @@ message QueryConfig {
   bool required = 2;
 }
 
+// Int64Encoding controls how int64/uint64 fields serialize to JSON
+enum Int64Encoding {
+  // Follow protojson default (serialize as string)
+  INT64_ENCODING_UNSPECIFIED = 0;
+  // Explicit string encoding: "12345"
+  INT64_ENCODING_STRING = 1;
+  // Numeric encoding: 12345 (precision warning for values > 2^53)
+  INT64_ENCODING_NUMBER = 2;
+}
+
+// EnumEncoding controls how enum fields serialize to JSON
+enum EnumEncoding {
+  // Follow protojson default (serialize as proto name string)
+  ENUM_ENCODING_UNSPECIFIED = 0;
+  // Explicit string encoding: "STATUS_ACTIVE"
+  ENUM_ENCODING_STRING = 1;
+  // Numeric encoding: 1
+  ENUM_ENCODING_NUMBER = 2;
+}
+
+// EmptyBehavior controls how empty message fields serialize to JSON.
+// "Empty" means all fields at proto default (proto.Size() == 0).
+enum EmptyBehavior {
+  // Follow default behavior: serialize empty messages as {} (same as PRESERVE)
+  EMPTY_BEHAVIOR_UNSPECIFIED = 0;
+  // Serialize empty messages as {} (explicit same as default)
+  EMPTY_BEHAVIOR_PRESERVE = 1;
+  // Serialize empty messages as null
+  EMPTY_BEHAVIOR_NULL = 2;
+  // Omit the field entirely when message is empty
+  EMPTY_BEHAVIOR_OMIT = 3;
+}
+
 // Extension for field-level options
 extend google.protobuf.FieldOptions {
   // Example values for documentation/OpenAPI
@@ -71,4 +104,33 @@ extend google.protobuf.FieldOptions {
   // to just the unwrapped field's array value.
   // Constraints: Only valid on repeated fields, only one per message.
   bool unwrap = 50009;
+
+  // Controls int64/uint64 JSON encoding for this field.
+  // Valid on: int64, sint64, sfixed64, uint64, fixed64 fields.
+  // Default: STRING encoding (protojson default for JavaScript precision safety).
+  optional Int64Encoding int64_encoding = 50010;
+
+  // Controls enum JSON encoding for this field.
+  // Valid on: enum fields only.
+  // Default: STRING encoding (protojson default using proto enum names).
+  optional EnumEncoding enum_encoding = 50011;
+
+  // Mark a primitive field as nullable (explicit null vs absent).
+  // Only valid on proto3 optional fields (HasOptionalKeyword=true).
+  // When true: unset field serializes as null, set field serializes normally.
+  // When false (default): unset field is omitted from JSON.
+  optional bool nullable = 50013;
+
+  // Controls how empty message fields serialize to JSON.
+  // Only valid on singular message fields (not repeated, not map).
+  // "Empty" = all fields at proto default (proto.Size() == 0).
+  optional EmptyBehavior empty_behavior = 50014;
+}
+
+// Extension for enum value options
+extend google.protobuf.EnumValueOptions {
+  // Custom JSON string for this enum value (e.g., "active" instead of "STATUS_ACTIVE").
+  // When set, this value is used for JSON serialization instead of the proto name.
+  // Combines with enum_encoding=STRING on fields using this enum.
+  optional string enum_value = 50012;
 }

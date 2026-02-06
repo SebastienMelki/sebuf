@@ -51,16 +51,59 @@ func (g *Generator) convertField(field *protogen.Field) *base.SchemaProxy {
 
 	// Handle optional fields (proto3 optional)
 	schema := g.convertScalarField(field)
-	if field.Desc.HasOptionalKeyword() {
-		// For proto3 optional fields, we could add nullable: true
-		// but OpenAPI 3.1 handles this differently than 3.0
-		return schema
+
+	// Handle nullable fields: use type array syntax per OpenAPI 3.1
+	if annotations.IsNullableField(field) {
+		return g.makeNullableSchema(schema)
+	}
+
+	// Handle empty_behavior=NULL for message fields: use oneOf with null type
+	if field.Desc.Kind() == protoreflect.MessageKind && annotations.HasEmptyBehaviorAnnotation(field) {
+		behavior := annotations.GetEmptyBehavior(field)
+		if behavior == http.EmptyBehavior_EMPTY_BEHAVIOR_NULL {
+			return g.makeNullableOneOfSchema(schema)
+		}
 	}
 
 	return schema
 }
 
+// makeNullableOneOfSchema creates a oneOf schema with the original schema and a null type.
+// This is used for empty_behavior=NULL on message fields, where the field can be either
+// the message type or null (when the message is empty).
+func (g *Generator) makeNullableOneOfSchema(schemaProxy *base.SchemaProxy) *base.SchemaProxy {
+	nullSchema := base.CreateSchemaProxy(&base.Schema{
+		Type: []string{"null"},
+	})
+
+	oneOfSchema := &base.Schema{
+		OneOf: []*base.SchemaProxy{schemaProxy, nullSchema},
+	}
+
+	return base.CreateSchemaProxy(oneOfSchema)
+}
+
+// makeNullableSchema takes a schema proxy and returns a new schema with "null" added to the type array.
+// Per OpenAPI 3.1, nullable types use: type: ["string", "null"].
+func (g *Generator) makeNullableSchema(schemaProxy *base.SchemaProxy) *base.SchemaProxy {
+	// Build the schema from the proxy
+	builtSchema, err := schemaProxy.BuildSchema()
+	if err != nil || builtSchema == nil {
+		// If we can't build the schema, return as-is
+		return schemaProxy
+	}
+
+	// Add "null" to the type array
+	if len(builtSchema.Type) > 0 {
+		builtSchema.Type = append(builtSchema.Type, "null")
+	}
+
+	return base.CreateSchemaProxy(builtSchema)
+}
+
 // convertScalarField handles scalar field types and message references.
+//
+//nolint:funlen // Large switch statement for all protobuf scalar types
 func (g *Generator) convertScalarField(field *protogen.Field) *base.SchemaProxy {
 	schema := &base.Schema{}
 
@@ -73,9 +116,15 @@ func (g *Generator) convertScalarField(field *protogen.Field) *base.SchemaProxy 
 		schema.Format = headerTypeInt32
 
 	case protoreflect.Int64Kind, protoreflect.Sint64Kind, protoreflect.Sfixed64Kind:
-		// Per proto3 JSON spec, int64 serializes as a string to avoid JavaScript precision loss
-		schema.Type = []string{headerTypeString}
-		schema.Format = headerTypeInt64
+		if annotations.IsInt64NumberEncoding(field) {
+			// NUMBER encoding: JavaScript number (precision risk for > 2^53)
+			schema.Type = []string{headerTypeInteger}
+			schema.Format = headerTypeInt64
+		} else {
+			// Default (STRING/UNSPECIFIED): safe string encoding per proto3 JSON spec
+			schema.Type = []string{headerTypeString}
+			schema.Format = headerTypeInt64
+		}
 
 	case protoreflect.Uint32Kind, protoreflect.Fixed32Kind:
 		schema.Type = []string{headerTypeInteger}
@@ -84,10 +133,18 @@ func (g *Generator) convertScalarField(field *protogen.Field) *base.SchemaProxy 
 		schema.Minimum = &zero
 
 	case protoreflect.Uint64Kind, protoreflect.Fixed64Kind:
-		// Per proto3 JSON spec, uint64 serializes as a string to avoid JavaScript precision loss
-		schema.Type = []string{headerTypeString}
-		schema.Format = headerTypeUint64
-		// Note: Minimum constraint removed since type is now string
+		if annotations.IsInt64NumberEncoding(field) {
+			// NUMBER encoding: JavaScript number (precision risk for > 2^53)
+			schema.Type = []string{headerTypeInteger}
+			schema.Format = headerTypeUint64
+			zero := 0.0
+			schema.Minimum = &zero
+		} else {
+			// Default (STRING/UNSPECIFIED): safe string encoding per proto3 JSON spec
+			schema.Type = []string{headerTypeString}
+			schema.Format = headerTypeUint64
+			// Note: Minimum constraint not applicable for string type
+		}
 
 	case protoreflect.FloatKind:
 		schema.Type = []string{headerTypeNumber}
@@ -128,6 +185,11 @@ func (g *Generator) convertScalarField(field *protogen.Field) *base.SchemaProxy 
 		schema.Description = strings.TrimSpace(string(field.Comments.Leading))
 	}
 
+	// Append precision warning for NUMBER-encoded int64/uint64 fields
+	if annotations.IsInt64NumberEncoding(field) {
+		appendInt64PrecisionWarning(schema)
+	}
+
 	// Apply buf.validate constraints
 	extractValidationConstraints(field, schema)
 
@@ -153,6 +215,8 @@ func (g *Generator) convertScalarField(field *protogen.Field) *base.SchemaProxy 
 }
 
 // convertEnumField converts a protobuf enum field to an OpenAPI schema.
+// If enum_encoding=NUMBER is set on the field, generates an integer enum.
+// If enum values have enum_value annotations, uses custom values instead of proto names.
 func (g *Generator) convertEnumField(field *protogen.Field) *base.SchemaProxy {
 	if field.Enum == nil {
 		// Fallback if enum is not available
@@ -161,16 +225,44 @@ func (g *Generator) convertEnumField(field *protogen.Field) *base.SchemaProxy {
 		})
 	}
 
+	// Check for NUMBER encoding
+	encoding := annotations.GetEnumEncoding(field)
+	if encoding == http.EnumEncoding_ENUM_ENCODING_NUMBER {
+		// Generate integer enum with numeric values
+		schema := &base.Schema{
+			Type: []string{headerTypeInteger},
+			Enum: make([]*yaml.Node, 0, len(field.Enum.Values)),
+		}
+		for _, value := range field.Enum.Values {
+			schema.Enum = append(schema.Enum, &yaml.Node{
+				Kind:  yaml.ScalarNode,
+				Tag:   "!!int",
+				Value: fmt.Sprintf("%d", value.Desc.Number()),
+			})
+		}
+		// Add description from enum comments
+		if field.Enum.Comments.Leading != "" {
+			schema.Description = strings.TrimSpace(string(field.Enum.Comments.Leading))
+		}
+		return base.CreateSchemaProxy(schema)
+	}
+
+	// Default: string enum with custom values or proto names
 	schema := &base.Schema{
 		Type: []string{"string"},
 		Enum: make([]*yaml.Node, 0, len(field.Enum.Values)),
 	}
 
-	// Add enum values
+	// Add enum values, using custom enum_value if present
 	for _, value := range field.Enum.Values {
+		customValue := annotations.GetEnumValueMapping(value)
+		enumValue := customValue
+		if enumValue == "" {
+			enumValue = string(value.Desc.Name())
+		}
 		schema.Enum = append(schema.Enum, &yaml.Node{
 			Kind:  yaml.ScalarNode,
-			Value: string(value.Desc.Name()),
+			Value: enumValue,
 		})
 	}
 
@@ -319,5 +411,19 @@ func mapHeaderTypeToOpenAPI(headerType string) string {
 	default:
 		// Default to string for unknown types
 		return headerTypeString
+	}
+}
+
+// int64PrecisionWarning is the warning message for NUMBER-encoded int64/uint64 fields.
+const int64PrecisionWarning = "Warning: Values > 2^53 may lose precision in JavaScript"
+
+// appendInt64PrecisionWarning appends the precision warning to a schema's description.
+// This is used for NUMBER-encoded int64/uint64 fields that use integer type.
+// It should be called after the description has been set from field comments.
+func appendInt64PrecisionWarning(schema *base.Schema) {
+	if schema.Description != "" {
+		schema.Description = schema.Description + ". " + int64PrecisionWarning
+	} else {
+		schema.Description = int64PrecisionWarning
 	}
 }

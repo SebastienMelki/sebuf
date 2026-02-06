@@ -82,6 +82,170 @@ func (HttpMethod) EnumDescriptor() ([]byte, []int) {
 	return file_sebuf_http_annotations_proto_rawDescGZIP(), []int{0}
 }
 
+// Int64Encoding controls how int64/uint64 fields serialize to JSON
+type Int64Encoding int32
+
+const (
+	// Follow protojson default (serialize as string)
+	Int64Encoding_INT64_ENCODING_UNSPECIFIED Int64Encoding = 0
+	// Explicit string encoding: "12345"
+	Int64Encoding_INT64_ENCODING_STRING Int64Encoding = 1
+	// Numeric encoding: 12345 (precision warning for values > 2^53)
+	Int64Encoding_INT64_ENCODING_NUMBER Int64Encoding = 2
+)
+
+// Enum value maps for Int64Encoding.
+var (
+	Int64Encoding_name = map[int32]string{
+		0: "INT64_ENCODING_UNSPECIFIED",
+		1: "INT64_ENCODING_STRING",
+		2: "INT64_ENCODING_NUMBER",
+	}
+	Int64Encoding_value = map[string]int32{
+		"INT64_ENCODING_UNSPECIFIED": 0,
+		"INT64_ENCODING_STRING":      1,
+		"INT64_ENCODING_NUMBER":      2,
+	}
+)
+
+func (x Int64Encoding) Enum() *Int64Encoding {
+	p := new(Int64Encoding)
+	*p = x
+	return p
+}
+
+func (x Int64Encoding) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (Int64Encoding) Descriptor() protoreflect.EnumDescriptor {
+	return file_sebuf_http_annotations_proto_enumTypes[1].Descriptor()
+}
+
+func (Int64Encoding) Type() protoreflect.EnumType {
+	return &file_sebuf_http_annotations_proto_enumTypes[1]
+}
+
+func (x Int64Encoding) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use Int64Encoding.Descriptor instead.
+func (Int64Encoding) EnumDescriptor() ([]byte, []int) {
+	return file_sebuf_http_annotations_proto_rawDescGZIP(), []int{1}
+}
+
+// EnumEncoding controls how enum fields serialize to JSON
+type EnumEncoding int32
+
+const (
+	// Follow protojson default (serialize as proto name string)
+	EnumEncoding_ENUM_ENCODING_UNSPECIFIED EnumEncoding = 0
+	// Explicit string encoding: "STATUS_ACTIVE"
+	EnumEncoding_ENUM_ENCODING_STRING EnumEncoding = 1
+	// Numeric encoding: 1
+	EnumEncoding_ENUM_ENCODING_NUMBER EnumEncoding = 2
+)
+
+// Enum value maps for EnumEncoding.
+var (
+	EnumEncoding_name = map[int32]string{
+		0: "ENUM_ENCODING_UNSPECIFIED",
+		1: "ENUM_ENCODING_STRING",
+		2: "ENUM_ENCODING_NUMBER",
+	}
+	EnumEncoding_value = map[string]int32{
+		"ENUM_ENCODING_UNSPECIFIED": 0,
+		"ENUM_ENCODING_STRING":      1,
+		"ENUM_ENCODING_NUMBER":      2,
+	}
+)
+
+func (x EnumEncoding) Enum() *EnumEncoding {
+	p := new(EnumEncoding)
+	*p = x
+	return p
+}
+
+func (x EnumEncoding) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (EnumEncoding) Descriptor() protoreflect.EnumDescriptor {
+	return file_sebuf_http_annotations_proto_enumTypes[2].Descriptor()
+}
+
+func (EnumEncoding) Type() protoreflect.EnumType {
+	return &file_sebuf_http_annotations_proto_enumTypes[2]
+}
+
+func (x EnumEncoding) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use EnumEncoding.Descriptor instead.
+func (EnumEncoding) EnumDescriptor() ([]byte, []int) {
+	return file_sebuf_http_annotations_proto_rawDescGZIP(), []int{2}
+}
+
+// EmptyBehavior controls how empty message fields serialize to JSON.
+// "Empty" means all fields at proto default (proto.Size() == 0).
+type EmptyBehavior int32
+
+const (
+	// Follow default behavior: serialize empty messages as {} (same as PRESERVE)
+	EmptyBehavior_EMPTY_BEHAVIOR_UNSPECIFIED EmptyBehavior = 0
+	// Serialize empty messages as {} (explicit same as default)
+	EmptyBehavior_EMPTY_BEHAVIOR_PRESERVE EmptyBehavior = 1
+	// Serialize empty messages as null
+	EmptyBehavior_EMPTY_BEHAVIOR_NULL EmptyBehavior = 2
+	// Omit the field entirely when message is empty
+	EmptyBehavior_EMPTY_BEHAVIOR_OMIT EmptyBehavior = 3
+)
+
+// Enum value maps for EmptyBehavior.
+var (
+	EmptyBehavior_name = map[int32]string{
+		0: "EMPTY_BEHAVIOR_UNSPECIFIED",
+		1: "EMPTY_BEHAVIOR_PRESERVE",
+		2: "EMPTY_BEHAVIOR_NULL",
+		3: "EMPTY_BEHAVIOR_OMIT",
+	}
+	EmptyBehavior_value = map[string]int32{
+		"EMPTY_BEHAVIOR_UNSPECIFIED": 0,
+		"EMPTY_BEHAVIOR_PRESERVE":    1,
+		"EMPTY_BEHAVIOR_NULL":        2,
+		"EMPTY_BEHAVIOR_OMIT":        3,
+	}
+)
+
+func (x EmptyBehavior) Enum() *EmptyBehavior {
+	p := new(EmptyBehavior)
+	*p = x
+	return p
+}
+
+func (x EmptyBehavior) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (EmptyBehavior) Descriptor() protoreflect.EnumDescriptor {
+	return file_sebuf_http_annotations_proto_enumTypes[3].Descriptor()
+}
+
+func (EmptyBehavior) Type() protoreflect.EnumType {
+	return &file_sebuf_http_annotations_proto_enumTypes[3]
+}
+
+func (x EmptyBehavior) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use EmptyBehavior.Descriptor instead.
+func (EmptyBehavior) EnumDescriptor() ([]byte, []int) {
+	return file_sebuf_http_annotations_proto_rawDescGZIP(), []int{3}
+}
+
 // HttpConfig defines HTTP-specific configuration for an RPC method
 type HttpConfig struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -325,6 +489,46 @@ var file_sebuf_http_annotations_proto_extTypes = []protoimpl.ExtensionInfo{
 		Tag:           "varint,50009,opt,name=unwrap",
 		Filename:      "sebuf/http/annotations.proto",
 	},
+	{
+		ExtendedType:  (*descriptorpb.FieldOptions)(nil),
+		ExtensionType: (*Int64Encoding)(nil),
+		Field:         50010,
+		Name:          "sebuf.http.int64_encoding",
+		Tag:           "varint,50010,opt,name=int64_encoding,enum=sebuf.http.Int64Encoding",
+		Filename:      "sebuf/http/annotations.proto",
+	},
+	{
+		ExtendedType:  (*descriptorpb.FieldOptions)(nil),
+		ExtensionType: (*EnumEncoding)(nil),
+		Field:         50011,
+		Name:          "sebuf.http.enum_encoding",
+		Tag:           "varint,50011,opt,name=enum_encoding,enum=sebuf.http.EnumEncoding",
+		Filename:      "sebuf/http/annotations.proto",
+	},
+	{
+		ExtendedType:  (*descriptorpb.FieldOptions)(nil),
+		ExtensionType: (*bool)(nil),
+		Field:         50013,
+		Name:          "sebuf.http.nullable",
+		Tag:           "varint,50013,opt,name=nullable",
+		Filename:      "sebuf/http/annotations.proto",
+	},
+	{
+		ExtendedType:  (*descriptorpb.FieldOptions)(nil),
+		ExtensionType: (*EmptyBehavior)(nil),
+		Field:         50014,
+		Name:          "sebuf.http.empty_behavior",
+		Tag:           "varint,50014,opt,name=empty_behavior,enum=sebuf.http.EmptyBehavior",
+		Filename:      "sebuf/http/annotations.proto",
+	},
+	{
+		ExtendedType:  (*descriptorpb.EnumValueOptions)(nil),
+		ExtensionType: (*string)(nil),
+		Field:         50012,
+		Name:          "sebuf.http.enum_value",
+		Tag:           "bytes,50012,opt,name=enum_value",
+		Filename:      "sebuf/http/annotations.proto",
+	},
 }
 
 // Extension fields to descriptorpb.MethodOptions.
@@ -357,6 +561,41 @@ var (
 	//
 	// optional bool unwrap = 50009;
 	E_Unwrap = &file_sebuf_http_annotations_proto_extTypes[4]
+	// Controls int64/uint64 JSON encoding for this field.
+	// Valid on: int64, sint64, sfixed64, uint64, fixed64 fields.
+	// Default: STRING encoding (protojson default for JavaScript precision safety).
+	//
+	// optional sebuf.http.Int64Encoding int64_encoding = 50010;
+	E_Int64Encoding = &file_sebuf_http_annotations_proto_extTypes[5]
+	// Controls enum JSON encoding for this field.
+	// Valid on: enum fields only.
+	// Default: STRING encoding (protojson default using proto enum names).
+	//
+	// optional sebuf.http.EnumEncoding enum_encoding = 50011;
+	E_EnumEncoding = &file_sebuf_http_annotations_proto_extTypes[6]
+	// Mark a primitive field as nullable (explicit null vs absent).
+	// Only valid on proto3 optional fields (HasOptionalKeyword=true).
+	// When true: unset field serializes as null, set field serializes normally.
+	// When false (default): unset field is omitted from JSON.
+	//
+	// optional bool nullable = 50013;
+	E_Nullable = &file_sebuf_http_annotations_proto_extTypes[7]
+	// Controls how empty message fields serialize to JSON.
+	// Only valid on singular message fields (not repeated, not map).
+	// "Empty" = all fields at proto default (proto.Size() == 0).
+	//
+	// optional sebuf.http.EmptyBehavior empty_behavior = 50014;
+	E_EmptyBehavior = &file_sebuf_http_annotations_proto_extTypes[8]
+)
+
+// Extension fields to descriptorpb.EnumValueOptions.
+var (
+	// Custom JSON string for this enum value (e.g., "active" instead of "STATUS_ACTIVE").
+	// When set, this value is used for JSON serialization instead of the proto name.
+	// Combines with enum_encoding=STRING on fields using this enum.
+	//
+	// optional string enum_value = 50012;
+	E_EnumValue = &file_sebuf_http_annotations_proto_extTypes[9]
 )
 
 var File_sebuf_http_annotations_proto protoreflect.FileDescriptor
@@ -383,12 +622,31 @@ const file_sebuf_http_annotations_proto_rawDesc = "" +
 	"\x10HTTP_METHOD_POST\x10\x02\x12\x13\n" +
 	"\x0fHTTP_METHOD_PUT\x10\x03\x12\x16\n" +
 	"\x12HTTP_METHOD_DELETE\x10\x04\x12\x15\n" +
-	"\x11HTTP_METHOD_PATCH\x10\x05:P\n" +
+	"\x11HTTP_METHOD_PATCH\x10\x05*e\n" +
+	"\rInt64Encoding\x12\x1e\n" +
+	"\x1aINT64_ENCODING_UNSPECIFIED\x10\x00\x12\x19\n" +
+	"\x15INT64_ENCODING_STRING\x10\x01\x12\x19\n" +
+	"\x15INT64_ENCODING_NUMBER\x10\x02*a\n" +
+	"\fEnumEncoding\x12\x1d\n" +
+	"\x19ENUM_ENCODING_UNSPECIFIED\x10\x00\x12\x18\n" +
+	"\x14ENUM_ENCODING_STRING\x10\x01\x12\x18\n" +
+	"\x14ENUM_ENCODING_NUMBER\x10\x02*~\n" +
+	"\rEmptyBehavior\x12\x1e\n" +
+	"\x1aEMPTY_BEHAVIOR_UNSPECIFIED\x10\x00\x12\x1b\n" +
+	"\x17EMPTY_BEHAVIOR_PRESERVE\x10\x01\x12\x17\n" +
+	"\x13EMPTY_BEHAVIOR_NULL\x10\x02\x12\x17\n" +
+	"\x13EMPTY_BEHAVIOR_OMIT\x10\x03:P\n" +
 	"\x06config\x12\x1e.google.protobuf.MethodOptions\x18ӆ\x03 \x01(\v2\x16.sebuf.http.HttpConfigR\x06config:c\n" +
 	"\x0eservice_config\x12\x1f.google.protobuf.ServiceOptions\x18Ԇ\x03 \x01(\v2\x19.sebuf.http.ServiceConfigR\rserviceConfig:a\n" +
 	"\x0efield_examples\x12\x1d.google.protobuf.FieldOptions\x18׆\x03 \x01(\v2\x19.sebuf.http.FieldExamplesR\rfieldExamples:N\n" +
 	"\x05query\x12\x1d.google.protobuf.FieldOptions\x18؆\x03 \x01(\v2\x17.sebuf.http.QueryConfigR\x05query:7\n" +
-	"\x06unwrap\x12\x1d.google.protobuf.FieldOptions\x18ن\x03 \x01(\bR\x06unwrapB+Z)github.com/SebastienMelki/sebuf/http;httpb\x06proto3"
+	"\x06unwrap\x12\x1d.google.protobuf.FieldOptions\x18ن\x03 \x01(\bR\x06unwrap:d\n" +
+	"\x0eint64_encoding\x12\x1d.google.protobuf.FieldOptions\x18چ\x03 \x01(\x0e2\x19.sebuf.http.Int64EncodingR\rint64Encoding\x88\x01\x01:a\n" +
+	"\renum_encoding\x12\x1d.google.protobuf.FieldOptions\x18ۆ\x03 \x01(\x0e2\x18.sebuf.http.EnumEncodingR\fenumEncoding\x88\x01\x01:>\n" +
+	"\bnullable\x12\x1d.google.protobuf.FieldOptions\x18݆\x03 \x01(\bR\bnullable\x88\x01\x01:d\n" +
+	"\x0eempty_behavior\x12\x1d.google.protobuf.FieldOptions\x18ކ\x03 \x01(\x0e2\x19.sebuf.http.EmptyBehaviorR\remptyBehavior\x88\x01\x01:E\n" +
+	"\n" +
+	"enum_value\x12!.google.protobuf.EnumValueOptions\x18܆\x03 \x01(\tR\tenumValue\x88\x01\x01B+Z)github.com/SebastienMelki/sebuf/http;httpb\x06proto3"
 
 var (
 	file_sebuf_http_annotations_proto_rawDescOnce sync.Once
@@ -402,33 +660,45 @@ func file_sebuf_http_annotations_proto_rawDescGZIP() []byte {
 	return file_sebuf_http_annotations_proto_rawDescData
 }
 
-var file_sebuf_http_annotations_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
+var file_sebuf_http_annotations_proto_enumTypes = make([]protoimpl.EnumInfo, 4)
 var file_sebuf_http_annotations_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
 var file_sebuf_http_annotations_proto_goTypes = []any{
-	(HttpMethod)(0),                     // 0: sebuf.http.HttpMethod
-	(*HttpConfig)(nil),                  // 1: sebuf.http.HttpConfig
-	(*ServiceConfig)(nil),               // 2: sebuf.http.ServiceConfig
-	(*FieldExamples)(nil),               // 3: sebuf.http.FieldExamples
-	(*QueryConfig)(nil),                 // 4: sebuf.http.QueryConfig
-	(*descriptorpb.MethodOptions)(nil),  // 5: google.protobuf.MethodOptions
-	(*descriptorpb.ServiceOptions)(nil), // 6: google.protobuf.ServiceOptions
-	(*descriptorpb.FieldOptions)(nil),   // 7: google.protobuf.FieldOptions
+	(HttpMethod)(0),                       // 0: sebuf.http.HttpMethod
+	(Int64Encoding)(0),                    // 1: sebuf.http.Int64Encoding
+	(EnumEncoding)(0),                     // 2: sebuf.http.EnumEncoding
+	(EmptyBehavior)(0),                    // 3: sebuf.http.EmptyBehavior
+	(*HttpConfig)(nil),                    // 4: sebuf.http.HttpConfig
+	(*ServiceConfig)(nil),                 // 5: sebuf.http.ServiceConfig
+	(*FieldExamples)(nil),                 // 6: sebuf.http.FieldExamples
+	(*QueryConfig)(nil),                   // 7: sebuf.http.QueryConfig
+	(*descriptorpb.MethodOptions)(nil),    // 8: google.protobuf.MethodOptions
+	(*descriptorpb.ServiceOptions)(nil),   // 9: google.protobuf.ServiceOptions
+	(*descriptorpb.FieldOptions)(nil),     // 10: google.protobuf.FieldOptions
+	(*descriptorpb.EnumValueOptions)(nil), // 11: google.protobuf.EnumValueOptions
 }
 var file_sebuf_http_annotations_proto_depIdxs = []int32{
 	0,  // 0: sebuf.http.HttpConfig.method:type_name -> sebuf.http.HttpMethod
-	5,  // 1: sebuf.http.config:extendee -> google.protobuf.MethodOptions
-	6,  // 2: sebuf.http.service_config:extendee -> google.protobuf.ServiceOptions
-	7,  // 3: sebuf.http.field_examples:extendee -> google.protobuf.FieldOptions
-	7,  // 4: sebuf.http.query:extendee -> google.protobuf.FieldOptions
-	7,  // 5: sebuf.http.unwrap:extendee -> google.protobuf.FieldOptions
-	1,  // 6: sebuf.http.config:type_name -> sebuf.http.HttpConfig
-	2,  // 7: sebuf.http.service_config:type_name -> sebuf.http.ServiceConfig
-	3,  // 8: sebuf.http.field_examples:type_name -> sebuf.http.FieldExamples
-	4,  // 9: sebuf.http.query:type_name -> sebuf.http.QueryConfig
-	10, // [10:10] is the sub-list for method output_type
-	10, // [10:10] is the sub-list for method input_type
-	6,  // [6:10] is the sub-list for extension type_name
-	1,  // [1:6] is the sub-list for extension extendee
+	8,  // 1: sebuf.http.config:extendee -> google.protobuf.MethodOptions
+	9,  // 2: sebuf.http.service_config:extendee -> google.protobuf.ServiceOptions
+	10, // 3: sebuf.http.field_examples:extendee -> google.protobuf.FieldOptions
+	10, // 4: sebuf.http.query:extendee -> google.protobuf.FieldOptions
+	10, // 5: sebuf.http.unwrap:extendee -> google.protobuf.FieldOptions
+	10, // 6: sebuf.http.int64_encoding:extendee -> google.protobuf.FieldOptions
+	10, // 7: sebuf.http.enum_encoding:extendee -> google.protobuf.FieldOptions
+	10, // 8: sebuf.http.nullable:extendee -> google.protobuf.FieldOptions
+	10, // 9: sebuf.http.empty_behavior:extendee -> google.protobuf.FieldOptions
+	11, // 10: sebuf.http.enum_value:extendee -> google.protobuf.EnumValueOptions
+	4,  // 11: sebuf.http.config:type_name -> sebuf.http.HttpConfig
+	5,  // 12: sebuf.http.service_config:type_name -> sebuf.http.ServiceConfig
+	6,  // 13: sebuf.http.field_examples:type_name -> sebuf.http.FieldExamples
+	7,  // 14: sebuf.http.query:type_name -> sebuf.http.QueryConfig
+	1,  // 15: sebuf.http.int64_encoding:type_name -> sebuf.http.Int64Encoding
+	2,  // 16: sebuf.http.enum_encoding:type_name -> sebuf.http.EnumEncoding
+	3,  // 17: sebuf.http.empty_behavior:type_name -> sebuf.http.EmptyBehavior
+	18, // [18:18] is the sub-list for method output_type
+	18, // [18:18] is the sub-list for method input_type
+	11, // [11:18] is the sub-list for extension type_name
+	1,  // [1:11] is the sub-list for extension extendee
 	0,  // [0:1] is the sub-list for field type_name
 }
 
@@ -442,9 +712,9 @@ func file_sebuf_http_annotations_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_sebuf_http_annotations_proto_rawDesc), len(file_sebuf_http_annotations_proto_rawDesc)),
-			NumEnums:      1,
+			NumEnums:      4,
 			NumMessages:   4,
-			NumExtensions: 5,
+			NumExtensions: 10,
 			NumServices:   0,
 		},
 		GoTypes:           file_sebuf_http_annotations_proto_goTypes,

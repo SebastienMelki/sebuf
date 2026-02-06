@@ -1,0 +1,58 @@
+syntax = "proto3";
+
+package testdata.empty_behavior;
+
+option go_package = "github.com/SebastienMelki/sebuf/internal/httpgen/testdata/emptybehavior;emptybehavior";
+
+import "sebuf/http/annotations.proto";
+
+// Metadata is a simple message to test empty detection.
+message Metadata {
+  string key = 1;
+  string value = 2;
+}
+
+// Settings demonstrates various empty_behavior modes.
+message Settings {
+  bool enabled = 1;
+  int32 timeout = 2;
+}
+
+// Response demonstrates empty_behavior on message fields.
+message Response {
+  string id = 1;
+
+  // PRESERVE: empty message serializes as {}
+  Metadata metadata_preserve = 2 [(sebuf.http.empty_behavior) = EMPTY_BEHAVIOR_PRESERVE];
+
+  // NULL: empty message serializes as null
+  Metadata metadata_null = 3 [(sebuf.http.empty_behavior) = EMPTY_BEHAVIOR_NULL];
+
+  // OMIT: empty message field is omitted
+  Metadata metadata_omit = 4 [(sebuf.http.empty_behavior) = EMPTY_BEHAVIOR_OMIT];
+
+  // No annotation: follows default (PRESERVE)
+  Metadata metadata_default = 5;
+
+  // Another message type to test
+  Settings settings = 6 [(sebuf.http.empty_behavior) = EMPTY_BEHAVIOR_NULL];
+}
+
+// GetResponseRequest is the request for GetResponse.
+message GetResponseRequest {
+  string id = 1;
+}
+
+// EmptyBehaviorService tests empty behavior in responses.
+service EmptyBehaviorService {
+  option (sebuf.http.service_config) = {
+    base_path: "/api/v1"
+  };
+
+  rpc GetResponse(GetResponseRequest) returns (Response) {
+    option (sebuf.http.config) = {
+      path: "/responses/{id}"
+      method: HTTP_METHOD_GET
+    };
+  }
+}

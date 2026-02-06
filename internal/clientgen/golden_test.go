@@ -62,6 +62,38 @@ func TestClientGenGoldenFiles(t *testing.T) {
 				"complex_features_client.pb.go",
 			},
 		},
+		{
+			name:      "int64 encoding",
+			protoFile: "int64_encoding.proto",
+			expectedFiles: []string{
+				"int64_encoding_client.pb.go",
+				"int64_encoding_encoding.pb.go",
+			},
+		},
+		{
+			name:      "enum encoding",
+			protoFile: "enum_encoding.proto",
+			expectedFiles: []string{
+				"enum_encoding_client.pb.go",
+				"enum_encoding_enum_encoding.pb.go",
+			},
+		},
+		{
+			name:      "nullable fields",
+			protoFile: "nullable.proto",
+			expectedFiles: []string{
+				"nullable_client.pb.go",
+				"nullable_nullable.pb.go",
+			},
+		},
+		{
+			name:      "empty behavior",
+			protoFile: "empty_behavior.proto",
+			expectedFiles: []string{
+				"empty_behavior_client.pb.go",
+				"empty_behavior_empty_behavior.pb.go",
+			},
+		},
 	}
 
 	// Get paths

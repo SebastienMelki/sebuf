@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2026-02-05)
 
 **Core value:** Proto definitions are the single source of truth -- every generator must produce consistent, correct output that interoperates seamlessly.
-**Current focus:** Phase 3 COMPLETE -- All 4 generators verified consistent, ready for Phase 4 (JSON Mapping Features).
+**Current focus:** Phase 5 complete -- JSON Nullable & Empty Behavior verified. Ready for Phase 6.
 
 ## Current Position
 
-Phase: 3 of 11 (Existing Client Review) - COMPLETE
-Plan: 6 of 6 in current phase (all complete)
-Status: Phase complete
-Last activity: 2026-02-05 -- Completed 03-06-PLAN.md (Cross-Generator Consistency Verification)
+Phase: 5 of 11 (JSON - Nullable & Empty) -- COMPLETE
+Plan: 4 of 4 in current phase
+Status: Complete (verified 5/5 must-haves)
+Last activity: 2026-02-06 -- Phase 5 verified and complete
 
-Progress: [############] 55% (12 plans of ~22 estimated total)
+Progress: [#####################] 91% (21 plans of ~23 estimated total)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 12
-- Average duration: ~6.0m
-- Total execution time: ~1.2 hours
+- Total plans completed: 21
+- Average duration: ~6.2m
+- Total execution time: ~2.2 hours
 
 **By Phase:**
 
@@ -30,10 +30,12 @@ Progress: [############] 55% (12 plans of ~22 estimated total)
 | 01 - Foundation Quick Wins | 2/2 | ~17m | ~8.5m |
 | 02 - Shared Annotations | 4/4 | ~26m | ~6.5m |
 | 03 - Existing Client Review | 6/6 | ~36m | ~6.0m |
+| 04 - JSON Primitive Encoding | 5/5 | ~65m | ~13.0m |
+| 05 - JSON Nullable & Empty | 4/4 | ~21m | ~5.3m |
 
 **Recent Trend:**
-- Last 5 plans: 03-03 (3m), 03-04 (7m), 03-05 (7m), 03-06 (5m)
-- Trend: Consistent, verification tasks efficient
+- Last 5 plans: 04-05 (6m), 05-01 (3m), 05-02 (7m), 05-03 (7m), 05-04 (4m)
+- Trend: Phase 5 maintaining fast pace with well-patterned consistency testing
 
 *Updated after each plan completion*
 
@@ -78,6 +80,32 @@ Recent decisions affecting current work:
 - D-03-05-03: Added headerTypeUint64 constant and removed minimum constraint since uint64 is now string type
 - D-03-06-01: Default path inconsistency for services without HTTP annotations is accepted (backward compat fallback mode only)
 - D-03-06-02: Cross-generator consistency verified for all 10 key areas (paths, methods, params, schemas, errors, headers, unwrap)
+- D-04-01-01: Extension numbers 50010-50012 continue sequence from existing 50009 (unwrap)
+- D-04-01-02: UNSPECIFIED (0) always means "use protojson default" - explicit STRING value available for documentation
+- D-04-01-03: GetEnumValueMapping returns empty string (not nil) for consistency with Go string semantics
+- D-04-03-01: tsScalarTypeForField pattern - keep base tsScalarType unchanged, add encoding-aware variant
+- D-04-03-02: appendInt64PrecisionWarning called after description set - ensures comment text + warning combined
+- D-04-03-03: nolint directives for valid lint warnings - exhaustive (has default), funlen (big switch), nestif (existing pattern)
+- D-04-02-01: Use protojson for base serialization, then modify map for NUMBER fields - preserves all other field handling
+- D-04-02-02: Print precision warning to stderr during generation, not at runtime - developer sees during build
+- D-04-02-03: Identical encoding.go implementation in httpgen and clientgen - guarantees server/client JSON match
+- D-04-04-01: Separate enum_encoding.go files in httpgen/clientgen to avoid import conflicts with int64 encoding.go
+- D-04-04-02: Both proto name and custom value accepted in UnmarshalJSON for backward compatibility
+- D-04-04-03: NUMBER encoding returns 'number' type in TypeScript, 'integer' type in OpenAPI
+- D-04-05-01: Split TestEncodingConsistencyAcrossGenerators into separate test functions for linting compliance
+- D-04-05-02: Use normalizeGeneratorComment to allow byte-level comparison between go-http and go-client
+- D-04-05-03: Convert openapiv3 enum_encoding.proto from duplicate file to symlink for consistency
+- D-05-01-01: Extension numbers 50013 (nullable) and 50014 (empty_behavior) continue sequence from 50012
+- D-05-01-02: UNSPECIFIED (0) means default behavior (same as PRESERVE for empty_behavior)
+- D-05-02-01: Identical nullable.go in httpgen and clientgen for server/client JSON consistency
+- D-05-02-02: Nullable TypeScript fields use T | null (not optional ?) - always present with value or null
+- D-05-02-03: OpenAPI 3.1 type array syntax [T, null] instead of deprecated nullable: true
+- D-05-02-04: Nullable encoding placed before service check in clientgen (like httpgen) for message-only files
+- D-05-03-01: Identical empty_behavior.go in httpgen and clientgen for server/client JSON consistency
+- D-05-03-02: OpenAPI oneOf schema for NULL fields ({$ref} | {type: null}) instead of deprecated nullable:true
+- D-05-03-03: OMIT fields use standard $ref in OpenAPI (serialization-only behavior, schema unchanged)
+- D-05-03-04: Exhaustive switch for EmptyBehavior enum to satisfy linter
+- D-05-04-01: Added empty_behavior test proto to clientgen (Rule 3 deviation) to enable byte-level golden file comparison
 
 ### Pending Todos
 
@@ -89,7 +117,7 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-02-05
-Stopped at: Completed Phase 3 (all 6 plans)
+Last session: 2026-02-06
+Stopped at: Phase 5 complete and verified
 Resume file: None
-Next: Phase 4 (JSON Mapping Features)
+Next: Phase 6 (JSON - Data Encoding) -- timestamp formats and bytes encoding
