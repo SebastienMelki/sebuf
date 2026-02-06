@@ -52,6 +52,26 @@ func (g *Generator) generateFile(file *protogen.File) error {
 		return err
 	}
 
+	// Generate timestamp_format encoding file if there are messages with timestamp format annotations
+	if err := g.generateTimestampFormatEncodingFile(file); err != nil {
+		return err
+	}
+
+	// Generate bytes_encoding file if there are messages with non-default bytes encoding
+	if err := g.generateBytesEncodingFile(file); err != nil {
+		return err
+	}
+
+	// Generate flatten file if there are messages with flatten annotations
+	if err := g.generateFlattenFile(file); err != nil {
+		return err
+	}
+
+	// Generate oneof_discriminator file if there are messages with oneof_config annotations
+	if err := g.generateOneofDiscriminatorFile(file); err != nil {
+		return err
+	}
+
 	if len(file.Services) == 0 {
 		return nil
 	}

@@ -1,0 +1,239 @@
+openapi: 3.1.0
+info:
+    title: TimestampFormatService API
+    version: 1.0.0
+paths:
+    /api/v1/timestamp-format:
+        post:
+            tags:
+                - TimestampFormatService
+            summary: CreateTimestampFormat
+            operationId: CreateTimestampFormat
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/TimestampFormatTest'
+                required: true
+            responses:
+                "200":
+                    description: Successful response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/TimestampFormatTest'
+                "400":
+                    description: Validation error
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ValidationError'
+                default:
+                    description: Error response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Error'
+    /api/v1/timestamp-format/{id}:
+        get:
+            tags:
+                - TimestampFormatService
+            summary: GetTimestampFormat
+            operationId: GetTimestampFormat
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    description: Successful response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/TimestampFormatTest'
+                "400":
+                    description: Validation error
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ValidationError'
+                default:
+                    description: Error response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Error'
+components:
+    schemas:
+        Error:
+            type: object
+            properties:
+                message:
+                    type: string
+                    description: Error message (e.g., 'user not found', 'database connection failed')
+            description: Error is returned when a handler encounters an error. It contains a simple error message that the developer can customize.
+        FieldViolation:
+            type: object
+            properties:
+                field:
+                    type: string
+                    description: The field path that failed validation (e.g., 'user.email' for nested fields). For header validation, this will be the header name (e.g., 'X-API-Key')
+                description:
+                    type: string
+                    description: Human-readable description of the validation violation (e.g., 'must be a valid email address', 'required field missing')
+            required:
+                - field
+                - description
+            description: FieldViolation describes a single validation error for a specific field.
+        ValidationError:
+            type: object
+            properties:
+                violations:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/FieldViolation'
+                    description: List of validation violations
+            required:
+                - violations
+            description: ValidationError is returned when request validation fails. It contains a list of field violations describing what went wrong.
+        TimestampFormatTest:
+            type: object
+            properties:
+                defaultTs:
+                    type: string
+                    format: date-time
+                    description: Default (RFC3339) - no annotation
+                rfc3339Ts:
+                    type: string
+                    format: date-time
+                    description: Explicit RFC3339
+                unixSecondsTs:
+                    type: integer
+                    format: unix-timestamp
+                    description: Unix seconds - serializes as integer
+                unixMillisTs:
+                    type: integer
+                    format: unix-timestamp-ms
+                    description: Unix milliseconds - serializes as integer
+                dateTs:
+                    type: string
+                    format: date
+                    description: Date only - serializes as "2024-01-15"
+            description: TimestampFormatTest demonstrates various timestamp format options.
+        Timestamp:
+            type: object
+            properties:
+                seconds:
+                    type: string
+                    format: int64
+                    description: |-
+                        Represents seconds of UTC time since Unix epoch 1970-01-01T00:00:00Z. Must
+                         be between -315576000000 and 315576000000 inclusive (which corresponds to
+                         0001-01-01T00:00:00Z to 9999-12-31T23:59:59Z).
+                nanos:
+                    type: integer
+                    format: int32
+                    description: |-
+                        Non-negative fractions of a second at nanosecond resolution. This field is
+                         the nanosecond portion of the duration, not an alternative to seconds.
+                         Negative second values with fractions must still have non-negative nanos
+                         values that count forward in time. Must be between 0 and 999,999,999
+                         inclusive.
+            description: |-
+                A Timestamp represents a point in time independent of any time zone or local
+                 calendar, encoded as a count of seconds and fractions of seconds at
+                 nanosecond resolution. The count is relative to an epoch at UTC midnight on
+                 January 1, 1970, in the proleptic Gregorian calendar which extends the
+                 Gregorian calendar backwards to year one.
+
+                 All minutes are 60 seconds long. Leap seconds are "smeared" so that no leap
+                 second table is needed for interpretation, using a [24-hour linear
+                 smear](https://developers.google.com/time/smear).
+
+                 The range is from 0001-01-01T00:00:00Z to 9999-12-31T23:59:59.999999999Z. By
+                 restricting to that range, we ensure that we can convert to and from [RFC
+                 3339](https://www.ietf.org/rfc/rfc3339.txt) date strings.
+
+                 # Examples
+
+                 Example 1: Compute Timestamp from POSIX `time()`.
+
+                     Timestamp timestamp;
+                     timestamp.set_seconds(time(NULL));
+                     timestamp.set_nanos(0);
+
+                 Example 2: Compute Timestamp from POSIX `gettimeofday()`.
+
+                     struct timeval tv;
+                     gettimeofday(&tv, NULL);
+
+                     Timestamp timestamp;
+                     timestamp.set_seconds(tv.tv_sec);
+                     timestamp.set_nanos(tv.tv_usec * 1000);
+
+                 Example 3: Compute Timestamp from Win32 `GetSystemTimeAsFileTime()`.
+
+                     FILETIME ft;
+                     GetSystemTimeAsFileTime(&ft);
+                     UINT64 ticks = (((UINT64)ft.dwHighDateTime) << 32) | ft.dwLowDateTime;
+
+                     // A Windows tick is 100 nanoseconds. Windows epoch 1601-01-01T00:00:00Z
+                     // is 11644473600 seconds before Unix epoch 1970-01-01T00:00:00Z.
+                     Timestamp timestamp;
+                     timestamp.set_seconds((INT64) ((ticks / 10000000) - 11644473600LL));
+                     timestamp.set_nanos((INT32) ((ticks % 10000000) * 100));
+
+                 Example 4: Compute Timestamp from Java `System.currentTimeMillis()`.
+
+                     long millis = System.currentTimeMillis();
+
+                     Timestamp timestamp = Timestamp.newBuilder().setSeconds(millis / 1000)
+                         .setNanos((int) ((millis % 1000) * 1000000)).build();
+
+                 Example 5: Compute Timestamp from Java `Instant.now()`.
+
+                     Instant now = Instant.now();
+
+                     Timestamp timestamp =
+                         Timestamp.newBuilder().setSeconds(now.getEpochSecond())
+                             .setNanos(now.getNano()).build();
+
+                 Example 6: Compute Timestamp from current time in Python.
+
+                     timestamp = Timestamp()
+                     timestamp.GetCurrentTime()
+
+                 # JSON Mapping
+
+                 In JSON format, the Timestamp type is encoded as a string in the
+                 [RFC 3339](https://www.ietf.org/rfc/rfc3339.txt) format. That is, the
+                 format is "{year}-{month}-{day}T{hour}:{min}:{sec}[.{frac_sec}]Z"
+                 where {year} is always expressed using four digits while {month}, {day},
+                 {hour}, {min}, and {sec} are zero-padded to two digits each. The fractional
+                 seconds, which can go up to 9 digits (i.e. up to 1 nanosecond resolution),
+                 are optional. The "Z" suffix indicates the timezone ("UTC"); the timezone
+                 is required. A proto3 JSON serializer should always use UTC (as indicated by
+                 "Z") when printing the Timestamp type and a proto3 JSON parser should be
+                 able to accept both UTC and other timezones (as indicated by an offset).
+
+                 For example, "2017-01-15T01:30:15.01Z" encodes 15.01 seconds past
+                 01:30 UTC on January 15, 2017.
+
+                 In JavaScript, one can convert a Date object to this format using the
+                 standard
+                 [toISOString()](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Date/toISOString)
+                 method. In Python, a standard `datetime.datetime` object can be converted
+                 to this format using
+                 [`strftime`](https://docs.python.org/2/library/time.html#time.strftime) with
+                 the time format spec '%Y-%m-%dT%H:%M:%S.%fZ'. Likewise, in Java, one can use
+                 the Joda Time's [`ISODateTimeFormat.dateTime()`](
+                 http://joda-time.sourceforge.net/apidocs/org/joda/time/format/ISODateTimeFormat.html#dateTime()
+                 ) to obtain a formatter capable of generating timestamps in this format.
+        TimestampFormatRequest:
+            type: object
+            properties:
+                id:
+                    type: string
+            description: TimestampFormatRequest is the request for TestTimestampFormat.

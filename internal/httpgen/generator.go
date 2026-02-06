@@ -60,6 +60,7 @@ func (g *Generator) Generate() error {
 	return nil
 }
 
+//nolint:gocognit // Sequential encoding file generation adds unavoidable branching
 func (g *Generator) generateFile(file *protogen.File) error {
 	// Validate enum annotations first - fail fast if conflicting annotations exist
 	if err := g.validateEnumAnnotationsInFile(file); err != nil {
@@ -93,6 +94,26 @@ func (g *Generator) generateFile(file *protogen.File) error {
 
 	// Generate empty_behavior encoding file if there are messages with empty_behavior fields
 	if err := g.generateEmptyBehaviorEncodingFile(file); err != nil {
+		return err
+	}
+
+	// Generate timestamp_format encoding file if there are messages with timestamp format annotations
+	if err := g.generateTimestampFormatEncodingFile(file); err != nil {
+		return err
+	}
+
+	// Generate bytes_encoding file if there are messages with non-default bytes encoding
+	if err := g.generateBytesEncodingFile(file); err != nil {
+		return err
+	}
+
+	// Generate flatten file if there are messages with flatten annotations
+	if err := g.generateFlattenFile(file); err != nil {
+		return err
+	}
+
+	// Generate oneof_discriminator file if there are messages with oneof_config annotations
+	if err := g.generateOneofDiscriminatorFile(file); err != nil {
 		return err
 	}
 

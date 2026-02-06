@@ -17,8 +17,8 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 3: Existing Client Review** - Review and polish existing Go client and TypeScript client before building new features
 - [x] **Phase 4: JSON - Primitive Encoding** - int64/uint64 string encoding and enum string encoding across all generators
 - [x] **Phase 5: JSON - Nullable & Empty** - Nullable primitives and empty object handling across all generators
-- [ ] **Phase 6: JSON - Data Encoding** - Timestamp formats and bytes encoding options across all generators
-- [ ] **Phase 7: JSON - Structural Transforms** - Oneof discriminated unions and nested message flattening across all generators
+- [x] **Phase 6: JSON - Data Encoding** - Timestamp formats and bytes encoding options across all generators
+- [x] **Phase 7: JSON - Structural Transforms** - Oneof discriminated unions and nested message flattening across all generators
 - [ ] **Phase 8: Language - Swift Client** - Idiomatic Swift HTTP client generator using URLSession and Codable
 - [ ] **Phase 9: Language - Kotlin Client** - Idiomatic Kotlin HTTP client generator using OkHttp and data classes
 - [ ] **Phase 10: Language - Python Client** - Idiomatic Python HTTP client generator using httpx and dataclasses
@@ -128,13 +128,13 @@ Plans:
   4. All five bytes encoding options work correctly: BASE64 (default), BASE64_RAW, BASE64URL, BASE64URL_RAW, HEX
   5. OpenAPI schemas document the actual encoding format used (e.g., `format: unix-timestamp` or `format: hex`)
   6. A cross-generator consistency test confirms that go-http, go-client, ts-client, and openapiv3 agree on serialization format for every timestamp_format and bytes_encoding combination
-**Plans**: TBD
+**Plans**: 4 plans
 
 Plans:
-- [ ] 06-01: Define timestamp_format and bytes_encoding annotations in proto/sebuf/http/
-- [ ] 06-02: Implement timestamp format options across all 4 generators
-- [ ] 06-03: Implement bytes encoding options across all 4 generators
-- [ ] 06-04: Cross-generator consistency validation for data encoding
+- [x] 06-01-PLAN.md -- Define timestamp_format and bytes_encoding annotations in proto and shared annotations package
+- [x] 06-02-PLAN.md -- Implement timestamp format options across all 4 generators
+- [x] 06-03-PLAN.md -- Implement bytes encoding options across all 4 generators
+- [x] 06-04-PLAN.md -- Cross-generator consistency validation for data encoding
 
 ### Phase 7: JSON - Structural Transforms
 **Goal**: Developers can represent oneof fields as discriminated unions and flatten nested messages in their API's JSON output
@@ -147,13 +147,13 @@ Plans:
   4. `flatten_prefix` annotation prepends a prefix to flattened field names to avoid collisions (e.g., `flatten_prefix = "billing_"` produces `billing_street`)
   5. OpenAPI schemas accurately represent discriminated unions using the `discriminator` keyword and flattened structures using `allOf`
   6. A cross-generator consistency test confirms that go-http, go-client, ts-client, and openapiv3 produce semantically identical JSON structure for every oneof and flatten combination
-**Plans**: TBD
+**Plans**: 4 plans
 
 Plans:
-- [ ] 07-01: Define oneof_discriminator, oneof_flatten, flatten, and flatten_prefix annotations
-- [ ] 07-02: Implement oneof discriminated union across all 4 generators
-- [ ] 07-03: Implement nested message flattening across all 4 generators
-- [ ] 07-04: Cross-generator consistency validation for structural transforms
+- [x] 07-01-PLAN.md -- Define oneof_config, oneof_value, flatten, and flatten_prefix annotations in proto and shared annotations package
+- [x] 07-02-PLAN.md -- Implement oneof discriminated union across all 4 generators
+- [x] 07-03-PLAN.md -- Implement nested message flattening across all 4 generators
+- [x] 07-04-PLAN.md -- Cross-generator consistency validation for structural transforms
 
 ### Phase 8: Language - Swift Client
 **Goal**: Swift developers can generate a type-safe HTTP client from proto definitions that supports all sebuf annotations including JSON mapping features
@@ -243,8 +243,8 @@ Note: Phases 8, 9, 10 (language clients) can execute in parallel after Phase 7 c
 | 3. Existing Client Review | 6/6 | Complete | 2026-02-05 |
 | 4. JSON - Primitive Encoding | 5/5 | Complete | 2026-02-06 |
 | 5. JSON - Nullable & Empty | 4/4 | Complete | 2026-02-06 |
-| 6. JSON - Data Encoding | 0/4 | Not started | - |
-| 7. JSON - Structural Transforms | 0/4 | Not started | - |
+| 6. JSON - Data Encoding | 4/4 | Complete | 2026-02-06 |
+| 7. JSON - Structural Transforms | 4/4 | Complete | 2026-02-06 |
 | 8. Language - Swift Client | 0/4 | Not started | - |
 | 9. Language - Kotlin Client | 0/4 | Not started | - |
 | 10. Language - Python Client | 0/4 | Not started | - |

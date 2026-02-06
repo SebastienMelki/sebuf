@@ -505,6 +505,66 @@ func TestExhaustiveGoldenFiles(t *testing.T) {
 			goldenFile:  "testdata/golden/json/EmptyBehaviorService.openapi.json",
 			format:      "json",
 		},
+		// timestamp_format.proto -> TimestampFormatService (timestamp format variants)
+		{
+			name:        "timestamp_format_service_yaml",
+			protoFile:   "testdata/proto/timestamp_format.proto",
+			serviceName: "TimestampFormatService",
+			goldenFile:  "testdata/golden/yaml/TimestampFormatService.openapi.yaml",
+			format:      "yaml",
+		},
+		{
+			name:        "timestamp_format_service_json",
+			protoFile:   "testdata/proto/timestamp_format.proto",
+			serviceName: "TimestampFormatService",
+			goldenFile:  "testdata/golden/json/TimestampFormatService.openapi.json",
+			format:      "json",
+		},
+		// bytes_encoding.proto -> BytesEncodingService (bytes encoding variants)
+		{
+			name:        "bytes_encoding_service_yaml",
+			protoFile:   "testdata/proto/bytes_encoding.proto",
+			serviceName: "BytesEncodingService",
+			goldenFile:  "testdata/golden/yaml/BytesEncodingService.openapi.yaml",
+			format:      "yaml",
+		},
+		{
+			name:        "bytes_encoding_service_json",
+			protoFile:   "testdata/proto/bytes_encoding.proto",
+			serviceName: "BytesEncodingService",
+			goldenFile:  "testdata/golden/json/BytesEncodingService.openapi.json",
+			format:      "json",
+		},
+		// flatten.proto -> FlattenService (nested message flattening)
+		{
+			name:        "flatten_service_yaml",
+			protoFile:   "testdata/proto/flatten.proto",
+			serviceName: "FlattenService",
+			goldenFile:  "testdata/golden/yaml/FlattenService.openapi.yaml",
+			format:      "yaml",
+		},
+		{
+			name:        "flatten_service_json",
+			protoFile:   "testdata/proto/flatten.proto",
+			serviceName: "FlattenService",
+			goldenFile:  "testdata/golden/json/FlattenService.openapi.json",
+			format:      "json",
+		},
+		// oneof_discriminator.proto -> OneofDiscriminatorService (discriminated unions)
+		{
+			name:        "oneof_discriminator_service_yaml",
+			protoFile:   "testdata/proto/oneof_discriminator.proto",
+			serviceName: "OneofDiscriminatorService",
+			goldenFile:  "testdata/golden/yaml/OneofDiscriminatorService.openapi.yaml",
+			format:      "yaml",
+		},
+		{
+			name:        "oneof_discriminator_service_json",
+			protoFile:   "testdata/proto/oneof_discriminator.proto",
+			serviceName: "OneofDiscriminatorService",
+			goldenFile:  "testdata/golden/json/OneofDiscriminatorService.openapi.json",
+			format:      "json",
+		},
 	}
 
 	for _, tc := range testCases {
@@ -606,6 +666,10 @@ func TestExhaustiveRegression(t *testing.T) {
 		"testdata/proto/enum_encoding.proto":            {"EnumEncodingService"},
 		"testdata/proto/nullable.proto":                 {"NullableService"},
 		"testdata/proto/empty_behavior.proto":           {"EmptyBehaviorService"},
+		"testdata/proto/timestamp_format.proto":         {"TimestampFormatService"},
+		"testdata/proto/bytes_encoding.proto":           {"BytesEncodingService"},
+		"testdata/proto/flatten.proto":                  {"FlattenService"},
+		"testdata/proto/oneof_discriminator.proto":      {"OneofDiscriminatorService"},
 	}
 
 	formats := []string{"yaml", "json"}

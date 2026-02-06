@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2026-02-05)
 
 **Core value:** Proto definitions are the single source of truth -- every generator must produce consistent, correct output that interoperates seamlessly.
-**Current focus:** Phase 5 complete -- JSON Nullable & Empty Behavior verified. Ready for Phase 6.
+**Current focus:** Phase 7 complete -- JSON Structural Transforms (oneof, flatten). Ready for Phase 8+.
 
 ## Current Position
 
-Phase: 5 of 11 (JSON - Nullable & Empty) -- COMPLETE
+Phase: 7 of 11 (JSON - Structural Transforms)
 Plan: 4 of 4 in current phase
-Status: Complete (verified 5/5 must-haves)
-Last activity: 2026-02-06 -- Phase 5 verified and complete
+Status: Phase complete
+Last activity: 2026-02-06 -- Completed 07-04-PLAN.md
 
-Progress: [#####################] 91% (21 plans of ~23 estimated total)
+Progress: [##############################] ~100% (29 plans of ~29 estimated total)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 21
-- Average duration: ~6.2m
-- Total execution time: ~2.2 hours
+- Total plans completed: 29
+- Average duration: ~6.3m
+- Total execution time: ~3.0 hours
 
 **By Phase:**
 
@@ -32,10 +32,12 @@ Progress: [#####################] 91% (21 plans of ~23 estimated total)
 | 03 - Existing Client Review | 6/6 | ~36m | ~6.0m |
 | 04 - JSON Primitive Encoding | 5/5 | ~65m | ~13.0m |
 | 05 - JSON Nullable & Empty | 4/4 | ~21m | ~5.3m |
+| 06 - JSON Data Encoding | 4/4 | ~30m | ~7.5m |
+| 07 - JSON Structural Transforms | 4/4 | ~28m | ~7.0m |
 
 **Recent Trend:**
-- Last 5 plans: 04-05 (6m), 05-01 (3m), 05-02 (7m), 05-03 (7m), 05-04 (4m)
-- Trend: Phase 5 maintaining fast pace with well-patterned consistency testing
+- Last 5 plans: 06-04 (4m), 07-01 (7m), 07-02 (7m), 07-03 (7m), 07-04 (7m)
+- Trend: Phase 7 consistent at ~7m/plan
 
 *Updated after each plan completion*
 
@@ -106,6 +108,25 @@ Recent decisions affecting current work:
 - D-05-03-03: OMIT fields use standard $ref in OpenAPI (serialization-only behavior, schema unchanged)
 - D-05-03-04: Exhaustive switch for EmptyBehavior enum to satisfy linter
 - D-05-04-01: Added empty_behavior test proto to clientgen (Rule 3 deviation) to enable byte-level golden file comparison
+- D-06-01-01: Extension numbers 50015-50016 continue sequence from existing 50014 (empty_behavior)
+- D-06-01-02: UNSPECIFIED (0) always means protojson default -- RFC3339 for timestamps, BASE64 for bytes
+- D-06-01-03: HasTimestampFormatAnnotation excludes both UNSPECIFIED and RFC3339 (both produce default behavior)
+- D-06-01-04: HasBytesEncodingAnnotation excludes both UNSPECIFIED and BASE64 (both produce default behavior)
+- D-06-02-01: Timestamp detected before generic MessageKind in type switches to prevent $ref generation
+- D-06-02-02: google.protobuf.Timestamp skipped from tsclientgen messageSet (primitive, not nested object)
+- D-06-02-03: convertTimestampField helper in openapiv3 for clean format-to-schema mapping
+- D-06-02-04: nolint:exhaustive on tsTimestampType switch -- default handles RFC3339/DATE/UNSPECIFIED
+- D-06-03-01: HEX UnmarshalJSON needs both encoding/hex AND encoding/base64 imports (re-encodes decoded hex as standard base64 for protojson)
+- D-06-03-02: nolint:dupl on MarshalJSON/UnmarshalJSON across empty_behavior, timestamp_format, bytes_encoding (three similar files trigger dupl threshold)
+- D-06-03-03: OpenAPI HEX uses format:hex with regex pattern ^[0-9a-fA-F]*$ for validation
+- D-06-03-04: OpenAPI BASE64URL uses format:base64url (not base64 with modifier) for clarity
+
+- D-07-01-01: Extension numbers 50017-50020 continue sequence from 50016 (bytes_encoding)
+- D-07-01-02: OneofConfig uses OneofOptions (not FieldOptions) -- first use of this extension target type in project
+- D-07-01-03: ValidateOneofDiscriminator split into 3 helper functions to stay under cognitive complexity limit
+- D-07-04-01: Helper functions verifyOneofDiscriminatorPresent/Absent to stay under nestif complexity limit
+- D-07-04-02: containsInInterface helper for precise TypeScript interface field verification
+- D-07-04-03: 800-char window for NestedEvent OpenAPI lookup (600 was insufficient for deeply nested YAML)
 
 ### Pending Todos
 
@@ -113,11 +134,11 @@ None.
 
 ### Blockers/Concerns
 
-- Research flags Phase 7 JSON-04 (oneof discriminated union) as HIGH complexity -- may need deeper research during planning
+None -- Phase 7 complete, ready for language phases (8-10).
 
 ## Session Continuity
 
 Last session: 2026-02-06
-Stopped at: Phase 5 complete and verified
+Stopped at: Completed 07-04-PLAN.md (Phase 7 complete)
 Resume file: None
-Next: Phase 6 (JSON - Data Encoding) -- timestamp formats and bytes encoding
+Next: Phase 8 (Go Client Language) or Phase 9 (TS Client Language)

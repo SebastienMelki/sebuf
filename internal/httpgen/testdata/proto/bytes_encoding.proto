@@ -1,0 +1,54 @@
+syntax = "proto3";
+
+package testdata.bytes_encoding;
+
+option go_package = "github.com/SebastienMelki/sebuf/internal/httpgen/testdata/bytesencoding;bytesencoding";
+
+import "sebuf/http/annotations.proto";
+
+// BytesEncodingTest demonstrates all bytes encoding variants.
+message BytesEncodingTest {
+  // Default (BASE64) - no annotation
+  bytes default_data = 1;
+
+  // Explicit BASE64
+  bytes base64_data = 2 [(sebuf.http.bytes_encoding) = BYTES_ENCODING_BASE64];
+
+  // BASE64_RAW (no padding)
+  bytes base64_raw_data = 3 [(sebuf.http.bytes_encoding) = BYTES_ENCODING_BASE64_RAW];
+
+  // BASE64URL (URL-safe with padding)
+  bytes base64url_data = 4 [(sebuf.http.bytes_encoding) = BYTES_ENCODING_BASE64URL];
+
+  // BASE64URL_RAW (URL-safe without padding)
+  bytes base64url_raw_data = 5 [(sebuf.http.bytes_encoding) = BYTES_ENCODING_BASE64URL_RAW];
+
+  // HEX (lowercase hexadecimal)
+  bytes hex_data = 6 [(sebuf.http.bytes_encoding) = BYTES_ENCODING_HEX];
+}
+
+// BytesEncodingRequest is the request for TestBytesEncoding.
+message BytesEncodingRequest {
+  string id = 1;
+}
+
+// BytesEncodingService tests bytes encoding in responses.
+service BytesEncodingService {
+  option (sebuf.http.service_config) = {
+    base_path: "/api/v1"
+  };
+
+  rpc TestBytesEncoding(BytesEncodingTest) returns (BytesEncodingTest) {
+    option (sebuf.http.config) = {
+      path: "/bytes-encoding"
+      method: HTTP_METHOD_POST
+    };
+  }
+
+  rpc GetBytesEncoding(BytesEncodingRequest) returns (BytesEncodingTest) {
+    option (sebuf.http.config) = {
+      path: "/bytes-encoding/{id}"
+      method: HTTP_METHOD_GET
+    };
+  }
+}

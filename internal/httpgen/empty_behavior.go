@@ -126,6 +126,8 @@ func (g *Generator) writeEmptyBehaviorImports(gf *protogen.GeneratedFile) {
 }
 
 // generateEmptyBehaviorMarshalJSON generates MarshalJSON that handles empty message fields.
+//
+//nolint:dupl // Code generation patterns naturally have similar structure across encoding types
 func (g *Generator) generateEmptyBehaviorMarshalJSON(gf *protogen.GeneratedFile, ctx *EmptyBehaviorContext) {
 	msgName := ctx.Message.GoIdent.GoName
 

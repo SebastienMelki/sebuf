@@ -1,0 +1,86 @@
+syntax = "proto3";
+
+package testdata.oneof_discriminator;
+
+option go_package = "github.com/SebastienMelki/sebuf/internal/httpgen/testdata/oneofdiscriminator;oneofdiscriminator";
+
+import "sebuf/http/annotations.proto";
+
+// Variant message types
+message TextContent {
+  string body = 1;
+}
+
+message ImageContent {
+  string url = 1;
+  int32 width = 2;
+  int32 height = 3;
+}
+
+message VideoContent {
+  string url = 1;
+  int32 duration = 2;
+}
+
+// Flattened discriminated union
+message FlattenedEvent {
+  string id = 1;
+  oneof content {
+    option (sebuf.http.oneof_config) = {
+      discriminator: "type"
+      flatten: true
+    };
+    TextContent text = 2;
+    ImageContent image = 3 [(sebuf.http.oneof_value) = "img"];
+  }
+}
+
+// Non-flattened discriminated union (discriminator alongside nested variant)
+message NestedEvent {
+  string id = 1;
+  oneof content {
+    option (sebuf.http.oneof_config) = {
+      discriminator: "kind"
+      flatten: false
+    };
+    TextContent text = 2;
+    ImageContent image = 3;
+    VideoContent video = 4 [(sebuf.http.oneof_value) = "vid"];
+  }
+}
+
+// Message with no oneof annotation (backward compatible)
+message PlainEvent {
+  string id = 1;
+  oneof content {
+    TextContent text = 2;
+    ImageContent image = 3;
+  }
+}
+
+service OneofDiscriminatorService {
+  option (sebuf.http.service_config) = {
+    base_path: "/api/v1"
+  };
+
+  rpc TestFlattenedEvent(FlattenedEvent) returns (FlattenedEvent) {
+    option (sebuf.http.config) = {
+      path: "/events/flattened"
+      method: HTTP_METHOD_POST
+    };
+  }
+
+  rpc TestNestedEvent(NestedEvent) returns (NestedEvent) {
+    option (sebuf.http.config) = {
+      path: "/events/nested"
+      method: HTTP_METHOD_POST
+    };
+  }
+
+  rpc TestPlainEvent(PlainEvent) returns (PlainEvent) {
+    option (sebuf.http.config) = {
+      path: "/events/plain"
+      method: HTTP_METHOD_POST
+    };
+  }
+}

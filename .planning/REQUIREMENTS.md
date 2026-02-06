@@ -24,9 +24,9 @@ Requirements for v1.0 release. Each must work across all generators (go-http, go
 - [x] **JSON-02**: #88 int64/uint64 as string encoding -- per-field `int64_encoding` annotation with NUMBER/STRING options
 - [x] **JSON-03**: #89 Enum string encoding with custom values -- per-enum `enum_encoding` and per-value `enum_value` annotations
 - [ ] **JSON-04**: #90 Oneof as discriminated union -- per-oneof `oneof_discriminator` and `oneof_flatten` annotations with field collision detection at generation time
-- [ ] **JSON-05**: #92 Multiple timestamp formats -- per-field `timestamp_format` annotation (RFC3339, UNIX_SECONDS, UNIX_MILLIS, DATE)
+- [x] **JSON-05**: #92 Multiple timestamp formats -- per-field `timestamp_format` annotation (RFC3339, UNIX_SECONDS, UNIX_MILLIS, DATE)
 - [x] **JSON-06**: #93 Empty object handling -- per-field `omit_empty` and `empty_behavior` annotations (PRESERVE, NULL, OMIT)
-- [ ] **JSON-07**: #95 Bytes encoding options -- per-field `bytes_encoding` annotation (BASE64, BASE64_RAW, BASE64URL, BASE64URL_RAW, HEX)
+- [x] **JSON-07**: #95 Bytes encoding options -- per-field `bytes_encoding` annotation (BASE64, BASE64_RAW, BASE64URL, BASE64URL_RAW, HEX)
 - [ ] **JSON-08**: #96 Nested message flattening -- per-field `flatten` and `flatten_prefix` annotations with collision detection at generation time
 
 ### Language Clients
@@ -91,9 +91,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | JSON-02 | Phase 4 | Complete |
 | JSON-03 | Phase 4 | Complete |
 | JSON-04 | Phase 7 | Pending |
-| JSON-05 | Phase 6 | Pending |
+| JSON-05 | Phase 6 | Complete |
 | JSON-06 | Phase 5 | Complete |
-| JSON-07 | Phase 6 | Pending |
+| JSON-07 | Phase 6 | Complete |
 | JSON-08 | Phase 7 | Pending |
 | LANG-01 | Phase 8 | Pending |
 | LANG-02 | Phase 9 | Pending |
@@ -112,4 +112,4 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 ---
 *Requirements defined: 2026-02-05*
-*Last updated: 2026-02-06 after Phase 5 completion (JSON-01, JSON-06 marked Complete)*
+*Last updated: 2026-02-06 after Phase 6 completion (JSON-05, JSON-07 marked Complete)*
