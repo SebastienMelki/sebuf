@@ -90,6 +90,36 @@ enum EmptyBehavior {
   EMPTY_BEHAVIOR_OMIT = 3;
 }
 
+// TimestampFormat controls how google.protobuf.Timestamp fields serialize to JSON.
+enum TimestampFormat {
+  // Follow protojson default (RFC 3339 string: "2024-01-15T09:30:00Z")
+  TIMESTAMP_FORMAT_UNSPECIFIED = 0;
+  // Explicit RFC 3339 (same as default but self-documenting)
+  TIMESTAMP_FORMAT_RFC3339 = 1;
+  // Unix seconds as integer: 1705312200 (nanos truncated)
+  TIMESTAMP_FORMAT_UNIX_SECONDS = 2;
+  // Unix milliseconds as integer: 1705312200000 (sub-millisecond nanos truncated)
+  TIMESTAMP_FORMAT_UNIX_MILLIS = 3;
+  // Date-only string: "2024-01-15" (time component dropped, lossy)
+  TIMESTAMP_FORMAT_DATE = 4;
+}
+
+// BytesEncoding controls how bytes fields serialize to JSON.
+enum BytesEncoding {
+  // Follow protojson default (standard base64 with padding)
+  BYTES_ENCODING_UNSPECIFIED = 0;
+  // Standard base64 with padding (RFC 4648): "SGVsbG8="
+  BYTES_ENCODING_BASE64 = 1;
+  // Base64 without padding: "SGVsbG8"
+  BYTES_ENCODING_BASE64_RAW = 2;
+  // URL-safe base64 with padding: "SGVsbG8="
+  BYTES_ENCODING_BASE64URL = 3;
+  // URL-safe base64 without padding: "SGVsbG8"
+  BYTES_ENCODING_BASE64URL_RAW = 4;
+  // Hexadecimal encoding (lowercase): "48656c6c6f"
+  BYTES_ENCODING_HEX = 5;
+}
+
 // Extension for field-level options
 extend google.protobuf.FieldOptions {
   // Example values for documentation/OpenAPI
@@ -125,6 +155,16 @@ extend google.protobuf.FieldOptions {
   // Only valid on singular message fields (not repeated, not map).
   // "Empty" = all fields at proto default (proto.Size() == 0).
   optional EmptyBehavior empty_behavior = 50014;
+
+  // Controls timestamp JSON encoding for this field.
+  // Valid on: google.protobuf.Timestamp fields only.
+  // Default: RFC3339 (protojson default).
+  optional TimestampFormat timestamp_format = 50015;
+
+  // Controls bytes JSON encoding for this field.
+  // Valid on: bytes fields only.
+  // Default: BASE64 (protojson default).
+  optional BytesEncoding bytes_encoding = 50016;
 }
 
 // Extension for enum value options
