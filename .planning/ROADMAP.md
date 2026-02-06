@@ -18,7 +18,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 4: JSON - Primitive Encoding** - int64/uint64 string encoding and enum string encoding across all generators
 - [x] **Phase 5: JSON - Nullable & Empty** - Nullable primitives and empty object handling across all generators
 - [x] **Phase 6: JSON - Data Encoding** - Timestamp formats and bytes encoding options across all generators
-- [ ] **Phase 7: JSON - Structural Transforms** - Oneof discriminated unions and nested message flattening across all generators
+- [x] **Phase 7: JSON - Structural Transforms** - Oneof discriminated unions and nested message flattening across all generators
 - [ ] **Phase 8: Language - Swift Client** - Idiomatic Swift HTTP client generator using URLSession and Codable
 - [ ] **Phase 9: Language - Kotlin Client** - Idiomatic Kotlin HTTP client generator using OkHttp and data classes
 - [ ] **Phase 10: Language - Python Client** - Idiomatic Python HTTP client generator using httpx and dataclasses
@@ -150,10 +150,10 @@ Plans:
 **Plans**: 4 plans
 
 Plans:
-- [ ] 07-01-PLAN.md -- Define oneof_config, oneof_value, flatten, and flatten_prefix annotations in proto and shared annotations package
-- [ ] 07-02-PLAN.md -- Implement oneof discriminated union across all 4 generators
-- [ ] 07-03-PLAN.md -- Implement nested message flattening across all 4 generators
-- [ ] 07-04-PLAN.md -- Cross-generator consistency validation for structural transforms
+- [x] 07-01-PLAN.md -- Define oneof_config, oneof_value, flatten, and flatten_prefix annotations in proto and shared annotations package
+- [x] 07-02-PLAN.md -- Implement oneof discriminated union across all 4 generators
+- [x] 07-03-PLAN.md -- Implement nested message flattening across all 4 generators
+- [x] 07-04-PLAN.md -- Cross-generator consistency validation for structural transforms
 
 ### Phase 8: Language - Swift Client
 **Goal**: Swift developers can generate a type-safe HTTP client from proto definitions that supports all sebuf annotations including JSON mapping features
@@ -244,7 +244,7 @@ Note: Phases 8, 9, 10 (language clients) can execute in parallel after Phase 7 c
 | 4. JSON - Primitive Encoding | 5/5 | Complete | 2026-02-06 |
 | 5. JSON - Nullable & Empty | 4/4 | Complete | 2026-02-06 |
 | 6. JSON - Data Encoding | 4/4 | Complete | 2026-02-06 |
-| 7. JSON - Structural Transforms | 0/4 | Planned | - |
+| 7. JSON - Structural Transforms | 4/4 | Complete | 2026-02-06 |
 | 8. Language - Swift Client | 0/4 | Not started | - |
 | 9. Language - Kotlin Client | 0/4 | Not started | - |
 | 10. Language - Python Client | 0/4 | Not started | - |
