@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2026-02-05)
 
 **Core value:** Proto definitions are the single source of truth -- every generator must produce consistent, correct output that interoperates seamlessly.
-**Current focus:** Phase 7 in progress -- JSON Structural Transforms (oneof, flatten).
+**Current focus:** Phase 7 complete -- JSON Structural Transforms (oneof, flatten). Ready for Phase 8+.
 
 ## Current Position
 
 Phase: 7 of 11 (JSON - Structural Transforms)
-Plan: 1 of 4 in current phase
-Status: In progress
-Last activity: 2026-02-06 -- Completed 07-01-PLAN.md
+Plan: 4 of 4 in current phase
+Status: Phase complete
+Last activity: 2026-02-06 -- Completed 07-04-PLAN.md
 
-Progress: [##########################] ~100% (26 plans of ~29 estimated total)
+Progress: [##############################] ~100% (29 plans of ~29 estimated total)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 26
-- Average duration: ~6.2m
-- Total execution time: ~2.7 hours
+- Total plans completed: 29
+- Average duration: ~6.3m
+- Total execution time: ~3.0 hours
 
 **By Phase:**
 
@@ -33,11 +33,11 @@ Progress: [##########################] ~100% (26 plans of ~29 estimated total)
 | 04 - JSON Primitive Encoding | 5/5 | ~65m | ~13.0m |
 | 05 - JSON Nullable & Empty | 4/4 | ~21m | ~5.3m |
 | 06 - JSON Data Encoding | 4/4 | ~30m | ~7.5m |
-| 07 - JSON Structural Transforms | 1/4 | ~7m | ~7.0m |
+| 07 - JSON Structural Transforms | 4/4 | ~28m | ~7.0m |
 
 **Recent Trend:**
-- Last 5 plans: 06-01 (3m), 06-02 (15m), 06-03 (8m), 06-04 (4m), 07-01 (7m)
-- Trend: Annotation-only plans complete in ~7m; cross-generator impl plans take longer
+- Last 5 plans: 06-04 (4m), 07-01 (7m), 07-02 (7m), 07-03 (7m), 07-04 (7m)
+- Trend: Phase 7 consistent at ~7m/plan
 
 *Updated after each plan completion*
 
@@ -124,6 +124,9 @@ Recent decisions affecting current work:
 - D-07-01-01: Extension numbers 50017-50020 continue sequence from 50016 (bytes_encoding)
 - D-07-01-02: OneofConfig uses OneofOptions (not FieldOptions) -- first use of this extension target type in project
 - D-07-01-03: ValidateOneofDiscriminator split into 3 helper functions to stay under cognitive complexity limit
+- D-07-04-01: Helper functions verifyOneofDiscriminatorPresent/Absent to stay under nestif complexity limit
+- D-07-04-02: containsInInterface helper for precise TypeScript interface field verification
+- D-07-04-03: 800-char window for NestedEvent OpenAPI lookup (600 was insufficient for deeply nested YAML)
 
 ### Pending Todos
 
@@ -131,11 +134,11 @@ None.
 
 ### Blockers/Concerns
 
-- Research flags Phase 7 JSON-04 (oneof discriminated union) as HIGH complexity -- may need deeper research during planning
+None -- Phase 7 complete, ready for language phases (8-10).
 
 ## Session Continuity
 
 Last session: 2026-02-06
-Stopped at: Completed 07-01-PLAN.md
+Stopped at: Completed 07-04-PLAN.md (Phase 7 complete)
 Resume file: None
-Next: 07-02-PLAN.md (oneof/flatten generator implementation)
+Next: Phase 8 (Go Client Language) or Phase 9 (TS Client Language)
