@@ -128,13 +128,13 @@ Plans:
   4. All five bytes encoding options work correctly: BASE64 (default), BASE64_RAW, BASE64URL, BASE64URL_RAW, HEX
   5. OpenAPI schemas document the actual encoding format used (e.g., `format: unix-timestamp` or `format: hex`)
   6. A cross-generator consistency test confirms that go-http, go-client, ts-client, and openapiv3 agree on serialization format for every timestamp_format and bytes_encoding combination
-**Plans**: TBD
+**Plans**: 4 plans
 
 Plans:
-- [ ] 06-01: Define timestamp_format and bytes_encoding annotations in proto/sebuf/http/
-- [ ] 06-02: Implement timestamp format options across all 4 generators
-- [ ] 06-03: Implement bytes encoding options across all 4 generators
-- [ ] 06-04: Cross-generator consistency validation for data encoding
+- [ ] 06-01-PLAN.md -- Define timestamp_format and bytes_encoding annotations in proto and shared annotations package
+- [ ] 06-02-PLAN.md -- Implement timestamp format options across all 4 generators
+- [ ] 06-03-PLAN.md -- Implement bytes encoding options across all 4 generators
+- [ ] 06-04-PLAN.md -- Cross-generator consistency validation for data encoding
 
 ### Phase 7: JSON - Structural Transforms
 **Goal**: Developers can represent oneof fields as discriminated unions and flatten nested messages in their API's JSON output
