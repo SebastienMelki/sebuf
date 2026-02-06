@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2026-02-05)
 
 **Core value:** Proto definitions are the single source of truth -- every generator must produce consistent, correct output that interoperates seamlessly.
-**Current focus:** Phase 5 in progress -- JSON Nullable & Empty Behavior. Plan 05-01 complete.
+**Current focus:** Phase 5 in progress -- JSON Nullable & Empty Behavior. Plan 05-02 complete.
 
 ## Current Position
 
 Phase: 5 of 11 (JSON - Nullable & Empty)
-Plan: 1 of 5 in current phase
+Plan: 2 of 5 in current phase
 Status: In progress
-Last activity: 2026-02-06 -- Completed 05-01-PLAN.md (nullable and empty_behavior annotations)
+Last activity: 2026-02-06 -- Completed 05-02-PLAN.md (nullable encoding across all generators)
 
-Progress: [###################] 82% (18 plans of ~22 estimated total)
+Progress: [####################] 86% (19 plans of ~22 estimated total)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 18
+- Total plans completed: 19
 - Average duration: ~6.3m
-- Total execution time: ~1.9 hours
+- Total execution time: ~2.0 hours
 
 **By Phase:**
 
@@ -31,11 +31,11 @@ Progress: [###################] 82% (18 plans of ~22 estimated total)
 | 02 - Shared Annotations | 4/4 | ~26m | ~6.5m |
 | 03 - Existing Client Review | 6/6 | ~36m | ~6.0m |
 | 04 - JSON Primitive Encoding | 5/5 | ~65m | ~13.0m |
-| 05 - JSON Nullable & Empty | 1/5 | ~3m | ~3.0m |
+| 05 - JSON Nullable & Empty | 2/5 | ~10m | ~5.0m |
 
 **Recent Trend:**
-- Last 5 plans: 04-02 (15m), 04-03 (15m), 04-04 (25m), 04-05 (6m), 05-01 (3m)
-- Trend: Annotation foundation plans are fast; implementation plans take longer
+- Last 5 plans: 04-03 (15m), 04-04 (25m), 04-05 (6m), 05-01 (3m), 05-02 (7m)
+- Trend: Phase 5 maintaining fast pace with well-patterned encoding work
 
 *Updated after each plan completion*
 
@@ -97,6 +97,10 @@ Recent decisions affecting current work:
 - D-04-05-03: Convert openapiv3 enum_encoding.proto from duplicate file to symlink for consistency
 - D-05-01-01: Extension numbers 50013 (nullable) and 50014 (empty_behavior) continue sequence from 50012
 - D-05-01-02: UNSPECIFIED (0) means default behavior (same as PRESERVE for empty_behavior)
+- D-05-02-01: Identical nullable.go in httpgen and clientgen for server/client JSON consistency
+- D-05-02-02: Nullable TypeScript fields use T | null (not optional ?) - always present with value or null
+- D-05-02-03: OpenAPI 3.1 type array syntax [T, null] instead of deprecated nullable: true
+- D-05-02-04: Nullable encoding placed before service check in clientgen (like httpgen) for message-only files
 
 ### Pending Todos
 
@@ -105,10 +109,11 @@ None.
 ### Blockers/Concerns
 
 - Research flags Phase 7 JSON-04 (oneof discriminated union) as HIGH complexity -- may need deeper research during planning
+- Pre-existing empty_behavior.go in httpgen from interrupted session needs to be addressed in plan 05-03
 
 ## Session Continuity
 
 Last session: 2026-02-06
-Stopped at: Completed 05-01-PLAN.md (nullable and empty_behavior annotations)
+Stopped at: Completed 05-02-PLAN.md (nullable encoding across all generators)
 Resume file: None
-Next: 05-02-PLAN.md (go-http nullable implementation)
+Next: 05-03-PLAN.md (empty_behavior implementation)
