@@ -57,7 +57,30 @@ func (g *Generator) convertField(field *protogen.Field) *base.SchemaProxy {
 		return g.makeNullableSchema(schema)
 	}
 
+	// Handle empty_behavior=NULL for message fields: use oneOf with null type
+	if field.Desc.Kind() == protoreflect.MessageKind && annotations.HasEmptyBehaviorAnnotation(field) {
+		behavior := annotations.GetEmptyBehavior(field)
+		if behavior == http.EmptyBehavior_EMPTY_BEHAVIOR_NULL {
+			return g.makeNullableOneOfSchema(schema)
+		}
+	}
+
 	return schema
+}
+
+// makeNullableOneOfSchema creates a oneOf schema with the original schema and a null type.
+// This is used for empty_behavior=NULL on message fields, where the field can be either
+// the message type or null (when the message is empty).
+func (g *Generator) makeNullableOneOfSchema(schemaProxy *base.SchemaProxy) *base.SchemaProxy {
+	nullSchema := base.CreateSchemaProxy(&base.Schema{
+		Type: []string{"null"},
+	})
+
+	oneOfSchema := &base.Schema{
+		OneOf: []*base.SchemaProxy{schemaProxy, nullSchema},
+	}
+
+	return base.CreateSchemaProxy(oneOfSchema)
 }
 
 // makeNullableSchema takes a schema proxy and returns a new schema with "null" added to the type array.
