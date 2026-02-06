@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2026-02-05)
 
 **Core value:** Proto definitions are the single source of truth -- every generator must produce consistent, correct output that interoperates seamlessly.
-**Current focus:** Phase 5 in progress -- JSON Nullable & Empty Behavior. Plan 05-02 complete.
+**Current focus:** Phase 5 in progress -- JSON Nullable & Empty Behavior. Plan 05-03 complete.
 
 ## Current Position
 
 Phase: 5 of 11 (JSON - Nullable & Empty)
-Plan: 2 of 5 in current phase
+Plan: 3 of 5 in current phase
 Status: In progress
-Last activity: 2026-02-06 -- Completed 05-02-PLAN.md (nullable encoding across all generators)
+Last activity: 2026-02-06 -- Completed 05-03-PLAN.md (empty_behavior implementation)
 
-Progress: [####################] 86% (19 plans of ~22 estimated total)
+Progress: [####################] 87% (20 plans of ~23 estimated total)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 19
-- Average duration: ~6.3m
-- Total execution time: ~2.0 hours
+- Total plans completed: 20
+- Average duration: ~6.4m
+- Total execution time: ~2.1 hours
 
 **By Phase:**
 
@@ -31,10 +31,10 @@ Progress: [####################] 86% (19 plans of ~22 estimated total)
 | 02 - Shared Annotations | 4/4 | ~26m | ~6.5m |
 | 03 - Existing Client Review | 6/6 | ~36m | ~6.0m |
 | 04 - JSON Primitive Encoding | 5/5 | ~65m | ~13.0m |
-| 05 - JSON Nullable & Empty | 2/5 | ~10m | ~5.0m |
+| 05 - JSON Nullable & Empty | 3/5 | ~17m | ~5.7m |
 
 **Recent Trend:**
-- Last 5 plans: 04-03 (15m), 04-04 (25m), 04-05 (6m), 05-01 (3m), 05-02 (7m)
+- Last 5 plans: 04-04 (25m), 04-05 (6m), 05-01 (3m), 05-02 (7m), 05-03 (7m)
 - Trend: Phase 5 maintaining fast pace with well-patterned encoding work
 
 *Updated after each plan completion*
@@ -101,6 +101,10 @@ Recent decisions affecting current work:
 - D-05-02-02: Nullable TypeScript fields use T | null (not optional ?) - always present with value or null
 - D-05-02-03: OpenAPI 3.1 type array syntax [T, null] instead of deprecated nullable: true
 - D-05-02-04: Nullable encoding placed before service check in clientgen (like httpgen) for message-only files
+- D-05-03-01: Identical empty_behavior.go in httpgen and clientgen for server/client JSON consistency
+- D-05-03-02: OpenAPI oneOf schema for NULL fields ({$ref} | {type: null}) instead of deprecated nullable:true
+- D-05-03-03: OMIT fields use standard $ref in OpenAPI (serialization-only behavior, schema unchanged)
+- D-05-03-04: Exhaustive switch for EmptyBehavior enum to satisfy linter
 
 ### Pending Todos
 
@@ -109,11 +113,10 @@ None.
 ### Blockers/Concerns
 
 - Research flags Phase 7 JSON-04 (oneof discriminated union) as HIGH complexity -- may need deeper research during planning
-- Pre-existing empty_behavior.go in httpgen from interrupted session needs to be addressed in plan 05-03
 
 ## Session Continuity
 
 Last session: 2026-02-06
-Stopped at: Completed 05-02-PLAN.md (nullable encoding across all generators)
+Stopped at: Completed 05-03-PLAN.md (empty_behavior implementation)
 Resume file: None
-Next: 05-03-PLAN.md (empty_behavior implementation)
+Next: 05-04-PLAN.md (cross-generator consistency tests for nullable and empty_behavior)
