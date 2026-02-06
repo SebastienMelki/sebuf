@@ -5,22 +5,22 @@
 See: .planning/PROJECT.md (updated 2026-02-05)
 
 **Core value:** Proto definitions are the single source of truth -- every generator must produce consistent, correct output that interoperates seamlessly.
-**Current focus:** Phase 5 complete -- JSON Nullable & Empty Behavior verified. Ready for Phase 6.
+**Current focus:** Phase 6 in progress -- JSON Data Encoding (timestamp formats, bytes encoding).
 
 ## Current Position
 
-Phase: 5 of 11 (JSON - Nullable & Empty) -- COMPLETE
-Plan: 4 of 4 in current phase
-Status: Complete (verified 5/5 must-haves)
-Last activity: 2026-02-06 -- Phase 5 verified and complete
+Phase: 6 of 11 (JSON - Data Encoding)
+Plan: 1 of 4 in current phase
+Status: In progress
+Last activity: 2026-02-06 -- Completed 06-01-PLAN.md (annotation infrastructure)
 
-Progress: [#####################] 91% (21 plans of ~23 estimated total)
+Progress: [######################] 92% (22 plans of ~24 estimated total)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 21
-- Average duration: ~6.2m
+- Total plans completed: 22
+- Average duration: ~6.1m
 - Total execution time: ~2.2 hours
 
 **By Phase:**
@@ -32,10 +32,11 @@ Progress: [#####################] 91% (21 plans of ~23 estimated total)
 | 03 - Existing Client Review | 6/6 | ~36m | ~6.0m |
 | 04 - JSON Primitive Encoding | 5/5 | ~65m | ~13.0m |
 | 05 - JSON Nullable & Empty | 4/4 | ~21m | ~5.3m |
+| 06 - JSON Data Encoding | 1/4 | ~3m | ~3.0m |
 
 **Recent Trend:**
-- Last 5 plans: 04-05 (6m), 05-01 (3m), 05-02 (7m), 05-03 (7m), 05-04 (4m)
-- Trend: Phase 5 maintaining fast pace with well-patterned consistency testing
+- Last 5 plans: 05-01 (3m), 05-02 (7m), 05-03 (7m), 05-04 (4m), 06-01 (3m)
+- Trend: Annotation-only plans complete fastest; foundation work well-patterned
 
 *Updated after each plan completion*
 
@@ -106,6 +107,10 @@ Recent decisions affecting current work:
 - D-05-03-03: OMIT fields use standard $ref in OpenAPI (serialization-only behavior, schema unchanged)
 - D-05-03-04: Exhaustive switch for EmptyBehavior enum to satisfy linter
 - D-05-04-01: Added empty_behavior test proto to clientgen (Rule 3 deviation) to enable byte-level golden file comparison
+- D-06-01-01: Extension numbers 50015-50016 continue sequence from existing 50014 (empty_behavior)
+- D-06-01-02: UNSPECIFIED (0) always means protojson default -- RFC3339 for timestamps, BASE64 for bytes
+- D-06-01-03: HasTimestampFormatAnnotation excludes both UNSPECIFIED and RFC3339 (both produce default behavior)
+- D-06-01-04: HasBytesEncodingAnnotation excludes both UNSPECIFIED and BASE64 (both produce default behavior)
 
 ### Pending Todos
 
@@ -118,6 +123,6 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-06
-Stopped at: Phase 5 complete and verified
+Stopped at: Completed 06-01-PLAN.md
 Resume file: None
-Next: Phase 6 (JSON - Data Encoding) -- timestamp formats and bytes encoding
+Next: 06-02-PLAN.md (timestamp/bytes encoding in go-http and go-client generators)
