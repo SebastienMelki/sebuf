@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2026-02-05)
 
 **Core value:** Proto definitions are the single source of truth -- every generator must produce consistent, correct output that interoperates seamlessly.
-**Current focus:** Phase 5 in progress -- JSON Nullable & Empty Behavior. Plan 05-03 complete.
+**Current focus:** Phase 5 in progress -- JSON Nullable & Empty Behavior. Plan 05-04 complete.
 
 ## Current Position
 
 Phase: 5 of 11 (JSON - Nullable & Empty)
-Plan: 3 of 5 in current phase
+Plan: 4 of 5 in current phase
 Status: In progress
-Last activity: 2026-02-06 -- Completed 05-03-PLAN.md (empty_behavior implementation)
+Last activity: 2026-02-06 -- Completed 05-04-PLAN.md (cross-generator consistency tests)
 
-Progress: [####################] 87% (20 plans of ~23 estimated total)
+Progress: [#####################] 91% (21 plans of ~23 estimated total)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 20
-- Average duration: ~6.4m
-- Total execution time: ~2.1 hours
+- Total plans completed: 21
+- Average duration: ~6.2m
+- Total execution time: ~2.2 hours
 
 **By Phase:**
 
@@ -31,11 +31,11 @@ Progress: [####################] 87% (20 plans of ~23 estimated total)
 | 02 - Shared Annotations | 4/4 | ~26m | ~6.5m |
 | 03 - Existing Client Review | 6/6 | ~36m | ~6.0m |
 | 04 - JSON Primitive Encoding | 5/5 | ~65m | ~13.0m |
-| 05 - JSON Nullable & Empty | 3/5 | ~17m | ~5.7m |
+| 05 - JSON Nullable & Empty | 4/5 | ~21m | ~5.3m |
 
 **Recent Trend:**
-- Last 5 plans: 04-04 (25m), 04-05 (6m), 05-01 (3m), 05-02 (7m), 05-03 (7m)
-- Trend: Phase 5 maintaining fast pace with well-patterned encoding work
+- Last 5 plans: 04-05 (6m), 05-01 (3m), 05-02 (7m), 05-03 (7m), 05-04 (4m)
+- Trend: Phase 5 maintaining fast pace with well-patterned consistency testing
 
 *Updated after each plan completion*
 
@@ -105,6 +105,7 @@ Recent decisions affecting current work:
 - D-05-03-02: OpenAPI oneOf schema for NULL fields ({$ref} | {type: null}) instead of deprecated nullable:true
 - D-05-03-03: OMIT fields use standard $ref in OpenAPI (serialization-only behavior, schema unchanged)
 - D-05-03-04: Exhaustive switch for EmptyBehavior enum to satisfy linter
+- D-05-04-01: Added empty_behavior test proto to clientgen (Rule 3 deviation) to enable byte-level golden file comparison
 
 ### Pending Todos
 
@@ -117,6 +118,6 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-06
-Stopped at: Completed 05-03-PLAN.md (empty_behavior implementation)
+Stopped at: Completed 05-04-PLAN.md (cross-generator consistency tests)
 Resume file: None
-Next: 05-04-PLAN.md (cross-generator consistency tests for nullable and empty_behavior)
+Next: 05-05-PLAN.md (phase completion / integration tests)
