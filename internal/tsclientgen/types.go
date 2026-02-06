@@ -327,9 +327,12 @@ func generateInterface(p printer, msg *protogen.Message) {
 	for _, field := range msg.Fields {
 		jsonName := field.Desc.JSONName()
 		tsType := tsFieldType(field)
-		optional := isOptionalField(field)
 
-		if optional {
+		//nolint:gocritic // if-else chain is clearer than switch for distinct boolean checks
+		if annotations.IsNullableField(field) {
+			// Nullable fields are always present with value or null (not optional)
+			p("  %s: %s | null;", jsonName, tsType)
+		} else if isOptionalField(field) {
 			p("  %s?: %s;", jsonName, tsType)
 		} else {
 			p("  %s: %s;", jsonName, tsType)

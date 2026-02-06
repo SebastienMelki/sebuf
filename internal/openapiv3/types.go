@@ -51,13 +51,31 @@ func (g *Generator) convertField(field *protogen.Field) *base.SchemaProxy {
 
 	// Handle optional fields (proto3 optional)
 	schema := g.convertScalarField(field)
-	if field.Desc.HasOptionalKeyword() {
-		// For proto3 optional fields, we could add nullable: true
-		// but OpenAPI 3.1 handles this differently than 3.0
-		return schema
+
+	// Handle nullable fields: use type array syntax per OpenAPI 3.1
+	if annotations.IsNullableField(field) {
+		return g.makeNullableSchema(schema)
 	}
 
 	return schema
+}
+
+// makeNullableSchema takes a schema proxy and returns a new schema with "null" added to the type array.
+// Per OpenAPI 3.1, nullable types use: type: ["string", "null"].
+func (g *Generator) makeNullableSchema(schemaProxy *base.SchemaProxy) *base.SchemaProxy {
+	// Build the schema from the proxy
+	builtSchema, err := schemaProxy.BuildSchema()
+	if err != nil || builtSchema == nil {
+		// If we can't build the schema, return as-is
+		return schemaProxy
+	}
+
+	// Add "null" to the type array
+	if len(builtSchema.Type) > 0 {
+		builtSchema.Type = append(builtSchema.Type, "null")
+	}
+
+	return base.CreateSchemaProxy(builtSchema)
 }
 
 // convertScalarField handles scalar field types and message references.
