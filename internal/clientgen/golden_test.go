@@ -78,6 +78,14 @@ func TestClientGenGoldenFiles(t *testing.T) {
 				"enum_encoding_enum_encoding.pb.go",
 			},
 		},
+		{
+			name:      "nullable fields",
+			protoFile: "nullable.proto",
+			expectedFiles: []string{
+				"nullable_client.pb.go",
+				"nullable_nullable.pb.go",
+			},
+		},
 	}
 
 	// Get paths

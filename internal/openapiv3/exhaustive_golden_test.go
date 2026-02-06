@@ -475,6 +475,21 @@ func TestExhaustiveGoldenFiles(t *testing.T) {
 			goldenFile:  "testdata/golden/json/EnumEncodingService.openapi.json",
 			format:      "json",
 		},
+		// nullable.proto -> NullableService (nullable field variants)
+		{
+			name:        "nullable_service_yaml",
+			protoFile:   "testdata/proto/nullable.proto",
+			serviceName: "NullableService",
+			goldenFile:  "testdata/golden/yaml/NullableService.openapi.yaml",
+			format:      "yaml",
+		},
+		{
+			name:        "nullable_service_json",
+			protoFile:   "testdata/proto/nullable.proto",
+			serviceName: "NullableService",
+			goldenFile:  "testdata/golden/json/NullableService.openapi.json",
+			format:      "json",
+		},
 	}
 
 	for _, tc := range testCases {
@@ -574,6 +589,7 @@ func TestExhaustiveRegression(t *testing.T) {
 		"testdata/proto/backward_compat.proto":          {"NoAnnotationsService", "BasePathOnlyService"},
 		"testdata/proto/int64_encoding.proto":           {"Int64EncodingService"},
 		"testdata/proto/enum_encoding.proto":            {"EnumEncodingService"},
+		"testdata/proto/nullable.proto":                 {"NullableService"},
 	}
 
 	formats := []string{"yaml", "json"}

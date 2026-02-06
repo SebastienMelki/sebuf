@@ -87,6 +87,16 @@ func TestHTTPGenGoldenFiles(t *testing.T) {
 				"enum_encoding_enum_encoding.pb.go",
 			},
 		},
+		{
+			name:      "nullable fields",
+			protoFile: "nullable.proto",
+			expectedFiles: []string{
+				"nullable_http.pb.go",
+				"nullable_http_binding.pb.go",
+				"nullable_http_config.pb.go",
+				"nullable_nullable.pb.go",
+			},
+		},
 	}
 
 	// Get paths

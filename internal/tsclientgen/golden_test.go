@@ -74,6 +74,13 @@ func TestTSClientGenGoldenFiles(t *testing.T) {
 				"enum_encoding_client.ts",
 			},
 		},
+		{
+			name:      "nullable fields",
+			protoFile: "nullable.proto",
+			expectedFiles: []string{
+				"nullable_client.ts",
+			},
+		},
 	}
 
 	baseDir, err := os.Getwd()

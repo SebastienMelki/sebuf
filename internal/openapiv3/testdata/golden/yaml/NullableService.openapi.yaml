@@ -1,0 +1,145 @@
+openapi: 3.1.0
+info:
+    title: NullableService API
+    version: 1.0.0
+paths:
+    /api/v1/users/{id}:
+        get:
+            tags:
+                - NullableService
+            summary: GetUser
+            operationId: GetUser
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    description: Successful response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/User'
+                "400":
+                    description: Validation error
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ValidationError'
+                default:
+                    description: Error response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Error'
+        put:
+            tags:
+                - NullableService
+            summary: UpdateUser
+            operationId: UpdateUser
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                    type: string
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/UpdateUserRequest'
+                required: true
+            responses:
+                "200":
+                    description: Successful response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/User'
+                "400":
+                    description: Validation error
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ValidationError'
+                default:
+                    description: Error response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Error'
+components:
+    schemas:
+        Error:
+            type: object
+            properties:
+                message:
+                    type: string
+                    description: Error message (e.g., 'user not found', 'database connection failed')
+            description: Error is returned when a handler encounters an error. It contains a simple error message that the developer can customize.
+        FieldViolation:
+            type: object
+            properties:
+                field:
+                    type: string
+                    description: The field path that failed validation (e.g., 'user.email' for nested fields). For header validation, this will be the header name (e.g., 'X-API-Key')
+                description:
+                    type: string
+                    description: Human-readable description of the validation violation (e.g., 'must be a valid email address', 'required field missing')
+            required:
+                - field
+                - description
+            description: FieldViolation describes a single validation error for a specific field.
+        ValidationError:
+            type: object
+            properties:
+                violations:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/FieldViolation'
+                    description: List of validation violations
+            required:
+                - violations
+            description: ValidationError is returned when request validation fails. It contains a list of field violations describing what went wrong.
+        GetUserRequest:
+            type: object
+            properties:
+                id:
+                    type: string
+            description: GetUserRequest is the request for GetUser.
+        User:
+            type: object
+            properties:
+                id:
+                    type: string
+                    description: Required field (not nullable)
+                middleName:
+                    type:
+                        - string
+                        - "null"
+                    description: Optional field with nullable=true - serializes as null when unset
+                nickname:
+                    type: string
+                    description: Optional field without nullable - omitted when unset
+                age:
+                    type:
+                        - integer
+                        - "null"
+                    format: int32
+                    description: Nullable integer field
+                isVerified:
+                    type:
+                        - boolean
+                        - "null"
+                    description: Nullable boolean field
+            description: User demonstrates nullable primitive fields.
+        UpdateUserRequest:
+            type: object
+            properties:
+                id:
+                    type: string
+                user:
+                    $ref: '#/components/schemas/User'
+            description: UpdateUserRequest is the request for UpdateUser.
