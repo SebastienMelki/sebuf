@@ -86,6 +86,14 @@ func TestClientGenGoldenFiles(t *testing.T) {
 				"nullable_nullable.pb.go",
 			},
 		},
+		{
+			name:      "empty behavior",
+			protoFile: "empty_behavior.proto",
+			expectedFiles: []string{
+				"empty_behavior_client.pb.go",
+				"empty_behavior_empty_behavior.pb.go",
+			},
+		},
 	}
 
 	// Get paths
