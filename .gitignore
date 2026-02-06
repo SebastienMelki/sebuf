@@ -16,6 +16,12 @@ protoc-gen-*-golden*
 protoc-gen-*-regression*
 protoc-gen-*-integration*
 
+# Stray plugin binaries in repo root (should only be in bin/)
+/protoc-gen-go-http
+/protoc-gen-go-client
+/protoc-gen-ts-client
+/protoc-gen-openapiv3
+
 # Output of the go coverage tool, specifically when used with LiteIDE
 *.out
 
@@ -59,6 +65,7 @@ Thumbs.db
 
 # Coverage reports and profiles
 *.coverprofile
+coverage/
 
 # Generated protobuf files
 internal/generated/proto/

@@ -86,12 +86,7 @@ paths:
                     content:
                         application/json:
                             schema:
-                                type: object
-                                properties:
-                                    error:
-                                        type: string
-                                    code:
-                                        type: integer
+                                $ref: '#/components/schemas/Error'
     /v2/options/bars/latest:
         get:
             tags:
@@ -144,14 +139,16 @@ paths:
                     content:
                         application/json:
                             schema:
-                                type: object
-                                properties:
-                                    error:
-                                        type: string
-                                    code:
-                                        type: integer
+                                $ref: '#/components/schemas/Error'
 components:
     schemas:
+        Error:
+            type: object
+            properties:
+                message:
+                    type: string
+                    description: Error message (e.g., 'user not found', 'database connection failed')
+            description: Error is returned when a handler encounters an error. It contains a simple error message that the developer can customize.
         FieldViolation:
             type: object
             properties:
@@ -266,12 +263,9 @@ components:
                 value:
                     $ref: '#/components/schemas/OptionBar'
         OptionBarsList:
-            type: object
-            properties:
-                bars:
-                    type: array
-                    items:
-                        $ref: '#/components/schemas/OptionBar'
+            type: array
+            items:
+                $ref: '#/components/schemas/OptionBar'
             description: |-
                 OptionBarsList is a wrapper for a list of bars that will be unwrapped in JSON.
                  This enables map values to serialize as arrays instead of nested objects.
@@ -318,7 +312,7 @@ components:
                     description: Close price.
                     example: 143.08
                 v:
-                    type: integer
+                    type: string
                     examples:
                         - 1
                         - 20
@@ -326,7 +320,7 @@ components:
                     description: Volume.
                     example: 1
                 n:
-                    type: integer
+                    type: string
                     examples:
                         - 1
                     format: int64
