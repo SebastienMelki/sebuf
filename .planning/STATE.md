@@ -10,18 +10,18 @@ See: .planning/PROJECT.md (updated 2026-02-05)
 ## Current Position
 
 Phase: 6 of 11 (JSON - Data Encoding)
-Plan: 1 of 4 in current phase
+Plan: 2 of 4 in current phase
 Status: In progress
-Last activity: 2026-02-06 -- Completed 06-01-PLAN.md (annotation infrastructure)
+Last activity: 2026-02-06 -- Completed 06-02-PLAN.md (timestamp format encoding)
 
-Progress: [######################] 92% (22 plans of ~24 estimated total)
+Progress: [######################] 96% (23 plans of ~24 estimated total)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 22
-- Average duration: ~6.1m
-- Total execution time: ~2.2 hours
+- Total plans completed: 23
+- Average duration: ~6.5m
+- Total execution time: ~2.5 hours
 
 **By Phase:**
 
@@ -32,11 +32,11 @@ Progress: [######################] 92% (22 plans of ~24 estimated total)
 | 03 - Existing Client Review | 6/6 | ~36m | ~6.0m |
 | 04 - JSON Primitive Encoding | 5/5 | ~65m | ~13.0m |
 | 05 - JSON Nullable & Empty | 4/4 | ~21m | ~5.3m |
-| 06 - JSON Data Encoding | 1/4 | ~3m | ~3.0m |
+| 06 - JSON Data Encoding | 2/4 | ~18m | ~9.0m |
 
 **Recent Trend:**
-- Last 5 plans: 05-01 (3m), 05-02 (7m), 05-03 (7m), 05-04 (4m), 06-01 (3m)
-- Trend: Annotation-only plans complete fastest; foundation work well-patterned
+- Last 5 plans: 05-02 (7m), 05-03 (7m), 05-04 (4m), 06-01 (3m), 06-02 (15m)
+- Trend: Annotation-only plans complete fastest; cross-generator plans take longer
 
 *Updated after each plan completion*
 
@@ -111,6 +111,10 @@ Recent decisions affecting current work:
 - D-06-01-02: UNSPECIFIED (0) always means protojson default -- RFC3339 for timestamps, BASE64 for bytes
 - D-06-01-03: HasTimestampFormatAnnotation excludes both UNSPECIFIED and RFC3339 (both produce default behavior)
 - D-06-01-04: HasBytesEncodingAnnotation excludes both UNSPECIFIED and BASE64 (both produce default behavior)
+- D-06-02-01: Timestamp detected before generic MessageKind in type switches to prevent $ref generation
+- D-06-02-02: google.protobuf.Timestamp skipped from tsclientgen messageSet (primitive, not nested object)
+- D-06-02-03: convertTimestampField helper in openapiv3 for clean format-to-schema mapping
+- D-06-02-04: nolint:exhaustive on tsTimestampType switch -- default handles RFC3339/DATE/UNSPECIFIED
 
 ### Pending Todos
 
@@ -123,6 +127,6 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-06
-Stopped at: Completed 06-01-PLAN.md
+Stopped at: Completed 06-02-PLAN.md
 Resume file: None
-Next: 06-02-PLAN.md (timestamp/bytes encoding in go-http and go-client generators)
+Next: 06-03-PLAN.md (bytes encoding in go-http and go-client generators)
