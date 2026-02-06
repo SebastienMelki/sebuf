@@ -110,6 +110,14 @@ func TestClientGenGoldenFiles(t *testing.T) {
 				"bytes_encoding_bytes_encoding.pb.go",
 			},
 		},
+		{
+			name:      "flatten",
+			protoFile: "flatten.proto",
+			expectedFiles: []string{
+				"flatten_client.pb.go",
+				"flatten_flatten.pb.go",
+			},
+		},
 	}
 
 	// Get paths

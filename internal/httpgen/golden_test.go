@@ -127,6 +127,16 @@ func TestHTTPGenGoldenFiles(t *testing.T) {
 				"bytes_encoding_bytes_encoding.pb.go",
 			},
 		},
+		{
+			name:      "flatten",
+			protoFile: "flatten.proto",
+			expectedFiles: []string{
+				"flatten_http.pb.go",
+				"flatten_http_binding.pb.go",
+				"flatten_http_config.pb.go",
+				"flatten_flatten.pb.go",
+			},
+		},
 	}
 
 	// Get paths

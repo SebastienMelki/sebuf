@@ -334,26 +334,233 @@ func generateEnumType(p printer, enum *protogen.Enum) {
 }
 
 // generateInterface writes a TypeScript interface for a protobuf message.
+// If the message has discriminated oneofs, it generates appropriate union types.
+//
+
 func generateInterface(p printer, msg *protogen.Message) {
 	name := string(msg.Desc.Name())
 
-	p("export interface %s {", name)
+	// Collect discriminated oneof info
+	var discriminatedOneofs []*annotations.OneofDiscriminatorInfo
+	for _, oneof := range msg.Oneofs {
+		info := annotations.GetOneofDiscriminatorInfo(oneof)
+		if info != nil {
+			discriminatedOneofs = append(discriminatedOneofs, info)
+		}
+	}
+
+	// Check if any are flattened (requires type alias with intersection)
+	hasFlattenedOneof := false
+	for _, info := range discriminatedOneofs {
+		if info.Flatten {
+			hasFlattenedOneof = true
+			break
+		}
+	}
+
+	// Generate discriminated union types before the message
+	for _, info := range discriminatedOneofs {
+		generateOneofDiscriminatedUnionType(p, name, info)
+	}
+
+	if hasFlattenedOneof {
+		generateFlattenedOneofInterface(p, msg, name, discriminatedOneofs)
+	} else {
+		generateStandardInterface(p, msg, name, discriminatedOneofs)
+	}
+}
+
+// generateOneofDiscriminatedUnionType generates a TypeScript discriminated union type for a oneof.
+func generateOneofDiscriminatedUnionType(p printer, msgName string, info *annotations.OneofDiscriminatorInfo) {
+	unionName := msgName + snakeToUpperCamel(string(info.Oneof.Desc.Name()))
+
+	var branches []string
+	for _, variant := range info.Variants {
+		var branch string
+		if info.Flatten && variant.IsMessage {
+			// Flattened: { discriminator: "value", ...variant fields }
+			branch = fmt.Sprintf("{ %s: \"%s\"", info.Discriminator, variant.DiscriminatorVal)
+			var branchSb383 strings.Builder
+			for _, childField := range variant.Field.Message.Fields {
+				jsonName := childField.Desc.JSONName()
+				tsType := tsFieldType(childField)
+				branchSb383.WriteString(fmt.Sprintf("; %s: %s", jsonName, tsType))
+			}
+			branch += branchSb383.String()
+			branch += " }"
+		} else if variant.IsMessage {
+			// Non-flattened message: { discriminator: "value", fieldName?: MessageType }
+			fieldJSONName := variant.Field.Desc.JSONName()
+			msgType := string(variant.Field.Message.Desc.Name())
+			branch = fmt.Sprintf(
+				"{ %s: \"%s\"; %s?: %s }",
+				info.Discriminator,
+				variant.DiscriminatorVal,
+				fieldJSONName,
+				msgType,
+			)
+		} else {
+			// Non-flattened scalar: { discriminator: "value", fieldName?: scalarType }
+			fieldJSONName := variant.Field.Desc.JSONName()
+			tsType := tsScalarTypeForField(variant.Field)
+			branch = fmt.Sprintf(
+				"{ %s: \"%s\"; %s?: %s }",
+				info.Discriminator,
+				variant.DiscriminatorVal,
+				fieldJSONName,
+				tsType,
+			)
+		}
+		branches = append(branches, branch)
+	}
+
+	p("export type %s =", unionName)
+	for i, branch := range branches {
+		if i < len(branches)-1 {
+			p("  | %s", branch)
+		} else {
+			p("  | %s;", branch)
+		}
+	}
+	p("")
+}
+
+// generateFlattenedOneofInterface generates a type alias with intersection for messages
+// with flattened discriminated oneofs.
+func generateFlattenedOneofInterface(
+	p printer,
+	msg *protogen.Message,
+	name string,
+	discriminatedOneofs []*annotations.OneofDiscriminatorInfo,
+) {
+	// Build set of fields that belong to discriminated oneofs
+	oneofFields := buildOneofFieldSet(discriminatedOneofs)
+
+	// Generate base fields interface
+	p("export interface %sBase {", name)
 	for _, field := range msg.Fields {
-		jsonName := field.Desc.JSONName()
-		tsType := tsFieldType(field)
+		if oneofFields[field] {
+			continue
+		}
+		if annotations.IsFlattenField(field) && field.Message != nil {
+			prefix := annotations.GetFlattenPrefix(field)
+			generateFlattenedFields(p, field.Message, prefix)
+			continue
+		}
+		generateFieldDeclaration(p, field)
+	}
+	p("}")
+	p("")
+
+	// Generate type alias as intersection of base and all discriminated union types
+	parts := []string{fmt.Sprintf("%sBase", name)}
+	for _, info := range discriminatedOneofs {
+		unionName := name + snakeToUpperCamel(string(info.Oneof.Desc.Name()))
+		parts = append(parts, unionName)
+	}
+	p("export type %s = %s;", name, strings.Join(parts, " & "))
+	p("")
+}
+
+// generateStandardInterface generates a standard interface, handling non-flattened
+// discriminated oneofs as optional union properties.
+func generateStandardInterface(
+	p printer,
+	msg *protogen.Message,
+	name string,
+	discriminatedOneofs []*annotations.OneofDiscriminatorInfo,
+) {
+	// Build set of fields that belong to discriminated oneofs
+	oneofFields := buildOneofFieldSet(discriminatedOneofs)
+
+	// Build map of oneof -> union type name for non-flattened
+	oneofUnionNames := make(map[*protogen.Oneof]string)
+	for _, info := range discriminatedOneofs {
+		unionName := name + snakeToUpperCamel(string(info.Oneof.Desc.Name()))
+		oneofUnionNames[info.Oneof] = unionName
+	}
+
+	p("export interface %s {", name)
+	// Track which oneofs we've already emitted
+	emittedOneofs := make(map[*protogen.Oneof]bool)
+
+	for _, field := range msg.Fields {
+		if oneofFields[field] {
+			// For discriminated oneof fields, emit the union type once for the oneof
+			if field.Oneof != nil && !emittedOneofs[field.Oneof] {
+				if unionName, ok := oneofUnionNames[field.Oneof]; ok {
+					oneofJSONName := string(field.Oneof.Desc.Name())
+					p("  %s?: %s;", oneofJSONName, unionName)
+					emittedOneofs[field.Oneof] = true
+				}
+			}
+			continue
+		}
+
+		if annotations.IsFlattenField(field) && field.Message != nil {
+			prefix := annotations.GetFlattenPrefix(field)
+			generateFlattenedFields(p, field.Message, prefix)
+			continue
+		}
+
+		generateFieldDeclaration(p, field)
+	}
+	p("}")
+	p("")
+}
+
+// buildOneofFieldSet returns a set of fields that belong to discriminated oneofs.
+func buildOneofFieldSet(discriminatedOneofs []*annotations.OneofDiscriminatorInfo) map[*protogen.Field]bool {
+	oneofFields := make(map[*protogen.Field]bool)
+	for _, info := range discriminatedOneofs {
+		for _, variant := range info.Variants {
+			oneofFields[variant.Field] = true
+		}
+	}
+	return oneofFields
+}
+
+// generateFieldDeclaration generates a single TypeScript field declaration line.
+func generateFieldDeclaration(p printer, field *protogen.Field) {
+	jsonName := field.Desc.JSONName()
+	tsType := tsFieldType(field)
+
+	//nolint:gocritic // if-else chain is clearer than switch for distinct boolean checks
+	if annotations.IsNullableField(field) {
+		p("  %s: %s | null;", jsonName, tsType)
+	} else if isOptionalField(field) {
+		p("  %s?: %s;", jsonName, tsType)
+	} else {
+		p("  %s: %s;", jsonName, tsType)
+	}
+}
+
+// snakeToUpperCamel converts snake_case to UpperCamelCase.
+func snakeToUpperCamel(s string) string {
+	parts := strings.Split(s, "_")
+	for i, part := range parts {
+		if len(part) > 0 {
+			parts[i] = strings.ToUpper(part[:1]) + part[1:]
+		}
+	}
+	return strings.Join(parts, "")
+}
+
+// generateFlattenedFields inlines child message fields at the parent level with optional prefix.
+func generateFlattenedFields(p printer, childMsg *protogen.Message, prefix string) {
+	for _, childField := range childMsg.Fields {
+		jsonName := prefix + childField.Desc.JSONName()
+		tsType := tsFieldType(childField)
 
 		//nolint:gocritic // if-else chain is clearer than switch for distinct boolean checks
-		if annotations.IsNullableField(field) {
-			// Nullable fields are always present with value or null (not optional)
+		if annotations.IsNullableField(childField) {
 			p("  %s: %s | null;", jsonName, tsType)
-		} else if isOptionalField(field) {
+		} else if isOptionalField(childField) {
 			p("  %s?: %s;", jsonName, tsType)
 		} else {
 			p("  %s: %s;", jsonName, tsType)
 		}
 	}
-	p("}")
-	p("")
 }
 
 // isOptionalField returns true if the field should be optional in TypeScript.

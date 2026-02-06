@@ -1,0 +1,253 @@
+openapi: 3.1.0
+info:
+    title: FlattenService API
+    version: 1.0.0
+paths:
+    /api/v1/flatten/simple:
+        post:
+            tags:
+                - FlattenService
+            summary: TestSimpleFlatten
+            operationId: TestSimpleFlatten
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/SimpleFlatten'
+                required: true
+            responses:
+                "200":
+                    description: Successful response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/SimpleFlatten'
+                "400":
+                    description: Validation error
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ValidationError'
+                default:
+                    description: Error response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Error'
+    /api/v1/flatten/dual:
+        post:
+            tags:
+                - FlattenService
+            summary: TestDualFlatten
+            operationId: TestDualFlatten
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/DualFlatten'
+                required: true
+            responses:
+                "200":
+                    description: Successful response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/DualFlatten'
+                "400":
+                    description: Validation error
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ValidationError'
+                default:
+                    description: Error response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Error'
+    /api/v1/flatten/mixed:
+        post:
+            tags:
+                - FlattenService
+            summary: TestMixedFlatten
+            operationId: TestMixedFlatten
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/MixedFlatten'
+                required: true
+            responses:
+                "200":
+                    description: Successful response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/MixedFlatten'
+                "400":
+                    description: Validation error
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ValidationError'
+                default:
+                    description: Error response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Error'
+    /api/v1/flatten/plain:
+        post:
+            tags:
+                - FlattenService
+            summary: TestPlainNested
+            operationId: TestPlainNested
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/PlainNested'
+                required: true
+            responses:
+                "200":
+                    description: Successful response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/PlainNested'
+                "400":
+                    description: Validation error
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ValidationError'
+                default:
+                    description: Error response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Error'
+components:
+    schemas:
+        Error:
+            type: object
+            properties:
+                message:
+                    type: string
+                    description: Error message (e.g., 'user not found', 'database connection failed')
+            description: Error is returned when a handler encounters an error. It contains a simple error message that the developer can customize.
+        FieldViolation:
+            type: object
+            properties:
+                field:
+                    type: string
+                    description: The field path that failed validation (e.g., 'user.email' for nested fields). For header validation, this will be the header name (e.g., 'X-API-Key')
+                description:
+                    type: string
+                    description: Human-readable description of the validation violation (e.g., 'must be a valid email address', 'required field missing')
+            required:
+                - field
+                - description
+            description: FieldViolation describes a single validation error for a specific field.
+        ValidationError:
+            type: object
+            properties:
+                violations:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/FieldViolation'
+                    description: List of validation violations
+            required:
+                - violations
+            description: ValidationError is returned when request validation fails. It contains a list of field violations describing what went wrong.
+        SimpleFlatten:
+            allOf:
+                - type: object
+                  properties:
+                    id:
+                        type: string
+                - type: object
+                  properties:
+                    street:
+                        type: string
+                    city:
+                        type: string
+                    zip:
+                        type: string
+                  description: Flattened from address
+            description: |-
+                SimpleFlatten demonstrates basic flatten without prefix.
+                 Address fields (street, city, zip) are promoted to parent level.
+        Address:
+            type: object
+            properties:
+                street:
+                    type: string
+                city:
+                    type: string
+                zip:
+                    type: string
+            description: Address is a child message used for flattening.
+        DualFlatten:
+            allOf:
+                - type: object
+                  properties:
+                    id:
+                        type: string
+                - type: object
+                  properties:
+                    billing_street:
+                        type: string
+                    billing_city:
+                        type: string
+                    billing_zip:
+                        type: string
+                  description: Flattened from billing with prefix "billing_"
+                - type: object
+                  properties:
+                    shipping_street:
+                        type: string
+                    shipping_city:
+                        type: string
+                    shipping_zip:
+                        type: string
+                  description: Flattened from shipping with prefix "shipping_"
+            description: |-
+                DualFlatten demonstrates flatten with prefix (two flattened fields of same type).
+                 Uses prefixes to disambiguate billing and shipping address fields.
+        MixedFlatten:
+            allOf:
+                - type: object
+                  properties:
+                    id:
+                        type: string
+                    contact:
+                        $ref: '#/components/schemas/ContactInfo'
+                    notes:
+                        type: string
+                - type: object
+                  properties:
+                    street:
+                        type: string
+                    city:
+                        type: string
+                    zip:
+                        type: string
+                  description: Flattened from address
+            description: MixedFlatten demonstrates a mix of flattened and non-flattened fields.
+        ContactInfo:
+            type: object
+            properties:
+                email:
+                    type: string
+                phone:
+                    type: string
+            description: ContactInfo is a non-flattened child message.
+        PlainNested:
+            type: object
+            properties:
+                id:
+                    type: string
+                address:
+                    $ref: '#/components/schemas/Address'
+            description: PlainNested has no flatten annotation (backward compatible).

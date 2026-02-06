@@ -178,6 +178,8 @@ func (g *Generator) writeFlattenImports(gf *protogen.GeneratedFile) {
 }
 
 // generateFlattenMarshalJSON generates MarshalJSON that promotes flattened child fields to the parent level.
+//
+//nolint:dupl // Intentionally similar to oneof_discriminator MarshalJSON — both use protojson-then-manipulate pattern
 func (g *Generator) generateFlattenMarshalJSON(gf *protogen.GeneratedFile, ctx *FlattenContext) {
 	msgName := ctx.Message.GoIdent.GoName
 

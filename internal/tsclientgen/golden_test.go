@@ -102,6 +102,13 @@ func TestTSClientGenGoldenFiles(t *testing.T) {
 				"bytes_encoding_client.ts",
 			},
 		},
+		{
+			name:      "flatten",
+			protoFile: "flatten.proto",
+			expectedFiles: []string{
+				"flatten_client.ts",
+			},
+		},
 	}
 
 	baseDir, err := os.Getwd()

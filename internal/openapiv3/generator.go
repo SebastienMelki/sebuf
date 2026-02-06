@@ -170,10 +170,22 @@ func (g *Generator) processMessage(message *protogen.Message) {
 }
 
 // buildObjectSchema creates an OpenAPI object schema from a protobuf message.
+//
+
 func (g *Generator) buildObjectSchema(message *protogen.Message) *base.SchemaProxy {
 	// Check for root-level unwrap
 	if rootUnwrap := getRootUnwrapInfo(message); rootUnwrap != nil {
 		return g.buildRootUnwrapSchema(message, rootUnwrap)
+	}
+
+	// Check if message has flatten fields -- use allOf for clean representation
+	if annotations.HasFlattenFields(message) {
+		return g.buildFlattenedObjectSchema(message)
+	}
+
+	// Check if message has discriminated oneofs
+	if annotations.HasOneofDiscriminator(message) {
+		return g.buildOneofDiscriminatorSchema(message)
 	}
 
 	properties := orderedmap.New[string, *base.SchemaProxy]()
@@ -200,6 +212,317 @@ func (g *Generator) buildObjectSchema(message *protogen.Message) *base.SchemaPro
 	}
 
 	// Add description from comments
+	if message.Comments.Leading != "" {
+		schema.Description = strings.TrimSpace(string(message.Comments.Leading))
+	}
+
+	return base.CreateSchemaProxy(schema)
+}
+
+// buildOneofDiscriminatorSchema creates an OpenAPI schema for messages with discriminated oneofs.
+// For flattened mode: generates per-variant schemas with oneOf + discriminator.
+// For non-flattened mode: object schema with discriminator property and oneOf for variant routing.
+//
+
+func (g *Generator) buildOneofDiscriminatorSchema(message *protogen.Message) *base.SchemaProxy {
+	// Collect discriminated oneofs
+	var discriminatedOneofs []*annotations.OneofDiscriminatorInfo
+	for _, oneof := range message.Oneofs {
+		info := annotations.GetOneofDiscriminatorInfo(oneof)
+		if info != nil {
+			discriminatedOneofs = append(discriminatedOneofs, info)
+		}
+	}
+
+	// Build set of fields that belong to discriminated oneofs
+	oneofFields := make(map[string]bool)
+	for _, info := range discriminatedOneofs {
+		for _, variant := range info.Variants {
+			oneofFields[string(variant.Field.Desc.Name())] = true
+		}
+	}
+
+	// Check if any discriminated oneofs are flattened
+	hasFlattenedOneof := false
+	for _, info := range discriminatedOneofs {
+		if info.Flatten {
+			hasFlattenedOneof = true
+			break
+		}
+	}
+
+	if hasFlattenedOneof {
+		return g.buildFlattenedOneofSchema(message, discriminatedOneofs, oneofFields)
+	}
+	return g.buildNestedOneofSchema(message, discriminatedOneofs, oneofFields)
+}
+
+// buildFlattenedOneofSchema generates per-variant schemas with oneOf + discriminator.
+// Each variant schema includes common fields + discriminator field + variant's own fields.
+func (g *Generator) buildFlattenedOneofSchema(
+	message *protogen.Message,
+	discriminatedOneofs []*annotations.OneofDiscriminatorInfo,
+	oneofFields map[string]bool,
+) *base.SchemaProxy {
+	msgName := g.getSchemaName(message)
+
+	// For each flattened oneof, generate per-variant schemas
+	var allVariantRefs []*base.SchemaProxy
+	var allMappings []*annotations.OneofDiscriminatorInfo
+
+	for _, info := range discriminatedOneofs {
+		if !info.Flatten {
+			continue
+		}
+
+		for _, variant := range info.Variants {
+			variantSchemaName := fmt.Sprintf("%s_%s", msgName, variant.DiscriminatorVal)
+
+			// Build variant schema: common fields + discriminator + variant fields
+			variantProps := orderedmap.New[string, *base.SchemaProxy]()
+			var variantRequired []string
+
+			// Add common (non-oneof) fields
+			for _, field := range message.Fields {
+				if oneofFields[string(field.Desc.Name())] {
+					continue
+				}
+				fieldSchema := g.convertField(field)
+				fieldName := field.Desc.JSONName()
+				variantProps.Set(fieldName, fieldSchema)
+			}
+
+			// Add discriminator field
+			discSchema := &base.Schema{
+				Type: []string{"string"},
+				Enum: []*yaml.Node{{Kind: yaml.ScalarNode, Value: variant.DiscriminatorVal}},
+			}
+			variantProps.Set(info.Discriminator, base.CreateSchemaProxy(discSchema))
+			variantRequired = append(variantRequired, info.Discriminator)
+
+			// Add variant's message fields (flattened to parent level)
+			if variant.IsMessage {
+				for _, childField := range variant.Field.Message.Fields {
+					childSchema := g.convertField(childField)
+					variantProps.Set(childField.Desc.JSONName(), childSchema)
+				}
+			}
+
+			variantSchema := &base.Schema{
+				Type:       []string{"object"},
+				Properties: variantProps,
+			}
+			if len(variantRequired) > 0 {
+				variantSchema.Required = variantRequired
+			}
+
+			// Register the variant schema in components
+			g.schemas.Set(variantSchemaName, base.CreateSchemaProxy(variantSchema))
+
+			// Add ref to variant schema
+			ref := fmt.Sprintf("#/components/schemas/%s", variantSchemaName)
+			allVariantRefs = append(allVariantRefs, base.CreateSchemaProxyRef(ref))
+		}
+
+		allMappings = append(allMappings, info)
+	}
+
+	// Build main schema with oneOf + discriminator
+	schema := &base.Schema{
+		OneOf: allVariantRefs,
+	}
+
+	// Build discriminator with mapping (use first flattened oneof's discriminator)
+	if len(allMappings) > 0 {
+		info := allMappings[0]
+		mapping := orderedmap.New[string, string]()
+		for _, variant := range info.Variants {
+			variantSchemaName := fmt.Sprintf("%s_%s", msgName, variant.DiscriminatorVal)
+			mapping.Set(variant.DiscriminatorVal, fmt.Sprintf("#/components/schemas/%s", variantSchemaName))
+		}
+		schema.Discriminator = &base.Discriminator{
+			PropertyName: info.Discriminator,
+			Mapping:      mapping,
+		}
+	}
+
+	// Add description from message comments
+	if message.Comments.Leading != "" {
+		schema.Description = strings.TrimSpace(string(message.Comments.Leading))
+	}
+
+	return base.CreateSchemaProxy(schema)
+}
+
+// buildNestedOneofSchema generates an object schema with discriminator property
+// and oneOf for non-flattened variant routing.
+func (g *Generator) buildNestedOneofSchema(
+	message *protogen.Message,
+	discriminatedOneofs []*annotations.OneofDiscriminatorInfo,
+	oneofFields map[string]bool,
+) *base.SchemaProxy {
+	properties := orderedmap.New[string, *base.SchemaProxy]()
+	var required []string
+
+	// Add non-oneof fields
+	for _, field := range message.Fields {
+		if oneofFields[string(field.Desc.Name())] {
+			continue
+		}
+		fieldSchema := g.convertField(field)
+		fieldName := field.Desc.JSONName()
+		properties.Set(fieldName, fieldSchema)
+
+		if checkIfFieldRequired(field) {
+			required = append(required, fieldName)
+		}
+	}
+
+	// For each non-flattened discriminated oneof, add discriminator property and oneOf
+	var oneOfSchemas []*base.SchemaProxy
+	var discInfo *annotations.OneofDiscriminatorInfo
+
+	for _, info := range discriminatedOneofs {
+		discInfo = info
+
+		// Add discriminator property with enum of all possible values
+		var enumValues []*yaml.Node
+		for _, variant := range info.Variants {
+			enumValues = append(enumValues, &yaml.Node{Kind: yaml.ScalarNode, Value: variant.DiscriminatorVal})
+		}
+		discSchema := &base.Schema{
+			Type: []string{"string"},
+			Enum: enumValues,
+		}
+		properties.Set(info.Discriminator, base.CreateSchemaProxy(discSchema))
+
+		// Build oneOf with per-variant schemas (each wraps variant under its field name)
+		for _, variant := range info.Variants {
+			variantProps := orderedmap.New[string, *base.SchemaProxy]()
+
+			if variant.IsMessage {
+				fieldJSONName := variant.Field.Desc.JSONName()
+				ref := fmt.Sprintf("#/components/schemas/%s", string(variant.Field.Message.Desc.Name()))
+				variantProps.Set(fieldJSONName, base.CreateSchemaProxyRef(ref))
+			} else {
+				fieldJSONName := variant.Field.Desc.JSONName()
+				scalarSchema := g.convertScalarField(variant.Field)
+				variantProps.Set(fieldJSONName, scalarSchema)
+			}
+
+			variantSchema := &base.Schema{
+				Type:       []string{"object"},
+				Properties: variantProps,
+			}
+			oneOfSchemas = append(oneOfSchemas, base.CreateSchemaProxy(variantSchema))
+		}
+	}
+
+	schema := &base.Schema{
+		Type:       []string{"object"},
+		Properties: properties,
+	}
+
+	if len(required) > 0 {
+		schema.Required = required
+	}
+
+	if len(oneOfSchemas) > 0 {
+		schema.OneOf = oneOfSchemas
+	}
+
+	// Add discriminator mapping
+	if discInfo != nil {
+		mapping := orderedmap.New[string, string]()
+		for _, variant := range discInfo.Variants {
+			if variant.IsMessage {
+				mapping.Set(
+					variant.DiscriminatorVal,
+					fmt.Sprintf("#/components/schemas/%s", string(variant.Field.Message.Desc.Name())),
+				)
+			}
+		}
+		schema.Discriminator = &base.Discriminator{
+			PropertyName: discInfo.Discriminator,
+			Mapping:      mapping,
+		}
+	}
+
+	// Add description from comments
+	if message.Comments.Leading != "" {
+		schema.Description = strings.TrimSpace(string(message.Comments.Leading))
+	}
+
+	return base.CreateSchemaProxy(schema)
+}
+
+// buildFlattenedObjectSchema creates an OpenAPI schema using allOf for messages with flatten fields.
+// Non-flattened fields go into one object schema, each flattened field's children go into
+// separate object schemas with prefixed property names.
+func (g *Generator) buildFlattenedObjectSchema(message *protogen.Message) *base.SchemaProxy {
+	var allOfSchemas []*base.SchemaProxy
+
+	// First: collect non-flattened fields into a base object schema
+	baseProps := orderedmap.New[string, *base.SchemaProxy]()
+	var baseRequired []string
+
+	for _, field := range message.Fields {
+		if annotations.IsFlattenField(field) {
+			continue
+		}
+
+		fieldSchema := g.convertField(field)
+		fieldName := field.Desc.JSONName()
+		baseProps.Set(fieldName, fieldSchema)
+
+		if checkIfFieldRequired(field) {
+			baseRequired = append(baseRequired, fieldName)
+		}
+	}
+
+	if baseProps.Len() > 0 {
+		baseSchema := &base.Schema{
+			Type:       []string{"object"},
+			Properties: baseProps,
+		}
+		if len(baseRequired) > 0 {
+			baseSchema.Required = baseRequired
+		}
+		allOfSchemas = append(allOfSchemas, base.CreateSchemaProxy(baseSchema))
+	}
+
+	// Second: for each flattened field, create an object schema with prefixed properties
+	for _, field := range message.Fields {
+		if !annotations.IsFlattenField(field) || field.Message == nil {
+			continue
+		}
+
+		prefix := annotations.GetFlattenPrefix(field)
+		flatProps := orderedmap.New[string, *base.SchemaProxy]()
+
+		for _, childField := range field.Message.Fields {
+			childSchema := g.convertField(childField)
+			flattenedName := prefix + childField.Desc.JSONName()
+			flatProps.Set(flattenedName, childSchema)
+		}
+
+		flatSchema := &base.Schema{
+			Type:       []string{"object"},
+			Properties: flatProps,
+		}
+		if prefix != "" {
+			flatSchema.Description = fmt.Sprintf("Flattened from %s with prefix %q", field.Desc.Name(), prefix)
+		} else {
+			flatSchema.Description = fmt.Sprintf("Flattened from %s", field.Desc.Name())
+		}
+		allOfSchemas = append(allOfSchemas, base.CreateSchemaProxy(flatSchema))
+	}
+
+	schema := &base.Schema{
+		AllOf: allOfSchemas,
+	}
+
+	// Add description from message comments
 	if message.Comments.Leading != "" {
 		schema.Description = strings.TrimSpace(string(message.Comments.Leading))
 	}
