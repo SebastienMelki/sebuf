@@ -128,6 +128,8 @@ func (g *Generator) writeTimestampFormatImports(gf *protogen.GeneratedFile) {
 }
 
 // generateTimestampFormatMarshalJSON generates MarshalJSON that converts Timestamp fields to the specified format.
+//
+//nolint:dupl // Code generation patterns naturally have similar structure across encoding types
 func (g *Generator) generateTimestampFormatMarshalJSON(gf *protogen.GeneratedFile, ctx *TimestampFormatContext) {
 	msgName := ctx.Message.GoIdent.GoName
 
@@ -194,6 +196,8 @@ func (g *Generator) generateTimestampFieldMarshal(gf *protogen.GeneratedFile, fi
 }
 
 // generateTimestampFormatUnmarshalJSON generates UnmarshalJSON that converts timestamp formats back to RFC 3339.
+//
+//nolint:dupl // Code generation patterns naturally have similar structure across encoding types
 func (g *Generator) generateTimestampFormatUnmarshalJSON(gf *protogen.GeneratedFile, ctx *TimestampFormatContext) {
 	msgName := ctx.Message.GoIdent.GoName
 
