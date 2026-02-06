@@ -88,6 +88,20 @@ func TestTSClientGenGoldenFiles(t *testing.T) {
 				"empty_behavior_client.ts",
 			},
 		},
+		{
+			name:      "timestamp format",
+			protoFile: "timestamp_format.proto",
+			expectedFiles: []string{
+				"timestamp_format_client.ts",
+			},
+		},
+		{
+			name:      "bytes encoding",
+			protoFile: "bytes_encoding.proto",
+			expectedFiles: []string{
+				"bytes_encoding_client.ts",
+			},
+		},
 	}
 
 	baseDir, err := os.Getwd()

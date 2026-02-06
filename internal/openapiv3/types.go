@@ -159,12 +159,33 @@ func (g *Generator) convertScalarField(field *protogen.Field) *base.SchemaProxy 
 
 	case protoreflect.BytesKind:
 		schema.Type = []string{"string"}
-		schema.Format = "byte"
+		encoding := annotations.GetBytesEncoding(field)
+		//exhaustive:ignore -- UNSPECIFIED and BASE64 both use default byte format
+		switch encoding {
+		case http.BytesEncoding_BYTES_ENCODING_HEX:
+			schema.Format = "hex"
+			schema.Pattern = "^[0-9a-fA-F]*$"
+		case http.BytesEncoding_BYTES_ENCODING_BASE64_RAW:
+			schema.Format = "byte"
+			schema.Description = "Base64 encoded without padding"
+		case http.BytesEncoding_BYTES_ENCODING_BASE64URL:
+			schema.Format = "base64url"
+		case http.BytesEncoding_BYTES_ENCODING_BASE64URL_RAW:
+			schema.Format = "base64url"
+			schema.Description = "URL-safe base64 encoded without padding"
+		default:
+			// UNSPECIFIED, BASE64 -> standard base64 with padding
+			schema.Format = "byte"
+		}
 
 	case protoreflect.EnumKind:
 		return g.convertEnumField(field)
 
 	case protoreflect.MessageKind:
+		// Handle google.protobuf.Timestamp with format-aware schema
+		if annotations.IsTimestampField(field) {
+			return g.convertTimestampField(field, schema)
+		}
 		// Reference to another message
 		return base.CreateSchemaProxyRef(fmt.Sprintf("#/components/schemas/%s", g.getSchemaName(field.Message)))
 
@@ -412,6 +433,38 @@ func mapHeaderTypeToOpenAPI(headerType string) string {
 		// Default to string for unknown types
 		return headerTypeString
 	}
+}
+
+// convertTimestampField creates an OpenAPI schema for a google.protobuf.Timestamp field
+// based on its timestamp_format annotation.
+//
+//nolint:exhaustive // Only non-default formats have special schemas; default falls through to date-time
+func (g *Generator) convertTimestampField(field *protogen.Field, schema *base.Schema) *base.SchemaProxy {
+	format := annotations.GetTimestampFormat(field)
+	switch format {
+	case http.TimestampFormat_TIMESTAMP_FORMAT_UNIX_SECONDS:
+		schema.Type = []string{headerTypeInteger}
+		schema.Format = "unix-timestamp"
+		schema.Description = "Unix timestamp in seconds"
+	case http.TimestampFormat_TIMESTAMP_FORMAT_UNIX_MILLIS:
+		schema.Type = []string{headerTypeInteger}
+		schema.Format = "unix-timestamp-ms"
+		schema.Description = "Unix timestamp in milliseconds"
+	case http.TimestampFormat_TIMESTAMP_FORMAT_DATE:
+		schema.Type = []string{headerTypeString}
+		schema.Format = "date"
+	default:
+		// RFC3339 / UNSPECIFIED
+		schema.Type = []string{headerTypeString}
+		schema.Format = "date-time"
+	}
+
+	// Override description with field comments if present
+	if field.Comments.Leading != "" {
+		schema.Description = strings.TrimSpace(string(field.Comments.Leading))
+	}
+
+	return base.CreateSchemaProxy(schema)
 }
 
 // int64PrecisionWarning is the warning message for NUMBER-encoded int64/uint64 fields.

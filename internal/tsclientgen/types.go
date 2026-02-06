@@ -36,7 +36,7 @@ func tsScalarType(kind protoreflect.Kind) string {
 		// proto3 JSON default: 64-bit integers as strings (safe for JavaScript)
 		return tsString
 	case protoreflect.BytesKind:
-		// base64 encoded in JSON
+		// All bytes_encoding variants (BASE64, BASE64_RAW, BASE64URL, BASE64URL_RAW, HEX) serialize as strings in JSON
 		return tsString
 	case protoreflect.EnumKind:
 		return tsString
@@ -129,6 +129,11 @@ func newMessageSet() *messageSet {
 func (ms *messageSet) addMessage(msg *protogen.Message) {
 	fullName := string(msg.Desc.FullName())
 	if _, exists := ms.messages[fullName]; exists {
+		return
+	}
+
+	// Skip google.protobuf.Timestamp — serialized as primitive (string/number), not nested object
+	if fullName == "google.protobuf.Timestamp" {
 		return
 	}
 
@@ -229,6 +234,11 @@ func tsFieldType(field *protogen.Field) string {
 		return elemType + "[]"
 	}
 
+	// Handle google.protobuf.Timestamp fields (serialized as primitive, not as nested object)
+	if annotations.IsTimestampField(field) {
+		return tsTimestampType(field)
+	}
+
 	// Handle message fields
 	if field.Desc.Kind() == protoreflect.MessageKind && field.Message != nil {
 		return string(field.Message.Desc.Name())
@@ -250,6 +260,10 @@ func tsFieldType(field *protogen.Field) string {
 
 // tsElementType returns the TypeScript type for the element of a repeated field.
 func tsElementType(field *protogen.Field) string {
+	// Handle google.protobuf.Timestamp (serialized as primitive, not as nested object)
+	if annotations.IsTimestampField(field) {
+		return tsTimestampType(field)
+	}
 	if field.Desc.Kind() == protoreflect.MessageKind && field.Message != nil {
 		return string(field.Message.Desc.Name())
 	}
@@ -353,6 +367,24 @@ func isOptionalField(field *protogen.Field) bool {
 		return true
 	}
 	return false
+}
+
+// tsTimestampType returns the TypeScript type for a google.protobuf.Timestamp field
+// based on its timestamp_format annotation.
+// UNIX_SECONDS and UNIX_MILLIS serialize as integers -> number
+// RFC3339, DATE, and default serialize as strings -> string.
+//
+//nolint:exhaustive // Only non-default formats need explicit handling; default covers RFC3339/DATE/UNSPECIFIED
+func tsTimestampType(field *protogen.Field) string {
+	format := annotations.GetTimestampFormat(field)
+	switch format {
+	case http.TimestampFormat_TIMESTAMP_FORMAT_UNIX_SECONDS,
+		http.TimestampFormat_TIMESTAMP_FORMAT_UNIX_MILLIS:
+		return tsNumber
+	default:
+		// RFC3339, DATE, UNSPECIFIED -> string
+		return tsString
+	}
 }
 
 // printer is a function that prints a formatted line.

@@ -505,6 +505,36 @@ func TestExhaustiveGoldenFiles(t *testing.T) {
 			goldenFile:  "testdata/golden/json/EmptyBehaviorService.openapi.json",
 			format:      "json",
 		},
+		// timestamp_format.proto -> TimestampFormatService (timestamp format variants)
+		{
+			name:        "timestamp_format_service_yaml",
+			protoFile:   "testdata/proto/timestamp_format.proto",
+			serviceName: "TimestampFormatService",
+			goldenFile:  "testdata/golden/yaml/TimestampFormatService.openapi.yaml",
+			format:      "yaml",
+		},
+		{
+			name:        "timestamp_format_service_json",
+			protoFile:   "testdata/proto/timestamp_format.proto",
+			serviceName: "TimestampFormatService",
+			goldenFile:  "testdata/golden/json/TimestampFormatService.openapi.json",
+			format:      "json",
+		},
+		// bytes_encoding.proto -> BytesEncodingService (bytes encoding variants)
+		{
+			name:        "bytes_encoding_service_yaml",
+			protoFile:   "testdata/proto/bytes_encoding.proto",
+			serviceName: "BytesEncodingService",
+			goldenFile:  "testdata/golden/yaml/BytesEncodingService.openapi.yaml",
+			format:      "yaml",
+		},
+		{
+			name:        "bytes_encoding_service_json",
+			protoFile:   "testdata/proto/bytes_encoding.proto",
+			serviceName: "BytesEncodingService",
+			goldenFile:  "testdata/golden/json/BytesEncodingService.openapi.json",
+			format:      "json",
+		},
 	}
 
 	for _, tc := range testCases {
@@ -606,6 +636,8 @@ func TestExhaustiveRegression(t *testing.T) {
 		"testdata/proto/enum_encoding.proto":            {"EnumEncodingService"},
 		"testdata/proto/nullable.proto":                 {"NullableService"},
 		"testdata/proto/empty_behavior.proto":           {"EmptyBehaviorService"},
+		"testdata/proto/timestamp_format.proto":         {"TimestampFormatService"},
+		"testdata/proto/bytes_encoding.proto":           {"BytesEncodingService"},
 	}
 
 	formats := []string{"yaml", "json"}

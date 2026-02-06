@@ -94,6 +94,22 @@ func TestClientGenGoldenFiles(t *testing.T) {
 				"empty_behavior_empty_behavior.pb.go",
 			},
 		},
+		{
+			name:      "timestamp format",
+			protoFile: "timestamp_format.proto",
+			expectedFiles: []string{
+				"timestamp_format_client.pb.go",
+				"timestamp_format_timestamp_format.pb.go",
+			},
+		},
+		{
+			name:      "bytes encoding",
+			protoFile: "bytes_encoding.proto",
+			expectedFiles: []string{
+				"bytes_encoding_client.pb.go",
+				"bytes_encoding_bytes_encoding.pb.go",
+			},
+		},
 	}
 
 	// Get paths
