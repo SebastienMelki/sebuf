@@ -377,18 +377,19 @@ func generateOneofDiscriminatedUnionType(p printer, msgName string, info *annota
 	var branches []string
 	for _, variant := range info.Variants {
 		var branch string
-		if info.Flatten && variant.IsMessage {
+		switch {
+		case info.Flatten && variant.IsMessage:
 			// Flattened: { discriminator: "value", ...variant fields }
 			branch = fmt.Sprintf("{ %s: \"%s\"", info.Discriminator, variant.DiscriminatorVal)
-			var branchSb383 strings.Builder
+			var sb strings.Builder
 			for _, childField := range variant.Field.Message.Fields {
 				jsonName := childField.Desc.JSONName()
 				tsType := tsFieldType(childField)
-				branchSb383.WriteString(fmt.Sprintf("; %s: %s", jsonName, tsType))
+				sb.WriteString(fmt.Sprintf("; %s: %s", jsonName, tsType))
 			}
-			branch += branchSb383.String()
+			branch += sb.String()
 			branch += " }"
-		} else if variant.IsMessage {
+		case variant.IsMessage:
 			// Non-flattened message: { discriminator: "value", fieldName?: MessageType }
 			fieldJSONName := variant.Field.Desc.JSONName()
 			msgType := string(variant.Field.Message.Desc.Name())
@@ -399,7 +400,7 @@ func generateOneofDiscriminatedUnionType(p printer, msgName string, info *annota
 				fieldJSONName,
 				msgType,
 			)
-		} else {
+		default:
 			// Non-flattened scalar: { discriminator: "value", fieldName?: scalarType }
 			fieldJSONName := variant.Field.Desc.JSONName()
 			tsType := tsScalarTypeForField(variant.Field)

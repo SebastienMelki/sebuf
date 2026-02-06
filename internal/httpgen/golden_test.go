@@ -137,6 +137,16 @@ func TestHTTPGenGoldenFiles(t *testing.T) {
 				"flatten_flatten.pb.go",
 			},
 		},
+		{
+			name:      "oneof discriminator",
+			protoFile: "oneof_discriminator.proto",
+			expectedFiles: []string{
+				"oneof_discriminator_http.pb.go",
+				"oneof_discriminator_http_binding.pb.go",
+				"oneof_discriminator_http_config.pb.go",
+				"oneof_discriminator_oneof_discriminator.pb.go",
+			},
+		},
 	}
 
 	// Get paths

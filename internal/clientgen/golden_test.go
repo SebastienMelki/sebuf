@@ -118,6 +118,14 @@ func TestClientGenGoldenFiles(t *testing.T) {
 				"flatten_flatten.pb.go",
 			},
 		},
+		{
+			name:      "oneof discriminator",
+			protoFile: "oneof_discriminator.proto",
+			expectedFiles: []string{
+				"oneof_discriminator_client.pb.go",
+				"oneof_discriminator_oneof_discriminator.pb.go",
+			},
+		},
 	}
 
 	// Get paths

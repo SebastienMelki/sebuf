@@ -109,6 +109,13 @@ func TestTSClientGenGoldenFiles(t *testing.T) {
 				"flatten_client.ts",
 			},
 		},
+		{
+			name:      "oneof discriminator",
+			protoFile: "oneof_discriminator.proto",
+			expectedFiles: []string{
+				"oneof_discriminator_client.ts",
+			},
+		},
 	}
 
 	baseDir, err := os.Getwd()
