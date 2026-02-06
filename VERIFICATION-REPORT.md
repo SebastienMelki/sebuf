@@ -6,7 +6,7 @@
 
 ## Executive Summary
 
-All 11 verification parts PASS. Phases 1-5 are complete and verified. The codebase is healthy, all 518 test cases pass with zero failures, lint is clean, backward compatibility is preserved, and all 27 roadmap success criteria are satisfied.
+All 11 verification parts PASS. Phases 1-5 are complete and verified. The codebase is healthy, all 518 test cases pass with zero failures, lint is clean, backward compatibility is preserved, and all 25 roadmap success criteria are satisfied.
 
 | Part | Category | Result |
 |------|----------|--------|
@@ -18,7 +18,7 @@ All 11 verification parts PASS. Phases 1-5 are complete and verified. The codeba
 | 6 | Backward Compatibility | PASS |
 | 7 | Phase Verification Reports | PASS |
 | 8 | Integration / Examples | PASS |
-| 9 | Code Coverage | PASS (see notes) |
+| 9 | Code Coverage | PASS (golden file coverage) |
 | 10 | Roadmap Success Criteria | PASS |
 | 11 | Final Summary | PASS |
 
@@ -159,19 +159,21 @@ Each phase has a detailed verification report produced by the GSD verifier. All 
 
 | Phase | Verified | Score | Report |
 |-------|----------|-------|--------|
-| Phase 1: Foundation Quick Wins | 2026-02-05 | 6/6 | `.planning/phases/01-foundation-quick-wins/01-VERIFICATION.md` |
+| Phase 1: Foundation Quick Wins | 2026-02-05 | 4/4 | `.planning/phases/01-foundation-quick-wins/01-VERIFICATION.md` |
 | Phase 2: Shared Annotations | 2026-02-05 | 5/5 | `.planning/phases/02-shared-annotations/02-VERIFICATION.md` |
 | Phase 3: Existing Client Review | 2026-02-05 | 5/5 | `.planning/phases/03-existing-client-review/03-VERIFICATION.md` |
-| Phase 4: JSON Primitive Encoding | 2026-02-05 | 6/6 | `.planning/phases/04-json-primitive-encoding/04-VERIFICATION.md` |
+| Phase 4: JSON Primitive Encoding | 2026-02-05 | 6/6 (includes sub-criteria) | `.planning/phases/04-json-primitive-encoding/04-VERIFICATION.md` |
 | Phase 5: JSON Nullable & Empty | 2026-02-06 | 5/5 | `.planning/phases/05-json-nullable-empty/05-VERIFICATION.md` |
 
-**Total: 27/27 success criteria satisfied across all 5 phases.**
+**Total: 25/25 success criteria satisfied across all 5 phases (per ROADMAP.md).**
 
 ---
 
 ## Part 8: Integration / Example Projects
 
-**Status: PASS**
+**Status: PASS (structural check)**
+
+Verified that example projects exist, generated files are present, and all plugin binaries build. This is a structural presence check -- example projects were not compiled or executed end-to-end.
 
 ### Example Projects Present (9 total)
 
@@ -201,7 +203,7 @@ All 6 generated files present:
 
 ## Part 9: Code Coverage
 
-**Status: PASS (with notes)**
+**Status: PASS (golden file coverage)**
 
 | Package | Coverage |
 |---------|----------|
