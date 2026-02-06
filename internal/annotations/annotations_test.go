@@ -685,3 +685,145 @@ func TestEmptyBehaviorValidationError(t *testing.T) {
 		t.Errorf("EmptyBehaviorValidationError.Error() = %q, expected %q", err.Error(), expected)
 	}
 }
+
+// Tests for TimestampFormat annotation types.
+
+func TestTimestampFormatExtensionDescriptor(t *testing.T) {
+	ext := http.E_TimestampFormat
+	if ext == nil {
+		t.Fatal("E_TimestampFormat extension descriptor is nil")
+	}
+
+	// Extension number should be 50015
+	if ext.TypeDescriptor().Number() != 50015 {
+		t.Errorf("E_TimestampFormat number = %d, expected 50015", ext.TypeDescriptor().Number())
+	}
+}
+
+func TestTimestampFormatValues(t *testing.T) {
+	tests := []struct {
+		name   string
+		format http.TimestampFormat
+		value  int32
+	}{
+		{"UNSPECIFIED", http.TimestampFormat_TIMESTAMP_FORMAT_UNSPECIFIED, 0},
+		{"RFC3339", http.TimestampFormat_TIMESTAMP_FORMAT_RFC3339, 1},
+		{"UNIX_SECONDS", http.TimestampFormat_TIMESTAMP_FORMAT_UNIX_SECONDS, 2},
+		{"UNIX_MILLIS", http.TimestampFormat_TIMESTAMP_FORMAT_UNIX_MILLIS, 3},
+		{"DATE", http.TimestampFormat_TIMESTAMP_FORMAT_DATE, 4},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if int32(tt.format) != tt.value {
+				t.Errorf("TimestampFormat_%s = %d, expected %d", tt.name, int32(tt.format), tt.value)
+			}
+		})
+	}
+}
+
+func TestTimestampFormatStringRepresentation(t *testing.T) {
+	tests := []struct {
+		format   http.TimestampFormat
+		expected string
+	}{
+		{http.TimestampFormat_TIMESTAMP_FORMAT_UNSPECIFIED, "TIMESTAMP_FORMAT_UNSPECIFIED"},
+		{http.TimestampFormat_TIMESTAMP_FORMAT_RFC3339, "TIMESTAMP_FORMAT_RFC3339"},
+		{http.TimestampFormat_TIMESTAMP_FORMAT_UNIX_SECONDS, "TIMESTAMP_FORMAT_UNIX_SECONDS"},
+		{http.TimestampFormat_TIMESTAMP_FORMAT_UNIX_MILLIS, "TIMESTAMP_FORMAT_UNIX_MILLIS"},
+		{http.TimestampFormat_TIMESTAMP_FORMAT_DATE, "TIMESTAMP_FORMAT_DATE"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.expected, func(t *testing.T) {
+			if tt.format.String() != tt.expected {
+				t.Errorf("TimestampFormat.String() = %q, expected %q", tt.format.String(), tt.expected)
+			}
+		})
+	}
+}
+
+func TestTimestampFormatValidationError(t *testing.T) {
+	err := &TimestampFormatValidationError{
+		MessageName: "MyMessage",
+		FieldName:   "created_at",
+		Reason:      "timestamp_format annotation is only valid on google.protobuf.Timestamp fields",
+	}
+
+	expected := "invalid timestamp_format annotation on MyMessage.created_at: timestamp_format annotation is only valid on google.protobuf.Timestamp fields"
+	if err.Error() != expected {
+		t.Errorf("TimestampFormatValidationError.Error() = %q, expected %q", err.Error(), expected)
+	}
+}
+
+// Tests for BytesEncoding annotation types.
+
+func TestBytesEncodingExtensionDescriptor(t *testing.T) {
+	ext := http.E_BytesEncoding
+	if ext == nil {
+		t.Fatal("E_BytesEncoding extension descriptor is nil")
+	}
+
+	// Extension number should be 50016
+	if ext.TypeDescriptor().Number() != 50016 {
+		t.Errorf("E_BytesEncoding number = %d, expected 50016", ext.TypeDescriptor().Number())
+	}
+}
+
+func TestBytesEncodingValues(t *testing.T) {
+	tests := []struct {
+		name     string
+		encoding http.BytesEncoding
+		value    int32
+	}{
+		{"UNSPECIFIED", http.BytesEncoding_BYTES_ENCODING_UNSPECIFIED, 0},
+		{"BASE64", http.BytesEncoding_BYTES_ENCODING_BASE64, 1},
+		{"BASE64_RAW", http.BytesEncoding_BYTES_ENCODING_BASE64_RAW, 2},
+		{"BASE64URL", http.BytesEncoding_BYTES_ENCODING_BASE64URL, 3},
+		{"BASE64URL_RAW", http.BytesEncoding_BYTES_ENCODING_BASE64URL_RAW, 4},
+		{"HEX", http.BytesEncoding_BYTES_ENCODING_HEX, 5},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if int32(tt.encoding) != tt.value {
+				t.Errorf("BytesEncoding_%s = %d, expected %d", tt.name, int32(tt.encoding), tt.value)
+			}
+		})
+	}
+}
+
+func TestBytesEncodingStringRepresentation(t *testing.T) {
+	tests := []struct {
+		encoding http.BytesEncoding
+		expected string
+	}{
+		{http.BytesEncoding_BYTES_ENCODING_UNSPECIFIED, "BYTES_ENCODING_UNSPECIFIED"},
+		{http.BytesEncoding_BYTES_ENCODING_BASE64, "BYTES_ENCODING_BASE64"},
+		{http.BytesEncoding_BYTES_ENCODING_BASE64_RAW, "BYTES_ENCODING_BASE64_RAW"},
+		{http.BytesEncoding_BYTES_ENCODING_BASE64URL, "BYTES_ENCODING_BASE64URL"},
+		{http.BytesEncoding_BYTES_ENCODING_BASE64URL_RAW, "BYTES_ENCODING_BASE64URL_RAW"},
+		{http.BytesEncoding_BYTES_ENCODING_HEX, "BYTES_ENCODING_HEX"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.expected, func(t *testing.T) {
+			if tt.encoding.String() != tt.expected {
+				t.Errorf("BytesEncoding.String() = %q, expected %q", tt.encoding.String(), tt.expected)
+			}
+		})
+	}
+}
+
+func TestBytesEncodingValidationError(t *testing.T) {
+	err := &BytesEncodingValidationError{
+		MessageName: "MyMessage",
+		FieldName:   "payload",
+		Reason:      "bytes_encoding annotation is only valid on bytes fields",
+	}
+
+	expected := "invalid bytes_encoding annotation on MyMessage.payload: bytes_encoding annotation is only valid on bytes fields"
+	if err.Error() != expected {
+		t.Errorf("BytesEncodingValidationError.Error() = %q, expected %q", err.Error(), expected)
+	}
+}
