@@ -81,6 +81,13 @@ func TestTSClientGenGoldenFiles(t *testing.T) {
 				"nullable_client.ts",
 			},
 		},
+		{
+			name:      "empty behavior",
+			protoFile: "empty_behavior.proto",
+			expectedFiles: []string{
+				"empty_behavior_client.ts",
+			},
+		},
 	}
 
 	baseDir, err := os.Getwd()

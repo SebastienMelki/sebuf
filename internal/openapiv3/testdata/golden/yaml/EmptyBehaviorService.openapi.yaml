@@ -1,0 +1,112 @@
+openapi: 3.1.0
+info:
+    title: EmptyBehaviorService API
+    version: 1.0.0
+paths:
+    /api/v1/responses/{id}:
+        get:
+            tags:
+                - EmptyBehaviorService
+            summary: GetResponse
+            operationId: GetResponse
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    description: Successful response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Response'
+                "400":
+                    description: Validation error
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ValidationError'
+                default:
+                    description: Error response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Error'
+components:
+    schemas:
+        Error:
+            type: object
+            properties:
+                message:
+                    type: string
+                    description: Error message (e.g., 'user not found', 'database connection failed')
+            description: Error is returned when a handler encounters an error. It contains a simple error message that the developer can customize.
+        FieldViolation:
+            type: object
+            properties:
+                field:
+                    type: string
+                    description: The field path that failed validation (e.g., 'user.email' for nested fields). For header validation, this will be the header name (e.g., 'X-API-Key')
+                description:
+                    type: string
+                    description: Human-readable description of the validation violation (e.g., 'must be a valid email address', 'required field missing')
+            required:
+                - field
+                - description
+            description: FieldViolation describes a single validation error for a specific field.
+        ValidationError:
+            type: object
+            properties:
+                violations:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/FieldViolation'
+                    description: List of validation violations
+            required:
+                - violations
+            description: ValidationError is returned when request validation fails. It contains a list of field violations describing what went wrong.
+        GetResponseRequest:
+            type: object
+            properties:
+                id:
+                    type: string
+            description: GetResponseRequest is the request for GetResponse.
+        Response:
+            type: object
+            properties:
+                id:
+                    type: string
+                metadataPreserve:
+                    $ref: '#/components/schemas/Metadata'
+                metadataNull:
+                    oneOf:
+                        - $ref: '#/components/schemas/Metadata'
+                        - type: "null"
+                metadataOmit:
+                    $ref: '#/components/schemas/Metadata'
+                metadataDefault:
+                    $ref: '#/components/schemas/Metadata'
+                settings:
+                    oneOf:
+                        - $ref: '#/components/schemas/Settings'
+                        - type: "null"
+            description: Response demonstrates empty_behavior on message fields.
+        Metadata:
+            type: object
+            properties:
+                key:
+                    type: string
+                value:
+                    type: string
+            description: Metadata is a simple message to test empty detection.
+        Settings:
+            type: object
+            properties:
+                enabled:
+                    type: boolean
+                timeout:
+                    type: integer
+                    format: int32
+            description: Settings demonstrates various empty_behavior modes.

@@ -97,6 +97,16 @@ func TestHTTPGenGoldenFiles(t *testing.T) {
 				"nullable_nullable.pb.go",
 			},
 		},
+		{
+			name:      "empty behavior",
+			protoFile: "empty_behavior.proto",
+			expectedFiles: []string{
+				"empty_behavior_http.pb.go",
+				"empty_behavior_http_binding.pb.go",
+				"empty_behavior_http_config.pb.go",
+				"empty_behavior_empty_behavior.pb.go",
+			},
+		},
 	}
 
 	// Get paths

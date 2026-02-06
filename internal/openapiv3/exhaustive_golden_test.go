@@ -490,6 +490,21 @@ func TestExhaustiveGoldenFiles(t *testing.T) {
 			goldenFile:  "testdata/golden/json/NullableService.openapi.json",
 			format:      "json",
 		},
+		// empty_behavior.proto -> EmptyBehaviorService (empty behavior variants)
+		{
+			name:        "empty_behavior_service_yaml",
+			protoFile:   "testdata/proto/empty_behavior.proto",
+			serviceName: "EmptyBehaviorService",
+			goldenFile:  "testdata/golden/yaml/EmptyBehaviorService.openapi.yaml",
+			format:      "yaml",
+		},
+		{
+			name:        "empty_behavior_service_json",
+			protoFile:   "testdata/proto/empty_behavior.proto",
+			serviceName: "EmptyBehaviorService",
+			goldenFile:  "testdata/golden/json/EmptyBehaviorService.openapi.json",
+			format:      "json",
+		},
 	}
 
 	for _, tc := range testCases {
@@ -590,6 +605,7 @@ func TestExhaustiveRegression(t *testing.T) {
 		"testdata/proto/int64_encoding.proto":           {"Int64EncodingService"},
 		"testdata/proto/enum_encoding.proto":            {"EnumEncodingService"},
 		"testdata/proto/nullable.proto":                 {"NullableService"},
+		"testdata/proto/empty_behavior.proto":           {"EmptyBehaviorService"},
 	}
 
 	formats := []string{"yaml", "json"}
