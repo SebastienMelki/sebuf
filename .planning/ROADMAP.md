@@ -17,7 +17,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 3: Existing Client Review** - Review and polish existing Go client and TypeScript client before building new features
 - [x] **Phase 4: JSON - Primitive Encoding** - int64/uint64 string encoding and enum string encoding across all generators
 - [x] **Phase 5: JSON - Nullable & Empty** - Nullable primitives and empty object handling across all generators
-- [ ] **Phase 6: JSON - Data Encoding** - Timestamp formats and bytes encoding options across all generators
+- [x] **Phase 6: JSON - Data Encoding** - Timestamp formats and bytes encoding options across all generators
 - [ ] **Phase 7: JSON - Structural Transforms** - Oneof discriminated unions and nested message flattening across all generators
 - [ ] **Phase 8: Language - Swift Client** - Idiomatic Swift HTTP client generator using URLSession and Codable
 - [ ] **Phase 9: Language - Kotlin Client** - Idiomatic Kotlin HTTP client generator using OkHttp and data classes
@@ -131,10 +131,10 @@ Plans:
 **Plans**: 4 plans
 
 Plans:
-- [ ] 06-01-PLAN.md -- Define timestamp_format and bytes_encoding annotations in proto and shared annotations package
-- [ ] 06-02-PLAN.md -- Implement timestamp format options across all 4 generators
-- [ ] 06-03-PLAN.md -- Implement bytes encoding options across all 4 generators
-- [ ] 06-04-PLAN.md -- Cross-generator consistency validation for data encoding
+- [x] 06-01-PLAN.md -- Define timestamp_format and bytes_encoding annotations in proto and shared annotations package
+- [x] 06-02-PLAN.md -- Implement timestamp format options across all 4 generators
+- [x] 06-03-PLAN.md -- Implement bytes encoding options across all 4 generators
+- [x] 06-04-PLAN.md -- Cross-generator consistency validation for data encoding
 
 ### Phase 7: JSON - Structural Transforms
 **Goal**: Developers can represent oneof fields as discriminated unions and flatten nested messages in their API's JSON output
@@ -243,7 +243,7 @@ Note: Phases 8, 9, 10 (language clients) can execute in parallel after Phase 7 c
 | 3. Existing Client Review | 6/6 | Complete | 2026-02-05 |
 | 4. JSON - Primitive Encoding | 5/5 | Complete | 2026-02-06 |
 | 5. JSON - Nullable & Empty | 4/4 | Complete | 2026-02-06 |
-| 6. JSON - Data Encoding | 0/4 | Not started | - |
+| 6. JSON - Data Encoding | 4/4 | Complete | 2026-02-06 |
 | 7. JSON - Structural Transforms | 0/4 | Not started | - |
 | 8. Language - Swift Client | 0/4 | Not started | - |
 | 9. Language - Kotlin Client | 0/4 | Not started | - |
