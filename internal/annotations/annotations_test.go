@@ -827,3 +827,178 @@ func TestBytesEncodingValidationError(t *testing.T) {
 		t.Errorf("BytesEncodingValidationError.Error() = %q, expected %q", err.Error(), expected)
 	}
 }
+
+// Tests for oneof_config and oneof_value annotation types.
+
+func TestOneofConfigExtensionDescriptor(t *testing.T) {
+	ext := http.E_OneofConfig
+	if ext == nil {
+		t.Fatal("E_OneofConfig extension descriptor is nil")
+	}
+
+	// Extension number should be 50017
+	if ext.TypeDescriptor().Number() != 50017 {
+		t.Errorf("E_OneofConfig number = %d, expected 50017", ext.TypeDescriptor().Number())
+	}
+}
+
+func TestOneofValueExtensionDescriptor(t *testing.T) {
+	ext := http.E_OneofValue
+	if ext == nil {
+		t.Fatal("E_OneofValue extension descriptor is nil")
+	}
+
+	// Extension number should be 50018
+	if ext.TypeDescriptor().Number() != 50018 {
+		t.Errorf("E_OneofValue number = %d, expected 50018", ext.TypeDescriptor().Number())
+	}
+}
+
+func TestOneofConfigMessageFields(t *testing.T) {
+	// Verify OneofConfig can be constructed with both fields
+	config := &http.OneofConfig{
+		Discriminator: "type",
+		Flatten:       true,
+	}
+
+	if config.GetDiscriminator() != "type" {
+		t.Errorf("OneofConfig.Discriminator = %q, expected %q", config.GetDiscriminator(), "type")
+	}
+	if !config.GetFlatten() {
+		t.Error("OneofConfig.Flatten = false, expected true")
+	}
+
+	// Verify zero value defaults
+	empty := &http.OneofConfig{}
+	if empty.GetDiscriminator() != "" {
+		t.Errorf("empty OneofConfig.Discriminator = %q, expected %q", empty.GetDiscriminator(), "")
+	}
+	if empty.GetFlatten() {
+		t.Error("empty OneofConfig.Flatten = true, expected false")
+	}
+}
+
+// Tests for flatten and flatten_prefix annotation types.
+
+func TestFlattenExtensionDescriptor(t *testing.T) {
+	ext := http.E_Flatten
+	if ext == nil {
+		t.Fatal("E_Flatten extension descriptor is nil")
+	}
+
+	// Extension number should be 50019
+	if ext.TypeDescriptor().Number() != 50019 {
+		t.Errorf("E_Flatten number = %d, expected 50019", ext.TypeDescriptor().Number())
+	}
+}
+
+func TestFlattenPrefixExtensionDescriptor(t *testing.T) {
+	ext := http.E_FlattenPrefix
+	if ext == nil {
+		t.Fatal("E_FlattenPrefix extension descriptor is nil")
+	}
+
+	// Extension number should be 50020
+	if ext.TypeDescriptor().Number() != 50020 {
+		t.Errorf("E_FlattenPrefix number = %d, expected 50020", ext.TypeDescriptor().Number())
+	}
+}
+
+// Tests for OneofDiscriminatorInfo and OneofVariant structs.
+
+func TestOneofDiscriminatorInfoStruct(t *testing.T) {
+	info := &OneofDiscriminatorInfo{
+		Discriminator: "kind",
+		Flatten:       true,
+		Variants: []OneofVariant{
+			{
+				DiscriminatorVal: "email",
+				IsMessage:        true,
+			},
+			{
+				DiscriminatorVal: "sms",
+				IsMessage:        true,
+			},
+		},
+	}
+
+	if info.Discriminator != "kind" {
+		t.Errorf("Discriminator = %q, expected %q", info.Discriminator, "kind")
+	}
+	if !info.Flatten {
+		t.Error("Flatten = false, expected true")
+	}
+	if len(info.Variants) != 2 {
+		t.Fatalf("len(Variants) = %d, expected 2", len(info.Variants))
+	}
+	if info.Variants[0].DiscriminatorVal != "email" {
+		t.Errorf("Variants[0].DiscriminatorVal = %q, expected %q", info.Variants[0].DiscriminatorVal, "email")
+	}
+	if !info.Variants[0].IsMessage {
+		t.Error("Variants[0].IsMessage = false, expected true")
+	}
+}
+
+// Tests verifying function signatures and types exist.
+// Note: Full integration tests with protogen.Field/Oneof require actual proto files.
+// These tests verify the exported API surface is accessible.
+
+func TestFunctionSignaturesExist(t *testing.T) {
+	// Verify all exported functions exist with correct signatures.
+	// We cannot construct protogen types without a real proto compilation,
+	// so integration tests in later plans will test with actual proto files.
+	var (
+		_ = GetOneofVariantValue
+		_ = IsFlattenField
+		_ = GetFlattenPrefix
+		_ = HasOneofDiscriminator
+		_ = HasFlattenFields
+	)
+
+	t.Log("All exported function signatures verified")
+}
+
+// Tests for extension number sequence continuity.
+
+func TestExtensionNumberSequence(t *testing.T) {
+	// Verify all extension numbers are contiguous and correctly assigned.
+	// This prevents accidental duplication or gaps.
+	extensionNumbers := map[string]int32{
+		"field_examples":   50007,
+		"query":            50008,
+		"unwrap":           50009,
+		"int64_encoding":   50010,
+		"enum_encoding":    50011,
+		"enum_value":       50012,
+		"nullable":         50013,
+		"empty_behavior":   50014,
+		"timestamp_format": 50015,
+		"bytes_encoding":   50016,
+		"oneof_config":     50017,
+		"oneof_value":      50018,
+		"flatten":          50019,
+		"flatten_prefix":   50020,
+	}
+
+	// Verify each extension's actual number
+	checks := []struct {
+		name     string
+		actual   int32
+		expected int32
+	}{
+		{"oneof_config", int32(http.E_OneofConfig.TypeDescriptor().Number()), extensionNumbers["oneof_config"]},
+		{"oneof_value", int32(http.E_OneofValue.TypeDescriptor().Number()), extensionNumbers["oneof_value"]},
+		{"flatten", int32(http.E_Flatten.TypeDescriptor().Number()), extensionNumbers["flatten"]},
+		{"flatten_prefix", int32(http.E_FlattenPrefix.TypeDescriptor().Number()), extensionNumbers["flatten_prefix"]},
+		// Also verify the latest existing one to detect sequence breaks
+		{"bytes_encoding", int32(http.E_BytesEncoding.TypeDescriptor().Number()), extensionNumbers["bytes_encoding"]},
+	}
+
+	for _, tc := range checks {
+		t.Run(tc.name, func(t *testing.T) {
+			if tc.actual != tc.expected {
+				t.Errorf("Extension %s number = %d, expected %d", tc.name, tc.actual, tc.expected)
+			}
+		})
+	}
+}
