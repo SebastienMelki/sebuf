@@ -270,7 +270,7 @@ func TestOpenAPIEnumSchemasMatchGoEncoding(t *testing.T) {
 }
 
 // TestPhase4SuccessCriteria explicitly verifies each Phase 4 success criterion from ROADMAP.md.
-// nolint:funlen // This test function covers all 6 Phase 4 success criteria
+//nolint:funlen // This test function covers all 6 Phase 4 success criteria
 func TestPhase4SuccessCriteria(t *testing.T) {
 	baseDir, baseErr := os.Getwd()
 	if baseErr != nil {
