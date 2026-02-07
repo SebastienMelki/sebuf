@@ -1,0 +1,7 @@
+//
+//  SwiftSebufTest.swift
+//  SwiftSebuf
+//
+//  Created by Khaled Chehabeddine on 11/01/2026.
+//  Copyright © 2026 SwiftSebuf. All rights reserved.
+//
