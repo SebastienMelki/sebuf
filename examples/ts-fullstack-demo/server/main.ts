@@ -1,4 +1,7 @@
-import { createServer, type IncomingMessage } from "node:http";
+import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
+import { readFileSync } from "node:fs";
+import { join, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
 import {
   createNoteServiceRoutes,
   type NoteServiceHandler,
@@ -8,6 +11,35 @@ import {
   type Priority,
   type Status,
 } from "./generated/proto/note_service_server.ts";
+
+// ==========================================================================
+// SSE log streaming
+// ==========================================================================
+
+const sseClients = new Set<ServerResponse>();
+
+function broadcast(event: string, data: unknown) {
+  const msg = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
+  for (const client of sseClients) {
+    client.write(msg);
+  }
+}
+
+function serverLog(message: string) {
+  console.log(message);
+  broadcast("log", { time: Date.now(), message });
+}
+
+function requestLog(method: string, path: string, status: number, duration: number) {
+  broadcast("request", { time: Date.now(), method, path, status, duration });
+}
+
+// ==========================================================================
+// Static file serving
+// ==========================================================================
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const indexHtml = readFileSync(join(__dirname, "public", "index.html"), "utf-8");
 
 // ==========================================================================
 // In-memory store
@@ -179,7 +211,7 @@ const handler: NoteServiceHandler = {
       createdAt: new Date().toISOString(),
     };
     notes.set(id, note);
-    console.log(`  Created note: ${id} - "${note.title}"`);
+    serverLog(`Created note: ${id} - "${note.title}"`);
     return note;
   },
 
@@ -193,7 +225,7 @@ const handler: NoteServiceHandler = {
     note.tags = req.tags ?? [];
     note.metadata = req.metadata ?? {};
     note.dueDate = req.dueDate;
-    console.log(`  Updated note: ${note.id} - status=${note.status}`);
+    serverLog(`Updated note: ${note.id} - status=${note.status}`);
     return note;
   },
 
@@ -201,14 +233,14 @@ const handler: NoteServiceHandler = {
     const note = notes.get(req.id);
     if (!note) throw new NotFoundError("note", req.id);
     note.status = "STATUS_ARCHIVED";
-    console.log(`  Archived note: ${note.id}`);
+    serverLog(`Archived note: ${note.id}`);
     return note;
   },
 
   async deleteNote(_ctx, req) {
     if (!notes.has(req.id)) throw new NotFoundError("note", req.id);
     notes.delete(req.id);
-    console.log(`  Deleted note: ${req.id}`);
+    serverLog(`Deleted note: ${req.id}`);
     return { success: true };
   },
 
@@ -276,6 +308,28 @@ seedData();
 const server = createServer(async (nodeReq, nodeRes) => {
   const url = new URL(nodeReq.url!, `http://localhost:3000`);
 
+  // Serve browser UI
+  if (url.pathname === "/" && nodeReq.method === "GET") {
+    nodeRes.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+    nodeRes.end(indexHtml);
+    return;
+  }
+
+  // SSE endpoint for live log streaming
+  if (url.pathname === "/events" && nodeReq.method === "GET") {
+    nodeRes.writeHead(200, {
+      "Content-Type": "text/event-stream",
+      "Cache-Control": "no-cache",
+      Connection: "keep-alive",
+    });
+    nodeRes.write("event: log\ndata: " + JSON.stringify({ time: Date.now(), message: "Connected to server log stream" }) + "\n\n");
+    sseClients.add(nodeRes);
+    nodeReq.on("close", () => sseClients.delete(nodeRes));
+    return;
+  }
+
+  // API routes
+  const t0 = Date.now();
   for (const route of routes) {
     if (nodeReq.method === route.method && matchPath(url.pathname, route.path)) {
       const headers = new Headers();
@@ -297,26 +351,30 @@ const server = createServer(async (nodeReq, nodeRes) => {
       response.headers.forEach((v, k) => (respHeaders[k] = v));
       nodeRes.writeHead(response.status, respHeaders);
       nodeRes.end(await response.text());
+      requestLog(nodeReq.method!, url.pathname, response.status, Date.now() - t0);
       return;
     }
   }
 
   nodeRes.writeHead(404, { "Content-Type": "application/json" });
   nodeRes.end(JSON.stringify({ message: "Not Found" }));
+  requestLog(nodeReq.method!, url.pathname, 404, Date.now() - t0);
 });
 
 server.listen(3000, () => {
   console.log("TypeScript NoteService server running on http://localhost:3000");
   console.log("");
-  console.log("Endpoints:");
-  console.log("  GET    /api/v1/notes              - List notes");
-  console.log("  GET    /api/v1/notes/{id}          - Get note");
-  console.log("  POST   /api/v1/notes               - Create note");
-  console.log("  PUT    /api/v1/notes/{id}           - Update note");
-  console.log("  PATCH  /api/v1/notes/{id}/archive   - Archive note");
-  console.log("  DELETE /api/v1/notes/{id}           - Delete note");
-  console.log("  GET    /api/v1/notes/by-tag         - Get notes by tag");
+  console.log("  Browser UI:  http://localhost:3000");
   console.log("");
-  console.log("Headers: X-API-Key (uuid) + X-Tenant-ID (integer)");
-  console.log("4 seed notes pre-loaded");
+  console.log("  API Endpoints:");
+  console.log("    GET    /api/v1/notes              - List notes");
+  console.log("    GET    /api/v1/notes/{id}          - Get note");
+  console.log("    POST   /api/v1/notes               - Create note");
+  console.log("    PUT    /api/v1/notes/{id}           - Update note");
+  console.log("    PATCH  /api/v1/notes/{id}/archive   - Archive note");
+  console.log("    DELETE /api/v1/notes/{id}           - Delete note");
+  console.log("    GET    /api/v1/notes/by-tag         - Get notes by tag");
+  console.log("");
+  console.log("  Headers: X-API-Key (uuid) + X-Tenant-ID (integer)");
+  console.log("  4 seed notes pre-loaded");
 });
