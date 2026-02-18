@@ -85,6 +85,8 @@ export function createInt64EncodingServiceRoutes(
 
           const body = {} as GetInt64TestRequest;
 
+          body.id = pathParams["id"];
+
           const ctx: ServerContext = {
             request: req,
             pathParams,

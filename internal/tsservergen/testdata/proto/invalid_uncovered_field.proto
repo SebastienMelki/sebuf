@@ -1,0 +1,30 @@
+syntax = "proto3";
+package invalid_uncovered_field;
+option go_package = "github.com/SebastienMelki/sebuf/internal/tsservergen/testdata/generated;generated";
+
+import "sebuf/http/annotations.proto";
+
+// GetItemRequest has 'category' which is neither a path param nor a query param.
+// For a GET method, this field is unreachable.
+message GetItemRequest {
+  string id = 1;
+  string category = 2;
+}
+
+message Item {
+  string id = 1;
+  string name = 2;
+}
+
+service ItemService {
+  option (sebuf.http.service_config) = {
+    base_path: "/api/v1"
+  };
+
+  rpc GetItem(GetItemRequest) returns (Item) {
+    option (sebuf.http.config) = {
+      path: "/items/{id}"
+      method: HTTP_METHOD_GET
+    };
+  }
+}

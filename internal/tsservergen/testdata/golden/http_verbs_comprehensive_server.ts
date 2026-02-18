@@ -318,6 +318,8 @@ export function createRESTfulAPIServiceRoutes(
 
           const body = {} as GetResourceRequest;
 
+          body.resourceId = pathParams["resource_id"];
+
           const ctx: ServerContext = {
             request: req,
             pathParams,
@@ -368,6 +370,10 @@ export function createRESTfulAPIServiceRoutes(
           pathParams["resource_id"] = decodeURIComponent(pathSegments[8] ?? "");
 
           const body = {} as GetNestedResourceRequest;
+
+          body.orgId = pathParams["org_id"];
+          body.teamId = pathParams["team_id"];
+          body.resourceId = pathParams["resource_id"];
 
           const ctx: ServerContext = {
             request: req,
@@ -476,6 +482,8 @@ export function createRESTfulAPIServiceRoutes(
             }
           }
 
+          body.resourceId = pathParams["resource_id"];
+
           const ctx: ServerContext = {
             request: req,
             pathParams,
@@ -531,6 +539,8 @@ export function createRESTfulAPIServiceRoutes(
             }
           }
 
+          body.resourceId = pathParams["resource_id"];
+
           const ctx: ServerContext = {
             request: req,
             pathParams,
@@ -579,6 +589,8 @@ export function createRESTfulAPIServiceRoutes(
           pathParams["resource_id"] = decodeURIComponent(pathSegments[4] ?? "");
 
           const body = {} as DeleteResourceRequest;
+
+          body.resourceId = pathParams["resource_id"];
 
           const ctx: ServerContext = {
             request: req,

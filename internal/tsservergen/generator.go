@@ -239,16 +239,11 @@ func (g *Generator) writeValidateHeadersFn(p tscommon.Printer) {
 }
 
 func (g *Generator) generateService(p tscommon.Printer, service *protogen.Service) error {
-	serviceName := service.GoName
-
 	// Handler interface
 	g.generateHandlerInterface(p, service)
 
 	// Route creation function
-	g.generateCreateRoutes(p, service)
-
-	_ = serviceName
-	return nil
+	return g.generateCreateRoutes(p, service)
 }
 
 // generateHandlerInterface generates the XxxServiceHandler interface.
@@ -275,18 +270,25 @@ func (g *Generator) resolveOutputType(method *protogen.Method) string {
 	return string(msg.Desc.Name())
 }
 
-// rpcRouteConfig holds config for generating a route handler.
-type rpcRouteConfig struct {
-	serviceName string
-	methodName  string
-	httpMethod  string
-	fullPath    string
-	pathParams  []string
-	queryParams []annotations.QueryParam
-	hasBody     bool
+// pathParamField maps a URL path parameter to its corresponding request message field.
+type pathParamField struct {
+	protoName string // proto field name, e.g. "resource_id"
+	jsonName  string // JSON/TS field name, e.g. "resourceId"
 }
 
-func (g *Generator) buildRPCRouteConfig(service *protogen.Service, method *protogen.Method) *rpcRouteConfig {
+// rpcRouteConfig holds config for generating a route handler.
+type rpcRouteConfig struct {
+	serviceName     string
+	methodName      string
+	httpMethod      string
+	fullPath        string
+	pathParams      []string
+	pathParamFields []pathParamField
+	queryParams     []annotations.QueryParam
+	hasBody         bool
+}
+
+func (g *Generator) buildRPCRouteConfig(service *protogen.Service, method *protogen.Method) (*rpcRouteConfig, error) {
 	serviceName := service.GoName
 	methodName := method.GoName
 
@@ -308,19 +310,91 @@ func (g *Generator) buildRPCRouteConfig(service *protogen.Service, method *proto
 	basePath := annotations.GetServiceBasePath(service)
 	fullPath := annotations.BuildHTTPPath(basePath, httpPath)
 
-	return &rpcRouteConfig{
-		serviceName: serviceName,
-		methodName:  methodName,
-		httpMethod:  httpMethod,
-		fullPath:    fullPath,
-		pathParams:  pathParams,
-		queryParams: annotations.GetQueryParams(method.Input),
-		hasBody:     httpMethod == "POST" || httpMethod == "PUT" || httpMethod == "PATCH",
+	// Validate and resolve path params against request message fields
+	pathParamFields, err := resolvePathParamFields(pathParams, method)
+	if err != nil {
+		return nil, fmt.Errorf("service %s, method %s: %w", serviceName, methodName, err)
 	}
+
+	return &rpcRouteConfig{
+		serviceName:     serviceName,
+		methodName:      methodName,
+		httpMethod:      httpMethod,
+		fullPath:        fullPath,
+		pathParams:      pathParams,
+		pathParamFields: pathParamFields,
+		queryParams:     annotations.GetQueryParams(method.Input),
+		hasBody:         httpMethod == "POST" || httpMethod == "PUT" || httpMethod == "PATCH",
+	}, nil
+}
+
+// resolvePathParamFields validates that every path parameter has a matching field
+// on the input message, and returns the proto→JSON name mapping.
+func resolvePathParamFields(pathParams []string, method *protogen.Method) ([]pathParamField, error) {
+	if len(pathParams) == 0 {
+		return nil, nil
+	}
+
+	// Build lookup: proto field name → JSON name
+	fieldMap := make(map[string]string, len(method.Input.Fields))
+	for _, f := range method.Input.Fields {
+		fieldMap[string(f.Desc.Name())] = f.Desc.JSONName()
+	}
+
+	fields := make([]pathParamField, 0, len(pathParams))
+	for _, param := range pathParams {
+		jsonName, ok := fieldMap[param]
+		if !ok {
+			return nil, fmt.Errorf(
+				"path parameter {%s} has no matching field on request message %s — "+
+					"add a field named '%s' to the message definition",
+				param, method.Input.Desc.Name(), param,
+			)
+		}
+		fields = append(fields, pathParamField{protoName: param, jsonName: jsonName})
+	}
+	return fields, nil
+}
+
+// validateFieldCoverage verifies that for GET/DELETE methods, every field on the
+// input message is accounted for — either as a path parameter or a query parameter.
+// Fields that are neither would silently receive zero values, which is a proto definition error.
+func validateFieldCoverage(cfg *rpcRouteConfig, method *protogen.Method) error {
+	if cfg.hasBody {
+		// POST/PUT/PATCH: non-path-param fields come from the JSON body — all fields are reachable
+		return nil
+	}
+
+	// Build sets of covered field names (proto names)
+	covered := make(map[string]bool, len(cfg.pathParams)+len(cfg.queryParams))
+	for _, p := range cfg.pathParams {
+		covered[p] = true
+	}
+	for _, q := range cfg.queryParams {
+		covered[q.FieldName] = true
+	}
+
+	// Check every field on the input message
+	var uncovered []string
+	for _, f := range method.Input.Fields {
+		name := string(f.Desc.Name())
+		if !covered[name] {
+			uncovered = append(uncovered, name)
+		}
+	}
+
+	if len(uncovered) > 0 {
+		return fmt.Errorf(
+			"fields %v on request message %s are not reachable via path or query parameters for %s %s — "+
+				"annotate them with (sebuf.http.query) or include them as path parameters",
+			uncovered, method.Input.Desc.Name(), cfg.httpMethod, cfg.fullPath,
+		)
+	}
+	return nil
 }
 
 // generateCreateRoutes generates the createXxxRoutes function.
-func (g *Generator) generateCreateRoutes(p tscommon.Printer, service *protogen.Service) {
+func (g *Generator) generateCreateRoutes(p tscommon.Printer, service *protogen.Service) error {
 	serviceName := service.GoName
 
 	p("export function create%sRoutes(", serviceName)
@@ -329,16 +403,25 @@ func (g *Generator) generateCreateRoutes(p tscommon.Printer, service *protogen.S
 	p("): RouteDescriptor[] {")
 	p("  return [")
 	for _, method := range service.Methods {
-		g.generateRouteEntry(p, service, method)
+		if err := g.generateRouteEntry(p, service, method); err != nil {
+			return err
+		}
 	}
 	p("  ];")
 	p("}")
 	p("")
+	return nil
 }
 
 // generateRouteEntry generates a single route descriptor entry.
-func (g *Generator) generateRouteEntry(p tscommon.Printer, service *protogen.Service, method *protogen.Method) {
-	cfg := g.buildRPCRouteConfig(service, method)
+func (g *Generator) generateRouteEntry(p tscommon.Printer, service *protogen.Service, method *protogen.Method) error {
+	cfg, err := g.buildRPCRouteConfig(service, method)
+	if err != nil {
+		return err
+	}
+	if coverageErr := validateFieldCoverage(cfg, method); coverageErr != nil {
+		return fmt.Errorf("service %s, method %s: %w", service.GoName, method.GoName, coverageErr)
+	}
 	tsMethodName := annotations.LowerFirst(cfg.methodName)
 	outputType := g.resolveOutputType(method)
 
@@ -364,6 +447,9 @@ func (g *Generator) generateRouteEntry(p tscommon.Printer, service *protogen.Ser
 	} else {
 		g.generateQueryParamParsing(p, cfg, method, tsMethodName)
 	}
+
+	// Merge path params into body (same as Go generator: path params are fields on the request)
+	g.generatePathParamMerge(p, cfg, method)
 
 	// Build ServerContext
 	p("          const ctx: ServerContext = {")
@@ -402,6 +488,19 @@ func (g *Generator) generateRouteEntry(p tscommon.Printer, service *protogen.Ser
 
 	p("      },")
 	p("    },")
+	return nil
+}
+
+// generatePathParamMerge generates code to merge path params into the request body.
+// This ensures the handler receives a fully populated request, matching Go generator behavior.
+func (g *Generator) generatePathParamMerge(p tscommon.Printer, cfg *rpcRouteConfig, _ *protogen.Method) {
+	if len(cfg.pathParamFields) == 0 {
+		return
+	}
+	for _, ppf := range cfg.pathParamFields {
+		p("          body.%s = pathParams[\"%s\"];", ppf.jsonName, ppf.protoName)
+	}
+	p("")
 }
 
 // generateHeaderValidation generates header validation code.

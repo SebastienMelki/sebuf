@@ -321,6 +321,8 @@ export function createFeatureServiceRoutes(
 
           const body = {} as GetNoteRequest;
 
+          body.noteId = pathParams["note_id"];
+
           const ctx: ServerContext = {
             request: req,
             pathParams,
@@ -430,6 +432,8 @@ export function createFeatureServiceRoutes(
               throw new ValidationError(bodyViolations);
             }
           }
+
+          body.noteId = pathParams["note_id"];
 
           const ctx: ServerContext = {
             request: req,

@@ -1,0 +1,28 @@
+syntax = "proto3";
+package invalid_path_param;
+option go_package = "github.com/SebastienMelki/sebuf/internal/tsservergen/testdata/generated;generated";
+
+import "sebuf/http/annotations.proto";
+
+// Request is missing the 'id' field that the path parameter references.
+message GetItemRequest {
+  string name = 1;
+}
+
+message Item {
+  string id = 1;
+  string name = 2;
+}
+
+service ItemService {
+  option (sebuf.http.service_config) = {
+    base_path: "/api/v1"
+  };
+
+  rpc GetItem(GetItemRequest) returns (Item) {
+    option (sebuf.http.config) = {
+      path: "/items/{id}"
+      method: HTTP_METHOD_GET
+    };
+  }
+}

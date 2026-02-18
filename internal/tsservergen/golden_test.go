@@ -222,6 +222,78 @@ func compareGoldenFile(t *testing.T, expectedFile, goldenPath string, generatedC
 	}
 }
 
+// TestTSServerGenValidationErrors verifies that the generator fails with clear errors
+// for invalid proto definitions (e.g., path params without matching fields, unreachable fields).
+func TestTSServerGenValidationErrors(t *testing.T) {
+	if _, err := exec.LookPath("protoc"); err != nil {
+		t.Skip("protoc not found, skipping validation error tests")
+	}
+
+	baseDir, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("Failed to get working directory: %v", err)
+	}
+
+	projectRoot := filepath.Join(baseDir, "..", "..")
+	protoDir := filepath.Join(baseDir, "testdata", "proto")
+	pluginPath := filepath.Join(projectRoot, "bin", "protoc-gen-ts-server")
+
+	// Build plugin if needed
+	if _, statErr := os.Stat(pluginPath); os.IsNotExist(statErr) {
+		buildCmd := exec.Command("make", "build")
+		buildCmd.Dir = projectRoot
+		if buildErr := buildCmd.Run(); buildErr != nil {
+			t.Fatalf("Failed to build plugin: %v", buildErr)
+		}
+	}
+
+	testCases := []struct {
+		name      string
+		protoFile string
+		wantErr   string // substring expected in stderr
+	}{
+		{
+			name:      "path param without matching field",
+			protoFile: "invalid_path_param.proto",
+			wantErr:   "path parameter {id} has no matching field on request message GetItemRequest",
+		},
+		{
+			name:      "unreachable field on GET method",
+			protoFile: "invalid_uncovered_field.proto",
+			wantErr:   "fields [category] on request message GetItemRequest are not reachable",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			tempDir := t.TempDir()
+
+			cmd := exec.Command("protoc",
+				"--plugin=protoc-gen-ts-server="+pluginPath,
+				"--ts-server_out="+tempDir,
+				"--ts-server_opt=paths=source_relative",
+				"--proto_path="+protoDir,
+				"--proto_path="+filepath.Join(projectRoot, "proto"),
+				tc.protoFile,
+			)
+			cmd.Dir = protoDir
+
+			var stderr bytes.Buffer
+			cmd.Stderr = &stderr
+
+			runErr := cmd.Run()
+			if runErr == nil {
+				t.Fatalf("expected protoc to fail for %s, but it succeeded", tc.protoFile)
+			}
+
+			stderrStr := stderr.String()
+			if !strings.Contains(stderrStr, tc.wantErr) {
+				t.Errorf("expected stderr to contain %q, got:\n%s", tc.wantErr, stderrStr)
+			}
+		})
+	}
+}
+
 func diffStrings(expected, actual string) string {
 	expectedLines := strings.Split(expected, "\n")
 	actualLines := strings.Split(actual, "\n")

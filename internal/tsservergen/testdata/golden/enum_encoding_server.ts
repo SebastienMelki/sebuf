@@ -84,6 +84,8 @@ export function createEnumEncodingServiceRoutes(
 
           const body = {} as GetEnumTestRequest;
 
+          body.id = pathParams["id"];
+
           const ctx: ServerContext = {
             request: req,
             pathParams,

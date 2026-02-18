@@ -84,6 +84,8 @@ export function createNullableServiceRoutes(
 
           const body = {} as GetUserRequest;
 
+          body.id = pathParams["id"];
+
           const ctx: ServerContext = {
             request: req,
             pathParams,
@@ -130,6 +132,8 @@ export function createNullableServiceRoutes(
               throw new ValidationError(bodyViolations);
             }
           }
+
+          body.id = pathParams["id"];
 
           const ctx: ServerContext = {
             request: req,

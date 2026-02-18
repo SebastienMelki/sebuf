@@ -122,6 +122,8 @@ export function createTimestampFormatServiceRoutes(
 
           const body = {} as TimestampFormatRequest;
 
+          body.id = pathParams["id"];
+
           const ctx: ServerContext = {
             request: req,
             pathParams,

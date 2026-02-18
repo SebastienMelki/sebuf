@@ -123,6 +123,8 @@ export function createBytesEncodingServiceRoutes(
 
           const body = {} as BytesEncodingRequest;
 
+          body.id = pathParams["id"];
+
           const ctx: ServerContext = {
             request: req,
             pathParams,

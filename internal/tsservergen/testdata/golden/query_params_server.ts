@@ -270,6 +270,8 @@ export function createQueryParamServiceRoutes(
             }
           }
 
+          body.resourceId = pathParams["resource_id"];
+
           const ctx: ServerContext = {
             request: req,
             pathParams,

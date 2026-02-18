@@ -89,6 +89,8 @@ export function createEmptyBehaviorServiceRoutes(
 
           const body = {} as GetResponseRequest;
 
+          body.id = pathParams["id"];
+
           const ctx: ServerContext = {
             request: req,
             pathParams,
