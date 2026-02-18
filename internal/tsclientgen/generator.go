@@ -7,6 +7,7 @@ import (
 	"google.golang.org/protobuf/compiler/protogen"
 
 	"github.com/SebastienMelki/sebuf/internal/annotations"
+	"github.com/SebastienMelki/sebuf/internal/tscommon"
 )
 
 // Generator handles TypeScript HTTP client code generation for protobuf services.
@@ -62,12 +63,12 @@ func (g *Generator) generateClientFile(file *protogen.File) error {
 	g.writeHeader(p, file)
 
 	// 2. Message interfaces
-	for _, msg := range ms.orderedMessages() {
+	for _, msg := range ms.OrderedMessages() {
 		generateInterface(p, msg)
 	}
 
 	// 3. Enum types
-	for _, enum := range ms.orderedEnums() {
+	for _, enum := range ms.OrderedEnums() {
 		generateEnumType(p, enum)
 	}
 
@@ -91,38 +92,7 @@ func (g *Generator) writeHeader(p printer, file *protogen.File) {
 }
 
 func (g *Generator) writeErrorTypes(p printer) {
-	// FieldViolation
-	p("export interface FieldViolation {")
-	p("  field: string;")
-	p("  description: string;")
-	p("}")
-	p("")
-
-	// ValidationError
-	p("export class ValidationError extends Error {")
-	p("  violations: FieldViolation[];")
-	p("")
-	p("  constructor(violations: FieldViolation[]) {")
-	p(`    super("Validation failed");`)
-	p(`    this.name = "ValidationError";`)
-	p("    this.violations = violations;")
-	p("  }")
-	p("}")
-	p("")
-
-	// ApiError
-	p("export class ApiError extends Error {")
-	p("  statusCode: number;")
-	p("  body: string;")
-	p("")
-	p("  constructor(statusCode: number, message: string, body: string) {")
-	p("    super(message);")
-	p(`    this.name = "ApiError";`)
-	p("    this.statusCode = statusCode;")
-	p("    this.body = body;")
-	p("  }")
-	p("}")
-	p("")
+	tscommon.WriteErrorTypes(tscommon.Printer(p))
 }
 
 func (g *Generator) generateServiceClient(p printer, service *protogen.Service) error {
