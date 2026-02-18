@@ -532,7 +532,85 @@ The TypeScript server generates:
 - `create{Service}Routes(handler, options)` factory function
 - `ServerContext` with headers, path params, and raw request
 - Header validation, query/body parsing, and error handling
+- Proto-defined error interfaces (messages ending with "Error")
 - Works natively in Node 18+, Deno, Bun, and Cloudflare Workers
+
+### TypeScript Custom Error Handling
+
+Both TypeScript generators (client and server) automatically include TypeScript interfaces for any protobuf message whose name ends with "Error". This mirrors Go's convention where error messages automatically implement the `error` interface.
+
+**Define error messages in proto:**
+```protobuf
+message NotFoundError {
+  string resource_type = 1;
+  string resource_id = 2;
+}
+
+message LoginError {
+  string reason = 1;
+  string email = 2;
+  int32 retry_after_seconds = 3;
+}
+```
+
+**Generated TypeScript interfaces (in both server and client):**
+```typescript
+export interface NotFoundError {
+  resourceType: string;
+  resourceId: string;
+}
+
+export interface LoginError {
+  reason: string;
+  email: string;
+  retryAfterSeconds: number;
+}
+```
+
+**Server — implement the generated interface and handle in `onError`:**
+```typescript
+import { type NotFoundError as NotFoundErrorType } from "./generated/proto/my_service_server.ts";
+
+class NotFoundError extends Error implements NotFoundErrorType {
+  resourceType: string;
+  resourceId: string;
+  constructor(resourceType: string, resourceId: string) {
+    super(`${resourceType} '${resourceId}' not found`);
+    this.resourceType = resourceType;
+    this.resourceId = resourceId;
+  }
+}
+
+const routes = createMyServiceRoutes(handler, {
+  onError: (err, req) => {
+    if (err instanceof NotFoundError) {
+      const body: NotFoundErrorType = { resourceType: err.resourceType, resourceId: err.resourceId };
+      return new Response(JSON.stringify(body), {
+        status: 404,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+    // ... handle other errors
+  },
+});
+```
+
+**Client — parse `ApiError.body` using the generated interface:**
+```typescript
+import { ApiError, type NotFoundError } from "./generated/proto/my_service_client.ts";
+
+try {
+  await client.getUser({ id: "not-found" });
+} catch (e) {
+  if (e instanceof ApiError && e.statusCode === 404) {
+    const body = JSON.parse(e.body) as NotFoundError;
+    console.log(body.resourceType); // "user"
+    console.log(body.resourceId);   // "not-found"
+  }
+}
+```
+
+The proto definition serves as the single source of truth for error shapes — both server and client use the same generated interface for type safety across the wire.
 
 ## See Also
 

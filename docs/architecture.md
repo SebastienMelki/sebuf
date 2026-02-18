@@ -281,6 +281,7 @@ func (g *Generator) Generate() error {
 4. **Server Context** - `ServerContext` with headers, path params, and raw request
 5. **TypeScript Interfaces** - Typed request/response interfaces (shared via `tscommon`)
 6. **Error Types** - `ValidationError` and `ApiError` (shared via `tscommon`)
+7. **Proto-defined Error Interfaces** - TypeScript interfaces for proto messages ending with "Error" (e.g., `NotFoundError`, `LoginError`)
 
 **Key Features**:
 - Framework-agnostic: uses Web Fetch API (`Request` → `Promise<Response>`)
@@ -290,6 +291,7 @@ func (g *Generator) Generate() error {
 - Query parameter parsing for GET/DELETE methods
 - Generation-time validation (unmatched path params, unreachable fields)
 - `onError` hook for custom error responses
+- Proto-defined custom errors: any message ending with "Error" generates a TypeScript interface, mirroring Go's automatic error interface convention
 
 ### 5. OpenAPI Generator
 

@@ -40,7 +40,7 @@ The project follows a clean Go protoc plugin architecture with separated concern
 3. **TypeScript HTTP Client Generator** (`internal/tsclientgen/generator.go`): Generates TypeScript HTTP clients with typed interfaces, service/method header helpers, query parameter encoding, path parameter substitution, and structured error handling (ValidationError/ApiError)
 4. **TypeScript HTTP Server Generator** (`internal/tsservergen/generator.go`): Generates framework-agnostic TypeScript HTTP server handlers using the Web Fetch API (`Request` → `Promise<Response>`), with route descriptors, header validation, query/body parsing, and error handling
 5. **OpenAPI Generator** (`internal/openapiv3/generator.go:53`): Creates comprehensive OpenAPI v3.1 specifications from protobuf definitions with full header parameter support, generating one file per service for better organization
-6. **Shared TypeScript Types** (`internal/tscommon/`): Shared TypeScript type mapping, interface generation, and error types used by both ts-client and ts-server generators
+6. **Shared TypeScript Types** (`internal/tscommon/`): Shared TypeScript type mapping, interface generation, error types, and proto-defined error message collection (messages ending with "Error") used by both ts-client and ts-server generators
 7. **HTTP Annotations** (`proto/sebuf/http/annotations.proto`): Custom protobuf extensions for HTTP configuration
 5. **Header Validation** (`proto/sebuf/http/headers.proto`): Protobuf definitions for service and method-level header validation
 6. **Validation System**: Automatic request body validation via buf.validate/protovalidate and header validation middleware
@@ -99,7 +99,9 @@ try {
   if (e instanceof ValidationError) {
     console.log(e.violations);  // Field-level validation errors
   } else if (e instanceof ApiError) {
-    console.log(e.statusCode, e.message);
+    // Parse proto-defined custom errors using generated interfaces
+    const body = JSON.parse(e.body) as NotFoundError;
+    console.log(body.resourceType, body.resourceId);
   }
 }
 ```
@@ -517,6 +519,7 @@ service UserService {
 ### Error Handling
 - **Structured Error Responses**: All errors use protobuf messages for consistent API responses
 - **Automatic Go Error Interface**: Any protobuf message ending with "Error" automatically implements Go's error interface for `errors.As()` and `errors.Is()` support
+- **Automatic TypeScript Error Interfaces**: Both TS generators (`protoc-gen-ts-client`, `protoc-gen-ts-server`) generate TypeScript interfaces for proto messages ending with "Error", enabling type-safe custom error handling across server and client
 - **Proto Message Error Preservation**: Custom proto error messages returned from handlers are serialized directly, preserving their structure (not wrapped in a generic Error message)
 - **Validation Errors (HTTP 400)**: ValidationError with field-level violations for body and header validation failures
 - **Handler Errors (HTTP 500)**: Error messages for service implementation failures with custom messages
@@ -528,15 +531,21 @@ service UserService {
 
 **Custom Proto Error Example:**
 ```protobuf
-// Define a custom error message
+// Define custom error messages — works across Go, TS server, and TS client
 message NotFoundError {
   string resource_type = 1;
   string resource_id = 2;
 }
+
+message LoginError {
+  string reason = 1;
+  string email = 2;
+  int32 retry_after_seconds = 3;
+}
 ```
 
 ```go
-// Return it from your handler - it will be serialized directly
+// Go: Return it from your handler - it will be serialized directly
 func (s *Server) GetUser(ctx context.Context, req *GetUserRequest) (*User, error) {
     user, err := s.db.FindUser(req.Id)
     if err != nil {
@@ -549,6 +558,19 @@ func (s *Server) GetUser(ctx context.Context, req *GetUserRequest) (*User, error
 }
 // Response: {"resourceType":"user","resourceId":"123"}
 // NOT: {"message":"{\"resourceType\":\"user\",\"resourceId\":\"123\"}"}
+```
+
+```typescript
+// TS Server: implement generated interface, serialize in onError hook
+class NotFoundError extends Error implements NotFoundErrorType {
+  resourceType: string;
+  resourceId: string;
+  // ... constructor
+}
+
+// TS Client: parse ApiError.body using generated interface
+const body = JSON.parse(e.body) as NotFoundError;
+console.log(body.resourceType, body.resourceId);
 ```
 
 ## Type System

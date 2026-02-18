@@ -146,10 +146,17 @@ Full TypeScript stack: both client and server generated from the same proto.
 - Full CRUD: create, list, get, update, archive, delete notes
 - Query parameters, pagination, unwrap (getNotesByTag returns Note[])
 - Service-level headers (X-API-Key, X-Tenant-ID) and method-level headers
-- Custom error handling via `onError` hook (NotFoundError with structured body)
+- Proto-defined custom errors: `NotFoundError` (404) and `LoginError` (401) as proto messages, generating TypeScript interfaces used by both server and client for type-safe error handling
 - Header validation (missing required headers return ValidationError)
+- Interactive browser UI at http://localhost:3000 with live server log streaming
+- Comprehensive colored request/response logging in the terminal (both server and client)
 
 ```bash
+# Two-terminal setup (recommended — see both server and client logs):
+cd examples/ts-fullstack-demo && make server   # Terminal 1
+cd examples/ts-fullstack-demo && make client   # Terminal 2
+
+# Or single command (server logs interleaved with client):
 cd examples/ts-fullstack-demo && make demo
 ```
 
