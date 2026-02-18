@@ -245,9 +245,22 @@
             <span class="op-path">/notes/{id}</span>
           </div>
           <div class="op-body" id="op-404-body">
-            <div class="op-desc">Custom NotFoundError with resourceType/resourceId</div>
+            <div class="op-desc">Proto-defined NotFoundError — resourceType + resourceId</div>
             <button class="btn-run" onclick="runNotFound()">Run</button>
             <div class="op-result" id="op-404-result"></div>
+          </div>
+        </div>
+
+        <div class="op-card" id="op-login-err">
+          <div class="op-card-header" onclick="toggleOp('op-login-err')">
+            <span class="method-badge GET">GET</span>
+            <span class="op-name">Login Error (401)</span>
+            <span class="op-path">/notes</span>
+          </div>
+          <div class="op-body" id="op-login-err-body">
+            <div class="op-desc">Proto-defined LoginError — expired API key returns reason + email + retryAfterSeconds</div>
+            <button class="btn-run" onclick="runLoginError()">Run</button>
+            <div class="op-result" id="op-login-err-result"></div>
           </div>
         </div>
 
@@ -447,6 +460,19 @@ async function runGetByTag() {
 async function runNotFound() {
   const r = await apiCall("GET", "/notes/does-not-exist-999");
   showResult("op-404-result", r.status, r.data, r.duration);
+}
+
+async function runLoginError() {
+  // Send request with an "expired" API key to trigger proto-defined LoginError
+  const t0 = performance.now();
+  const res = await fetch(BASE + "/notes", {
+    headers: { "X-API-Key": "deadbeef-dead-dead-dead-deaddeaddead", "X-Tenant-ID": TENANT_ID },
+  });
+  const duration = Math.round(performance.now() - t0);
+  let data;
+  const text = await res.text();
+  try { data = JSON.parse(text); } catch { data = text; }
+  showResult("op-login-err-result", res.status, data, duration);
 }
 
 async function runMissingHeader() {

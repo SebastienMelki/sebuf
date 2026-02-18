@@ -202,12 +202,21 @@ func (ms *MessageSet) OrderedEnums() []*protogen.Enum {
 }
 
 // CollectServiceMessages collects all messages transitively referenced by services in a file.
+// It also includes messages whose names end with "Error" (convention for proto-defined custom errors).
 func CollectServiceMessages(file *protogen.File) *MessageSet {
 	ms := NewMessageSet()
 	for _, service := range file.Services {
 		for _, method := range service.Methods {
 			ms.AddMessage(method.Input)
 			ms.AddMessage(method.Output)
+		}
+	}
+	// Include proto-defined error messages (names ending with "Error").
+	// Mirrors Go's convention where proto messages ending with "Error"
+	// automatically implement the error interface.
+	for _, msg := range file.Messages {
+		if strings.HasSuffix(string(msg.Desc.Name()), "Error") {
+			ms.AddMessage(msg)
 		}
 	}
 	return ms

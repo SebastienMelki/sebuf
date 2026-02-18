@@ -105,6 +105,19 @@ message DeleteNoteResponse {
   bool success = 1;
 }
 
+// --- Custom error messages (proto-defined, shared across server + client) ---
+
+message NotFoundError {
+  string resource_type = 1;
+  string resource_id = 2;
+}
+
+message LoginError {
+  string reason = 1;
+  string email = 2;
+  int32 retry_after_seconds = 3;
+}
+
 // --- Service ---
 
 service NoteService {

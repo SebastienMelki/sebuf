@@ -1,9 +1,10 @@
 .PHONY: demo generate server client clean install-deps build-plugins
 
 # Full demo: generate code, start TS server, run TS client, stop server
+# Server output is visible (not silenced) — you'll see both server + client logs
 demo: generate install-deps
 	@echo ""
-	@echo "Starting TypeScript server in background..."
+	@echo "Starting server..."
 	@cd server && npx tsx main.ts & SERVER_PID=$$!; \
 	echo "Waiting for server to be ready..."; \
 	for i in $$(seq 1 30); do \
@@ -13,7 +14,7 @@ demo: generate install-deps
 		sleep 1; \
 	done; \
 	echo ""; \
-	echo "Running TypeScript client..."; \
+	echo "Running client..."; \
 	echo ""; \
 	cd client && npx tsx main.ts; \
 	EXIT_CODE=$$?; \
@@ -35,7 +36,7 @@ generate: build-plugins
 	@buf generate
 	@echo "Code generated successfully"
 
-# Run the TypeScript server (blocks)
+# Run the TypeScript server in foreground (use this + 'make client' in another terminal)
 server: generate install-deps
 	@cd server && npx tsx main.ts
 

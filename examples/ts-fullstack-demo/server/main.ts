@@ -10,10 +10,59 @@ import {
   type RouteDescriptor,
   type Priority,
   type Status,
+  type NotFoundError as NotFoundErrorType,
+  type LoginError as LoginErrorType,
 } from "./generated/proto/note_service_server.ts";
 
 // ==========================================================================
-// SSE log streaming
+// Terminal colors
+// ==========================================================================
+
+const c = {
+  reset: "\x1b[0m",
+  dim: "\x1b[2m",
+  bold: "\x1b[1m",
+  cyan: "\x1b[36m",
+  green: "\x1b[32m",
+  yellow: "\x1b[33m",
+  red: "\x1b[31m",
+  magenta: "\x1b[35m",
+  blue: "\x1b[34m",
+  white: "\x1b[37m",
+  bgGreen: "\x1b[42m\x1b[30m",
+  bgYellow: "\x1b[43m\x1b[30m",
+  bgRed: "\x1b[41m\x1b[37m",
+  bgCyan: "\x1b[46m\x1b[30m",
+  bgMagenta: "\x1b[45m\x1b[37m",
+  bgBlue: "\x1b[44m\x1b[37m",
+};
+
+function methodColor(method: string): string {
+  switch (method) {
+    case "GET": return c.bgCyan;
+    case "POST": return c.bgMagenta;
+    case "PUT": return c.bgYellow;
+    case "PATCH": return c.bgBlue;
+    case "DELETE": return c.bgRed;
+    default: return c.dim;
+  }
+}
+
+function statusColor(status: number): string {
+  if (status < 300) return c.green;
+  if (status < 400) return c.cyan;
+  if (status < 500) return c.yellow;
+  return c.red;
+}
+
+function prettyJson(obj: unknown): string {
+  return JSON.stringify(obj, null, 2);
+}
+
+let reqCounter = 0;
+
+// ==========================================================================
+// SSE log streaming (for browser UI)
 // ==========================================================================
 
 const sseClients = new Set<ServerResponse>();
@@ -23,11 +72,6 @@ function broadcast(event: string, data: unknown) {
   for (const client of sseClients) {
     client.write(msg);
   }
-}
-
-function serverLog(message: string) {
-  console.log(message);
-  broadcast("log", { time: Date.now(), message });
 }
 
 function requestLog(method: string, path: string, status: number, duration: number) {
@@ -104,10 +148,10 @@ function seedData() {
 }
 
 // ==========================================================================
-// Custom error for not-found
+// Proto-defined custom errors (classes implement generated interfaces)
 // ==========================================================================
 
-class NotFoundError extends Error {
+class NotFoundError extends Error implements NotFoundErrorType {
   resourceType: string;
   resourceId: string;
 
@@ -118,6 +162,22 @@ class NotFoundError extends Error {
     this.resourceId = resourceId;
   }
 }
+
+class LoginError extends Error implements LoginErrorType {
+  reason: string;
+  email: string;
+  retryAfterSeconds: number;
+
+  constructor(reason: string, email: string, retryAfterSeconds: number) {
+    super(`Login failed: ${reason}`);
+    this.name = "LoginError";
+    this.reason = reason;
+    this.email = email;
+    this.retryAfterSeconds = retryAfterSeconds;
+  }
+}
+
+const EXPIRED_API_KEY = "deadbeef-dead-dead-dead-deaddeaddead";
 
 // ==========================================================================
 // Handler implementation
@@ -152,7 +212,11 @@ function matchPriority(notePriority: Priority, filter: string): boolean {
 }
 
 const handler: NoteServiceHandler = {
-  async listNotes(_ctx: ServerContext, req) {
+  async listNotes(ctx: ServerContext, req) {
+    if (ctx.headers["x-api-key"] === EXPIRED_API_KEY) {
+      throw new LoginError("API key has expired", "user@example.com", 300);
+    }
+
     let result = [...notes.values()];
 
     if (req.status) {
@@ -162,7 +226,6 @@ const handler: NoteServiceHandler = {
       result = result.filter((n) => matchPriority(n.priority, req.priority));
     }
 
-    // Sort
     switch (req.sort?.toLowerCase()) {
       case "title":
         result.sort((a, b) => a.title.localeCompare(b.title));
@@ -211,7 +274,6 @@ const handler: NoteServiceHandler = {
       createdAt: new Date().toISOString(),
     };
     notes.set(id, note);
-    serverLog(`Created note: ${id} - "${note.title}"`);
     return note;
   },
 
@@ -225,7 +287,6 @@ const handler: NoteServiceHandler = {
     note.tags = req.tags ?? [];
     note.metadata = req.metadata ?? {};
     note.dueDate = req.dueDate;
-    serverLog(`Updated note: ${note.id} - status=${note.status}`);
     return note;
   },
 
@@ -233,14 +294,12 @@ const handler: NoteServiceHandler = {
     const note = notes.get(req.id);
     if (!note) throw new NotFoundError("note", req.id);
     note.status = "STATUS_ARCHIVED";
-    serverLog(`Archived note: ${note.id}`);
     return note;
   },
 
   async deleteNote(_ctx, req) {
     if (!notes.has(req.id)) throw new NotFoundError("note", req.id);
     notes.delete(req.id);
-    serverLog(`Deleted note: ${req.id}`);
     return { success: true };
   },
 
@@ -260,10 +319,18 @@ const handler: NoteServiceHandler = {
 const routes = createNoteServiceRoutes(handler, {
   onError: (err, _req) => {
     if (err instanceof NotFoundError) {
-      return new Response(
-        JSON.stringify({ resourceType: err.resourceType, resourceId: err.resourceId }),
-        { status: 404, headers: { "Content-Type": "application/json" } },
-      );
+      const body: NotFoundErrorType = { resourceType: err.resourceType, resourceId: err.resourceId };
+      return new Response(JSON.stringify(body), {
+        status: 404,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+    if (err instanceof LoginError) {
+      const body: LoginErrorType = { reason: err.reason, email: err.email, retryAfterSeconds: err.retryAfterSeconds };
+      return new Response(JSON.stringify(body), {
+        status: 401,
+        headers: { "Content-Type": "application/json" },
+      });
     }
     const message = err instanceof Error ? err.message : String(err);
     return new Response(JSON.stringify({ message }), {
@@ -273,7 +340,7 @@ const routes = createNoteServiceRoutes(handler, {
   },
 });
 
-// Sort routes: static segments before parameterized ones (e.g., /notes/by-tag before /notes/{id})
+// Sort routes: static segments before parameterized ones
 routes.sort((a, b) => {
   const aParts = a.path.split("/");
   const bParts = b.path.split("/");
@@ -315,7 +382,7 @@ const server = createServer(async (nodeReq, nodeRes) => {
     return;
   }
 
-  // SSE endpoint for live log streaming
+  // SSE endpoint
   if (url.pathname === "/events" && nodeReq.method === "GET") {
     nodeRes.writeHead(200, {
       "Content-Type": "text/event-stream",
@@ -329,52 +396,110 @@ const server = createServer(async (nodeReq, nodeRes) => {
   }
 
   // API routes
+  const reqId = ++reqCounter;
   const t0 = Date.now();
+  const method = nodeReq.method!;
+  const pathname = url.pathname;
+  const qs = url.search || "";
+
   for (const route of routes) {
-    if (nodeReq.method === route.method && matchPath(url.pathname, route.path)) {
+    if (method === route.method && matchPath(pathname, route.path)) {
+      // ── Log incoming request ──
+      console.log("");
+      console.log(`${c.dim}───────────────────────────────────────────────────────${c.reset}`);
+      console.log(`${c.bold}#${reqId}  ${methodColor(method)} ${method} ${c.reset} ${c.white}${pathname}${qs}${c.reset}  ${c.dim}→ ${route.path}${c.reset}`);
+      console.log(`${c.dim}───────────────────────────────────────────────────────${c.reset}`);
+
+      // Log request headers
       const headers = new Headers();
+      const headerLines: string[] = [];
       for (const [key, value] of Object.entries(nodeReq.headers)) {
-        if (value) headers.set(key, Array.isArray(value) ? value.join(", ") : value);
+        if (value) {
+          const v = Array.isArray(value) ? value.join(", ") : value;
+          headers.set(key, v);
+          // Skip noisy headers
+          if (!["host", "connection", "accept-encoding", "user-agent", "accept", "cache-control"].includes(key.toLowerCase())) {
+            headerLines.push(`  ${c.cyan}${key}${c.reset}: ${v}`);
+          }
+        }
+      }
+      if (headerLines.length > 0) {
+        console.log(`${c.dim}  Request Headers:${c.reset}`);
+        for (const line of headerLines) console.log(line);
       }
 
-      const hasBody = ["POST", "PUT", "PATCH"].includes(nodeReq.method!);
+      // Read and log body
+      const hasBody = ["POST", "PUT", "PATCH"].includes(method);
       const body = hasBody ? await readBody(nodeReq) : undefined;
+      if (body) {
+        console.log(`${c.dim}  Request Body:${c.reset}`);
+        try {
+          const parsed = JSON.parse(body);
+          for (const line of prettyJson(parsed).split("\n")) {
+            console.log(`  ${c.white}${line}${c.reset}`);
+          }
+        } catch {
+          console.log(`  ${body}`);
+        }
+      }
 
       const request = new Request(url.toString(), {
-        method: nodeReq.method,
+        method,
         headers,
         body: body || undefined,
       });
 
       const response = await route.handler(request);
+      const duration = Date.now() - t0;
+
+      // ── Log response ──
+      const respBody = await response.text();
+      const sc = statusColor(response.status);
+      console.log(`${c.dim}  Response:${c.reset} ${sc}${c.bold}${response.status}${c.reset} ${c.dim}(${duration}ms)${c.reset}`);
+      if (respBody) {
+        try {
+          const parsed = JSON.parse(respBody);
+          for (const line of prettyJson(parsed).split("\n")) {
+            console.log(`  ${c.white}${line}${c.reset}`);
+          }
+        } catch {
+          console.log(`  ${respBody}`);
+        }
+      }
+
+      // Send response to client
       const respHeaders: Record<string, string> = {};
       response.headers.forEach((v, k) => (respHeaders[k] = v));
       nodeRes.writeHead(response.status, respHeaders);
-      nodeRes.end(await response.text());
-      requestLog(nodeReq.method!, url.pathname, response.status, Date.now() - t0);
+      nodeRes.end(respBody);
+      requestLog(method, pathname, response.status, duration);
       return;
     }
   }
 
+  // No route matched
+  console.log("");
+  console.log(`${c.bold}#${reqId}  ${c.bgRed} ${method} ${c.reset} ${pathname}${qs}  ${c.red}No route matched${c.reset}`);
   nodeRes.writeHead(404, { "Content-Type": "application/json" });
   nodeRes.end(JSON.stringify({ message: "Not Found" }));
-  requestLog(nodeReq.method!, url.pathname, 404, Date.now() - t0);
+  requestLog(method, pathname, 404, Date.now() - t0);
 });
 
 server.listen(3000, () => {
-  console.log("TypeScript NoteService server running on http://localhost:3000");
   console.log("");
-  console.log("  Browser UI:  http://localhost:3000");
+  console.log(`${c.bold}═══════════════════════════════════════════════════════${c.reset}`);
+  console.log(`${c.bold}  sebuf TypeScript NoteService Server${c.reset}`);
+  console.log(`${c.bold}═══════════════════════════════════════════════════════${c.reset}`);
   console.log("");
-  console.log("  API Endpoints:");
-  console.log("    GET    /api/v1/notes              - List notes");
-  console.log("    GET    /api/v1/notes/{id}          - Get note");
-  console.log("    POST   /api/v1/notes               - Create note");
-  console.log("    PUT    /api/v1/notes/{id}           - Update note");
-  console.log("    PATCH  /api/v1/notes/{id}/archive   - Archive note");
-  console.log("    DELETE /api/v1/notes/{id}           - Delete note");
-  console.log("    GET    /api/v1/notes/by-tag         - Get notes by tag");
+  console.log(`  ${c.green}Browser UI:${c.reset}  http://localhost:3000`);
   console.log("");
-  console.log("  Headers: X-API-Key (uuid) + X-Tenant-ID (integer)");
-  console.log("  4 seed notes pre-loaded");
+  console.log(`  ${c.cyan}Routes:${c.reset}`);
+  for (const route of routes) {
+    console.log(`    ${methodColor(route.method)} ${route.method.padEnd(6)} ${c.reset} ${route.path}`);
+  }
+  console.log("");
+  console.log(`  ${c.yellow}Headers:${c.reset} X-API-Key (uuid) + X-Tenant-ID (integer)`);
+  console.log(`  ${c.dim}4 seed notes pre-loaded${c.reset}`);
+  console.log("");
+  console.log(`  Waiting for requests...`);
 });
