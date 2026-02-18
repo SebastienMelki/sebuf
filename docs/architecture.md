@@ -17,21 +17,21 @@ This document provides a comprehensive technical overview of sebuf's architectur
 
 ## System Overview
 
-sebuf is a collection of four specialized protoc plugins that work together to enable modern HTTP API development from protobuf definitions:
+sebuf is a collection of five specialized protoc plugins that work together to enable modern HTTP API development from protobuf definitions:
 
 ```
 ┌──────────────────────────────────────────────────────────────────────────────────────────────────┐
 │                                        sebuf Toolkit                                              │
-├──────────────────────┬──────────────────────┬──────────────────────┬──────────────────────────────┤
-│ protoc-gen-go-http   │ protoc-gen-go-client │ protoc-gen-ts-client │   protoc-gen-openapiv3       │
-│                      │                      │                      │                              │
-│ ┌──────────────────┐ │ ┌──────────────────┐ │ ┌──────────────────┐ │ ┌──────────────────────────┐ │
-│ │HTTP Handlers     │ │ │Go HTTP Clients   │ │ │TS HTTP Clients   │ │ │   OpenAPI v3.1           │ │
-│ │  + Binding       │ │ │  + Type-safe     │ │ │  + Type-safe     │ │ │  Specifications          │ │
-│ │  + Routing       │ │ │  + Functional    │ │ │  + Header helpers│ │ │  + Validation Rules      │ │
-│ │  + Validation    │ │ │    opts          │ │ │  + Error types   │ │ │  + Header Parameters     │ │
-│ └──────────────────┘ │ └──────────────────┘ │ └──────────────────┘ │ └──────────────────────────┘ │
-└──────────────────────┴──────────────────────┴──────────────────────┴──────────────────────────────┘
+├────────────────────┬────────────────────┬────────────────────┬────────────────────┬────────────────────┤
+│protoc-gen-go-http  │protoc-gen-go-client│protoc-gen-ts-client│protoc-gen-ts-server│protoc-gen-openapiv3│
+│                    │                    │                    │                    │                    │
+│ ┌────────────────┐ │ ┌────────────────┐ │ ┌────────────────┐ │ ┌────────────────┐ │ ┌────────────────┐ │
+│ │HTTP Handlers   │ │ │Go HTTP Clients │ │ │TS HTTP Clients │ │ │TS HTTP Servers │ │ │  OpenAPI v3.1  │ │
+│ │  + Binding     │ │ │  + Type-safe   │ │ │  + Type-safe   │ │ │  + Web Fetch   │ │ │  Specifications│ │
+│ │  + Routing     │ │ │  + Functional  │ │ │  + Header help │ │ │  + Framework-  │ │ │  + Validation  │ │
+│ │  + Validation  │ │ │    opts        │ │ │  + Error types │ │ │    agnostic    │ │ │  + Headers     │ │
+│ └────────────────┘ │ └────────────────┘ │ └────────────────┘ │ └────────────────┘ │ └────────────────┘ │
+└────────────────────┴────────────────────┴────────────────────┴────────────────────┴────────────────────┘
                                       │
                                       ▼
 ┌─────────────────────────────────────────────────────────────────────────────────┐
@@ -73,6 +73,7 @@ func main() {
 | `protoc-gen-go-http` | Generate HTTP handlers, routing & validation | `*_http*.pb.go` | `protoc-gen-go`, sebuf annotations |
 | `protoc-gen-go-client` | Generate type-safe Go HTTP clients | `*_client.pb.go` | `protoc-gen-go`, sebuf annotations |
 | `protoc-gen-ts-client` | Generate type-safe TypeScript HTTP clients | `*_client.ts` | sebuf annotations |
+| `protoc-gen-ts-server` | Generate framework-agnostic TypeScript HTTP servers | `*_server.ts` | sebuf annotations |
 | `protoc-gen-openapiv3` | Generate OpenAPI specifications | `*.yaml`, `*.json` | None (standalone) |
 
 ## Code Generation Pipeline
@@ -87,12 +88,14 @@ graph TD
     C --> E[protoc-gen-go-client]
     C --> F[protoc-gen-go-http]
     C --> G[protoc-gen-ts-client]
+    C --> G2[protoc-gen-ts-server]
     C --> H[protoc-gen-openapiv3]
 
     D --> I[.pb.go files]
     E --> J[*_client.pb.go]
     F --> K[*_http*.pb.go]
     G --> L[*_client.ts]
+    G2 --> L2[*_server.ts]
     H --> M[OpenAPI specs]
 ```
 
@@ -251,7 +254,44 @@ func (g *Generator) Generate() error {
 - Structured error handling with `ValidationError` and `ApiError` classes
 - Zero runtime dependencies — uses only the Fetch API
 
-### 4. OpenAPI Generator
+### 4. TypeScript Server Generator
+
+**Location**: `internal/tsservergen/`
+
+**Architecture**:
+```go
+type Generator struct {
+    plugin *protogen.Plugin
+}
+
+func (g *Generator) Generate() error {
+    for _, file := range g.plugin.Files {
+        // Generate TypeScript server file for services
+        // *_server.ts with handler interface, route descriptors, and context types
+        g.generateServerFile(file)
+    }
+}
+```
+
+**Generated Components**:
+
+1. **Handler Interface** - `{Service}Handler` with methods for each RPC (like Go's `{Service}Server`)
+2. **Route Descriptors** - `RouteDescriptor[]` with method, path, and handler function
+3. **Route Factory** - `create{Service}Routes(handler, options)` wires handler to routes
+4. **Server Context** - `ServerContext` with headers, path params, and raw request
+5. **TypeScript Interfaces** - Typed request/response interfaces (shared via `tscommon`)
+6. **Error Types** - `ValidationError` and `ApiError` (shared via `tscommon`)
+
+**Key Features**:
+- Framework-agnostic: uses Web Fetch API (`Request` → `Promise<Response>`)
+- Works natively in Node 18+, Deno, Bun, Cloudflare Workers
+- Path parameter extraction and merge into request body
+- Header validation with type/format checking
+- Query parameter parsing for GET/DELETE methods
+- Generation-time validation (unmatched path params, unreachable fields)
+- `onError` hook for custom error responses
+
+### 5. OpenAPI Generator
 
 **Location**: `internal/openapiv3/`
 
@@ -556,9 +596,10 @@ const (
 ### 1. Separation of Concerns
 
 Each plugin has a single, well-defined responsibility:
-- **HTTP Generator**: HTTP protocol handling and validation
+- **HTTP Generator**: Go HTTP server handlers and validation
 - **Go Client Generator**: Go HTTP client generation
 - **TypeScript Client Generator**: TypeScript HTTP client generation
+- **TypeScript Server Generator**: TypeScript HTTP server generation
 - **OpenAPI Generator**: Documentation generation only
 
 ### 2. Zero Runtime Dependencies
@@ -591,6 +632,7 @@ Generated code has no sebuf runtime dependencies:
 
 2. **Additional Output Formats**
    - ~~TypeScript client generation~~ (shipped: `protoc-gen-ts-client`)
+   - ~~TypeScript server generation~~ (shipped: `protoc-gen-ts-server`)
    - Swagger/OpenAPI 2.0 support
    - GraphQL schema generation
 

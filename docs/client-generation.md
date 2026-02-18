@@ -513,8 +513,29 @@ The TypeScript client generates:
 - `ValidationError` and `ApiError` classes for structured error handling
 - Automatic query parameter encoding and path parameter substitution
 
+## TypeScript Server Generation
+
+For TypeScript server-side code generation, sebuf provides `protoc-gen-ts-server` which generates framework-agnostic HTTP server handlers using the Web Fetch API. See the [ts-fullstack-demo example](../examples/ts-fullstack-demo/) for a complete TS client + TS server working together from the same proto.
+
+Add it to your `buf.gen.yaml`:
+
+```yaml
+plugins:
+  - local: protoc-gen-ts-server
+    out: ./server/generated
+    opt: paths=source_relative
+```
+
+The TypeScript server generates:
+- Handler interface (`{Service}Handler`) with methods for each RPC
+- Route descriptors (`RouteDescriptor[]`) for wiring into any framework
+- `create{Service}Routes(handler, options)` factory function
+- `ServerContext` with headers, path params, and raw request
+- Header validation, query/body parsing, and error handling
+- Works natively in Node 18+, Deno, Bun, and Cloudflare Workers
+
 ## See Also
 
-- **[HTTP Generation Guide](./http-generation.md)** - Server-side handler generation
+- **[HTTP Generation Guide](./http-generation.md)** - Go server-side handler generation
 - **[Validation Guide](./validation.md)** - Request validation
 - **[Examples](./examples/)** - Working examples

@@ -179,11 +179,14 @@ sebuf/
 │   ├── protoc-gen-go-http/           # HTTP handler generator
 │   ├── protoc-gen-go-client/         # Go HTTP client generator
 │   ├── protoc-gen-ts-client/         # TypeScript HTTP client generator
+│   ├── protoc-gen-ts-server/         # TypeScript HTTP server generator
 │   └── protoc-gen-openapiv3/         # OpenAPI spec generator
 ├── internal/                      # Internal packages
 │   ├── httpgen/                      # HTTP generation logic
 │   ├── clientgen/                    # Go HTTP client generation logic
+│   ├── tscommon/                     # Shared TypeScript type mapping
 │   ├── tsclientgen/                  # TypeScript HTTP client generation logic
+│   ├── tsservergen/                  # TypeScript HTTP server generation logic
 │   └── openapiv3/                    # OpenAPI generation logic
 ├── proto/                         # Protobuf definitions
 ├── http/                          # Generated HTTP annotations
@@ -395,6 +398,7 @@ make test
 go test ./internal/httpgen/...
 go test ./internal/openapiv3/...
 go test ./internal/tsclientgen/...
+go test ./internal/tsservergen/...
 
 # Run with coverage
 make test-coverage
@@ -403,6 +407,7 @@ make test-coverage
 UPDATE_GOLDEN=1 go test ./internal/httpgen/
 UPDATE_GOLDEN=1 go test ./internal/openapiv3/
 UPDATE_GOLDEN=1 go test ./internal/tsclientgen/
+UPDATE_GOLDEN=1 go test ./internal/tsservergen/
 ```
 
 ### Adding New Tests
