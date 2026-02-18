@@ -1072,6 +1072,66 @@ func handleUserOperation() error {
 }
 ```
 
+#### TypeScript Error Handling
+
+The TypeScript generators (`protoc-gen-ts-client` and `protoc-gen-ts-server`) mirror Go's convention: any protobuf message whose name ends with "Error" generates a TypeScript interface. This enables type-safe custom error handling across the wire.
+
+```protobuf
+// Proto-defined errors — shared contract between server and client
+message NotFoundError {
+  string resource_type = 1;
+  string resource_id = 2;
+}
+
+message LoginError {
+  string reason = 1;
+  string email = 2;
+  int32 retry_after_seconds = 3;
+}
+```
+
+**Server** — throw errors matching the proto shape, serialize in `onError`:
+```typescript
+import { type NotFoundError as NotFoundErrorType } from "./generated/proto/service_server.ts";
+
+class NotFoundError extends Error implements NotFoundErrorType {
+  resourceType: string;
+  resourceId: string;
+  constructor(type: string, id: string) {
+    super(`${type} '${id}' not found`);
+    this.resourceType = type;
+    this.resourceId = id;
+  }
+}
+
+// In onError hook:
+if (err instanceof NotFoundError) {
+  const body: NotFoundErrorType = { resourceType: err.resourceType, resourceId: err.resourceId };
+  return new Response(JSON.stringify(body), { status: 404, headers: { "Content-Type": "application/json" } });
+}
+```
+
+**Client** — parse `ApiError.body` with the same generated interface:
+```typescript
+import { ApiError, type NotFoundError, type LoginError } from "./generated/proto/service_client.ts";
+
+try {
+  await client.getUser({ id: "not-found" });
+} catch (e) {
+  if (e instanceof ApiError) {
+    if (e.statusCode === 404) {
+      const err = JSON.parse(e.body) as NotFoundError;
+      console.log(err.resourceType, err.resourceId);
+    } else if (e.statusCode === 401) {
+      const err = JSON.parse(e.body) as LoginError;
+      console.log(err.reason, err.retryAfterSeconds);
+    }
+  }
+}
+```
+
+See the [ts-fullstack-demo](../examples/ts-fullstack-demo/) for a complete working example with both `NotFoundError` and `LoginError`.
+
 ## Configuration Options
 
 ### Server Options

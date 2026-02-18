@@ -4,11 +4,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is `sebuf`, a specialized Go protobuf toolkit for building HTTP APIs. It consists of four complementary protoc plugins that together enable modern, type-safe API development:
+This is `sebuf`, a specialized Go protobuf toolkit for building HTTP APIs. It consists of five complementary protoc plugins that together enable modern, type-safe API development:
 
 - **`protoc-gen-go-http`**: Generates HTTP handlers, routing, request/response binding, and automatic validation
 - **`protoc-gen-go-client`**: Generates type-safe Go HTTP clients with functional options pattern
 - **`protoc-gen-ts-client`**: Generates TypeScript HTTP clients with full type safety, header helpers, and error handling
+- **`protoc-gen-ts-server`**: Generates TypeScript HTTP server handlers using the Web Fetch API (Request/Response), framework-agnostic
 - **`protoc-gen-openapiv3`**: Creates comprehensive OpenAPI v3.1 specifications
 
 The toolkit enables developers to build HTTP APIs directly from protobuf definitions without gRPC dependencies, targeting web and mobile API development with built-in request validation.
@@ -21,10 +22,13 @@ The project follows a clean Go protoc plugin architecture with separated concern
 - **cmd/protoc-gen-go-http/**: HTTP handler generator entry point
 - **cmd/protoc-gen-go-client/**: Go HTTP client generator entry point
 - **cmd/protoc-gen-ts-client/**: TypeScript HTTP client generator entry point
+- **cmd/protoc-gen-ts-server/**: TypeScript HTTP server generator entry point
 - **cmd/protoc-gen-openapiv3/**: OpenAPI specification generator entry point
 - **internal/httpgen/**: HTTP handler generation logic, annotations, and header validation middleware
 - **internal/clientgen/**: Go HTTP client generation logic and annotations
-- **internal/tsclientgen/**: TypeScript HTTP client generation logic, type mapping, and annotations
+- **internal/tscommon/**: Shared TypeScript type mapping and generation (used by ts-client and ts-server)
+- **internal/tsclientgen/**: TypeScript HTTP client generation logic
+- **internal/tsservergen/**: TypeScript HTTP server generation logic, header validation, route creation
 - **internal/openapiv3/**: OpenAPI generation logic, type mapping, and header parameter generation
 - **proto/sebuf/http/**: HTTP annotation definitions including headers.proto for header validation
 - **scripts/**: Test automation and build scripts
@@ -34,8 +38,10 @@ The project follows a clean Go protoc plugin architecture with separated concern
 1. **HTTP Handler Generator** (`internal/httpgen/generator.go:22`): Generates HTTP handlers, request binding, routing configuration, automatic body validation, and header validation middleware
 2. **Go HTTP Client Generator** (`internal/clientgen/generator.go:13`): Generates type-safe Go HTTP clients with functional options pattern, automatic request/response marshaling, and error handling
 3. **TypeScript HTTP Client Generator** (`internal/tsclientgen/generator.go`): Generates TypeScript HTTP clients with typed interfaces, service/method header helpers, query parameter encoding, path parameter substitution, and structured error handling (ValidationError/ApiError)
-4. **OpenAPI Generator** (`internal/openapiv3/generator.go:53`): Creates comprehensive OpenAPI v3.1 specifications from protobuf definitions with full header parameter support, generating one file per service for better organization
-4. **HTTP Annotations** (`proto/sebuf/http/annotations.proto`): Custom protobuf extensions for HTTP configuration
+4. **TypeScript HTTP Server Generator** (`internal/tsservergen/generator.go`): Generates framework-agnostic TypeScript HTTP server handlers using the Web Fetch API (`Request` → `Promise<Response>`), with route descriptors, header validation, query/body parsing, and error handling
+5. **OpenAPI Generator** (`internal/openapiv3/generator.go:53`): Creates comprehensive OpenAPI v3.1 specifications from protobuf definitions with full header parameter support, generating one file per service for better organization
+6. **Shared TypeScript Types** (`internal/tscommon/`): Shared TypeScript type mapping, interface generation, error types, and proto-defined error message collection (messages ending with "Error") used by both ts-client and ts-server generators
+7. **HTTP Annotations** (`proto/sebuf/http/annotations.proto`): Custom protobuf extensions for HTTP configuration
 5. **Header Validation** (`proto/sebuf/http/headers.proto`): Protobuf definitions for service and method-level header validation
 6. **Validation System**: Automatic request body validation via buf.validate/protovalidate and header validation middleware
 
@@ -93,9 +99,43 @@ try {
   if (e instanceof ValidationError) {
     console.log(e.violations);  // Field-level validation errors
   } else if (e instanceof ApiError) {
-    console.log(e.statusCode, e.message);
+    // Parse proto-defined custom errors using generated interfaces
+    const body = JSON.parse(e.body) as NotFoundError;
+    console.log(body.resourceType, body.resourceId);
   }
 }
+```
+
+**TypeScript HTTP Servers** - Framework-agnostic server with Web Fetch API:
+```typescript
+// Generated handler interface (like Go's XxxServer)
+export interface UserServiceHandler {
+  createUser(ctx: ServerContext, req: CreateUserRequest): Promise<User>;
+  getUser(ctx: ServerContext, req: GetUserRequest): Promise<User>;
+}
+
+// Route creation — wire into any framework (Express, Hono, Bun, etc.)
+const routes: RouteDescriptor[] = createUserServiceRoutes(handler, {
+  onError: (err, req) => new Response("Internal error", { status: 500 }),
+  validateRequest: (method, body) => myValidator(method, body),
+});
+
+// Each route: { method: "POST", path: "/api/v1/users", handler: (req) => Response }
+// Handlers do: validate headers → parse body/query → optional validation → call handler → JSON response
+
+// Works natively in Node 18+, Deno, Bun, Cloudflare Workers
+// Example with Bun:
+Bun.serve({
+  fetch(req) {
+    const url = new URL(req.url);
+    for (const route of routes) {
+      if (req.method === route.method && matchPath(url.pathname, route.path)) {
+        return route.handler(req);
+      }
+    }
+    return new Response("Not Found", { status: 404 });
+  },
+});
 ```
 
 **OpenAPI Specifications** - Comprehensive API documentation (one file per service):
@@ -479,6 +519,7 @@ service UserService {
 ### Error Handling
 - **Structured Error Responses**: All errors use protobuf messages for consistent API responses
 - **Automatic Go Error Interface**: Any protobuf message ending with "Error" automatically implements Go's error interface for `errors.As()` and `errors.Is()` support
+- **Automatic TypeScript Error Interfaces**: Both TS generators (`protoc-gen-ts-client`, `protoc-gen-ts-server`) generate TypeScript interfaces for proto messages ending with "Error", enabling type-safe custom error handling across server and client
 - **Proto Message Error Preservation**: Custom proto error messages returned from handlers are serialized directly, preserving their structure (not wrapped in a generic Error message)
 - **Validation Errors (HTTP 400)**: ValidationError with field-level violations for body and header validation failures
 - **Handler Errors (HTTP 500)**: Error messages for service implementation failures with custom messages
@@ -490,15 +531,21 @@ service UserService {
 
 **Custom Proto Error Example:**
 ```protobuf
-// Define a custom error message
+// Define custom error messages — works across Go, TS server, and TS client
 message NotFoundError {
   string resource_type = 1;
   string resource_id = 2;
 }
+
+message LoginError {
+  string reason = 1;
+  string email = 2;
+  int32 retry_after_seconds = 3;
+}
 ```
 
 ```go
-// Return it from your handler - it will be serialized directly
+// Go: Return it from your handler - it will be serialized directly
 func (s *Server) GetUser(ctx context.Context, req *GetUserRequest) (*User, error) {
     user, err := s.db.FindUser(req.Id)
     if err != nil {
@@ -511,6 +558,19 @@ func (s *Server) GetUser(ctx context.Context, req *GetUserRequest) (*User, error
 }
 // Response: {"resourceType":"user","resourceId":"123"}
 // NOT: {"message":"{\"resourceType\":\"user\",\"resourceId\":\"123\"}"}
+```
+
+```typescript
+// TS Server: implement generated interface, serialize in onError hook
+class NotFoundError extends Error implements NotFoundErrorType {
+  resourceType: string;
+  resourceId: string;
+  // ... constructor
+}
+
+// TS Client: parse ApiError.body using generated interface
+const body = JSON.parse(e.body) as NotFoundError;
+console.log(body.resourceType, body.resourceId);
 ```
 
 ## Type System
@@ -544,11 +604,14 @@ The repository contains:
 - **cmd/protoc-gen-go-http/**: HTTP handler plugin entry point
 - **cmd/protoc-gen-go-client/**: Go HTTP client plugin entry point
 - **cmd/protoc-gen-ts-client/**: TypeScript HTTP client plugin entry point
+- **cmd/protoc-gen-ts-server/**: TypeScript HTTP server plugin entry point
 - **cmd/protoc-gen-openapiv3/**: OpenAPI generation plugin entry point
-- **internal/annotations/**: Shared annotation parsing used by all 4 generators (unwrap, query params, headers, JSON mapping)
+- **internal/annotations/**: Shared annotation parsing used by all 5 generators (unwrap, query params, headers, JSON mapping)
 - **internal/httpgen/**: HTTP handler generation logic and tests
 - **internal/clientgen/**: Go HTTP client generation logic and tests
+- **internal/tscommon/**: Shared TypeScript type mapping and generation (interfaces, enums, error types)
 - **internal/tsclientgen/**: TypeScript HTTP client generation logic and tests
+- **internal/tsservergen/**: TypeScript HTTP server generation logic and tests
 - **internal/openapiv3/**: OpenAPI generation logic and comprehensive test suite
 - **examples/ts-client-demo/**: End-to-end TypeScript client example with NoteService CRUD API
 - **scripts/run_tests.sh**: Advanced test runner with coverage analysis and reporting

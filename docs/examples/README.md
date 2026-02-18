@@ -29,6 +29,7 @@ This starts a working HTTP API with user management, authentication, and OpenAPI
 | **[multi-service-api](../../examples/multi-service-api/)** | Multi-tenant platform | Multiple services, different auth levels, service/method headers |
 | **[market-data-unwrap](../../examples/market-data-unwrap/)** | Financial market data API | Unwrap annotation for map values, JSON/protobuf compatibility |
 | **[ts-client-demo](../../examples/ts-client-demo/)** | TypeScript client demo | TypeScript HTTP client, CRUD API, query params, headers, error handling |
+| **[ts-fullstack-demo](../../examples/ts-fullstack-demo/)** | TypeScript full-stack demo | TS client + TS server from same proto, CRUD, unwrap, custom errors |
 
 ---
 
@@ -138,6 +139,29 @@ cd examples/ts-client-demo && make demo
 
 **Prerequisites**: Node.js (for the TypeScript client)
 
+### ts-fullstack-demo
+Full TypeScript stack: both client and server generated from the same proto.
+- Generated TypeScript server from `protoc-gen-ts-server` (Web Fetch API)
+- Generated TypeScript client from `protoc-gen-ts-client`
+- Full CRUD: create, list, get, update, archive, delete notes
+- Query parameters, pagination, unwrap (getNotesByTag returns Note[])
+- Service-level headers (X-API-Key, X-Tenant-ID) and method-level headers
+- Proto-defined custom errors: `NotFoundError` (404) and `LoginError` (401) as proto messages, generating TypeScript interfaces used by both server and client for type-safe error handling
+- Header validation (missing required headers return ValidationError)
+- Interactive browser UI at http://localhost:3000 with live server log streaming
+- Comprehensive colored request/response logging in the terminal (both server and client)
+
+```bash
+# Two-terminal setup (recommended — see both server and client logs):
+cd examples/ts-fullstack-demo && make server   # Terminal 1
+cd examples/ts-fullstack-demo && make client   # Terminal 2
+
+# Or single command (server logs interleaved with client):
+cd examples/ts-fullstack-demo && make demo
+```
+
+**Prerequisites**: Node.js 18+ (for Web Fetch API support)
+
 ---
 
 ## Running Examples
@@ -157,20 +181,22 @@ make clean     # Remove generated files
 
 ## What Each Example Demonstrates
 
-| Feature | simple-api | restful-crud | validation | nested | multi-service | market-data | ts-client-demo |
-|---------|:----------:|:------------:|:----------:|:------:|:-------------:|:-----------:|:--------------:|
-| HTTP verbs (GET/POST) | Yes | Yes | Yes | Yes | Yes | Yes | Yes |
-| PUT/PATCH/DELETE | - | Yes | - | Yes | Yes | - | Yes |
-| Path parameters | - | Yes | - | Yes | Yes | - | Yes |
-| Query parameters | - | Yes | - | Yes | - | Yes | Yes |
-| buf.validate | Basic | Basic | Comprehensive | Basic | Basic | Yes | - |
-| Header validation | - | Yes | - | - | Yes | Yes | Yes |
-| Multiple services | - | - | - | - | Yes | - | - |
-| Nested resources | - | - | - | Yes | - | - | - |
-| Oneof helpers | Yes | - | - | - | - | - | - |
-| **Go HTTP Client** | - | **Yes** | - | - | - | **Yes** | - |
-| **TS HTTP Client** | - | - | - | - | - | - | **Yes** |
-| **Unwrap annotation** | - | - | - | - | - | **Yes** | - |
+| Feature | simple-api | restful-crud | validation | nested | multi-service | market-data | ts-client-demo | ts-fullstack-demo |
+|---------|:----------:|:------------:|:----------:|:------:|:-------------:|:-----------:|:--------------:|:-----------------:|
+| HTTP verbs (GET/POST) | Yes | Yes | Yes | Yes | Yes | Yes | Yes | Yes |
+| PUT/PATCH/DELETE | - | Yes | - | Yes | Yes | - | Yes | Yes |
+| Path parameters | - | Yes | - | Yes | Yes | - | Yes | Yes |
+| Query parameters | - | Yes | - | Yes | - | Yes | Yes | Yes |
+| buf.validate | Basic | Basic | Comprehensive | Basic | Basic | Yes | - | - |
+| Header validation | - | Yes | - | - | Yes | Yes | Yes | Yes |
+| Multiple services | - | - | - | - | Yes | - | - | - |
+| Nested resources | - | - | - | Yes | - | - | - | - |
+| Oneof helpers | Yes | - | - | - | - | - | - | - |
+| **Go HTTP Client** | - | **Yes** | - | - | - | **Yes** | - | - |
+| **TS HTTP Client** | - | - | - | - | - | - | **Yes** | **Yes** |
+| **TS HTTP Server** | - | - | - | - | - | - | - | **Yes** |
+| **Unwrap annotation** | - | - | - | - | - | **Yes** | - | **Yes** |
+| **Custom errors** | - | - | - | - | - | - | - | **Yes** |
 
 ---
 

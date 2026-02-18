@@ -513,6 +513,31 @@ func isValidationError(err error) bool {
 }
 ```
 
+### TypeScript Error Handling
+
+The TypeScript generators automatically include interfaces for proto messages ending with "Error", enabling type-safe custom error handling:
+
+```typescript
+import { ApiError, ValidationError, type NotFoundError } from "./generated/proto/service_client.ts";
+
+try {
+  await client.getUser({ id: "not-found" });
+} catch (e) {
+  if (e instanceof ValidationError) {
+    // Built-in: header/body validation failures (400)
+    for (const v of e.violations) {
+      console.log(`${v.field}: ${v.description}`);
+    }
+  } else if (e instanceof ApiError) {
+    // Custom proto-defined errors: parse body using generated interface
+    if (e.statusCode === 404) {
+      const err = JSON.parse(e.body) as NotFoundError;
+      console.log(err.resourceType, err.resourceId);
+    }
+  }
+}
+```
+
 ## Advanced Usage
 
 ### Custom Error Messages

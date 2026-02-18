@@ -32,6 +32,7 @@ This starts a working HTTP API with JSON endpoints and OpenAPI docs - all genera
 - **HTTP handlers** from protobuf services (JSON + binary support)
 - **Type-safe Go HTTP clients** with functional options pattern and per-call customization
 - **TypeScript HTTP clients** with full type safety, header helpers, and error handling
+- **TypeScript HTTP servers** using the Web Fetch API, framework-agnostic (Node, Deno, Bun, Cloudflare Workers)
 - **Mock server generation** with realistic field examples for rapid prototyping
 - **Automatic request validation** using protovalidate with buf.validate annotations
 - **HTTP header validation** with type checking and format validation (UUID, email, datetime)
@@ -109,6 +110,10 @@ const client = new UserServiceClient("http://localhost:8080", {
   apiKey: "your-api-key",
 });
 const user = await client.createUser({ name: "John", email: "john@example.com" });
+
+// TypeScript HTTP server (framework-agnostic, Web Fetch API)
+const routes = createUserServiceRoutes(handler);
+// Wire into any framework: Bun.serve, Deno.serve, Express, Hono, etc.
 ```
 
 ## Quick setup
@@ -119,6 +124,7 @@ go install github.com/SebastienMelki/sebuf/cmd/protoc-gen-go-http@latest
 go install github.com/SebastienMelki/sebuf/cmd/protoc-gen-go-client@latest
 go install github.com/SebastienMelki/sebuf/cmd/protoc-gen-openapiv3@latest
 go install github.com/SebastienMelki/sebuf/cmd/protoc-gen-ts-client@latest
+go install github.com/SebastienMelki/sebuf/cmd/protoc-gen-ts-server@latest
 
 # Try the complete example
 cd examples/simple-api && make demo
@@ -136,6 +142,7 @@ cd examples/simple-api && make demo
 - **API documentation** - OpenAPI specs that never get out of sync
 - **Type-safe development** - Leverage protobuf's type system for HTTP APIs
 - **Client generation** - Generate Go and TypeScript clients directly from your protobuf definitions
+- **Server generation** - Generate TypeScript HTTP servers using the Web Fetch API
 
 ## Built on Great Tools
 
