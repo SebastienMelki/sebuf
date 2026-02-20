@@ -29,17 +29,27 @@ This starts a working HTTP API with JSON endpoints and OpenAPI docs - all genera
 
 ## What you get
 
-- **HTTP handlers** from protobuf services (JSON + binary support)
-- **Type-safe Go HTTP clients** with functional options pattern and per-call customization
-- **TypeScript HTTP clients** with full type safety, header helpers, and error handling
-- **TypeScript HTTP servers** using the Web Fetch API, framework-agnostic (Node, Deno, Bun, Cloudflare Workers)
-- **Mock server generation** with realistic field examples for rapid prototyping
-- **Automatic request validation** using protovalidate with buf.validate annotations
-- **HTTP header validation** with type checking and format validation (UUID, email, datetime)
-- **Structured error responses** with field-level validation details in JSON or protobuf
-- **Automatic Go error interface** for any message ending with "Error", enabling `errors.As()` and `errors.Is()`
-- **OpenAPI v3.1 docs** that stay in sync with your code, one file per service for better organization
-- **Zero runtime dependencies** - works with any Go HTTP framework
+**Five generators from one `.proto` file:**
+
+| Generator | Output |
+|-----------|--------|
+| `protoc-gen-go-http` | Go HTTP handlers with routing, request binding, and validation |
+| `protoc-gen-go-client` | Type-safe Go HTTP clients with functional options and per-call customization |
+| `protoc-gen-ts-client` | TypeScript HTTP clients with full type safety, header helpers, and error handling |
+| `protoc-gen-ts-server` | TypeScript HTTP servers using the Web Fetch API — works with Node, Deno, Bun, Cloudflare Workers |
+| `protoc-gen-openapiv3` | OpenAPI v3.1 specs that stay in sync with your code, one file per service |
+
+**Validation and error handling — built in, not bolted on:**
+
+- Automatic request body validation via [buf.validate](https://github.com/bufbuild/protovalidate) annotations
+- HTTP header validation with type checking and format validation (UUID, email, datetime)
+- Structured error responses with field-level details in JSON or protobuf
+- Proto messages ending with "Error" automatically implement Go's `errors.As()` / `errors.Is()`
+
+**Developer experience:**
+
+- Mock server generation with realistic field examples for rapid prototyping
+- Zero runtime dependencies — works with any Go HTTP framework
 
 ## How it works
 
@@ -84,36 +94,39 @@ message CreateUserRequest {
 ```
 
 sebuf generates:
+
+**Go** — handlers, clients, and mocks:
 ```go
-// HTTP handlers with automatic validation (both headers and body)
+// HTTP handlers with automatic validation (headers + body)
 api.RegisterUserServiceServer(userService, api.WithMux(mux))
 
-// Type-safe Go HTTP client with functional options
+// Type-safe HTTP client with functional options
 client := api.NewUserServiceClient("http://localhost:8080",
     api.WithUserServiceAPIKey("your-api-key"),
 )
 user, err := client.CreateUser(ctx, req)
 
-// Mock server with realistic data (optional)
+// Mock server with realistic data
 mockService := api.NewMockUserServiceServer()
 api.RegisterUserServiceServer(mockService, api.WithMux(mux))
-
-// Validation happens automatically:
-// - Headers validated first (returns HTTP 400 for missing/invalid headers)
-// - Then request body validated (returns HTTP 400 for invalid requests)
-// OpenAPI docs (UserService.openapi.yaml) - includes validation rules, headers, and examples
 ```
 
+**TypeScript** — clients and servers:
 ```typescript
-// TypeScript HTTP client with full type safety
+// HTTP client with full type safety
 const client = new UserServiceClient("http://localhost:8080", {
   apiKey: "your-api-key",
 });
 const user = await client.createUser({ name: "John", email: "john@example.com" });
 
-// TypeScript HTTP server (framework-agnostic, Web Fetch API)
+// HTTP server (framework-agnostic, Web Fetch API)
 const routes = createUserServiceRoutes(handler);
 // Wire into any framework: Bun.serve, Deno.serve, Express, Hono, etc.
+```
+
+**OpenAPI** — validation rules, headers, and examples included automatically:
+```
+UserService.openapi.yaml
 ```
 
 ## Quick setup
@@ -168,14 +181,6 @@ sebuf is used at [Sarwa](https://www.sarwa.co/), the fastest-growing investment 
 - **[Complete Tutorial](./examples/simple-api/)** - Full walkthrough with working code
 - **[Documentation](./docs/)** - Comprehensive guides and API reference
 - **[More Examples](./docs/examples/)** - Additional patterns and use cases
-
-## What's this good for?
-
-- **Web & mobile APIs** - JSON/HTTP endpoints from protobuf definitions
-- **API documentation** - OpenAPI specs that never get out of sync
-- **Type-safe development** - Leverage protobuf's type system for HTTP APIs
-- **Client generation** - Generate Go and TypeScript clients directly from your protobuf definitions
-- **Server generation** - Generate TypeScript HTTP servers using the Web Fetch API
 
 ## Built on Great Tools
 
