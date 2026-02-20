@@ -33,10 +33,10 @@ This starts a working HTTP API with JSON endpoints and OpenAPI docs - all genera
 
 | Generator | Output |
 |-----------|--------|
-| `protoc-gen-go-http` | Go HTTP handlers with routing, request binding, and validation |
-| `protoc-gen-go-client` | Type-safe Go HTTP clients with functional options and per-call customization |
-| `protoc-gen-ts-client` | TypeScript HTTP clients with full type safety, header helpers, and error handling |
-| `protoc-gen-ts-server` | TypeScript HTTP servers with request and header validation, using the Web Fetch API — works with Node, Deno, Bun, Cloudflare Workers |
+| `protoc-gen-go-http` | Go HTTP servers with routing, request binding, validation, and error handling |
+| `protoc-gen-go-client` | Go HTTP clients with type safety, header helpers, and per-call options |
+| `protoc-gen-ts-client` | TypeScript HTTP clients with type safety, header helpers, and per-call options |
+| `protoc-gen-ts-server` | TypeScript HTTP servers with routing, request binding, validation, and error handling — runs on Node, Deno, Bun, Cloudflare Workers |
 | `protoc-gen-openapiv3` | OpenAPI v3.1 specs that stay in sync with your code, one file per service |
 
 **Validation and error handling — built in, not bolted on:**
