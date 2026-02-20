@@ -130,10 +130,43 @@ go install github.com/SebastienMelki/sebuf/cmd/protoc-gen-ts-server@latest
 cd examples/simple-api && make demo
 ```
 
+## Used in Production
+
+<table>
+<tr>
+<td width="50%" valign="top">
+
+### [WorldMonitor](https://github.com/koala73/worldmonitor)
+Real-time global intelligence dashboard tracking seismology, cyber threats, markets, aviation, and more. Full-stack TypeScript with sebuf — generated TS clients, TS server handlers, and OpenAPI docs all from the same proto definitions. Actively battle-testing sebuf across every generator. See [the integration PR](https://github.com/koala73/worldmonitor/pull/106).
+
+</td>
+<td width="50%" valign="top">
+
+### [alpaca-go](https://github.com/SebastienMelki/alpaca-go)
+Type-safe Go SDK for the [Alpaca Trading API](https://alpaca.markets/) — 100+ endpoints across trading, market data, brokerage, and auth, all generated from protobuf definitions. The entire Alpaca REST API modeled as proto files with sebuf annotations. Clients, validation, and OpenAPI docs that can never drift from the actual API.
+
+</td>
+</tr>
+<tr>
+<td width="50%" valign="top">
+
+### [Anghami](https://www.anghami.com/) & [OSN+](https://osnplus.com/)
+sebuf powers API services at [Anghami](https://www.anghami.com/), the leading music streaming platform in the Middle East and North Africa, and at [OSN+](https://osnplus.com/), the region's premium streaming service featuring HBO, Paramount+, and OSN Originals.
+
+</td>
+<td width="50%" valign="top">
+
+### [Sarwa](https://www.sarwa.co/)
+sebuf is used at [Sarwa](https://www.sarwa.co/), the fastest-growing investment and personal finance platform in the MENA region, powering type-safe API contracts across their trading, investing, and savings services.
+
+</td>
+</tr>
+</table>
+
 ## Next steps
 
 - **[Complete Tutorial](./examples/simple-api/)** - Full walkthrough with working code
-- **[Documentation](./docs/)** - Comprehensive guides and API reference  
+- **[Documentation](./docs/)** - Comprehensive guides and API reference
 - **[More Examples](./docs/examples/)** - Additional patterns and use cases
 
 ## What's this good for?
