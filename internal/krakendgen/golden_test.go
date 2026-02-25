@@ -204,6 +204,21 @@ func TestKrakenDGoldenFiles(t *testing.T) {
 			protoFile:    "jwt_auth_service.proto",
 			serviceNames: []string{"JWTAuthService"},
 		},
+		{
+			name:         "circuit_breaker_service",
+			protoFile:    "circuit_breaker_service.proto",
+			serviceNames: []string{"CircuitBreakerService"},
+		},
+		{
+			name:         "cache_concurrent_service",
+			protoFile:    "cache_concurrent_service.proto",
+			serviceNames: []string{"CacheConcurrentService"},
+		},
+		{
+			name:         "full_gateway_service",
+			protoFile:    "full_gateway_service.proto",
+			serviceNames: []string{"FullGatewayService"},
+		},
 	}
 
 	for _, tc := range testCases {
@@ -300,6 +315,16 @@ func TestKrakenDValidationErrors(t *testing.T) {
 			name:      "missing gateway_config",
 			protoFile: "invalid_no_host.proto",
 			wantErr:   "has no (sebuf.krakend.gateway_config) annotation",
+		},
+		{
+			name:      "invalid circuit breaker",
+			protoFile: "invalid_circuit_breaker.proto",
+			wantErr:   "circuit_breaker requires",
+		},
+		{
+			name:      "invalid cache mismatched max_items/max_size",
+			protoFile: "invalid_cache.proto",
+			wantErr:   "max_items and max_size must both be set",
 		},
 	}
 

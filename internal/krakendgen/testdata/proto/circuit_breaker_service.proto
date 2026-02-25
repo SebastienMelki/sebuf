@@ -1,0 +1,65 @@
+syntax = "proto3";
+
+package krakendtest;
+
+import "sebuf/http/annotations.proto";
+import "sebuf/krakend/krakend.proto";
+
+option go_package = "github.com/SebastienMelki/sebuf/internal/krakendgen/testdata";
+
+message ListItemsRequest {}
+
+message Item {
+  string id = 1;
+  string name = 2;
+}
+
+message ItemList {
+  repeated Item items = 1;
+}
+
+message GetItemRequest {
+  string id = 1;
+}
+
+// CircuitBreakerService demonstrates circuit breaker at service and method levels.
+// Service-level defaults: interval=60, timeout=10, max_errors=3, log_status_change=true
+// Method-level override on GetItem: interval=30, timeout=5, max_errors=5, name="custom-cb"
+service CircuitBreakerService {
+  option (sebuf.http.service_config) = {
+    base_path: "/api/v1"
+  };
+  option (sebuf.krakend.gateway_config) = {
+    host: ["http://backend:8080"]
+    circuit_breaker: {
+      interval: 60
+      timeout: 10
+      max_errors: 3
+      log_status_change: true
+    }
+  };
+
+  // ListItems inherits service-level circuit breaker defaults.
+  rpc ListItems(ListItemsRequest) returns (ItemList) {
+    option (sebuf.http.config) = {
+      path: "/items"
+      method: HTTP_METHOD_GET
+    };
+  }
+
+  // GetItem overrides circuit breaker with custom config.
+  rpc GetItem(GetItemRequest) returns (Item) {
+    option (sebuf.http.config) = {
+      path: "/items/{id}"
+      method: HTTP_METHOD_GET
+    };
+    option (sebuf.krakend.endpoint_config) = {
+      circuit_breaker: {
+        interval: 30
+        timeout: 5
+        max_errors: 5
+        name: "custom-cb"
+      }
+    };
+  }
+}

@@ -1,0 +1,103 @@
+syntax = "proto3";
+
+package krakendtest;
+
+import "sebuf/http/annotations.proto";
+import "sebuf/http/headers.proto";
+import "sebuf/krakend/krakend.proto";
+
+option go_package = "github.com/SebastienMelki/sebuf/internal/krakendgen/testdata";
+
+message CreateDocumentRequest {
+  string title = 1;
+  string content = 2;
+}
+
+message Document {
+  string id = 1;
+  string title = 2;
+  string content = 3;
+}
+
+message GetDocumentRequest {
+  string id = 1;
+}
+
+// FullGatewayService exercises ALL gateway features together:
+// rate limiting, JWT auth, circuit breaker, caching, concurrent calls, headers.
+service FullGatewayService {
+  option (sebuf.http.service_config) = {
+    base_path: "/api/v1"
+  };
+  option (sebuf.krakend.gateway_config) = {
+    host: ["http://backend:8080"]
+    timeout: "3s"
+    rate_limit: {
+      max_rate: 100
+      client_max_rate: 10
+      strategy: "ip"
+    }
+    backend_rate_limit: {
+      max_rate: 50
+      capacity: 50
+    }
+    jwt: {
+      alg: "RS256"
+      jwk_url: "https://auth.example.com/.well-known/jwks.json"
+      audience: ["api.example.com"]
+      issuer: "https://auth.example.com"
+      cache: true
+      propagate_claims: [
+        {claim: "sub", header: "X-User"}
+      ]
+    }
+    circuit_breaker: {
+      interval: 60
+      timeout: 10
+      max_errors: 3
+    }
+    cache: {
+      shared: true
+    }
+    concurrent_calls: 2
+  };
+  option (sebuf.http.service_headers) = {
+    required_headers: [
+      {
+        name: "Authorization"
+        type: "string"
+        required: true
+      },
+      {
+        name: "X-API-Key"
+        type: "string"
+        required: true
+      }
+    ]
+  };
+
+  // CreateDocument -- POST with all features inherited from service.
+  rpc CreateDocument(CreateDocumentRequest) returns (Document) {
+    option (sebuf.http.config) = {
+      path: "/documents"
+      method: HTTP_METHOD_POST
+    };
+  }
+
+  // GetDocument -- GET with method-level headers plus all inherited features.
+  rpc GetDocument(GetDocumentRequest) returns (Document) {
+    option (sebuf.http.config) = {
+      path: "/documents/{id}"
+      method: HTTP_METHOD_GET
+    };
+    option (sebuf.http.method_headers) = {
+      required_headers: [
+        {
+          name: "X-Request-ID"
+          type: "string"
+          required: true
+        }
+      ]
+    };
+  }
+}

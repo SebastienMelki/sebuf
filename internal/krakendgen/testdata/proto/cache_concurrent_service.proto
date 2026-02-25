@@ -1,0 +1,64 @@
+syntax = "proto3";
+
+package krakendtest;
+
+import "sebuf/http/annotations.proto";
+import "sebuf/krakend/krakend.proto";
+
+option go_package = "github.com/SebastienMelki/sebuf/internal/krakendgen/testdata";
+
+message ListProductsRequest {}
+
+message Product {
+  string id = 1;
+  string name = 2;
+  int32 price = 3;
+}
+
+message ProductList {
+  repeated Product products = 1;
+}
+
+message GetProductRequest {
+  string id = 1;
+}
+
+// CacheConcurrentService demonstrates caching and concurrent calls.
+// Service-level: cache with shared=true, concurrent_calls=2
+// Method-level override on GetProduct: cache with max_items/max_size, concurrent_calls=3
+service CacheConcurrentService {
+  option (sebuf.http.service_config) = {
+    base_path: "/api/v1"
+  };
+  option (sebuf.krakend.gateway_config) = {
+    host: ["http://backend:8080"]
+    cache: {
+      shared: true
+    }
+    concurrent_calls: 2
+  };
+
+  // ListProducts inherits service-level cache and concurrent calls.
+  rpc ListProducts(ListProductsRequest) returns (ProductList) {
+    option (sebuf.http.config) = {
+      path: "/products"
+      method: HTTP_METHOD_GET
+    };
+  }
+
+  // GetProduct overrides cache with max_items/max_size and concurrent_calls.
+  rpc GetProduct(GetProductRequest) returns (Product) {
+    option (sebuf.http.config) = {
+      path: "/products/{id}"
+      method: HTTP_METHOD_GET
+    };
+    option (sebuf.krakend.endpoint_config) = {
+      cache: {
+        shared: true
+        max_items: 1000
+        max_size: 10485760
+      }
+      concurrent_calls: 3
+    };
+  }
+}
