@@ -216,13 +216,13 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. Service-level `gateway_config` annotation sets defaults (host, timeout) for all endpoints in a service, and method-level `endpoint_config` annotation overrides those defaults for individual RPCs
   4. Generation fails with a clear error message when two RPCs produce identical (path, method) tuples, or when static and parameterized routes conflict at the same path level (e.g., `/users/search` vs `/users/{id}`)
   5. Golden file tests cover endpoint routing, backend mapping, timeouts, auto-derived forwarding, and all validation error scenarios
-**Plans**: TBD
+**Plans**: 4 plans
 
 Plans:
-- [ ] 12-01: Proto annotation package and plugin scaffold
-- [ ] 12-02: Core endpoint/backend generation with host and timeout config
-- [ ] 12-03: Auto-derived header and query string forwarding
-- [ ] 12-04: Route validation and golden file test suite
+- [ ] 12-01-PLAN.md -- Proto annotation package (sebuf.krakend), generated Go code, plugin scaffold, KrakenD JSON types
+- [ ] 12-02-PLAN.md -- Core endpoint/backend generation with host and timeout config, annotation override semantics
+- [ ] 12-03-PLAN.md -- Auto-derived header and query string forwarding from sebuf.http annotations
+- [ ] 12-04-PLAN.md -- Route validation (duplicate endpoints, static vs param conflicts) and golden file test suite
 
 ### Phase 13: Gateway Features
 **Goal**: Users can annotate their proto services with rate limiting, JWT authentication, circuit breaker, caching, and concurrency settings that generate correct KrakenD extra_config entries
