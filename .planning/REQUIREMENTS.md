@@ -12,16 +12,16 @@ Requirements for the KrakenD config generator milestone. Each maps to roadmap ph
 - [x] **ANNO-01**: New proto package `proto/sebuf/krakend/` with gateway-specific annotations (extension numbers 51000+)
 - [x] **ANNO-02**: Service-level `gateway_config` annotation for service-wide defaults (host, timeout, rate limit, auth, circuit breaker)
 - [x] **ANNO-03**: Method-level `endpoint_config` annotation for per-RPC overrides (timeout, rate limit, circuit breaker)
-- [ ] **ANNO-04**: Method-level config always overrides service-level config for the same setting
+- [x] **ANNO-04**: Method-level config always overrides service-level config for the same setting
 
 ### Core Generation
 
-- [ ] **CORE-01**: Plugin reads `sebuf.http.config` annotations to extract HTTP path and method for each RPC
-- [ ] **CORE-02**: Plugin generates one JSON file per proto service (`{ServiceName}.krakend.json`) containing an array of KrakenD endpoint objects
-- [ ] **CORE-03**: Backend host is required via `gateway_config` annotation (no plugin parameter -- host lives in proto annotations per user decision)
-- [ ] **CORE-04**: Backend host is configurable via service-level annotation (overrides plugin parameter)
-- [ ] **CORE-05**: Per-endpoint timeout is configurable via service-level default and method-level override
-- [ ] **CORE-06**: Output encoding defaults to JSON for all endpoints
+- [x] **CORE-01**: Plugin reads `sebuf.http.config` annotations to extract HTTP path and method for each RPC
+- [x] **CORE-02**: Plugin generates one JSON file per proto service (`{ServiceName}.krakend.json`) containing an array of KrakenD endpoint objects
+- [x] **CORE-03**: Backend host is required via `gateway_config` annotation (no plugin parameter -- host lives in proto annotations per user decision)
+- [x] **CORE-04**: Backend host is configurable via service-level annotation (overrides plugin parameter)
+- [x] **CORE-05**: Per-endpoint timeout is configurable via service-level default and method-level override
+- [x] **CORE-06**: Output encoding defaults to JSON for all endpoints
 
 ### Auto-Derived Forwarding
 
@@ -113,13 +113,13 @@ Which phases cover which requirements. Updated during roadmap creation.
 | ANNO-01 | Phase 12 | Complete |
 | ANNO-02 | Phase 12 | Complete |
 | ANNO-03 | Phase 12 | Complete |
-| ANNO-04 | Phase 12 | Pending |
-| CORE-01 | Phase 12 | Pending |
-| CORE-02 | Phase 12 | Pending |
-| CORE-03 | Phase 12 | Pending |
-| CORE-04 | Phase 12 | Pending |
-| CORE-05 | Phase 12 | Pending |
-| CORE-06 | Phase 12 | Pending |
+| ANNO-04 | Phase 12 | Complete |
+| CORE-01 | Phase 12 | Complete |
+| CORE-02 | Phase 12 | Complete |
+| CORE-03 | Phase 12 | Complete |
+| CORE-04 | Phase 12 | Complete |
+| CORE-05 | Phase 12 | Complete |
+| CORE-06 | Phase 12 | Complete |
 | FWD-01 | Phase 12 | Pending |
 | FWD-02 | Phase 12 | Pending |
 | FWD-03 | Phase 12 | Pending |
