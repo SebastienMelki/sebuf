@@ -10,28 +10,28 @@ See: .planning/PROJECT.md (updated 2026-02-25)
 ## Current Position
 
 Phase: 13 of 14 (Gateway Features)
-Plan: 1 of 3 in current phase
+Plan: 2 of 3 in current phase
 Status: In Progress
-Last activity: 2026-02-25 -- Completed 13-01 (Foundation and Rate Limiting)
+Last activity: 2026-02-25 -- Completed 13-02 (JWT Authentication)
 
-Progress: [###-------] 33%
+Progress: [######----] 67%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 5 (v1.1 milestone)
-- Average duration: 5min
-- Total execution time: 23min
+- Total plans completed: 6 (v1.1 milestone)
+- Average duration: 4min
+- Total execution time: 26min
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 12 | 4 | 18min | 4min |
-| 13 | 1 | 5min | 5min |
+| 13 | 2 | 8min | 4min |
 
 **Recent Trend:**
-- Last 5 plans: 12-02 (6min), 12-03 (3min), 12-04 (5min), 13-01 (5min)
+- Last 5 plans: 12-02 (6min), 12-03 (3min), 12-04 (5min), 13-01 (5min), 13-02 (3min)
 - Trend: consistent
 
 *Updated after each plan completion*
@@ -58,6 +58,10 @@ Progress: [###-------] 33%
 - ExtraConfig is map[string]any with omitempty -- nil maps omitted from JSON so existing golden files unaffected
 - resolve/build pattern for extra_config: resolveX picks service or method level, buildXConfig creates map for namespace
 - Rate limit int32 fields stored as int32 in map (not float64) -- Go json.Marshal handles correctly
+- JWT is service-level only -- same auth config on every endpoint, no method-level override
+- Propagated claim headers auto-added to input_headers with dedup and sort for KrakenD zero-trust model
+- propagate_claims serialized as array-of-arrays per KrakenD spec, not array of objects
+- JWT cache field only included when true (false is default, omitted)
 
 ### Pending Todos
 
@@ -70,6 +74,6 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-25
-Stopped at: Completed 13-01-PLAN.md
-Resume file: .planning/phases/13-gateway-features/13-01-SUMMARY.md
-Next: 13-02-PLAN.md (JWT validation, circuit breaker, cache)
+Stopped at: Completed 13-02-PLAN.md
+Resume file: .planning/phases/13-gateway-features/13-02-SUMMARY.md
+Next: 13-03-PLAN.md (Circuit breaker and cache)

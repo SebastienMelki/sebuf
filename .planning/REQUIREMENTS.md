@@ -37,9 +37,9 @@ Requirements for the KrakenD config generator milestone. Each maps to roadmap ph
 
 ### Authentication
 
-- [ ] **AUTH-01**: JWT validation configurable via service-level annotation (`auth/validator` namespace)
-- [ ] **AUTH-02**: JWT config includes JWK URL, algorithm, issuer, and audience fields
-- [ ] **AUTH-03**: JWT claim propagation configurable (forward claims as backend headers)
+- [x] **AUTH-01**: JWT validation configurable via service-level annotation (`auth/validator` namespace)
+- [x] **AUTH-02**: JWT config includes JWK URL, algorithm, issuer, and audience fields
+- [x] **AUTH-03**: JWT claim propagation configurable (forward claims as backend headers)
 
 ### Resilience
 
@@ -126,9 +126,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | RLIM-01 | Phase 13 | Complete |
 | RLIM-02 | Phase 13 | Complete |
 | RLIM-03 | Phase 13 | Complete |
-| AUTH-01 | Phase 13 | Pending |
-| AUTH-02 | Phase 13 | Pending |
-| AUTH-03 | Phase 13 | Pending |
+| AUTH-01 | Phase 13 | Complete |
+| AUTH-02 | Phase 13 | Complete |
+| AUTH-03 | Phase 13 | Complete |
 | RESL-01 | Phase 13 | Pending |
 | RESL-02 | Phase 13 | Pending |
 | RESL-03 | Phase 13 | Pending |
