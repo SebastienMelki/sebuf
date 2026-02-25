@@ -1,41 +1,45 @@
-[
-  {
-    "endpoint": "/api/v1/service-headers",
-    "method": "GET",
-    "output_encoding": "json",
-    "input_headers": [
-      "X-API-Key",
-      "X-Tenant-ID"
-    ],
-    "backend": [
-      {
-        "url_pattern": "/api/v1/service-headers",
-        "host": [
-          "http://backend:8080"
-        ],
-        "method": "GET",
-        "encoding": "json"
-      }
-    ]
-  },
-  {
-    "endpoint": "/api/v1/method-headers",
-    "method": "POST",
-    "output_encoding": "json",
-    "input_headers": [
-      "X-API-Key",
-      "X-Request-ID",
-      "X-Tenant-ID"
-    ],
-    "backend": [
-      {
-        "url_pattern": "/api/v1/method-headers",
-        "host": [
-          "http://backend:8080"
-        ],
-        "method": "POST",
-        "encoding": "json"
-      }
-    ]
-  }
-]
+{
+  "$schema": "https://www.krakend.io/schema/krakend.json",
+  "version": 3,
+  "endpoints": [
+    {
+      "endpoint": "/api/v1/service-headers",
+      "method": "GET",
+      "output_encoding": "json",
+      "input_headers": [
+        "X-API-Key",
+        "X-Tenant-ID"
+      ],
+      "backend": [
+        {
+          "url_pattern": "/api/v1/service-headers",
+          "host": [
+            "http://backend:8080"
+          ],
+          "method": "GET",
+          "encoding": "json"
+        }
+      ]
+    },
+    {
+      "endpoint": "/api/v1/method-headers",
+      "method": "POST",
+      "output_encoding": "json",
+      "input_headers": [
+        "X-API-Key",
+        "X-Request-ID",
+        "X-Tenant-ID"
+      ],
+      "backend": [
+        {
+          "url_pattern": "/api/v1/method-headers",
+          "host": [
+            "http://backend:8080"
+          ],
+          "method": "POST",
+          "encoding": "json"
+        }
+      ]
+    }
+  ]
+}

@@ -2,7 +2,7 @@
 // versions:
 // 	protoc-gen-go v1.36.11
 // 	protoc        v6.33.4
-// source: proto/sebuf/krakend/krakend.proto
+// source: sebuf/krakend/krakend.proto
 
 package krakend
 
@@ -33,14 +33,26 @@ type GatewayConfig struct {
 	// Default timeout for all endpoints in this service.
 	// KrakenD duration format: "2s", "500ms", "1m".
 	// Omit to use KrakenD's built-in default.
-	Timeout       string `protobuf:"bytes,2,opt,name=timeout,proto3" json:"timeout,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	Timeout string `protobuf:"bytes,2,opt,name=timeout,proto3" json:"timeout,omitempty"`
+	// Default endpoint-level rate limiting (qos/ratelimit/router).
+	RateLimit *RateLimitConfig `protobuf:"bytes,3,opt,name=rate_limit,json=rateLimit,proto3" json:"rate_limit,omitempty"`
+	// Default backend-level rate limiting (qos/ratelimit/proxy).
+	BackendRateLimit *BackendRateLimitConfig `protobuf:"bytes,4,opt,name=backend_rate_limit,json=backendRateLimit,proto3" json:"backend_rate_limit,omitempty"`
+	// JWT validation configuration (auth/validator). Service-level only.
+	Jwt *JWTConfig `protobuf:"bytes,5,opt,name=jwt,proto3" json:"jwt,omitempty"`
+	// Default circuit breaker for all backends (qos/circuit-breaker).
+	CircuitBreaker *CircuitBreakerConfig `protobuf:"bytes,6,opt,name=circuit_breaker,json=circuitBreaker,proto3" json:"circuit_breaker,omitempty"`
+	// Default HTTP cache configuration (qos/http-cache).
+	Cache *CacheConfig `protobuf:"bytes,7,opt,name=cache,proto3" json:"cache,omitempty"`
+	// Default concurrent calls for all endpoints.
+	ConcurrentCalls int32 `protobuf:"varint,8,opt,name=concurrent_calls,json=concurrentCalls,proto3" json:"concurrent_calls,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
 }
 
 func (x *GatewayConfig) Reset() {
 	*x = GatewayConfig{}
-	mi := &file_proto_sebuf_krakend_krakend_proto_msgTypes[0]
+	mi := &file_sebuf_krakend_krakend_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -52,7 +64,7 @@ func (x *GatewayConfig) String() string {
 func (*GatewayConfig) ProtoMessage() {}
 
 func (x *GatewayConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_sebuf_krakend_krakend_proto_msgTypes[0]
+	mi := &file_sebuf_krakend_krakend_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -65,7 +77,7 @@ func (x *GatewayConfig) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GatewayConfig.ProtoReflect.Descriptor instead.
 func (*GatewayConfig) Descriptor() ([]byte, []int) {
-	return file_proto_sebuf_krakend_krakend_proto_rawDescGZIP(), []int{0}
+	return file_sebuf_krakend_krakend_proto_rawDescGZIP(), []int{0}
 }
 
 func (x *GatewayConfig) GetHost() []string {
@@ -82,6 +94,48 @@ func (x *GatewayConfig) GetTimeout() string {
 	return ""
 }
 
+func (x *GatewayConfig) GetRateLimit() *RateLimitConfig {
+	if x != nil {
+		return x.RateLimit
+	}
+	return nil
+}
+
+func (x *GatewayConfig) GetBackendRateLimit() *BackendRateLimitConfig {
+	if x != nil {
+		return x.BackendRateLimit
+	}
+	return nil
+}
+
+func (x *GatewayConfig) GetJwt() *JWTConfig {
+	if x != nil {
+		return x.Jwt
+	}
+	return nil
+}
+
+func (x *GatewayConfig) GetCircuitBreaker() *CircuitBreakerConfig {
+	if x != nil {
+		return x.CircuitBreaker
+	}
+	return nil
+}
+
+func (x *GatewayConfig) GetCache() *CacheConfig {
+	if x != nil {
+		return x.Cache
+	}
+	return nil
+}
+
+func (x *GatewayConfig) GetConcurrentCalls() int32 {
+	if x != nil {
+		return x.ConcurrentCalls
+	}
+	return 0
+}
+
 // EndpointConfig overrides service-level defaults for a specific RPC.
 // Applied to an rpc method via (sebuf.krakend.endpoint_config).
 type EndpointConfig struct {
@@ -89,14 +143,24 @@ type EndpointConfig struct {
 	// Override backend host for this specific endpoint.
 	Host []string `protobuf:"bytes,1,rep,name=host,proto3" json:"host,omitempty"`
 	// Override timeout for this specific endpoint.
-	Timeout       string `protobuf:"bytes,2,opt,name=timeout,proto3" json:"timeout,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	Timeout string `protobuf:"bytes,2,opt,name=timeout,proto3" json:"timeout,omitempty"`
+	// Override endpoint-level rate limiting (qos/ratelimit/router).
+	RateLimit *RateLimitConfig `protobuf:"bytes,3,opt,name=rate_limit,json=rateLimit,proto3" json:"rate_limit,omitempty"`
+	// Override backend-level rate limiting (qos/ratelimit/proxy).
+	BackendRateLimit *BackendRateLimitConfig `protobuf:"bytes,4,opt,name=backend_rate_limit,json=backendRateLimit,proto3" json:"backend_rate_limit,omitempty"`
+	// Override circuit breaker for this endpoint's backend.
+	CircuitBreaker *CircuitBreakerConfig `protobuf:"bytes,5,opt,name=circuit_breaker,json=circuitBreaker,proto3" json:"circuit_breaker,omitempty"`
+	// Override HTTP cache for this endpoint.
+	Cache *CacheConfig `protobuf:"bytes,6,opt,name=cache,proto3" json:"cache,omitempty"`
+	// Override concurrent calls for this endpoint.
+	ConcurrentCalls int32 `protobuf:"varint,7,opt,name=concurrent_calls,json=concurrentCalls,proto3" json:"concurrent_calls,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
 }
 
 func (x *EndpointConfig) Reset() {
 	*x = EndpointConfig{}
-	mi := &file_proto_sebuf_krakend_krakend_proto_msgTypes[1]
+	mi := &file_sebuf_krakend_krakend_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -108,7 +172,7 @@ func (x *EndpointConfig) String() string {
 func (*EndpointConfig) ProtoMessage() {}
 
 func (x *EndpointConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_sebuf_krakend_krakend_proto_msgTypes[1]
+	mi := &file_sebuf_krakend_krakend_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -121,7 +185,7 @@ func (x *EndpointConfig) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EndpointConfig.ProtoReflect.Descriptor instead.
 func (*EndpointConfig) Descriptor() ([]byte, []int) {
-	return file_proto_sebuf_krakend_krakend_proto_rawDescGZIP(), []int{1}
+	return file_sebuf_krakend_krakend_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *EndpointConfig) GetHost() []string {
@@ -138,14 +202,479 @@ func (x *EndpointConfig) GetTimeout() string {
 	return ""
 }
 
-var file_proto_sebuf_krakend_krakend_proto_extTypes = []protoimpl.ExtensionInfo{
+func (x *EndpointConfig) GetRateLimit() *RateLimitConfig {
+	if x != nil {
+		return x.RateLimit
+	}
+	return nil
+}
+
+func (x *EndpointConfig) GetBackendRateLimit() *BackendRateLimitConfig {
+	if x != nil {
+		return x.BackendRateLimit
+	}
+	return nil
+}
+
+func (x *EndpointConfig) GetCircuitBreaker() *CircuitBreakerConfig {
+	if x != nil {
+		return x.CircuitBreaker
+	}
+	return nil
+}
+
+func (x *EndpointConfig) GetCache() *CacheConfig {
+	if x != nil {
+		return x.Cache
+	}
+	return nil
+}
+
+func (x *EndpointConfig) GetConcurrentCalls() int32 {
+	if x != nil {
+		return x.ConcurrentCalls
+	}
+	return 0
+}
+
+// RateLimitConfig configures endpoint-level rate limiting (qos/ratelimit/router).
+type RateLimitConfig struct {
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	MaxRate        int32                  `protobuf:"varint,1,opt,name=max_rate,json=maxRate,proto3" json:"max_rate,omitempty"`
+	Capacity       int32                  `protobuf:"varint,2,opt,name=capacity,proto3" json:"capacity,omitempty"`
+	Every          string                 `protobuf:"bytes,3,opt,name=every,proto3" json:"every,omitempty"`
+	ClientMaxRate  int32                  `protobuf:"varint,4,opt,name=client_max_rate,json=clientMaxRate,proto3" json:"client_max_rate,omitempty"`
+	ClientCapacity int32                  `protobuf:"varint,5,opt,name=client_capacity,json=clientCapacity,proto3" json:"client_capacity,omitempty"`
+	Strategy       string                 `protobuf:"bytes,6,opt,name=strategy,proto3" json:"strategy,omitempty"`
+	Key            string                 `protobuf:"bytes,7,opt,name=key,proto3" json:"key,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
+}
+
+func (x *RateLimitConfig) Reset() {
+	*x = RateLimitConfig{}
+	mi := &file_sebuf_krakend_krakend_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RateLimitConfig) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RateLimitConfig) ProtoMessage() {}
+
+func (x *RateLimitConfig) ProtoReflect() protoreflect.Message {
+	mi := &file_sebuf_krakend_krakend_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RateLimitConfig.ProtoReflect.Descriptor instead.
+func (*RateLimitConfig) Descriptor() ([]byte, []int) {
+	return file_sebuf_krakend_krakend_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *RateLimitConfig) GetMaxRate() int32 {
+	if x != nil {
+		return x.MaxRate
+	}
+	return 0
+}
+
+func (x *RateLimitConfig) GetCapacity() int32 {
+	if x != nil {
+		return x.Capacity
+	}
+	return 0
+}
+
+func (x *RateLimitConfig) GetEvery() string {
+	if x != nil {
+		return x.Every
+	}
+	return ""
+}
+
+func (x *RateLimitConfig) GetClientMaxRate() int32 {
+	if x != nil {
+		return x.ClientMaxRate
+	}
+	return 0
+}
+
+func (x *RateLimitConfig) GetClientCapacity() int32 {
+	if x != nil {
+		return x.ClientCapacity
+	}
+	return 0
+}
+
+func (x *RateLimitConfig) GetStrategy() string {
+	if x != nil {
+		return x.Strategy
+	}
+	return ""
+}
+
+func (x *RateLimitConfig) GetKey() string {
+	if x != nil {
+		return x.Key
+	}
+	return ""
+}
+
+// BackendRateLimitConfig configures backend-level rate limiting (qos/ratelimit/proxy).
+type BackendRateLimitConfig struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	MaxRate       int32                  `protobuf:"varint,1,opt,name=max_rate,json=maxRate,proto3" json:"max_rate,omitempty"`
+	Capacity      int32                  `protobuf:"varint,2,opt,name=capacity,proto3" json:"capacity,omitempty"`
+	Every         string                 `protobuf:"bytes,3,opt,name=every,proto3" json:"every,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *BackendRateLimitConfig) Reset() {
+	*x = BackendRateLimitConfig{}
+	mi := &file_sebuf_krakend_krakend_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BackendRateLimitConfig) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BackendRateLimitConfig) ProtoMessage() {}
+
+func (x *BackendRateLimitConfig) ProtoReflect() protoreflect.Message {
+	mi := &file_sebuf_krakend_krakend_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BackendRateLimitConfig.ProtoReflect.Descriptor instead.
+func (*BackendRateLimitConfig) Descriptor() ([]byte, []int) {
+	return file_sebuf_krakend_krakend_proto_rawDescGZIP(), []int{3}
+}
+
+func (x *BackendRateLimitConfig) GetMaxRate() int32 {
+	if x != nil {
+		return x.MaxRate
+	}
+	return 0
+}
+
+func (x *BackendRateLimitConfig) GetCapacity() int32 {
+	if x != nil {
+		return x.Capacity
+	}
+	return 0
+}
+
+func (x *BackendRateLimitConfig) GetEvery() string {
+	if x != nil {
+		return x.Every
+	}
+	return ""
+}
+
+// JWTConfig configures JWT validation (auth/validator).
+type JWTConfig struct {
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	Alg             string                 `protobuf:"bytes,1,opt,name=alg,proto3" json:"alg,omitempty"`
+	JwkUrl          string                 `protobuf:"bytes,2,opt,name=jwk_url,json=jwkUrl,proto3" json:"jwk_url,omitempty"`
+	Audience        []string               `protobuf:"bytes,3,rep,name=audience,proto3" json:"audience,omitempty"`
+	Issuer          string                 `protobuf:"bytes,4,opt,name=issuer,proto3" json:"issuer,omitempty"`
+	Cache           bool                   `protobuf:"varint,5,opt,name=cache,proto3" json:"cache,omitempty"`
+	PropagateClaims []*ClaimToHeader       `protobuf:"bytes,6,rep,name=propagate_claims,json=propagateClaims,proto3" json:"propagate_claims,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
+}
+
+func (x *JWTConfig) Reset() {
+	*x = JWTConfig{}
+	mi := &file_sebuf_krakend_krakend_proto_msgTypes[4]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *JWTConfig) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*JWTConfig) ProtoMessage() {}
+
+func (x *JWTConfig) ProtoReflect() protoreflect.Message {
+	mi := &file_sebuf_krakend_krakend_proto_msgTypes[4]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use JWTConfig.ProtoReflect.Descriptor instead.
+func (*JWTConfig) Descriptor() ([]byte, []int) {
+	return file_sebuf_krakend_krakend_proto_rawDescGZIP(), []int{4}
+}
+
+func (x *JWTConfig) GetAlg() string {
+	if x != nil {
+		return x.Alg
+	}
+	return ""
+}
+
+func (x *JWTConfig) GetJwkUrl() string {
+	if x != nil {
+		return x.JwkUrl
+	}
+	return ""
+}
+
+func (x *JWTConfig) GetAudience() []string {
+	if x != nil {
+		return x.Audience
+	}
+	return nil
+}
+
+func (x *JWTConfig) GetIssuer() string {
+	if x != nil {
+		return x.Issuer
+	}
+	return ""
+}
+
+func (x *JWTConfig) GetCache() bool {
+	if x != nil {
+		return x.Cache
+	}
+	return false
+}
+
+func (x *JWTConfig) GetPropagateClaims() []*ClaimToHeader {
+	if x != nil {
+		return x.PropagateClaims
+	}
+	return nil
+}
+
+// ClaimToHeader maps a JWT claim to a request header for backend forwarding.
+type ClaimToHeader struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Claim         string                 `protobuf:"bytes,1,opt,name=claim,proto3" json:"claim,omitempty"`
+	Header        string                 `protobuf:"bytes,2,opt,name=header,proto3" json:"header,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ClaimToHeader) Reset() {
+	*x = ClaimToHeader{}
+	mi := &file_sebuf_krakend_krakend_proto_msgTypes[5]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ClaimToHeader) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ClaimToHeader) ProtoMessage() {}
+
+func (x *ClaimToHeader) ProtoReflect() protoreflect.Message {
+	mi := &file_sebuf_krakend_krakend_proto_msgTypes[5]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ClaimToHeader.ProtoReflect.Descriptor instead.
+func (*ClaimToHeader) Descriptor() ([]byte, []int) {
+	return file_sebuf_krakend_krakend_proto_rawDescGZIP(), []int{5}
+}
+
+func (x *ClaimToHeader) GetClaim() string {
+	if x != nil {
+		return x.Claim
+	}
+	return ""
+}
+
+func (x *ClaimToHeader) GetHeader() string {
+	if x != nil {
+		return x.Header
+	}
+	return ""
+}
+
+// CircuitBreakerConfig configures the circuit breaker (qos/circuit-breaker).
+type CircuitBreakerConfig struct {
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	Interval        int32                  `protobuf:"varint,1,opt,name=interval,proto3" json:"interval,omitempty"`
+	Timeout         int32                  `protobuf:"varint,2,opt,name=timeout,proto3" json:"timeout,omitempty"`
+	MaxErrors       int32                  `protobuf:"varint,3,opt,name=max_errors,json=maxErrors,proto3" json:"max_errors,omitempty"`
+	Name            string                 `protobuf:"bytes,4,opt,name=name,proto3" json:"name,omitempty"`
+	LogStatusChange bool                   `protobuf:"varint,5,opt,name=log_status_change,json=logStatusChange,proto3" json:"log_status_change,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
+}
+
+func (x *CircuitBreakerConfig) Reset() {
+	*x = CircuitBreakerConfig{}
+	mi := &file_sebuf_krakend_krakend_proto_msgTypes[6]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CircuitBreakerConfig) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CircuitBreakerConfig) ProtoMessage() {}
+
+func (x *CircuitBreakerConfig) ProtoReflect() protoreflect.Message {
+	mi := &file_sebuf_krakend_krakend_proto_msgTypes[6]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CircuitBreakerConfig.ProtoReflect.Descriptor instead.
+func (*CircuitBreakerConfig) Descriptor() ([]byte, []int) {
+	return file_sebuf_krakend_krakend_proto_rawDescGZIP(), []int{6}
+}
+
+func (x *CircuitBreakerConfig) GetInterval() int32 {
+	if x != nil {
+		return x.Interval
+	}
+	return 0
+}
+
+func (x *CircuitBreakerConfig) GetTimeout() int32 {
+	if x != nil {
+		return x.Timeout
+	}
+	return 0
+}
+
+func (x *CircuitBreakerConfig) GetMaxErrors() int32 {
+	if x != nil {
+		return x.MaxErrors
+	}
+	return 0
+}
+
+func (x *CircuitBreakerConfig) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *CircuitBreakerConfig) GetLogStatusChange() bool {
+	if x != nil {
+		return x.LogStatusChange
+	}
+	return false
+}
+
+// CacheConfig configures HTTP caching (qos/http-cache).
+type CacheConfig struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Shared        bool                   `protobuf:"varint,1,opt,name=shared,proto3" json:"shared,omitempty"`
+	MaxItems      int32                  `protobuf:"varint,2,opt,name=max_items,json=maxItems,proto3" json:"max_items,omitempty"`
+	MaxSize       int32                  `protobuf:"varint,3,opt,name=max_size,json=maxSize,proto3" json:"max_size,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CacheConfig) Reset() {
+	*x = CacheConfig{}
+	mi := &file_sebuf_krakend_krakend_proto_msgTypes[7]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CacheConfig) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CacheConfig) ProtoMessage() {}
+
+func (x *CacheConfig) ProtoReflect() protoreflect.Message {
+	mi := &file_sebuf_krakend_krakend_proto_msgTypes[7]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CacheConfig.ProtoReflect.Descriptor instead.
+func (*CacheConfig) Descriptor() ([]byte, []int) {
+	return file_sebuf_krakend_krakend_proto_rawDescGZIP(), []int{7}
+}
+
+func (x *CacheConfig) GetShared() bool {
+	if x != nil {
+		return x.Shared
+	}
+	return false
+}
+
+func (x *CacheConfig) GetMaxItems() int32 {
+	if x != nil {
+		return x.MaxItems
+	}
+	return 0
+}
+
+func (x *CacheConfig) GetMaxSize() int32 {
+	if x != nil {
+		return x.MaxSize
+	}
+	return 0
+}
+
+var file_sebuf_krakend_krakend_proto_extTypes = []protoimpl.ExtensionInfo{
 	{
 		ExtendedType:  (*descriptorpb.ServiceOptions)(nil),
 		ExtensionType: (*GatewayConfig)(nil),
 		Field:         51001,
 		Name:          "sebuf.krakend.gateway_config",
 		Tag:           "bytes,51001,opt,name=gateway_config",
-		Filename:      "proto/sebuf/krakend/krakend.proto",
+		Filename:      "sebuf/krakend/krakend.proto",
 	},
 	{
 		ExtendedType:  (*descriptorpb.MethodOptions)(nil),
@@ -153,88 +682,150 @@ var file_proto_sebuf_krakend_krakend_proto_extTypes = []protoimpl.ExtensionInfo{
 		Field:         51002,
 		Name:          "sebuf.krakend.endpoint_config",
 		Tag:           "bytes,51002,opt,name=endpoint_config",
-		Filename:      "proto/sebuf/krakend/krakend.proto",
+		Filename:      "sebuf/krakend/krakend.proto",
 	},
 }
 
 // Extension fields to descriptorpb.ServiceOptions.
 var (
 	// optional sebuf.krakend.GatewayConfig gateway_config = 51001;
-	E_GatewayConfig = &file_proto_sebuf_krakend_krakend_proto_extTypes[0]
+	E_GatewayConfig = &file_sebuf_krakend_krakend_proto_extTypes[0]
 )
 
 // Extension fields to descriptorpb.MethodOptions.
 var (
 	// optional sebuf.krakend.EndpointConfig endpoint_config = 51002;
-	E_EndpointConfig = &file_proto_sebuf_krakend_krakend_proto_extTypes[1]
+	E_EndpointConfig = &file_sebuf_krakend_krakend_proto_extTypes[1]
 )
 
-var File_proto_sebuf_krakend_krakend_proto protoreflect.FileDescriptor
+var File_sebuf_krakend_krakend_proto protoreflect.FileDescriptor
 
-const file_proto_sebuf_krakend_krakend_proto_rawDesc = "" +
+const file_sebuf_krakend_krakend_proto_rawDesc = "" +
 	"\n" +
-	"!proto/sebuf/krakend/krakend.proto\x12\rsebuf.krakend\x1a google/protobuf/descriptor.proto\"=\n" +
+	"\x1bsebuf/krakend/krakend.proto\x12\rsebuf.krakend\x1a google/protobuf/descriptor.proto\"\xa8\x03\n" +
 	"\rGatewayConfig\x12\x12\n" +
 	"\x04host\x18\x01 \x03(\tR\x04host\x12\x18\n" +
-	"\atimeout\x18\x02 \x01(\tR\atimeout\">\n" +
+	"\atimeout\x18\x02 \x01(\tR\atimeout\x12=\n" +
+	"\n" +
+	"rate_limit\x18\x03 \x01(\v2\x1e.sebuf.krakend.RateLimitConfigR\trateLimit\x12S\n" +
+	"\x12backend_rate_limit\x18\x04 \x01(\v2%.sebuf.krakend.BackendRateLimitConfigR\x10backendRateLimit\x12*\n" +
+	"\x03jwt\x18\x05 \x01(\v2\x18.sebuf.krakend.JWTConfigR\x03jwt\x12L\n" +
+	"\x0fcircuit_breaker\x18\x06 \x01(\v2#.sebuf.krakend.CircuitBreakerConfigR\x0ecircuitBreaker\x120\n" +
+	"\x05cache\x18\a \x01(\v2\x1a.sebuf.krakend.CacheConfigR\x05cache\x12)\n" +
+	"\x10concurrent_calls\x18\b \x01(\x05R\x0fconcurrentCalls\"\xfd\x02\n" +
 	"\x0eEndpointConfig\x12\x12\n" +
 	"\x04host\x18\x01 \x03(\tR\x04host\x12\x18\n" +
-	"\atimeout\x18\x02 \x01(\tR\atimeout:f\n" +
+	"\atimeout\x18\x02 \x01(\tR\atimeout\x12=\n" +
+	"\n" +
+	"rate_limit\x18\x03 \x01(\v2\x1e.sebuf.krakend.RateLimitConfigR\trateLimit\x12S\n" +
+	"\x12backend_rate_limit\x18\x04 \x01(\v2%.sebuf.krakend.BackendRateLimitConfigR\x10backendRateLimit\x12L\n" +
+	"\x0fcircuit_breaker\x18\x05 \x01(\v2#.sebuf.krakend.CircuitBreakerConfigR\x0ecircuitBreaker\x120\n" +
+	"\x05cache\x18\x06 \x01(\v2\x1a.sebuf.krakend.CacheConfigR\x05cache\x12)\n" +
+	"\x10concurrent_calls\x18\a \x01(\x05R\x0fconcurrentCalls\"\xdd\x01\n" +
+	"\x0fRateLimitConfig\x12\x19\n" +
+	"\bmax_rate\x18\x01 \x01(\x05R\amaxRate\x12\x1a\n" +
+	"\bcapacity\x18\x02 \x01(\x05R\bcapacity\x12\x14\n" +
+	"\x05every\x18\x03 \x01(\tR\x05every\x12&\n" +
+	"\x0fclient_max_rate\x18\x04 \x01(\x05R\rclientMaxRate\x12'\n" +
+	"\x0fclient_capacity\x18\x05 \x01(\x05R\x0eclientCapacity\x12\x1a\n" +
+	"\bstrategy\x18\x06 \x01(\tR\bstrategy\x12\x10\n" +
+	"\x03key\x18\a \x01(\tR\x03key\"e\n" +
+	"\x16BackendRateLimitConfig\x12\x19\n" +
+	"\bmax_rate\x18\x01 \x01(\x05R\amaxRate\x12\x1a\n" +
+	"\bcapacity\x18\x02 \x01(\x05R\bcapacity\x12\x14\n" +
+	"\x05every\x18\x03 \x01(\tR\x05every\"\xc9\x01\n" +
+	"\tJWTConfig\x12\x10\n" +
+	"\x03alg\x18\x01 \x01(\tR\x03alg\x12\x17\n" +
+	"\ajwk_url\x18\x02 \x01(\tR\x06jwkUrl\x12\x1a\n" +
+	"\baudience\x18\x03 \x03(\tR\baudience\x12\x16\n" +
+	"\x06issuer\x18\x04 \x01(\tR\x06issuer\x12\x14\n" +
+	"\x05cache\x18\x05 \x01(\bR\x05cache\x12G\n" +
+	"\x10propagate_claims\x18\x06 \x03(\v2\x1c.sebuf.krakend.ClaimToHeaderR\x0fpropagateClaims\"=\n" +
+	"\rClaimToHeader\x12\x14\n" +
+	"\x05claim\x18\x01 \x01(\tR\x05claim\x12\x16\n" +
+	"\x06header\x18\x02 \x01(\tR\x06header\"\xab\x01\n" +
+	"\x14CircuitBreakerConfig\x12\x1a\n" +
+	"\binterval\x18\x01 \x01(\x05R\binterval\x12\x18\n" +
+	"\atimeout\x18\x02 \x01(\x05R\atimeout\x12\x1d\n" +
+	"\n" +
+	"max_errors\x18\x03 \x01(\x05R\tmaxErrors\x12\x12\n" +
+	"\x04name\x18\x04 \x01(\tR\x04name\x12*\n" +
+	"\x11log_status_change\x18\x05 \x01(\bR\x0flogStatusChange\"]\n" +
+	"\vCacheConfig\x12\x16\n" +
+	"\x06shared\x18\x01 \x01(\bR\x06shared\x12\x1b\n" +
+	"\tmax_items\x18\x02 \x01(\x05R\bmaxItems\x12\x19\n" +
+	"\bmax_size\x18\x03 \x01(\x05R\amaxSize:f\n" +
 	"\x0egateway_config\x12\x1f.google.protobuf.ServiceOptions\x18\xb9\x8e\x03 \x01(\v2\x1c.sebuf.krakend.GatewayConfigR\rgatewayConfig:h\n" +
 	"\x0fendpoint_config\x12\x1e.google.protobuf.MethodOptions\x18\xba\x8e\x03 \x01(\v2\x1d.sebuf.krakend.EndpointConfigR\x0eendpointConfigB1Z/github.com/SebastienMelki/sebuf/krakend;krakendb\x06proto3"
 
 var (
-	file_proto_sebuf_krakend_krakend_proto_rawDescOnce sync.Once
-	file_proto_sebuf_krakend_krakend_proto_rawDescData []byte
+	file_sebuf_krakend_krakend_proto_rawDescOnce sync.Once
+	file_sebuf_krakend_krakend_proto_rawDescData []byte
 )
 
-func file_proto_sebuf_krakend_krakend_proto_rawDescGZIP() []byte {
-	file_proto_sebuf_krakend_krakend_proto_rawDescOnce.Do(func() {
-		file_proto_sebuf_krakend_krakend_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_proto_sebuf_krakend_krakend_proto_rawDesc), len(file_proto_sebuf_krakend_krakend_proto_rawDesc)))
+func file_sebuf_krakend_krakend_proto_rawDescGZIP() []byte {
+	file_sebuf_krakend_krakend_proto_rawDescOnce.Do(func() {
+		file_sebuf_krakend_krakend_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_sebuf_krakend_krakend_proto_rawDesc), len(file_sebuf_krakend_krakend_proto_rawDesc)))
 	})
-	return file_proto_sebuf_krakend_krakend_proto_rawDescData
+	return file_sebuf_krakend_krakend_proto_rawDescData
 }
 
-var file_proto_sebuf_krakend_krakend_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
-var file_proto_sebuf_krakend_krakend_proto_goTypes = []any{
+var file_sebuf_krakend_krakend_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
+var file_sebuf_krakend_krakend_proto_goTypes = []any{
 	(*GatewayConfig)(nil),               // 0: sebuf.krakend.GatewayConfig
 	(*EndpointConfig)(nil),              // 1: sebuf.krakend.EndpointConfig
-	(*descriptorpb.ServiceOptions)(nil), // 2: google.protobuf.ServiceOptions
-	(*descriptorpb.MethodOptions)(nil),  // 3: google.protobuf.MethodOptions
+	(*RateLimitConfig)(nil),             // 2: sebuf.krakend.RateLimitConfig
+	(*BackendRateLimitConfig)(nil),      // 3: sebuf.krakend.BackendRateLimitConfig
+	(*JWTConfig)(nil),                   // 4: sebuf.krakend.JWTConfig
+	(*ClaimToHeader)(nil),               // 5: sebuf.krakend.ClaimToHeader
+	(*CircuitBreakerConfig)(nil),        // 6: sebuf.krakend.CircuitBreakerConfig
+	(*CacheConfig)(nil),                 // 7: sebuf.krakend.CacheConfig
+	(*descriptorpb.ServiceOptions)(nil), // 8: google.protobuf.ServiceOptions
+	(*descriptorpb.MethodOptions)(nil),  // 9: google.protobuf.MethodOptions
 }
-var file_proto_sebuf_krakend_krakend_proto_depIdxs = []int32{
-	2, // 0: sebuf.krakend.gateway_config:extendee -> google.protobuf.ServiceOptions
-	3, // 1: sebuf.krakend.endpoint_config:extendee -> google.protobuf.MethodOptions
-	0, // 2: sebuf.krakend.gateway_config:type_name -> sebuf.krakend.GatewayConfig
-	1, // 3: sebuf.krakend.endpoint_config:type_name -> sebuf.krakend.EndpointConfig
-	4, // [4:4] is the sub-list for method output_type
-	4, // [4:4] is the sub-list for method input_type
-	2, // [2:4] is the sub-list for extension type_name
-	0, // [0:2] is the sub-list for extension extendee
-	0, // [0:0] is the sub-list for field type_name
+var file_sebuf_krakend_krakend_proto_depIdxs = []int32{
+	2,  // 0: sebuf.krakend.GatewayConfig.rate_limit:type_name -> sebuf.krakend.RateLimitConfig
+	3,  // 1: sebuf.krakend.GatewayConfig.backend_rate_limit:type_name -> sebuf.krakend.BackendRateLimitConfig
+	4,  // 2: sebuf.krakend.GatewayConfig.jwt:type_name -> sebuf.krakend.JWTConfig
+	6,  // 3: sebuf.krakend.GatewayConfig.circuit_breaker:type_name -> sebuf.krakend.CircuitBreakerConfig
+	7,  // 4: sebuf.krakend.GatewayConfig.cache:type_name -> sebuf.krakend.CacheConfig
+	2,  // 5: sebuf.krakend.EndpointConfig.rate_limit:type_name -> sebuf.krakend.RateLimitConfig
+	3,  // 6: sebuf.krakend.EndpointConfig.backend_rate_limit:type_name -> sebuf.krakend.BackendRateLimitConfig
+	6,  // 7: sebuf.krakend.EndpointConfig.circuit_breaker:type_name -> sebuf.krakend.CircuitBreakerConfig
+	7,  // 8: sebuf.krakend.EndpointConfig.cache:type_name -> sebuf.krakend.CacheConfig
+	5,  // 9: sebuf.krakend.JWTConfig.propagate_claims:type_name -> sebuf.krakend.ClaimToHeader
+	8,  // 10: sebuf.krakend.gateway_config:extendee -> google.protobuf.ServiceOptions
+	9,  // 11: sebuf.krakend.endpoint_config:extendee -> google.protobuf.MethodOptions
+	0,  // 12: sebuf.krakend.gateway_config:type_name -> sebuf.krakend.GatewayConfig
+	1,  // 13: sebuf.krakend.endpoint_config:type_name -> sebuf.krakend.EndpointConfig
+	14, // [14:14] is the sub-list for method output_type
+	14, // [14:14] is the sub-list for method input_type
+	12, // [12:14] is the sub-list for extension type_name
+	10, // [10:12] is the sub-list for extension extendee
+	0,  // [0:10] is the sub-list for field type_name
 }
 
-func init() { file_proto_sebuf_krakend_krakend_proto_init() }
-func file_proto_sebuf_krakend_krakend_proto_init() {
-	if File_proto_sebuf_krakend_krakend_proto != nil {
+func init() { file_sebuf_krakend_krakend_proto_init() }
+func file_sebuf_krakend_krakend_proto_init() {
+	if File_sebuf_krakend_krakend_proto != nil {
 		return
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
-			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_sebuf_krakend_krakend_proto_rawDesc), len(file_proto_sebuf_krakend_krakend_proto_rawDesc)),
+			RawDescriptor: unsafe.Slice(unsafe.StringData(file_sebuf_krakend_krakend_proto_rawDesc), len(file_sebuf_krakend_krakend_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   2,
+			NumMessages:   8,
 			NumExtensions: 2,
 			NumServices:   0,
 		},
-		GoTypes:           file_proto_sebuf_krakend_krakend_proto_goTypes,
-		DependencyIndexes: file_proto_sebuf_krakend_krakend_proto_depIdxs,
-		MessageInfos:      file_proto_sebuf_krakend_krakend_proto_msgTypes,
-		ExtensionInfos:    file_proto_sebuf_krakend_krakend_proto_extTypes,
+		GoTypes:           file_sebuf_krakend_krakend_proto_goTypes,
+		DependencyIndexes: file_sebuf_krakend_krakend_proto_depIdxs,
+		MessageInfos:      file_sebuf_krakend_krakend_proto_msgTypes,
+		ExtensionInfos:    file_sebuf_krakend_krakend_proto_extTypes,
 	}.Build()
-	File_proto_sebuf_krakend_krakend_proto = out.File
-	file_proto_sebuf_krakend_krakend_proto_goTypes = nil
-	file_proto_sebuf_krakend_krakend_proto_depIdxs = nil
+	File_sebuf_krakend_krakend_proto = out.File
+	file_sebuf_krakend_krakend_proto_goTypes = nil
+	file_sebuf_krakend_krakend_proto_depIdxs = nil
 }

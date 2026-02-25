@@ -69,9 +69,15 @@ func writeServiceFile(plugin *protogen.Plugin, service *protogen.Service) {
 		endpoints = []krakendgen.Endpoint{}
 	}
 
-	jsonBytes, err := json.MarshalIndent(endpoints, "", "  ")
+	config := krakendgen.KrakenDConfig{
+		Schema:    "https://www.krakend.io/schema/krakend.json",
+		Version:   3,
+		Endpoints: endpoints,
+	}
+
+	jsonBytes, err := json.MarshalIndent(config, "", "  ")
 	if err != nil {
-		plugin.Error(fmt.Errorf("service %s: failed to marshal endpoints: %w", service.Desc.Name(), err))
+		plugin.Error(fmt.Errorf("service %s: failed to marshal config: %w", service.Desc.Name(), err))
 		return
 	}
 

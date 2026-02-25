@@ -1,62 +1,66 @@
-[
-  {
-    "endpoint": "/api/v1/users",
-    "method": "POST",
-    "output_encoding": "json",
-    "backend": [
-      {
-        "url_pattern": "/api/v1/users",
-        "host": [
-          "http://backend:8080"
-        ],
-        "method": "POST",
-        "encoding": "json"
-      }
-    ]
-  },
-  {
-    "endpoint": "/api/v1/users/{id}",
-    "method": "GET",
-    "output_encoding": "json",
-    "backend": [
-      {
-        "url_pattern": "/api/v1/users/{id}",
-        "host": [
-          "http://backend:8080"
-        ],
-        "method": "GET",
-        "encoding": "json"
-      }
-    ]
-  },
-  {
-    "endpoint": "/api/v1/users",
-    "method": "GET",
-    "output_encoding": "json",
-    "backend": [
-      {
-        "url_pattern": "/api/v1/users",
-        "host": [
-          "http://backend:8080"
-        ],
-        "method": "GET",
-        "encoding": "json"
-      }
-    ]
-  },
-  {
-    "endpoint": "/api/v1/users/{id}",
-    "method": "DELETE",
-    "output_encoding": "json",
-    "backend": [
-      {
-        "url_pattern": "/api/v1/users/{id}",
-        "host": [
-          "http://backend:8080"
-        ],
-        "method": "DELETE",
-        "encoding": "json"
-      }
-    ]
-  }
-]
+{
+  "$schema": "https://www.krakend.io/schema/krakend.json",
+  "version": 3,
+  "endpoints": [
+    {
+      "endpoint": "/api/v1/users",
+      "method": "POST",
+      "output_encoding": "json",
+      "backend": [
+        {
+          "url_pattern": "/api/v1/users",
+          "host": [
+            "http://backend:8080"
+          ],
+          "method": "POST",
+          "encoding": "json"
+        }
+      ]
+    },
+    {
+      "endpoint": "/api/v1/users/{id}",
+      "method": "GET",
+      "output_encoding": "json",
+      "backend": [
+        {
+          "url_pattern": "/api/v1/users/{id}",
+          "host": [
+            "http://backend:8080"
+          ],
+          "method": "GET",
+          "encoding": "json"
+        }
+      ]
+    },
+    {
+      "endpoint": "/api/v1/users",
+      "method": "GET",
+      "output_encoding": "json",
+      "backend": [
+        {
+          "url_pattern": "/api/v1/users",
+          "host": [
+            "http://backend:8080"
+          ],
+          "method": "GET",
+          "encoding": "json"
+        }
+      ]
+    },
+    {
+      "endpoint": "/api/v1/users/{id}",
+      "method": "DELETE",
+      "output_encoding": "json",
+      "backend": [
+        {
+          "url_pattern": "/api/v1/users/{id}",
+          "host": [
+            "http://backend:8080"
+          ],
+          "method": "DELETE",
+          "encoding": "json"
+        }
+      ]
+    }
+  ]
+}

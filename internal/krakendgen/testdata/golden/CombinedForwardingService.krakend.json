@@ -1,25 +1,29 @@
-[
-  {
-    "endpoint": "/api/v1/combined",
-    "method": "GET",
-    "output_encoding": "json",
-    "input_headers": [
-      "X-API-Key",
-      "X-Correlation-ID"
-    ],
-    "input_query_strings": [
-      "limit",
-      "q"
-    ],
-    "backend": [
-      {
-        "url_pattern": "/api/v1/combined",
-        "host": [
-          "http://backend:8080"
-        ],
-        "method": "GET",
-        "encoding": "json"
-      }
-    ]
-  }
-]
+{
+  "$schema": "https://www.krakend.io/schema/krakend.json",
+  "version": 3,
+  "endpoints": [
+    {
+      "endpoint": "/api/v1/combined",
+      "method": "GET",
+      "output_encoding": "json",
+      "input_headers": [
+        "X-API-Key",
+        "X-Correlation-ID"
+      ],
+      "input_query_strings": [
+        "limit",
+        "q"
+      ],
+      "backend": [
+        {
+          "url_pattern": "/api/v1/combined",
+          "host": [
+            "http://backend:8080"
+          ],
+          "method": "GET",
+          "encoding": "json"
+        }
+      ]
+    }
+  ]
+}

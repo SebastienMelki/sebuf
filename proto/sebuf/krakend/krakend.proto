@@ -18,6 +18,24 @@ message GatewayConfig {
   // KrakenD duration format: "2s", "500ms", "1m".
   // Omit to use KrakenD's built-in default.
   string timeout = 2;
+
+  // Default endpoint-level rate limiting (qos/ratelimit/router).
+  RateLimitConfig rate_limit = 3;
+
+  // Default backend-level rate limiting (qos/ratelimit/proxy).
+  BackendRateLimitConfig backend_rate_limit = 4;
+
+  // JWT validation configuration (auth/validator). Service-level only.
+  JWTConfig jwt = 5;
+
+  // Default circuit breaker for all backends (qos/circuit-breaker).
+  CircuitBreakerConfig circuit_breaker = 6;
+
+  // Default HTTP cache configuration (qos/http-cache).
+  CacheConfig cache = 7;
+
+  // Default concurrent calls for all endpoints.
+  int32 concurrent_calls = 8;
 }
 
 // EndpointConfig overrides service-level defaults for a specific RPC.
@@ -28,6 +46,71 @@ message EndpointConfig {
 
   // Override timeout for this specific endpoint.
   string timeout = 2;
+
+  // Override endpoint-level rate limiting (qos/ratelimit/router).
+  RateLimitConfig rate_limit = 3;
+
+  // Override backend-level rate limiting (qos/ratelimit/proxy).
+  BackendRateLimitConfig backend_rate_limit = 4;
+
+  // Override circuit breaker for this endpoint's backend.
+  CircuitBreakerConfig circuit_breaker = 5;
+
+  // Override HTTP cache for this endpoint.
+  CacheConfig cache = 6;
+
+  // Override concurrent calls for this endpoint.
+  int32 concurrent_calls = 7;
+}
+
+// RateLimitConfig configures endpoint-level rate limiting (qos/ratelimit/router).
+message RateLimitConfig {
+  int32 max_rate = 1;
+  int32 capacity = 2;
+  string every = 3;
+  int32 client_max_rate = 4;
+  int32 client_capacity = 5;
+  string strategy = 6;
+  string key = 7;
+}
+
+// BackendRateLimitConfig configures backend-level rate limiting (qos/ratelimit/proxy).
+message BackendRateLimitConfig {
+  int32 max_rate = 1;
+  int32 capacity = 2;
+  string every = 3;
+}
+
+// JWTConfig configures JWT validation (auth/validator).
+message JWTConfig {
+  string alg = 1;
+  string jwk_url = 2;
+  repeated string audience = 3;
+  string issuer = 4;
+  bool cache = 5;
+  repeated ClaimToHeader propagate_claims = 6;
+}
+
+// ClaimToHeader maps a JWT claim to a request header for backend forwarding.
+message ClaimToHeader {
+  string claim = 1;
+  string header = 2;
+}
+
+// CircuitBreakerConfig configures the circuit breaker (qos/circuit-breaker).
+message CircuitBreakerConfig {
+  int32 interval = 1;
+  int32 timeout = 2;
+  int32 max_errors = 3;
+  string name = 4;
+  bool log_status_change = 5;
+}
+
+// CacheConfig configures HTTP caching (qos/http-cache).
+message CacheConfig {
+  bool shared = 1;
+  int32 max_items = 2;
+  int32 max_size = 3;
 }
 
 extend google.protobuf.ServiceOptions {
