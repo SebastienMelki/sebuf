@@ -4,13 +4,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is `sebuf`, a specialized Go protobuf toolkit for building HTTP APIs. It consists of five complementary protoc plugins that together enable modern, type-safe API development:
+This is `sebuf`, a specialized Go protobuf toolkit for building HTTP APIs. It consists of six complementary protoc plugins that together enable modern, type-safe API development:
 
 - **`protoc-gen-go-http`**: Generates HTTP handlers, routing, request/response binding, and automatic validation
 - **`protoc-gen-go-client`**: Generates type-safe Go HTTP clients with functional options pattern
 - **`protoc-gen-ts-client`**: Generates TypeScript HTTP clients with full type safety, header helpers, and error handling
 - **`protoc-gen-ts-server`**: Generates TypeScript HTTP server handlers using the Web Fetch API (Request/Response), framework-agnostic
 - **`protoc-gen-openapiv3`**: Creates comprehensive OpenAPI v3.1 specifications
+- **`protoc-gen-krakend`**: Generates KrakenD API gateway configuration with rate limiting, JWT authentication, circuit breakers, caching, and automatic header/query forwarding
 
 The toolkit enables developers to build HTTP APIs directly from protobuf definitions without gRPC dependencies, targeting web and mobile API development with built-in request validation.
 
@@ -24,13 +25,16 @@ The project follows a clean Go protoc plugin architecture with separated concern
 - **cmd/protoc-gen-ts-client/**: TypeScript HTTP client generator entry point
 - **cmd/protoc-gen-ts-server/**: TypeScript HTTP server generator entry point
 - **cmd/protoc-gen-openapiv3/**: OpenAPI specification generator entry point
+- **cmd/protoc-gen-krakend/**: KrakenD gateway config generator entry point
 - **internal/httpgen/**: HTTP handler generation logic, annotations, and header validation middleware
 - **internal/clientgen/**: Go HTTP client generation logic and annotations
 - **internal/tscommon/**: Shared TypeScript type mapping and generation (used by ts-client and ts-server)
 - **internal/tsclientgen/**: TypeScript HTTP client generation logic
 - **internal/tsservergen/**: TypeScript HTTP server generation logic, header validation, route creation
 - **internal/openapiv3/**: OpenAPI generation logic, type mapping, and header parameter generation
+- **internal/krakendgen/**: KrakenD generation logic, endpoint building, validation, and extra_config composition
 - **proto/sebuf/http/**: HTTP annotation definitions including headers.proto for header validation
+- **proto/sebuf/krakend/**: KrakenD annotation definitions including gateway_config, endpoint_config, RateLimitStrategy and JWTAlgorithm enums
 - **scripts/**: Test automation and build scripts
 
 ### Core Components
@@ -41,9 +45,11 @@ The project follows a clean Go protoc plugin architecture with separated concern
 4. **TypeScript HTTP Server Generator** (`internal/tsservergen/generator.go`): Generates framework-agnostic TypeScript HTTP server handlers using the Web Fetch API (`Request` → `Promise<Response>`), with route descriptors, header validation, query/body parsing, and error handling
 5. **OpenAPI Generator** (`internal/openapiv3/generator.go:53`): Creates comprehensive OpenAPI v3.1 specifications from protobuf definitions with full header parameter support, generating one file per service for better organization
 6. **Shared TypeScript Types** (`internal/tscommon/`): Shared TypeScript type mapping, interface generation, error types, and proto-defined error message collection (messages ending with "Error") used by both ts-client and ts-server generators
-7. **HTTP Annotations** (`proto/sebuf/http/annotations.proto`): Custom protobuf extensions for HTTP configuration
-5. **Header Validation** (`proto/sebuf/http/headers.proto`): Protobuf definitions for service and method-level header validation
-6. **Validation System**: Automatic request body validation via buf.validate/protovalidate and header validation middleware
+7. **KrakenD Generator** (`internal/krakendgen/generator.go`): Generates per-service KrakenD JSON configuration from proto definitions. Reads sebuf.http annotations for routing and sebuf.krakend annotations for gateway features. Supports rate limiting (endpoint + backend), JWT authentication with claim propagation, circuit breaker, HTTP caching, concurrent calls, and automatic header/query string forwarding. Validates route conflicts (duplicate endpoints, static vs parameterized segment conflicts) at generation time.
+8. **HTTP Annotations** (`proto/sebuf/http/annotations.proto`): Custom protobuf extensions for HTTP configuration
+9. **KrakenD Annotations** (`proto/sebuf/krakend/krakend.proto`): Custom protobuf extensions for KrakenD gateway configuration including GatewayConfig (service-level) and EndpointConfig (method-level)
+10. **Header Validation** (`proto/sebuf/http/headers.proto`): Protobuf definitions for service and method-level header validation
+11. **Validation System**: Automatic request body validation via buf.validate/protovalidate and header validation middleware
 
 ### Generated Output Examples
 
@@ -154,6 +160,32 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/CreateUserRequest'
+```
+
+**KrakenD Gateway Config** - Per-service endpoint fragments:
+```json
+{
+  "$schema": "https://www.krakend.io/schema/krakend.json",
+  "version": 3,
+  "endpoints": [{
+    "endpoint": "/api/v1/users/{id}",
+    "method": "GET",
+    "timeout": "3s",
+    "input_headers": ["Authorization", "X-API-Key", "X-User"],
+    "backend": [{
+      "url_pattern": "/api/v1/users/{id}",
+      "host": ["http://users-backend:8080"],
+      "extra_config": {
+        "qos/circuit-breaker": { "interval": 60, "timeout": 10, "max_errors": 3 },
+        "qos/http-cache": { "shared": true }
+      }
+    }],
+    "extra_config": {
+      "auth/validator": { "alg": "RS256", "jwk_url": "..." },
+      "qos/ratelimit/router": { "max_rate": 100, "strategy": "ip" }
+    }
+  }]
+}
 ```
 
 **Automatic Validation** - Built-in request and header validation:
@@ -361,9 +393,31 @@ message Order {
 // Without flatten: {"id": "1", "billing": {"street": "123 Main"}, "shipping": {"street": "456 Oak"}}
 ```
 
+**KrakenD Gateway Annotations** - Service and method-level gateway configuration:
+```protobuf
+service UserService {
+  option (sebuf.krakend.gateway_config) = {
+    host: ["http://backend:8080"]
+    timeout: "3s"
+    rate_limit: { max_rate: 100, strategy: RATE_LIMIT_STRATEGY_IP }
+    jwt: { alg: JWT_ALGORITHM_RS256, jwk_url: "..." }
+    circuit_breaker: { interval: 60, timeout: 10, max_errors: 3 }
+    cache: { shared: true }
+    concurrent_calls: 2
+  };
+
+  rpc GetUser(GetUserRequest) returns (User) {
+    option (sebuf.krakend.endpoint_config) = {
+      timeout: "5s"
+      cache: { max_items: 500, max_size: 5242880 }
+    };
+  }
+}
+```
+
 ### Annotation Extension Number Registry
 
-All custom annotations live in `proto/sebuf/http/annotations.proto`:
+Custom annotations live in `proto/sebuf/http/annotations.proto` and `proto/sebuf/krakend/krakend.proto`:
 
 | Ext # | Name | Target | Purpose |
 |-------|------|--------|---------|
@@ -383,6 +437,15 @@ All custom annotations live in `proto/sebuf/http/annotations.proto`:
 | 50018 | oneof_value | FieldOptions | Custom discriminator value |
 | 50019 | flatten | FieldOptions | Nested message flattening |
 | 50020 | flatten_prefix | FieldOptions | Prefix for flattened fields |
+| 51001 | gateway_config | ServiceOptions | KrakenD gateway service config |
+| 51002 | endpoint_config | MethodOptions | KrakenD gateway endpoint overrides |
+
+### Annotation Enum Types
+
+| Enum | Values | Used In |
+|------|--------|---------|
+| RateLimitStrategy | IP, HEADER, PARAM | RateLimitConfig.strategy |
+| JWTAlgorithm | RS256, RS384, RS512, HS256, HS384, HS512, ES256, ES384, ES512, PS256, PS384, PS512, EdDSA | JWTConfig.alg |
 
 ## Development Commands
 
@@ -403,6 +466,12 @@ UPDATE_GOLDEN=1 go test -run TestExhaustiveGoldenFiles
 # Run specific test categories
 go test -v -run TestLowerFirst              # Unit tests
 go test -v -run TestExhaustiveGoldenFiles   # Golden file tests
+
+# KrakenD golden file tests
+go test -v -run TestKrakenDGoldenFiles ./internal/krakendgen/
+
+# KrakenD schema validation (requires krakend CLI)
+go test -v -run TestKrakenDSchemaValidation ./internal/krakendgen/
 ```
 
 ### Building
@@ -606,13 +675,17 @@ The repository contains:
 - **cmd/protoc-gen-ts-client/**: TypeScript HTTP client plugin entry point
 - **cmd/protoc-gen-ts-server/**: TypeScript HTTP server plugin entry point
 - **cmd/protoc-gen-openapiv3/**: OpenAPI generation plugin entry point
-- **internal/annotations/**: Shared annotation parsing used by all 5 generators (unwrap, query params, headers, JSON mapping)
+- **cmd/protoc-gen-krakend/**: KrakenD gateway config generator entry point
+- **internal/annotations/**: Shared annotation parsing used by all 6 generators (unwrap, query params, headers, JSON mapping)
 - **internal/httpgen/**: HTTP handler generation logic and tests
 - **internal/clientgen/**: Go HTTP client generation logic and tests
 - **internal/tscommon/**: Shared TypeScript type mapping and generation (interfaces, enums, error types)
 - **internal/tsclientgen/**: TypeScript HTTP client generation logic and tests
 - **internal/tsservergen/**: TypeScript HTTP server generation logic and tests
 - **internal/openapiv3/**: OpenAPI generation logic and comprehensive test suite
+- **internal/krakendgen/**: KrakenD generation logic and comprehensive test suite
+- **proto/sebuf/krakend/**: KrakenD annotation proto definitions
+- **examples/krakend-gateway/**: Multi-service KrakenD gateway example with Flexible Config
 - **examples/ts-client-demo/**: End-to-end TypeScript client example with NoteService CRUD API
 - **scripts/run_tests.sh**: Advanced test runner with coverage analysis and reporting
 
@@ -642,6 +715,9 @@ sebuf stands on the shoulders of giants. We build upon and integrate with an inc
 - **[net/http](https://pkg.go.dev/net/http)** - Go's standard HTTP library that provides the foundation for our generated HTTP handlers.
 - **[encoding/json](https://pkg.go.dev/encoding/json)** - Go's standard JSON library for request/response serialization.
 - **[protojson](https://pkg.go.dev/google.golang.org/protobuf/encoding/protojson)** - Google's canonical JSON mapping for Protocol Buffers.
+
+### API Gateway
+- **[KrakenD](https://www.krakend.io/)** - High-performance API gateway with Flexible Config for composing per-service endpoint fragments into a complete gateway configuration.
 
 ### Testing & Quality
 - **[Golden File Testing](https://en.wikipedia.org/wiki/Characterization_test)** - The testing pattern we use for regression detection in code generation.
