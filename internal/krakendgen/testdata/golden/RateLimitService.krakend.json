@@ -1,0 +1,64 @@
+{
+  "$schema": "https://www.krakend.io/schema/krakend.json",
+  "version": 3,
+  "endpoints": [
+    {
+      "endpoint": "/api/v1/orders",
+      "method": "POST",
+      "output_encoding": "json",
+      "backend": [
+        {
+          "url_pattern": "/api/v1/orders",
+          "host": [
+            "http://orders:8080"
+          ],
+          "method": "POST",
+          "encoding": "json",
+          "extra_config": {
+            "qos/ratelimit/proxy": {
+              "capacity": 50,
+              "max_rate": 50
+            }
+          }
+        }
+      ],
+      "extra_config": {
+        "qos/ratelimit/router": {
+          "client_max_rate": 10,
+          "max_rate": 100,
+          "strategy": "ip"
+        }
+      }
+    },
+    {
+      "endpoint": "/api/v1/orders/{id}",
+      "method": "GET",
+      "output_encoding": "json",
+      "backend": [
+        {
+          "url_pattern": "/api/v1/orders/{id}",
+          "host": [
+            "http://orders:8080"
+          ],
+          "method": "GET",
+          "encoding": "json",
+          "extra_config": {
+            "qos/ratelimit/proxy": {
+              "capacity": 100,
+              "every": "1s",
+              "max_rate": 100
+            }
+          }
+        }
+      ],
+      "extra_config": {
+        "qos/ratelimit/router": {
+          "capacity": 200,
+          "key": "X-API-Key",
+          "max_rate": 200,
+          "strategy": "header"
+        }
+      }
+    }
+  ]
+}

@@ -194,6 +194,11 @@ func TestKrakenDGoldenFiles(t *testing.T) {
 			protoFile:    "combined_forwarding.proto",
 			serviceNames: []string{"CombinedForwardingService"},
 		},
+		{
+			name:         "rate_limit_service",
+			protoFile:    "rate_limit_service.proto",
+			serviceNames: []string{"RateLimitService"},
+		},
 	}
 
 	for _, tc := range testCases {

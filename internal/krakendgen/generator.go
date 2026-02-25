@@ -77,6 +77,8 @@ func GenerateService(service *protogen.Service) ([]Endpoint, error) {
 
 		ep.InputHeaders = deriveInputHeaders(service, hm.method)
 		ep.InputQueryStrings = deriveInputQueryStrings(hm.method)
+		ep.ExtraConfig = buildEndpointExtraConfig(gwConfig, epConfig)
+		ep.Backend[0].ExtraConfig = buildBackendExtraConfig(gwConfig, epConfig)
 
 		endpoints = append(endpoints, ep)
 	}
@@ -216,4 +218,105 @@ func deriveInputQueryStrings(method *protogen.Method) []string {
 
 	sort.Strings(names)
 	return names
+}
+
+// ---------------------------------------------------------------------------
+// Rate limiting resolvers and builders
+// ---------------------------------------------------------------------------
+
+// resolveRateLimit returns the method-level rate limit if present, otherwise
+// the service-level rate limit. Returns nil if neither has it.
+func resolveRateLimit(gwConfig *krakend.GatewayConfig, epConfig *krakend.EndpointConfig) *krakend.RateLimitConfig {
+	if epConfig != nil && epConfig.GetRateLimit() != nil {
+		return epConfig.GetRateLimit()
+	}
+	return gwConfig.GetRateLimit()
+}
+
+// resolveBackendRateLimit returns the method-level backend rate limit if
+// present, otherwise the service-level backend rate limit. Returns nil if
+// neither has it.
+func resolveBackendRateLimit(gwConfig *krakend.GatewayConfig, epConfig *krakend.EndpointConfig) *krakend.BackendRateLimitConfig {
+	if epConfig != nil && epConfig.GetBackendRateLimit() != nil {
+		return epConfig.GetBackendRateLimit()
+	}
+	return gwConfig.GetBackendRateLimit()
+}
+
+// buildRateLimitRouterConfig builds the endpoint-level rate limit config map
+// for the qos/ratelimit/router namespace. Only includes non-zero fields.
+func buildRateLimitRouterConfig(rl *krakend.RateLimitConfig) map[string]any {
+	m := make(map[string]any)
+
+	if rl.GetMaxRate() != 0 {
+		m["max_rate"] = rl.GetMaxRate()
+	}
+	if rl.GetCapacity() != 0 {
+		m["capacity"] = rl.GetCapacity()
+	}
+	if rl.GetEvery() != "" {
+		m["every"] = rl.GetEvery()
+	}
+	if rl.GetClientMaxRate() != 0 {
+		m["client_max_rate"] = rl.GetClientMaxRate()
+	}
+	if rl.GetClientCapacity() != 0 {
+		m["client_capacity"] = rl.GetClientCapacity()
+	}
+	if rl.GetStrategy() != "" {
+		m["strategy"] = rl.GetStrategy()
+	}
+	if rl.GetKey() != "" {
+		m["key"] = rl.GetKey()
+	}
+
+	return m
+}
+
+// buildBackendRateLimitConfig builds the backend-level rate limit config map
+// for the qos/ratelimit/proxy namespace. Only includes non-zero fields.
+func buildBackendRateLimitConfig(brl *krakend.BackendRateLimitConfig) map[string]any {
+	m := make(map[string]any)
+
+	if brl.GetMaxRate() != 0 {
+		m["max_rate"] = brl.GetMaxRate()
+	}
+	if brl.GetCapacity() != 0 {
+		m["capacity"] = brl.GetCapacity()
+	}
+	if brl.GetEvery() != "" {
+		m["every"] = brl.GetEvery()
+	}
+
+	return m
+}
+
+// buildEndpointExtraConfig builds the endpoint-level extra_config map.
+// Returns nil if no extra config is needed (so omitempty omits it).
+func buildEndpointExtraConfig(gwConfig *krakend.GatewayConfig, epConfig *krakend.EndpointConfig) map[string]any {
+	m := make(map[string]any)
+
+	if rl := resolveRateLimit(gwConfig, epConfig); rl != nil {
+		m[NamespaceRateLimitRouter] = buildRateLimitRouterConfig(rl)
+	}
+
+	if len(m) == 0 {
+		return nil
+	}
+	return m
+}
+
+// buildBackendExtraConfig builds the backend-level extra_config map.
+// Returns nil if no extra config is needed (so omitempty omits it).
+func buildBackendExtraConfig(gwConfig *krakend.GatewayConfig, epConfig *krakend.EndpointConfig) map[string]any {
+	m := make(map[string]any)
+
+	if brl := resolveBackendRateLimit(gwConfig, epConfig); brl != nil {
+		m[NamespaceRateLimitProxy] = buildBackendRateLimitConfig(brl)
+	}
+
+	if len(m) == 0 {
+		return nil
+	}
+	return m
 }
