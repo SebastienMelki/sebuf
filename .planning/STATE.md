@@ -10,18 +10,18 @@ See: .planning/PROJECT.md (updated 2026-02-25)
 ## Current Position
 
 Phase: 14 of 14 (Documentation and Examples)
-Plan: 1 of 3 in current phase
-Status: Plan 01 Complete
-Last activity: 2026-02-25 -- Completed 14-01 (Proto Enums and Schema Validation)
+Plan: 3 of 3 in current phase
+Status: Plan 03 Complete
+Last activity: 2026-02-25 -- Completed 14-03 (README and CLAUDE.md KrakenD Documentation)
 
-Progress: [########--] 80%
+Progress: [#########-] 90%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 8 (v1.1 milestone)
+- Total plans completed: 9 (v1.1 milestone)
 - Average duration: 4min
-- Total execution time: 35min
+- Total execution time: 39min
 
 **By Phase:**
 
@@ -29,10 +29,10 @@ Progress: [########--] 80%
 |-------|-------|-------|----------|
 | 12 | 4 | 18min | 4min |
 | 13 | 3 | 12min | 4min |
-| 14 | 1 | 5min | 5min |
+| 14 | 2 | 9min | 4min |
 
 **Recent Trend:**
-- Last 5 plans: 12-04 (5min), 13-01 (5min), 13-02 (3min), 13-03 (4min), 14-01 (5min)
+- Last 5 plans: 13-01 (5min), 13-02 (3min), 13-03 (4min), 14-01 (5min), 14-03 (4min)
 - Trend: consistent
 
 *Updated after each plan completion*
@@ -69,6 +69,8 @@ Progress: [########--] 80%
 - Enum-to-string mapping via explicit switch statements for clarity and compile-time safety
 - Cache shared+max_items/max_size validation added before existing pairing check for fail-fast
 - krakend check -lc test skips gracefully when CLI not installed for CI compatibility
+- KrakenD section in README placed after How It Works and before Quick Setup for natural reading flow
+- README kept concise as teaser driving users to krakend-gateway example
 
 ### Pending Todos
 
@@ -81,6 +83,6 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-25
-Stopped at: Completed 14-01-PLAN.md
-Resume file: .planning/phases/14-documentation-and-examples/14-01-SUMMARY.md
+Stopped at: Completed 14-03-PLAN.md
+Resume file: .planning/phases/14-documentation-and-examples/14-03-SUMMARY.md
 Next: 14-02-PLAN.md
