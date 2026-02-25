@@ -14,7 +14,7 @@ import "sebuf/http/annotations.proto";
 import "sebuf/http/headers.proto";
 import "sebuf/krakend/krakend.proto";
 
-option go_package = "github.com/SebastienMelki/sebuf/examples/krakend-gateway/api";
+option go_package = "github.com/SebastienMelki/sebuf/examples/krakend-gateway/api/productservice";
 
 // ---------------------------------------------------------------------------
 // Messages

@@ -1,61 +1,113 @@
 # KrakenD Gateway Example
 
-Generate KrakenD API gateway configuration from annotated protobuf definitions and compose multi-service fragments into a complete gateway config using Flexible Config.
+End-to-end demo: annotate protos with `sebuf.krakend` annotations, generate a ready-to-use `krakend.json`, and run a real KrakenD gateway in front of a Go backend.
 
 ## Quick Start
 
 ```bash
-make all    # generate -> partials -> validate -> compose
+# 1. Build plugins (from repo root)
+make build
+
+# 2. Generate code + start gateway
+cd examples/krakend-gateway
+make demo
+
+# 3. Test the gateway
+make test
+
+# 4. Shut down
+make docker-down
 ```
 
-Prerequisites:
-- `protoc` (Protocol Buffers compiler)
-- `krakend` CLI (for validation and Flexible Config)
-- `jq` (for extracting partials)
-- `protoc-gen-krakend` binary (build from repo root with `make build`)
+## Architecture
+
+```
+    Client (curl)
+         |
+    :8080 (host)
+         |
+   +-----------+
+   |  KrakenD  |  docker: gateway
+   |  Gateway  |  reads gateway/krakend.json
+   +-----+-----+
+         |
+   users-backend:8080  /  products-backend:8080
+         |                      |
+         +----------+-----------+
+                    |
+             +-------------+
+             | Go Backend  |  docker: backend
+             | UserService |  (both network aliases
+             | ProductSvc  |   point to same container)
+             +-------------+
+                 :8080
+```
+
+Single Go binary serves both services. Docker Compose runs it with two network aliases (`users-backend`, `products-backend`) matching the proto `host` annotations.
+
+## What Gets Generated
+
+```bash
+make generate
+```
+
+Runs two protoc invocations:
+
+1. `protoc-gen-krakend` → `gateway/krakend.json` (single combined config, ready for KrakenD)
+2. `protoc-gen-go` + `protoc-gen-go-http` → `api/` (Go types + HTTP handlers)
+
+No jq, no templates, no manual stitching. One command, everything works.
 
 ## Directory Structure
 
 ```
 examples/krakend-gateway/
   proto/
-    models/
-      common.proto              # Shared messages (Pagination)
+    models/common.proto              Shared messages (Pagination)
     services/
-      user_service.proto        # JWT, rate limiting, headers, query params
-      product_service.proto     # Circuit breaker, caching, concurrent calls
+      user_service.proto             JWT, rate limiting, headers, query params
+      product_service.proto          Circuit breaker, caching, concurrent calls
   gateway/
-    krakend.tmpl                # Flexible Config template (composes services)
-    settings/
-      service_files.json        # Service registry for the template
-    partials/                   # (generated) Extracted endpoint arrays
-  generated/                    # (generated) Per-service .krakend.json files
-  Makefile                      # Workflow: generate, partials, validate, compose
-  buf.yaml                      # Buf config (for linting only)
-  buf.gen.yaml                  # Reference config (generation uses protoc directly)
+    krakend.json                     (generated) Ready-to-use KrakenD config
+  api/                               (generated) Go protobuf types + HTTP handlers
+  main.go                            Backend server (UserService + ProductService)
+  Dockerfile                         Multi-stage Go build
+  docker-compose.yml                 Gateway + backend orchestration
+  Makefile                           generate, run, demo, test, clean
+```
+
+## Running Locally (No Docker)
+
+```bash
+make generate
+make run
+# Backend on :8080 — no gateway, direct access
+curl http://localhost:8080/api/v1/products
 ```
 
 ## Proto Annotations Reference
 
-Each annotation is demonstrated with inline comments in the proto files. Open the proto files to see the exact usage.
+Each annotation is demonstrated with inline comments in the proto files.
 
 ### gateway_config (Service-Level)
 
-Sets defaults for all endpoints in a service. Applied via `option (sebuf.krakend.gateway_config)`.
+Sets defaults for all endpoints in a service:
 
 ```protobuf
 option (sebuf.krakend.gateway_config) = {
-  host: ["http://users-backend:8080"]  // Backend host(s)
-  timeout: "3s"                        // Request timeout
-  // ... rate_limit, jwt, circuit_breaker, cache, concurrent_calls
+  host: ["http://users-backend:8080"]
+  timeout: "3s"
+  rate_limit: { max_rate: 100, strategy: RATE_LIMIT_STRATEGY_IP }
+  jwt: { alg: JWT_ALGORITHM_RS256, jwk_url: "..." }
+  circuit_breaker: { interval: 60, timeout: 10, max_errors: 3 }
+  cache: { shared: true }
+  concurrent_calls: 2
 };
 ```
 
-See: `proto/services/user_service.proto` lines 66-105
-
 ### endpoint_config (Method-Level Overrides)
 
-Overrides service defaults for a specific RPC. Applied via `option (sebuf.krakend.endpoint_config)`.
+Override service defaults per-RPC:
 
 ```protobuf
 rpc UpdateUser(UpdateUserRequest) returns (User) {
@@ -65,87 +117,55 @@ rpc UpdateUser(UpdateUserRequest) returns (User) {
 }
 ```
 
-See: `proto/services/user_service.proto` UpdateUser RPC
-
 ### Rate Limiting
 
-**Endpoint-level** (`qos/ratelimit/router`) -- limits client requests to the gateway:
+**Endpoint-level** (`qos/ratelimit/router`):
 
 | Field | Description |
 |-------|-------------|
-| `max_rate` | Global requests/second across all clients |
+| `max_rate` | Global requests/second |
 | `client_max_rate` | Per-client requests/second |
-| `strategy` | How to identify clients: `RATE_LIMIT_STRATEGY_IP`, `RATE_LIMIT_STRATEGY_HEADER`, `RATE_LIMIT_STRATEGY_PARAM` |
-| `key` | Header/param name for `HEADER`/`PARAM` strategy |
+| `strategy` | `RATE_LIMIT_STRATEGY_IP`, `_HEADER`, `_PARAM` |
+| `key` | Header/param name (required for HEADER/PARAM) |
 
-**Backend-level** (`qos/ratelimit/proxy`) -- limits gateway requests to backends:
+**Backend-level** (`qos/ratelimit/proxy`):
 
 | Field | Description |
 |-------|-------------|
-| `max_rate` | Max requests/second to the backend |
+| `max_rate` | Max requests/second to backend |
 | `capacity` | Burst allowance |
-
-See: UserService (IP strategy) and ProductService (header strategy)
 
 ### JWT Authentication
 
-Service-level only -- all endpoints share the same auth config.
-
 | Field | Description |
 |-------|-------------|
-| `alg` | Signing algorithm: `JWT_ALGORITHM_RS256`, `JWT_ALGORITHM_HS256`, `JWT_ALGORITHM_ES256`, etc. |
-| `jwk_url` | JWKS endpoint for public keys |
+| `alg` | `JWT_ALGORITHM_RS256`, `_HS256`, `_ES256`, etc. |
+| `jwk_url` | JWKS endpoint |
 | `audience` | Expected `aud` claim(s) |
 | `issuer` | Expected `iss` claim |
-| `cache` | Cache JWKS responses (recommended) |
-| `propagate_claims` | Forward claims as headers: `{claim: "sub", header: "X-User"}` |
-
-Propagated claim headers are automatically added to `input_headers`.
-
-See: `proto/services/user_service.proto` jwt block
+| `cache` | Cache JWKS responses |
+| `propagate_claims` | Forward claims as headers (auto-added to `input_headers`) |
 
 ### Circuit Breaker
-
-Prevents cascading failures by opening the circuit when backends fail.
 
 | Field | Description |
 |-------|-------------|
 | `interval` | Error sampling window (seconds) |
-| `timeout` | How long circuit stays open before probing (seconds) |
-| `max_errors` | Errors within interval that trigger opening |
-| `name` | Label for logs and metrics |
-
-See: ProductService (service-level) and CreateProduct (aggressive override)
+| `timeout` | Open duration before probe (seconds) |
+| `max_errors` | Errors to trigger opening |
 
 ### Caching
 
-HTTP response caching with two mutually exclusive modes:
+Two mutually exclusive modes:
 
-**Shared mode** -- uses KrakenD's global shared cache:
-```protobuf
-cache: { shared: true }
-```
-
-**Sized mode** -- per-endpoint cache with limits:
-```protobuf
-cache: { max_items: 500, max_size: 5242880 }  // 5 MB
-```
-
-These modes are **mutually exclusive**. Setting `shared: true` with `max_items` or `max_size` causes a generation-time validation error.
-
-See: ProductService (shared at service level, sized override on GetProduct)
+- **Shared**: `cache: { shared: true }` — global shared cache
+- **Sized**: `cache: { max_items: 500, max_size: 5242880 }` — per-endpoint
 
 ### Concurrent Calls
 
-Send N identical requests to backends, return the fastest response. Useful for latency-sensitive reads.
-
 ```protobuf
-concurrent_calls: 2  // Service default
-// Override per-RPC:
-option (sebuf.krakend.endpoint_config) = { concurrent_calls: 3 };
+concurrent_calls: 2  // Send N requests, return fastest
 ```
-
-See: ProductService (2 at service level, 3 for GetProduct)
 
 ## Feature Distribution
 
@@ -163,141 +183,11 @@ See: ProductService (2 at service level, 3 for GetProduct)
 | Method Headers | x (GetUser) | |
 | Service Headers | x | x |
 
-## Flexible Config Integration Guide
+## Auto-Derived Forwarding
 
-KrakenD's Flexible Config lets you compose a complete gateway configuration from per-service fragments. This is the recommended approach for multi-service architectures where each team owns their API definition.
+The generator reads `sebuf.http` annotations to automatically populate KrakenD's zero-trust header/query forwarding:
 
-### Why Flexible Config?
+- **`input_headers`**: Derived from `service_headers` + `method_headers` annotations, plus JWT `propagate_claims` headers
+- **`input_query_strings`**: Derived from `query` field annotations
 
-Without Flexible Config, you would need to manually merge all service endpoint definitions into a single monolithic `krakend.json`. With sebuf's per-service generation + Flexible Config:
-
-1. Each service defines its own gateway behavior in proto annotations
-2. `protoc-gen-krakend` generates per-service configs (standalone, independently validatable)
-3. Flexible Config composes them into a single gateway config at deployment time
-
-### Step 1: Generate Per-Service Configs
-
-```bash
-make generate
-```
-
-Runs protoc with `protoc-gen-krakend` to produce per-service `.krakend.json` files in `generated/`:
-
-```bash
-protoc \
-  --plugin=protoc-gen-krakend=../../bin/protoc-gen-krakend \
-  --krakend_out=./generated \
-  --proto_path=proto \
-  --proto_path=../../proto \
-  proto/services/user_service.proto proto/services/product_service.proto
-```
-
-Each generated file is a complete, standalone KrakenD config with `$schema` and `version`. You can validate them independently.
-
-### Step 2: Extract Endpoint Partials
-
-```bash
-make partials
-```
-
-Extracts the `endpoints` array from each generated file, stripping the outer JSON envelope (`$schema`, `version`, array brackets). The result is bare endpoint objects suitable for `{{ include }}`:
-
-```bash
-# Extract endpoints array and strip outer [ ] brackets
-jq '.endpoints' generated/UserService.krakend.json | sed '1d;$d' > gateway/partials/user_endpoints.json
-```
-
-### Step 3: Create the Gateway Template
-
-The template (`gateway/krakend.tmpl`) uses `{{ include }}` to pull in partials:
-
-```json
-{
-  "$schema": "https://www.krakend.io/schema/krakend.json",
-  "version": 3,
-  "endpoints": [
-    {{ include "user_endpoints.json" }},
-    {{ include "product_endpoints.json" }}
-  ]
-}
-```
-
-Each partial contains comma-separated endpoint objects. The comma between includes handles the join between services.
-
-### Step 4: Validate the Composed Config
-
-```bash
-make compose
-```
-
-Runs `krakend check` with Flexible Config environment variables:
-
-```bash
-FC_ENABLE=1 \
-  FC_PARTIALS=gateway/partials \
-  FC_SETTINGS=gateway/settings \
-  krakend check -l -c gateway/krakend.tmpl
-```
-
-| Variable | Purpose |
-|----------|---------|
-| `FC_ENABLE=1` | Enable Flexible Config template processing |
-| `FC_PARTIALS` | Directory for `{{ include }}` file lookup |
-| `FC_SETTINGS` | Directory for `{{ marshal }}` settings files |
-
-### Validate Per-Service Configs Independently
-
-Each per-service generated file is standalone and can be validated independently:
-
-```bash
-krakend check -l -c generated/UserService.krakend.json
-krakend check -l -c generated/ProductService.krakend.json
-```
-
-This is useful for CI pipelines where you want to validate a single service's config without composing the full gateway.
-
-## Adding a New Service
-
-1. **Define the proto** with HTTP and KrakenD annotations:
-
-   ```protobuf
-   service OrderService {
-     option (sebuf.http.service_config) = { base_path: "/api/v1" };
-     option (sebuf.krakend.gateway_config) = {
-       host: ["http://orders-backend:8080"]
-       timeout: "3s"
-     };
-
-     rpc CreateOrder(CreateOrderRequest) returns (Order) {
-       option (sebuf.http.config) = { path: "/orders", method: HTTP_METHOD_POST };
-     };
-   }
-   ```
-
-2. **Add the proto file** to the Makefile `PROTOS` variable:
-
-   ```makefile
-   PROTOS := proto/services/user_service.proto proto/services/product_service.proto proto/services/order_service.proto
-   ```
-
-3. **Add the partial extraction** to the `partials` target:
-
-   ```makefile
-   @jq '.endpoints' generated/OrderService.krakend.json | sed '1d;$$d' > gateway/partials/order_endpoints.json
-   ```
-
-4. **Add the include** to `gateway/krakend.tmpl`:
-
-   ```
-   "endpoints": [
-     {{ include "user_endpoints.json" }},
-     {{ include "product_endpoints.json" }},
-     {{ include "order_endpoints.json" }}
-   ]
-   ```
-
-5. **Run the workflow:**
-
-   ```bash
-   make all
-   ```
+No manual `input_headers` lists needed — the proto is the single source of truth.

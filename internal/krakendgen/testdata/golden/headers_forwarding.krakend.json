@@ -40,6 +40,21 @@
           "encoding": "json"
         }
       ]
+    },
+    {
+      "endpoint": "/api/v1/no-headers",
+      "method": "GET",
+      "output_encoding": "json",
+      "backend": [
+        {
+          "url_pattern": "/api/v1/no-headers",
+          "host": [
+            "http://backend:8080"
+          ],
+          "method": "GET",
+          "encoding": "json"
+        }
+      ]
     }
   ]
 }

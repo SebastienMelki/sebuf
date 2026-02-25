@@ -43,48 +43,48 @@ func createPlugin(req *pluginpb.CodeGeneratorRequest) *protogen.Plugin {
 }
 
 func generateFiles(plugin *protogen.Plugin) {
+	var allEndpoints []krakendgen.Endpoint
+
 	for _, file := range plugin.Files {
 		if !file.Generate {
 			continue
 		}
-		processFileServices(plugin, file)
+		for _, service := range file.Services {
+			endpoints, err := krakendgen.GenerateService(service)
+			if err != nil {
+				plugin.Error(err)
+				return
+			}
+			allEndpoints = append(allEndpoints, endpoints...)
+		}
 	}
-}
 
-func processFileServices(plugin *protogen.Plugin, file *protogen.File) {
-	for _, service := range file.Services {
-		writeServiceFile(plugin, service)
-	}
-}
-
-func writeServiceFile(plugin *protogen.Plugin, service *protogen.Service) {
-	endpoints, err := krakendgen.GenerateService(service)
-	if err != nil {
+	// Validate routes across all services (catches cross-service conflicts).
+	if err := krakendgen.ValidateRoutes(allEndpoints, "gateway"); err != nil {
 		plugin.Error(err)
 		return
 	}
 
 	// Ensure nil slice marshals as [] not null.
-	if endpoints == nil {
-		endpoints = []krakendgen.Endpoint{}
+	if allEndpoints == nil {
+		allEndpoints = []krakendgen.Endpoint{}
 	}
 
 	config := krakendgen.KrakenDConfig{
 		Schema:    "https://www.krakend.io/schema/krakend.json",
 		Version:   3,
-		Endpoints: endpoints,
+		Endpoints: allEndpoints,
 	}
 
 	jsonBytes, err := json.MarshalIndent(config, "", "  ")
 	if err != nil {
-		plugin.Error(fmt.Errorf("service %s: failed to marshal config: %w", service.Desc.Name(), err))
+		plugin.Error(fmt.Errorf("failed to marshal config: %w", err))
 		return
 	}
 
-	filename := fmt.Sprintf("%s.krakend.json", service.Desc.Name())
-	generatedFile := plugin.NewGeneratedFile(filename, "")
+	generatedFile := plugin.NewGeneratedFile("krakend.json", "")
 	if _, writeErr := generatedFile.Write(append(jsonBytes, '\n')); writeErr != nil {
-		plugin.Error(fmt.Errorf("service %s: failed to write file: %w", service.Desc.Name(), writeErr))
+		plugin.Error(fmt.Errorf("failed to write krakend.json: %w", writeErr))
 	}
 }
 

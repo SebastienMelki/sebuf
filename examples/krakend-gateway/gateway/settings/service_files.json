@@ -1,6 +1,0 @@
-{
-  "services": [
-    {"name": "UserService", "partial": "user_endpoints.json"},
-    {"name": "ProductService", "partial": "product_endpoints.json"}
-  ]
-}

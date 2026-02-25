@@ -2,7 +2,6 @@ package krakendgen_test
 
 import (
 	"bytes"
-	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -160,65 +159,20 @@ func TestKrakenDGoldenFiles(t *testing.T) {
 	}
 
 	testCases := []struct {
-		name         string
-		protoFile    string
-		serviceNames []string // one proto may contain multiple services
+		name      string
+		protoFile string
 	}{
-		{
-			name:         "simple_service",
-			protoFile:    "simple_service.proto",
-			serviceNames: []string{"UserService"},
-		},
-		{
-			name:         "timeout_config",
-			protoFile:    "timeout_config.proto",
-			serviceNames: []string{"TimeoutService"},
-		},
-		{
-			name:         "host_config",
-			protoFile:    "host_config.proto",
-			serviceNames: []string{"HostService"},
-		},
-		{
-			name:         "headers_forwarding",
-			protoFile:    "headers_forwarding.proto",
-			serviceNames: []string{"HeaderForwardingService", "NoHeaderService"},
-		},
-		{
-			name:         "query_forwarding",
-			protoFile:    "query_forwarding.proto",
-			serviceNames: []string{"QueryForwardingService"},
-		},
-		{
-			name:         "combined_forwarding",
-			protoFile:    "combined_forwarding.proto",
-			serviceNames: []string{"CombinedForwardingService"},
-		},
-		{
-			name:         "rate_limit_service",
-			protoFile:    "rate_limit_service.proto",
-			serviceNames: []string{"RateLimitService"},
-		},
-		{
-			name:         "jwt_auth_service",
-			protoFile:    "jwt_auth_service.proto",
-			serviceNames: []string{"JWTAuthService"},
-		},
-		{
-			name:         "circuit_breaker_service",
-			protoFile:    "circuit_breaker_service.proto",
-			serviceNames: []string{"CircuitBreakerService"},
-		},
-		{
-			name:         "cache_concurrent_service",
-			protoFile:    "cache_concurrent_service.proto",
-			serviceNames: []string{"CacheConcurrentService"},
-		},
-		{
-			name:         "full_gateway_service",
-			protoFile:    "full_gateway_service.proto",
-			serviceNames: []string{"FullGatewayService"},
-		},
+		{name: "simple_service", protoFile: "simple_service.proto"},
+		{name: "timeout_config", protoFile: "timeout_config.proto"},
+		{name: "host_config", protoFile: "host_config.proto"},
+		{name: "headers_forwarding", protoFile: "headers_forwarding.proto"},
+		{name: "query_forwarding", protoFile: "query_forwarding.proto"},
+		{name: "combined_forwarding", protoFile: "combined_forwarding.proto"},
+		{name: "rate_limit_service", protoFile: "rate_limit_service.proto"},
+		{name: "jwt_auth_service", protoFile: "jwt_auth_service.proto"},
+		{name: "circuit_breaker_service", protoFile: "circuit_breaker_service.proto"},
+		{name: "cache_concurrent_service", protoFile: "cache_concurrent_service.proto"},
+		{name: "full_gateway_service", protoFile: "full_gateway_service.proto"},
 	}
 
 	for _, tc := range testCases {
@@ -242,28 +196,26 @@ func TestKrakenDGoldenFiles(t *testing.T) {
 					tc.name, runErr, stdout.String(), stderr.String())
 			}
 
-			for _, svcName := range tc.serviceNames {
-				generatedFile := filepath.Join(tempDir, svcName+".krakend.json")
-				goldenFile := filepath.Join(goldenDir, svcName+".krakend.json")
+			generatedFile := filepath.Join(tempDir, "krakend.json")
+			goldenFile := filepath.Join(goldenDir, tc.name+".krakend.json")
 
-				generatedContent, readErr := os.ReadFile(generatedFile)
-				if readErr != nil {
-					t.Fatalf("Failed to read generated file %s: %v", generatedFile, readErr)
-				}
+			generatedContent, readErr := os.ReadFile(generatedFile)
+			if readErr != nil {
+				t.Fatalf("Failed to read generated file %s: %v", generatedFile, readErr)
+			}
 
-				goldenContent, goldenReadErr := os.ReadFile(goldenFile)
-				if goldenReadErr != nil {
-					if created := tryCreateGoldenFile(t, goldenFile, generatedContent, goldenReadErr); created {
-						continue
-					}
-					t.Fatalf("Failed to read golden file %s: %v\nRun with UPDATE_GOLDEN=1 to create it", goldenFile, goldenReadErr)
+			goldenContent, goldenReadErr := os.ReadFile(goldenFile)
+			if goldenReadErr != nil {
+				if created := tryCreateGoldenFile(t, goldenFile, generatedContent, goldenReadErr); created {
+					return
 				}
+				t.Fatalf("Failed to read golden file %s: %v\nRun with UPDATE_GOLDEN=1 to create it", goldenFile, goldenReadErr)
+			}
 
-				if !bytes.Equal(generatedContent, goldenContent) {
-					reportGoldenFileMismatch(t, fmt.Sprintf("%s/%s", tc.name, svcName), goldenFile, generatedContent, goldenContent)
-				} else {
-					t.Logf("Match: %s (%d bytes)", svcName, len(generatedContent))
-				}
+			if !bytes.Equal(generatedContent, goldenContent) {
+				reportGoldenFileMismatch(t, tc.name, goldenFile, generatedContent, goldenContent)
+			} else {
+				t.Logf("Match: %s (%d bytes)", tc.name, len(generatedContent))
 			}
 		})
 	}
