@@ -81,6 +81,11 @@ func GenerateService(service *protogen.Service) ([]Endpoint, error) {
 		endpoints = append(endpoints, ep)
 	}
 
+	serviceName := string(service.Desc.Name())
+	if err := ValidateRoutes(endpoints, serviceName); err != nil {
+		return nil, err
+	}
+
 	return endpoints, nil
 }
 
