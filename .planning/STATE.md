@@ -55,6 +55,6 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-25
-Stopped at: Roadmap created for v1.1 milestone
-Resume file: None
+Stopped at: Phase 12 context gathered
+Resume file: .planning/phases/12-annotations-and-core-endpoint-generation/12-CONTEXT.md
 Next: `/gsd:plan-phase 12`
