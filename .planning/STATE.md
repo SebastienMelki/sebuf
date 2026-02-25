@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2026-02-25)
 
 **Core value:** Proto definitions are the single source of truth -- every generator (server, client, docs, gateway) must produce consistent, correct output that interoperates seamlessly.
-**Current focus:** Phase 13 - Gateway Features (v1.1 KrakenD)
+**Current focus:** Phase 14 - Documentation and Examples (v1.1 KrakenD)
 
 ## Current Position
 
-Phase: 13 of 14 (Gateway Features)
-Plan: 3 of 3 in current phase
-Status: Phase Complete
-Last activity: 2026-02-25 -- Completed 13-03 (Circuit Breaker, Caching, Concurrent Calls)
+Phase: 14 of 14 (Documentation and Examples)
+Plan: 1 of 3 in current phase
+Status: Plan 01 Complete
+Last activity: 2026-02-25 -- Completed 14-01 (Proto Enums and Schema Validation)
 
-Progress: [##########] 100%
+Progress: [########--] 80%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 7 (v1.1 milestone)
+- Total plans completed: 8 (v1.1 milestone)
 - Average duration: 4min
-- Total execution time: 30min
+- Total execution time: 35min
 
 **By Phase:**
 
@@ -29,9 +29,10 @@ Progress: [##########] 100%
 |-------|-------|-------|----------|
 | 12 | 4 | 18min | 4min |
 | 13 | 3 | 12min | 4min |
+| 14 | 1 | 5min | 5min |
 
 **Recent Trend:**
-- Last 5 plans: 12-03 (3min), 12-04 (5min), 13-01 (5min), 13-02 (3min), 13-03 (4min)
+- Last 5 plans: 12-04 (5min), 13-01 (5min), 13-02 (3min), 13-03 (4min), 14-01 (5min)
 - Trend: consistent
 
 *Updated after each plan completion*
@@ -65,6 +66,9 @@ Progress: [##########] 100%
 - Circuit breaker and cache configs validated before endpoint loop for fail-fast on invalid service-level config
 - Method-level circuit breaker and cache validated per-endpoint inside the loop
 - Circuit breaker int32 fields stored as int32 in config map, consistent with rate limit pattern
+- Enum-to-string mapping via explicit switch statements for clarity and compile-time safety
+- Cache shared+max_items/max_size validation added before existing pairing check for fail-fast
+- krakend check -lc test skips gracefully when CLI not installed for CI compatibility
 
 ### Pending Todos
 
@@ -77,6 +81,6 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-25
-Stopped at: Completed 13-03-PLAN.md (Phase 13 complete)
-Resume file: .planning/phases/13-gateway-features/13-03-SUMMARY.md
-Next: Phase 14 or milestone wrap-up
+Stopped at: Completed 14-01-PLAN.md
+Resume file: .planning/phases/14-documentation-and-examples/14-01-SUMMARY.md
+Next: 14-02-PLAN.md

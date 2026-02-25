@@ -63,7 +63,7 @@ Requirements for the KrakenD config generator milestone. Each maps to roadmap ph
 
 ### Documentation
 
-- [ ] **DOCS-01**: Example proto file demonstrating all KrakenD annotations with a working Flexible Config setup
+- [x] **DOCS-01**: Example proto file demonstrating all KrakenD annotations with a working Flexible Config setup
 - [ ] **DOCS-02**: Flexible Config integration guide showing how to compose per-service fragments into a full krakend.json
 
 ## Future Requirements
@@ -140,7 +140,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | TEST-02 | Phase 13 | Complete |
 | TEST-03 | Phase 12 | Complete |
 | TEST-04 | Phase 12 | Complete |
-| DOCS-01 | Phase 14 | Pending |
+| DOCS-01 | Phase 14 | Complete |
 | DOCS-02 | Phase 14 | Pending |
 
 **Coverage:**

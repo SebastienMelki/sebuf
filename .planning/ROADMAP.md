@@ -264,4 +264,4 @@ Phases execute in numeric order: 12 -> 13 -> 14
 |-------|----------------|--------|-----------|
 | 12. Annotations and Core Endpoint Generation | 4/4 | Complete    | 2026-02-25 |
 | 13. Gateway Features | 3/3 | Complete    | 2026-02-25 |
-| 14. Documentation and Examples | 0/3 | Not started | - |
+| 14. Documentation and Examples | 1/3 | In Progress|  |
