@@ -234,12 +234,12 @@ Plans:
   3. A service or method annotated with circuit breaker settings produces backend-level `extra_config` with `"qos/circuit-breaker"` containing interval, timeout, and max_errors -- with method-level always overriding service-level
   4. Backend caching (`"qos/http-cache"`) and concurrent calls are configurable per endpoint, with service-level defaults and method-level overrides
   5. All extra_config namespace strings (e.g., `"qos/ratelimit/router"`, `"auth/validator"`) are Go constants validated against a known allowlist, and golden file tests cover every gateway feature combination
-**Plans**: TBD
+**Plans**: 3 plans
 
 Plans:
-- [ ] 13-01: Rate limiting (endpoint and backend) with service/method override semantics
-- [ ] 13-02: JWT authentication and claim propagation
-- [ ] 13-03: Circuit breaker, caching, concurrent calls, and namespace validation
+- [ ] 13-01-PLAN.md -- Wrap output in standalone KrakenD config, proto messages, namespace constants, struct extensions, and rate limiting
+- [ ] 13-02-PLAN.md -- JWT authentication and claim propagation with auto input_headers augmentation
+- [ ] 13-03-PLAN.md -- Circuit breaker, caching, concurrent calls, validation, and full-features-combined golden test
 
 ### Phase 14: Documentation and Examples
 **Goal**: Users have a working example and a clear guide showing how to use protoc-gen-krakend annotations and compose per-service fragments into a complete KrakenD configuration
