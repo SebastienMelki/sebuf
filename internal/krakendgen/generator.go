@@ -76,6 +76,25 @@ func GenerateService(service *protogen.Service) ([]Endpoint, error) {
 		}
 
 		ep.InputHeaders = deriveInputHeaders(service, hm.method)
+
+		// Auto-add JWT propagated claim headers to input_headers.
+		if jwt := gwConfig.GetJwt(); jwt != nil {
+			propagatedHeaders := getJWTPropagatedHeaderNames(jwt)
+			if len(propagatedHeaders) > 0 {
+				headers := ep.InputHeaders
+				if headers == nil {
+					headers = []string{}
+				}
+				for _, h := range propagatedHeaders {
+					if !containsString(headers, h) {
+						headers = append(headers, h)
+					}
+				}
+				sort.Strings(headers)
+				ep.InputHeaders = headers
+			}
+		}
+
 		ep.InputQueryStrings = deriveInputQueryStrings(hm.method)
 		ep.ExtraConfig = buildEndpointExtraConfig(gwConfig, epConfig)
 		ep.Backend[0].ExtraConfig = buildBackendExtraConfig(gwConfig, epConfig)
@@ -291,6 +310,79 @@ func buildBackendRateLimitConfig(brl *krakend.BackendRateLimitConfig) map[string
 	return m
 }
 
+// ---------------------------------------------------------------------------
+// JWT auth/validator resolvers and builders
+// ---------------------------------------------------------------------------
+
+// buildAuthValidatorConfig builds the auth/validator config map from a
+// JWTConfig proto message. Only includes non-zero/non-empty fields.
+func buildAuthValidatorConfig(jwt *krakend.JWTConfig) map[string]any {
+	m := make(map[string]any)
+
+	if jwt.GetAlg() != "" {
+		m["alg"] = jwt.GetAlg()
+	}
+	if jwt.GetJwkUrl() != "" {
+		m["jwk_url"] = jwt.GetJwkUrl()
+	}
+	if len(jwt.GetAudience()) > 0 {
+		m["audience"] = jwt.GetAudience()
+	}
+	if jwt.GetIssuer() != "" {
+		m["issuer"] = jwt.GetIssuer()
+	}
+	if jwt.GetCache() {
+		m["cache"] = true
+	}
+	if claims := buildPropagateClaims(jwt.GetPropagateClaims()); claims != nil {
+		m["propagate_claims"] = claims
+	}
+
+	return m
+}
+
+// buildPropagateClaims converts proto ClaimToHeader messages to KrakenD's
+// expected array-of-arrays format: [["claim_name", "Header-Name"], ...].
+// Returns nil if input is empty.
+func buildPropagateClaims(claims []*krakend.ClaimToHeader) [][]string {
+	if len(claims) == 0 {
+		return nil
+	}
+
+	result := make([][]string, 0, len(claims))
+	for _, c := range claims {
+		result = append(result, []string{c.GetClaim(), c.GetHeader()})
+	}
+	return result
+}
+
+// getJWTPropagatedHeaderNames extracts just the header names from
+// propagate_claims. Used to auto-add them to input_headers.
+func getJWTPropagatedHeaderNames(jwt *krakend.JWTConfig) []string {
+	claims := jwt.GetPropagateClaims()
+	if len(claims) == 0 {
+		return nil
+	}
+
+	names := make([]string, 0, len(claims))
+	for _, c := range claims {
+		if h := c.GetHeader(); h != "" {
+			names = append(names, h)
+		}
+	}
+	return names
+}
+
+// containsString returns true if slice contains s.
+func containsString(slice []string, s string) bool {
+	for _, v := range slice {
+		if v == s {
+			return true
+		}
+	}
+	return false
+}
+
 // buildEndpointExtraConfig builds the endpoint-level extra_config map.
 // Returns nil if no extra config is needed (so omitempty omits it).
 func buildEndpointExtraConfig(gwConfig *krakend.GatewayConfig, epConfig *krakend.EndpointConfig) map[string]any {
@@ -298,6 +390,11 @@ func buildEndpointExtraConfig(gwConfig *krakend.GatewayConfig, epConfig *krakend
 
 	if rl := resolveRateLimit(gwConfig, epConfig); rl != nil {
 		m[NamespaceRateLimitRouter] = buildRateLimitRouterConfig(rl)
+	}
+
+	// JWT is service-level only -- read from gwConfig, never from epConfig.
+	if jwt := gwConfig.GetJwt(); jwt != nil {
+		m[NamespaceAuthValidator] = buildAuthValidatorConfig(jwt)
 	}
 
 	if len(m) == 0 {
