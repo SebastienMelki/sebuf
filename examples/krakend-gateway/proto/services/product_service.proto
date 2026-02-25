@@ -1,0 +1,173 @@
+// ProductService demonstrates KrakenD gateway annotations for a product catalog API.
+//
+// Features shown:
+//   - Circuit breaker for backend failure protection
+//   - HTTP response caching (shared mode and sized mode)
+//   - Concurrent calls for latency-sensitive endpoints
+//   - Rate limiting with header-based strategy
+//   - Method-level overrides for cache and circuit breaker
+syntax = "proto3";
+
+package krakendexample;
+
+import "sebuf/http/annotations.proto";
+import "sebuf/http/headers.proto";
+import "sebuf/krakend/krakend.proto";
+
+option go_package = "github.com/SebastienMelki/sebuf/examples/krakend-gateway/api";
+
+// ---------------------------------------------------------------------------
+// Messages
+// ---------------------------------------------------------------------------
+
+message ListProductsRequest {}
+
+message Product {
+  string id = 1;
+  string name = 2;
+  string description = 3;
+  int32 price_cents = 4;
+  string category = 5;
+}
+
+message ProductList {
+  repeated Product products = 1;
+}
+
+message GetProductRequest {
+  string id = 1;
+}
+
+message CreateProductRequest {
+  string name = 1;
+  string description = 2;
+  int32 price_cents = 3;
+  string category = 4;
+}
+
+message DeleteProductRequest {
+  string id = 1;
+}
+
+message Empty {}
+
+// ---------------------------------------------------------------------------
+// Service
+// ---------------------------------------------------------------------------
+
+service ProductService {
+  // Base path for all endpoints in this service.
+  option (sebuf.http.service_config) = {
+    base_path: "/api/v1"
+  };
+
+  // KrakenD gateway defaults for every endpoint in this service.
+  option (sebuf.krakend.gateway_config) = {
+    // Backend host for the products microservice.
+    host: ["http://products-backend:8080"]
+
+    // Generous timeout for potentially slow catalog queries.
+    timeout: "5s"
+
+    // Circuit breaker (qos/circuit-breaker) -- prevents cascading failures.
+    // When the backend returns max_errors errors within interval seconds,
+    // the circuit opens and KrakenD returns errors immediately for timeout
+    // seconds before probing to see if the backend has recovered.
+    circuit_breaker: {
+      interval: 60       // Sampling window: count errors within 60 seconds
+      timeout: 10        // Stay open for 10s before sending a probe request
+      max_errors: 5      // Open circuit after 5 errors in the window
+      name: "products-cb"  // Label for logs and metrics
+    }
+
+    // HTTP response cache (qos/http-cache) -- shared mode.
+    // Uses KrakenD's shared in-memory cache across all endpoints.
+    // IMPORTANT: shared mode is mutually exclusive with max_items/max_size.
+    cache: {
+      shared: true       // Use the global shared cache pool
+    }
+
+    // Concurrent calls -- send N identical requests to the backend and
+    // return the fastest response. Useful for latency-sensitive reads.
+    concurrent_calls: 2
+
+    // Rate limiting by API key header.
+    // Each unique X-API-Key value gets its own rate limit bucket.
+    rate_limit: {
+      max_rate: 200              // Global: 200 req/s total
+      client_max_rate: 30        // Per-client: 30 req/s per API key
+      strategy: RATE_LIMIT_STRATEGY_HEADER  // Identify clients by header
+      key: "X-API-Key"                      // Header used as client identifier
+    }
+  };
+
+  // Service-level headers forwarded to the backend.
+  option (sebuf.http.service_headers) = {
+    required_headers: [
+      {
+        name: "X-API-Key"
+        description: "API authentication key"
+        type: "string"
+        required: true
+      }
+    ]
+  };
+
+  // ListProducts -- GET, inherits all service defaults.
+  // Gets: circuit breaker, shared cache, 2 concurrent calls, header rate limit.
+  rpc ListProducts(ListProductsRequest) returns (ProductList) {
+    option (sebuf.http.config) = {
+      path: "/products"
+      method: HTTP_METHOD_GET
+    };
+  }
+
+  // GetProduct -- GET with path parameter.
+  // Overrides cache to use sized mode (per-endpoint cache with limits)
+  // and increases concurrent calls to 3 for this latency-critical endpoint.
+  rpc GetProduct(GetProductRequest) returns (Product) {
+    option (sebuf.http.config) = {
+      path: "/products/{id}"
+      method: HTTP_METHOD_GET
+    };
+    option (sebuf.krakend.endpoint_config) = {
+      // Override cache: switch from shared to sized mode.
+      // max_items and max_size are mutually exclusive with shared=true.
+      cache: {
+        max_items: 500           // Cache up to 500 product entries
+        max_size: 5242880        // Max 5 MB total cache size
+      }
+      // Override concurrent calls: 3 for individual product lookups.
+      concurrent_calls: 3
+    };
+  }
+
+  // CreateProduct -- POST, write endpoint.
+  // Overrides circuit breaker to be more aggressive (open after 2 errors).
+  // Writes should fail fast when the backend is unhealthy.
+  rpc CreateProduct(CreateProductRequest) returns (Product) {
+    option (sebuf.http.config) = {
+      path: "/products"
+      method: HTTP_METHOD_POST
+    };
+    option (sebuf.krakend.endpoint_config) = {
+      // More aggressive circuit breaker for write operations.
+      // Opens after just 2 errors (vs 5 at service level).
+      circuit_breaker: {
+        interval: 30             // Shorter window: 30 seconds
+        timeout: 15              // Longer recovery: 15 seconds
+        max_errors: 2            // Open after 2 errors (aggressive)
+        name: "products-create-cb"
+      }
+    };
+  }
+
+  // DeleteProduct -- DELETE with path parameter.
+  // No overrides -- inherits everything from service-level gateway_config.
+  rpc DeleteProduct(DeleteProductRequest) returns (Empty) {
+    option (sebuf.http.config) = {
+      path: "/products/{id}"
+      method: HTTP_METHOD_DELETE
+    };
+  }
+}

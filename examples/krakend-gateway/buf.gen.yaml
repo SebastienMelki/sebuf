@@ -1,0 +1,11 @@
+# buf.gen.yaml is kept for reference but generation uses protoc directly.
+# See the Makefile generate target for the protoc invocation.
+#
+# The krakend proto (sebuf/krakend/krakend.proto) lives in ../../proto
+# and may not yet be on the BSR, so we use protoc with --proto_path
+# to resolve imports locally.
+version: v2
+
+plugins:
+  - local: ../../bin/protoc-gen-krakend
+    out: ./generated

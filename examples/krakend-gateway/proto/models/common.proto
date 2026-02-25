@@ -1,0 +1,17 @@
+syntax = "proto3";
+
+package krakendexample;
+
+option go_package = "github.com/SebastienMelki/sebuf/examples/krakend-gateway/api";
+
+// Pagination holds pagination metadata for list responses.
+message Pagination {
+  // Current page number (1-indexed).
+  int32 page = 1;
+
+  // Number of items per page.
+  int32 per_page = 2;
+
+  // Total number of items across all pages.
+  int32 total = 3;
+}
