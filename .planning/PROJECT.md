@@ -2,11 +2,24 @@
 
 ## What This Is
 
-A specialized Go protobuf toolkit for building HTTP APIs without gRPC dependencies. Four protoc plugins generate HTTP handlers (Go), type-safe HTTP clients (Go, TypeScript), and OpenAPI v3.1 specs — all from protobuf service definitions with custom HTTP annotations. Targets web and mobile API development with built-in request/header validation, structured error handling, and flexible JSON serialization.
+A specialized Go protobuf toolkit for building HTTP APIs without gRPC dependencies. Six protoc plugins generate HTTP handlers (Go), type-safe HTTP clients (Go, TypeScript), TypeScript HTTP servers, OpenAPI v3.1 specs, and KrakenD API gateway configuration — all from protobuf service definitions with custom HTTP annotations. Targets web and mobile API development with built-in request/header validation, structured error handling, and flexible JSON serialization.
 
 ## Core Value
 
-Proto definitions are the single source of truth for HTTP APIs — every generator (server, client, docs) must produce consistent, correct output that interoperates seamlessly.
+Proto definitions are the single source of truth for HTTP APIs — every generator (server, client, docs, gateway) must produce consistent, correct output that interoperates seamlessly.
+
+## Current Milestone: v1.1 KrakenD Config Generator
+
+**Goal:** Add a protoc-gen-krakend plugin that generates KrakenD API gateway configuration from proto service definitions, eliminating manual config drift between services and the gateway.
+
+**Target features:**
+- Per-service KrakenD endpoint fragment generation (JSON)
+- KrakenD Flexible Config compatibility for multi-service merging
+- Rate limiting annotations (per-endpoint max_rate, capacity, strategy)
+- Auth/security annotations (JWT validation, API key checks, CORS)
+- Backend config annotations (timeouts, retries, circuit breakers)
+- New proto package: proto/sebuf/krakend/ for gateway-specific annotations
+- Reuse existing sebuf.http annotations for routing (path, method, query params, headers)
 
 ## Requirements
 
@@ -46,6 +59,15 @@ Proto definitions are the single source of truth for HTTP APIs — every generat
 - [ ] Ensure proto/OpenAPI/JSON consistency across all generators
 - [ ] Improve examples (including #50: multi-auth patterns)
 
+**v1.1 — KrakenD Config Generator:**
+- [ ] protoc-gen-krakend plugin generating per-service endpoint fragments
+- [ ] KrakenD Flexible Config merge support
+- [ ] Rate limiting annotations (max_rate, capacity, strategy)
+- [ ] Auth/security annotations (JWT, API key, CORS)
+- [ ] Backend config annotations (timeouts, retries, circuit breakers)
+- [ ] New proto/sebuf/krakend/ annotation package
+- [ ] Comprehensive KrakenD config surface coverage
+
 **v2.0 — Multi-Language Clients:**
 - [ ] Python HTTP client generator (protoc-gen-py-client)
 - [ ] Rust HTTP client generator (protoc-gen-rs-client)
@@ -77,6 +99,8 @@ Proto definitions are the single source of truth for HTTP APIs — every generat
 
 **Multi-language expansion:** Go and TypeScript clients provide reference implementations. Each new language client follows the same conceptual pattern (service class, method calls, option pattern, error types) but uses idiomatic language constructs. The protoc plugin architecture makes this extensible — each language is a new cmd/ entry point and internal/ generator.
 
+**KrakenD integration:** Sarwa uses KrakenD as their API gateway in front of sebuf-generated services. The devops team needs gateway config to stay in sync with service definitions. protoc-gen-krakend eliminates manual drift by generating KrakenD endpoint fragments directly from the same proto files that define the HTTP services.
+
 **Open PRs:** PR #98 (cross-file unwrap) needs review and merge. PR #72 (Swift, community) is a draft — may inform the v2.0 Swift client approach.
 
 ## Constraints
@@ -97,6 +121,9 @@ Proto definitions are the single source of truth for HTTP APIs — every generat
 | 8 languages for v2.0 clients: Python, Rust, Swift, Kotlin, Java, C#, Ruby, Dart | Top mainstream languages covering web, mobile, systems, and scripting | — Pending |
 | HTTP server generation deferred to v3.0 | Clients are higher value — servers only needed in Go currently | — Pending |
 | Use existing unwrap annotation pattern for root-level arrays | PR #103 already merged this approach, consistent with existing API | — Pending |
+| KrakenD annotations in separate proto package (sebuf.krakend) | Gateway config is a different concern than HTTP API shape — clean separation | — Pending |
+| Per-service endpoint fragments (not monolithic config) | Matches sebuf pattern (one output per service), composable via KrakenD FC | — Pending |
+| Reuse existing sebuf.http routing annotations | KrakenD needs the same path/method/params info — no duplication | — Pending |
 
 ---
-*Last updated: 2026-02-05 after initialization*
+*Last updated: 2026-02-25 after milestone v1.1 initialization*
