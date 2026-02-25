@@ -48,10 +48,37 @@ func GenerateService(service *protogen.Service) ([]Endpoint, error) {
 	}
 
 	basePath := annotations.GetServiceBasePath(service)
+	serviceName := string(service.Desc.Name())
+
+	// Validate service-level circuit breaker and cache configs before building endpoints.
+	if cb := gwConfig.GetCircuitBreaker(); cb != nil {
+		if err := validateCircuitBreaker(cb, serviceName); err != nil {
+			return nil, err
+		}
+	}
+	if cache := gwConfig.GetCache(); cache != nil {
+		if err := validateCache(cache, serviceName); err != nil {
+			return nil, err
+		}
+	}
 
 	endpoints := make([]Endpoint, 0, len(httpMethods))
 	for _, hm := range httpMethods {
 		epConfig := getEndpointConfig(hm.method)
+
+		// Validate method-level circuit breaker and cache if present.
+		if epConfig != nil {
+			if cb := epConfig.GetCircuitBreaker(); cb != nil {
+				if err := validateCircuitBreaker(cb, serviceName); err != nil {
+					return nil, err
+				}
+			}
+			if cache := epConfig.GetCache(); cache != nil {
+				if err := validateCache(cache, serviceName); err != nil {
+					return nil, err
+				}
+			}
+		}
 
 		fullPath := annotations.BuildHTTPPath(basePath, hm.httpConfig.Path)
 		host := resolveHost(gwConfig, epConfig)
@@ -73,6 +100,10 @@ func GenerateService(service *protogen.Service) ([]Endpoint, error) {
 
 		if timeout != "" {
 			ep.Timeout = timeout
+		}
+
+		if cc := resolveConcurrentCalls(gwConfig, epConfig); cc > 0 {
+			ep.ConcurrentCalls = cc
 		}
 
 		ep.InputHeaders = deriveInputHeaders(service, hm.method)
@@ -102,7 +133,6 @@ func GenerateService(service *protogen.Service) ([]Endpoint, error) {
 		endpoints = append(endpoints, ep)
 	}
 
-	serviceName := string(service.Desc.Name())
 	if err := ValidateRoutes(endpoints, serviceName); err != nil {
 		return nil, err
 	}
@@ -383,6 +413,107 @@ func containsString(slice []string, s string) bool {
 	return false
 }
 
+// ---------------------------------------------------------------------------
+// Circuit breaker resolvers and builders
+// ---------------------------------------------------------------------------
+
+// resolveCircuitBreaker returns the method-level circuit breaker if present,
+// otherwise the service-level circuit breaker. Returns nil if neither has it.
+func resolveCircuitBreaker(gwConfig *krakend.GatewayConfig, epConfig *krakend.EndpointConfig) *krakend.CircuitBreakerConfig {
+	if epConfig != nil && epConfig.GetCircuitBreaker() != nil {
+		return epConfig.GetCircuitBreaker()
+	}
+	return gwConfig.GetCircuitBreaker()
+}
+
+// validateCircuitBreaker verifies that all required fields (interval, timeout,
+// max_errors) are positive when a circuit breaker config is present.
+func validateCircuitBreaker(cb *krakend.CircuitBreakerConfig, serviceName string) error {
+	if cb.GetInterval() <= 0 || cb.GetTimeout() <= 0 || cb.GetMaxErrors() <= 0 {
+		return fmt.Errorf(
+			"service %s: circuit_breaker requires interval, timeout, and max_errors (all must be > 0)",
+			serviceName,
+		)
+	}
+	return nil
+}
+
+// buildCircuitBreakerConfig builds the backend-level circuit breaker config
+// map for the qos/circuit-breaker namespace.
+func buildCircuitBreakerConfig(cb *krakend.CircuitBreakerConfig) map[string]any {
+	m := make(map[string]any)
+
+	m["interval"] = cb.GetInterval()
+	m["timeout"] = cb.GetTimeout()
+	m["max_errors"] = cb.GetMaxErrors()
+
+	if cb.GetName() != "" {
+		m["name"] = cb.GetName()
+	}
+	if cb.GetLogStatusChange() {
+		m["log_status_change"] = true
+	}
+
+	return m
+}
+
+// ---------------------------------------------------------------------------
+// Backend caching resolvers and builders
+// ---------------------------------------------------------------------------
+
+// resolveCache returns the method-level cache if present, otherwise the
+// service-level cache. Returns nil if neither has it.
+func resolveCache(gwConfig *krakend.GatewayConfig, epConfig *krakend.EndpointConfig) *krakend.CacheConfig {
+	if epConfig != nil && epConfig.GetCache() != nil {
+		return epConfig.GetCache()
+	}
+	return gwConfig.GetCache()
+}
+
+// validateCache verifies that max_items and max_size are both set or both
+// unset. Having only one is a configuration error.
+func validateCache(cache *krakend.CacheConfig, serviceName string) error {
+	hasMaxItems := cache.GetMaxItems() > 0
+	hasMaxSize := cache.GetMaxSize() > 0
+	if hasMaxItems != hasMaxSize {
+		return fmt.Errorf(
+			"service %s: cache max_items and max_size must both be set or both unset",
+			serviceName,
+		)
+	}
+	return nil
+}
+
+// buildHTTPCacheConfig builds the backend-level HTTP cache config map for
+// the qos/http-cache namespace.
+func buildHTTPCacheConfig(cache *krakend.CacheConfig) map[string]any {
+	m := make(map[string]any)
+
+	if cache.GetShared() {
+		m["shared"] = true
+	}
+	if cache.GetMaxItems() > 0 && cache.GetMaxSize() > 0 {
+		m["max_items"] = cache.GetMaxItems()
+		m["max_size"] = cache.GetMaxSize()
+	}
+
+	return m
+}
+
+// ---------------------------------------------------------------------------
+// Concurrent calls resolver
+// ---------------------------------------------------------------------------
+
+// resolveConcurrentCalls returns the method-level concurrent calls if > 0,
+// otherwise the service-level value. Returns 0 if neither sets it (0 means
+// omit via omitempty on the Endpoint struct).
+func resolveConcurrentCalls(gwConfig *krakend.GatewayConfig, epConfig *krakend.EndpointConfig) int32 {
+	if epConfig != nil && epConfig.GetConcurrentCalls() > 0 {
+		return epConfig.GetConcurrentCalls()
+	}
+	return gwConfig.GetConcurrentCalls()
+}
+
 // buildEndpointExtraConfig builds the endpoint-level extra_config map.
 // Returns nil if no extra config is needed (so omitempty omits it).
 func buildEndpointExtraConfig(gwConfig *krakend.GatewayConfig, epConfig *krakend.EndpointConfig) map[string]any {
@@ -410,6 +541,14 @@ func buildBackendExtraConfig(gwConfig *krakend.GatewayConfig, epConfig *krakend.
 
 	if brl := resolveBackendRateLimit(gwConfig, epConfig); brl != nil {
 		m[NamespaceRateLimitProxy] = buildBackendRateLimitConfig(brl)
+	}
+
+	if cb := resolveCircuitBreaker(gwConfig, epConfig); cb != nil {
+		m[NamespaceCircuitBreaker] = buildCircuitBreakerConfig(cb)
+	}
+
+	if cache := resolveCache(gwConfig, epConfig); cache != nil {
+		m[NamespaceHTTPCache] = buildHTTPCacheConfig(cache)
 	}
 
 	if len(m) == 0 {
