@@ -200,7 +200,7 @@ Plans:
 
 Decimal phases appear between their surrounding integers in numeric order.
 
-- [ ] **Phase 12: Annotations and Core Endpoint Generation** - Proto annotation package, plugin scaffold, endpoint/backend generation, auto-derived forwarding, and route validation
+- [x] **Phase 12: Annotations and Core Endpoint Generation** - Proto annotation package, plugin scaffold, endpoint/backend generation, auto-derived forwarding, and route validation (completed 2026-02-25)
 - [ ] **Phase 13: Gateway Features** - Rate limiting, JWT authentication, circuit breaker, caching, concurrent calls, and namespace validation
 - [ ] **Phase 14: Documentation and Examples** - Example proto with all annotations and Flexible Config integration guide
 
@@ -260,6 +260,6 @@ Phases execute in numeric order: 12 -> 13 -> 14
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 12. Annotations and Core Endpoint Generation | 3/4 | In Progress|  |
+| 12. Annotations and Core Endpoint Generation | 4/4 | Complete   | 2026-02-25 |
 | 13. Gateway Features | 0/3 | Not started | - |
 | 14. Documentation and Examples | 0/1 | Not started | - |

@@ -10,28 +10,28 @@ See: .planning/PROJECT.md (updated 2026-02-25)
 ## Current Position
 
 Phase: 12 of 14 (Annotations and Core Endpoint Generation)
-Plan: 3 of 4 in current phase
-Status: Executing
-Last activity: 2026-02-25 -- Completed 12-03 (Header and Query String Forwarding)
+Plan: 4 of 4 in current phase
+Status: Phase Complete
+Last activity: 2026-02-25 -- Completed 12-04 (Validation and Golden Tests)
 
-Progress: [#######░░░] 75%
+Progress: [##########] 100%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 3 (v1.1 milestone)
+- Total plans completed: 4 (v1.1 milestone)
 - Average duration: 4min
-- Total execution time: 13min
+- Total execution time: 18min
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| 12 | 3 | 13min | 4min |
+| 12 | 4 | 18min | 4min |
 
 **Recent Trend:**
-- Last 5 plans: 12-01 (4min), 12-02 (6min), 12-03 (3min)
-- Trend: accelerating
+- Last 5 plans: 12-01 (4min), 12-02 (6min), 12-03 (3min), 12-04 (5min)
+- Trend: consistent
 
 *Updated after each plan completion*
 
@@ -51,6 +51,8 @@ Progress: [#######░░░] 75%
 - Reuse annotations.CombineHeaders for header merge in KrakenD -- method overrides service for same-name headers
 - Return nil (not empty slice) for empty forwarding lists -- omitempty omits from JSON (FWD-03)
 - Sort all forwarding lists for deterministic golden file comparison
+- Path segment trie for route conflict detection -- simple recursive structure, efficient for typical API route counts
+- Error messages reference endpoint indices (not RPC names) since Endpoint struct does not carry RPC name metadata
 
 ### Pending Todos
 
@@ -63,6 +65,6 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-25
-Stopped at: Completed 12-03-PLAN.md
-Resume file: .planning/phases/12-annotations-and-core-endpoint-generation/12-03-SUMMARY.md
-Next: Execute 12-04-PLAN.md
+Stopped at: Completed 12-04-PLAN.md (Phase 12 complete)
+Resume file: .planning/phases/12-annotations-and-core-endpoint-generation/12-04-SUMMARY.md
+Next: Phase 13 planning

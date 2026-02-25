@@ -50,16 +50,16 @@ Requirements for the KrakenD config generator milestone. Each maps to roadmap ph
 
 ### Validation
 
-- [ ] **VALD-01**: Generation fails with clear error if two RPCs produce identical (path, method) tuples
-- [ ] **VALD-02**: Generation fails with clear error if static and parameterized routes conflict at the same path level
+- [x] **VALD-01**: Generation fails with clear error if two RPCs produce identical (path, method) tuples
+- [x] **VALD-02**: Generation fails with clear error if static and parameterized routes conflict at the same path level
 - [ ] **VALD-03**: All extra_config namespace strings are Go constants validated against known KrakenD namespaces
 
 ### Testing
 
-- [ ] **TEST-01**: Golden file tests cover all core generation scenarios (endpoint routing, backend mapping, timeouts)
+- [x] **TEST-01**: Golden file tests cover all core generation scenarios (endpoint routing, backend mapping, timeouts)
 - [ ] **TEST-02**: Golden file tests cover gateway features (rate limiting, JWT, circuit breaker, caching, concurrent calls)
-- [ ] **TEST-03**: Golden file tests cover auto-derived header and query string forwarding
-- [ ] **TEST-04**: Golden file tests cover generation-time validation errors (duplicate endpoints, path conflicts)
+- [x] **TEST-03**: Golden file tests cover auto-derived header and query string forwarding
+- [x] **TEST-04**: Golden file tests cover generation-time validation errors (duplicate endpoints, path conflicts)
 
 ### Documentation
 
@@ -133,13 +133,13 @@ Which phases cover which requirements. Updated during roadmap creation.
 | RESL-02 | Phase 13 | Pending |
 | RESL-03 | Phase 13 | Pending |
 | RESL-04 | Phase 13 | Pending |
-| VALD-01 | Phase 12 | Pending |
-| VALD-02 | Phase 12 | Pending |
+| VALD-01 | Phase 12 | Complete |
+| VALD-02 | Phase 12 | Complete |
 | VALD-03 | Phase 13 | Pending |
-| TEST-01 | Phase 12 | Pending |
+| TEST-01 | Phase 12 | Complete |
 | TEST-02 | Phase 13 | Pending |
-| TEST-03 | Phase 12 | Pending |
-| TEST-04 | Phase 12 | Pending |
+| TEST-03 | Phase 12 | Complete |
+| TEST-04 | Phase 12 | Complete |
 | DOCS-01 | Phase 14 | Pending |
 | DOCS-02 | Phase 14 | Pending |
 
