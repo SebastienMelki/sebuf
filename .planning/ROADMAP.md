@@ -202,7 +202,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 12: Annotations and Core Endpoint Generation** - Proto annotation package, plugin scaffold, endpoint/backend generation, auto-derived forwarding, and route validation (completed 2026-02-25)
 - [x] **Phase 13: Gateway Features** - Rate limiting, JWT authentication, circuit breaker, caching, concurrent calls, and namespace validation (completed 2026-02-25)
-- [ ] **Phase 14: Documentation and Examples** - Proto enums for type safety, krakend check validation, example with all annotations, and Flexible Config integration guide
+- [x] **Phase 14: Documentation and Examples** - Proto enums for type safety, krakend check validation, example with all annotations, and Flexible Config integration guide (completed 2026-02-25)
 
 ## Phase Details
 
@@ -264,4 +264,4 @@ Phases execute in numeric order: 12 -> 13 -> 14
 |-------|----------------|--------|-----------|
 | 12. Annotations and Core Endpoint Generation | 4/4 | Complete    | 2026-02-25 |
 | 13. Gateway Features | 3/3 | Complete    | 2026-02-25 |
-| 14. Documentation and Examples | 2/3 | In Progress|  |
+| 14. Documentation and Examples | 3/3 | Complete   | 2026-02-25 |

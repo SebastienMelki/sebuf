@@ -11,17 +11,17 @@ See: .planning/PROJECT.md (updated 2026-02-25)
 
 Phase: 14 of 14 (Documentation and Examples)
 Plan: 3 of 3 in current phase
-Status: Plan 03 Complete
-Last activity: 2026-02-25 -- Completed 14-03 (README and CLAUDE.md KrakenD Documentation)
+Status: All Plans Complete
+Last activity: 2026-02-25 -- Completed 14-02 (KrakenD Gateway Example)
 
-Progress: [#########-] 90%
+Progress: [##########] 100%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 9 (v1.1 milestone)
+- Total plans completed: 10 (v1.1 milestone)
 - Average duration: 4min
-- Total execution time: 39min
+- Total execution time: 47min
 
 **By Phase:**
 
@@ -29,10 +29,10 @@ Progress: [#########-] 90%
 |-------|-------|-------|----------|
 | 12 | 4 | 18min | 4min |
 | 13 | 3 | 12min | 4min |
-| 14 | 2 | 9min | 4min |
+| 14 | 3 | 17min | 5min |
 
 **Recent Trend:**
-- Last 5 plans: 13-01 (5min), 13-02 (3min), 13-03 (4min), 14-01 (5min), 14-03 (4min)
+- Last 5 plans: 13-02 (3min), 13-03 (4min), 14-01 (5min), 14-03 (4min), 14-02 (8min)
 - Trend: consistent
 
 *Updated after each plan completion*
@@ -71,6 +71,9 @@ Progress: [#########-] 90%
 - krakend check -lc test skips gracefully when CLI not installed for CI compatibility
 - KrakenD section in README placed after How It Works and before Quick Setup for natural reading flow
 - README kept concise as teaser driving users to krakend-gateway example
+- Use protoc directly in krakend-gateway example because krakend proto not yet on BSR
+- FC partials extracted via jq + sed to strip outer array brackets for Flexible Config include
+- krakend check -d output is human-readable debug, not JSON dump -- compose validates only
 
 ### Pending Todos
 
@@ -83,6 +86,6 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-25
-Stopped at: Completed 14-03-PLAN.md
-Resume file: .planning/phases/14-documentation-and-examples/14-03-SUMMARY.md
-Next: 14-02-PLAN.md
+Stopped at: Completed 14-02-PLAN.md (all phase 14 plans complete)
+Resume file: .planning/phases/14-documentation-and-examples/14-02-SUMMARY.md
+Next: Phase 14 complete. All v1.1 milestone plans executed.
