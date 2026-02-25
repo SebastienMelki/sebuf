@@ -260,6 +260,6 @@ Phases execute in numeric order: 12 -> 13 -> 14
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 12. Annotations and Core Endpoint Generation | 0/4 | Not started | - |
+| 12. Annotations and Core Endpoint Generation | 1/4 | In Progress|  |
 | 13. Gateway Features | 0/3 | Not started | - |
 | 14. Documentation and Examples | 0/1 | Not started | - |

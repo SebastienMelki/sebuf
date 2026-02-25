@@ -9,9 +9,9 @@ Requirements for the KrakenD config generator milestone. Each maps to roadmap ph
 
 ### Proto Annotations
 
-- [ ] **ANNO-01**: New proto package `proto/sebuf/krakend/` with gateway-specific annotations (extension numbers 51000+)
-- [ ] **ANNO-02**: Service-level `gateway_config` annotation for service-wide defaults (host, timeout, rate limit, auth, circuit breaker)
-- [ ] **ANNO-03**: Method-level `endpoint_config` annotation for per-RPC overrides (timeout, rate limit, circuit breaker)
+- [x] **ANNO-01**: New proto package `proto/sebuf/krakend/` with gateway-specific annotations (extension numbers 51000+)
+- [x] **ANNO-02**: Service-level `gateway_config` annotation for service-wide defaults (host, timeout, rate limit, auth, circuit breaker)
+- [x] **ANNO-03**: Method-level `endpoint_config` annotation for per-RPC overrides (timeout, rate limit, circuit breaker)
 - [ ] **ANNO-04**: Method-level config always overrides service-level config for the same setting
 
 ### Core Generation
@@ -110,9 +110,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| ANNO-01 | Phase 12 | Pending |
-| ANNO-02 | Phase 12 | Pending |
-| ANNO-03 | Phase 12 | Pending |
+| ANNO-01 | Phase 12 | Complete |
+| ANNO-02 | Phase 12 | Complete |
+| ANNO-03 | Phase 12 | Complete |
 | ANNO-04 | Phase 12 | Pending |
 | CORE-01 | Phase 12 | Pending |
 | CORE-02 | Phase 12 | Pending |
