@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -9,8 +10,7 @@ import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/pluginpb"
 
-	// Establish package dependency for KrakenD types used in Plan 02+.
-	_ "github.com/SebastienMelki/sebuf/internal/krakendgen"
+	"github.com/SebastienMelki/sebuf/internal/krakendgen"
 )
 
 func main() {
@@ -58,10 +58,27 @@ func processFileServices(plugin *protogen.Plugin, file *protogen.File) {
 }
 
 func writeServiceFile(plugin *protogen.Plugin, service *protogen.Service) {
+	endpoints, err := krakendgen.GenerateService(service)
+	if err != nil {
+		plugin.Error(err)
+		return
+	}
+
+	// Ensure nil slice marshals as [] not null.
+	if endpoints == nil {
+		endpoints = []krakendgen.Endpoint{}
+	}
+
+	jsonBytes, err := json.MarshalIndent(endpoints, "", "  ")
+	if err != nil {
+		plugin.Error(fmt.Errorf("service %s: failed to marshal endpoints: %w", service.Desc.Name(), err))
+		return
+	}
+
 	filename := fmt.Sprintf("%s.krakend.json", service.Desc.Name())
 	generatedFile := plugin.NewGeneratedFile(filename, "")
-	if _, writeErr := generatedFile.Write([]byte("[]")); writeErr != nil {
-		panic(writeErr)
+	if _, writeErr := generatedFile.Write(append(jsonBytes, '\n')); writeErr != nil {
+		plugin.Error(fmt.Errorf("service %s: failed to write file: %w", service.Desc.Name(), writeErr))
 	}
 }
 

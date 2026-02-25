@@ -16,9 +16,31 @@ import (
 // objects. Each RPC with a sebuf.http.config annotation becomes one endpoint;
 // RPCs without that annotation are silently skipped.
 //
-// The service must have a sebuf.krakend.gateway_config annotation providing
-// at least one backend host. If missing, GenerateService returns an error.
+// If at least one RPC has HTTP config, the service must have a
+// sebuf.krakend.gateway_config annotation providing a backend host.
+// If no RPCs have HTTP config, an empty slice is returned without error.
 func GenerateService(service *protogen.Service) ([]Endpoint, error) {
+	// Collect RPCs that have HTTP annotations before requiring gateway_config.
+	// This avoids failing on services that have nothing to do with HTTP/KrakenD.
+	type httpMethod struct {
+		method     *protogen.Method
+		httpConfig *annotations.HTTPConfig
+	}
+
+	var httpMethods []httpMethod
+	for _, method := range service.Methods {
+		cfg := annotations.GetMethodHTTPConfig(method)
+		if cfg != nil {
+			httpMethods = append(httpMethods, httpMethod{method: method, httpConfig: cfg})
+		}
+	}
+
+	// No HTTP-annotated RPCs -- nothing to generate.
+	if len(httpMethods) == 0 {
+		return nil, nil
+	}
+
+	// At least one RPC needs a backend, so gateway_config is required.
 	gwConfig, err := getGatewayConfig(service)
 	if err != nil {
 		return nil, err
@@ -26,29 +48,23 @@ func GenerateService(service *protogen.Service) ([]Endpoint, error) {
 
 	basePath := annotations.GetServiceBasePath(service)
 
-	var endpoints []Endpoint
-	for _, method := range service.Methods {
-		httpConfig := annotations.GetMethodHTTPConfig(method)
-		if httpConfig == nil {
-			// RPC has no sebuf.http.config -- skip silently.
-			continue
-		}
+	endpoints := make([]Endpoint, 0, len(httpMethods))
+	for _, hm := range httpMethods {
+		epConfig := getEndpointConfig(hm.method)
 
-		epConfig := getEndpointConfig(method)
-
-		fullPath := annotations.BuildHTTPPath(basePath, httpConfig.Path)
+		fullPath := annotations.BuildHTTPPath(basePath, hm.httpConfig.Path)
 		host := resolveHost(gwConfig, epConfig)
 		timeout := resolveTimeout(gwConfig, epConfig)
 
 		ep := Endpoint{
 			Endpoint:       fullPath,
-			Method:         httpConfig.Method,
+			Method:         hm.httpConfig.Method,
 			OutputEncoding: "json",
 			Backend: []Backend{
 				{
 					URLPattern: fullPath,
 					Host:       host,
-					Method:     httpConfig.Method,
+					Method:     hm.httpConfig.Method,
 					Encoding:   "json",
 				},
 			},
