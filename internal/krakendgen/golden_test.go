@@ -355,3 +355,41 @@ func TestKrakenDValidationErrors(t *testing.T) {
 		})
 	}
 }
+
+// ---------------------------------------------------------------------------
+// TestKrakenDSchemaValidation — krakend check -lc on all golden files
+// ---------------------------------------------------------------------------
+
+func TestKrakenDSchemaValidation(t *testing.T) {
+	krakendPath, err := exec.LookPath("krakend")
+	if err != nil {
+		t.Skip("krakend CLI not found in PATH, skipping schema validation")
+	}
+
+	baseDir, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("Failed to get working directory: %v", err)
+	}
+
+	goldenDir := filepath.Join(baseDir, "testdata", "golden")
+	entries, err := os.ReadDir(goldenDir)
+	if err != nil {
+		t.Fatalf("Failed to read golden dir: %v", err)
+	}
+
+	for _, entry := range entries {
+		if !strings.HasSuffix(entry.Name(), ".krakend.json") {
+			continue
+		}
+		t.Run(entry.Name(), func(t *testing.T) {
+			filePath := filepath.Join(goldenDir, entry.Name())
+			cmd := exec.Command(krakendPath, "check", "-lc", filePath)
+			var stderr bytes.Buffer
+			cmd.Stderr = &stderr
+			if err := cmd.Run(); err != nil {
+				t.Errorf("krakend check -lc failed for %s: %v\n%s",
+					entry.Name(), err, stderr.String())
+			}
+		})
+	}
+}
