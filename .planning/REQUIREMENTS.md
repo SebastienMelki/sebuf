@@ -31,9 +31,9 @@ Requirements for the KrakenD config generator milestone. Each maps to roadmap ph
 
 ### Rate Limiting
 
-- [ ] **RLIM-01**: Endpoint-level rate limiting configurable via annotation (`qos/ratelimit/router` namespace)
-- [ ] **RLIM-02**: Rate limit settings include max_rate, capacity, and strategy (configurable per service and per method)
-- [ ] **RLIM-03**: Backend-level rate limiting configurable via annotation (`qos/ratelimit/proxy` namespace)
+- [x] **RLIM-01**: Endpoint-level rate limiting configurable via annotation (`qos/ratelimit/router` namespace)
+- [x] **RLIM-02**: Rate limit settings include max_rate, capacity, and strategy (configurable per service and per method)
+- [x] **RLIM-03**: Backend-level rate limiting configurable via annotation (`qos/ratelimit/proxy` namespace)
 
 ### Authentication
 
@@ -52,7 +52,7 @@ Requirements for the KrakenD config generator milestone. Each maps to roadmap ph
 
 - [x] **VALD-01**: Generation fails with clear error if two RPCs produce identical (path, method) tuples
 - [x] **VALD-02**: Generation fails with clear error if static and parameterized routes conflict at the same path level
-- [ ] **VALD-03**: All extra_config namespace strings are Go constants validated against known KrakenD namespaces
+- [x] **VALD-03**: All extra_config namespace strings are Go constants validated against known KrakenD namespaces
 
 ### Testing
 
@@ -123,9 +123,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | FWD-01 | Phase 12 | Complete |
 | FWD-02 | Phase 12 | Complete |
 | FWD-03 | Phase 12 | Complete |
-| RLIM-01 | Phase 13 | Pending |
-| RLIM-02 | Phase 13 | Pending |
-| RLIM-03 | Phase 13 | Pending |
+| RLIM-01 | Phase 13 | Complete |
+| RLIM-02 | Phase 13 | Complete |
+| RLIM-03 | Phase 13 | Complete |
 | AUTH-01 | Phase 13 | Pending |
 | AUTH-02 | Phase 13 | Pending |
 | AUTH-03 | Phase 13 | Pending |
@@ -135,7 +135,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | RESL-04 | Phase 13 | Pending |
 | VALD-01 | Phase 12 | Complete |
 | VALD-02 | Phase 12 | Complete |
-| VALD-03 | Phase 13 | Pending |
+| VALD-03 | Phase 13 | Complete |
 | TEST-01 | Phase 12 | Complete |
 | TEST-02 | Phase 13 | Pending |
 | TEST-03 | Phase 12 | Complete |

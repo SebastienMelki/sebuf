@@ -5,32 +5,33 @@
 See: .planning/PROJECT.md (updated 2026-02-25)
 
 **Core value:** Proto definitions are the single source of truth -- every generator (server, client, docs, gateway) must produce consistent, correct output that interoperates seamlessly.
-**Current focus:** Phase 12 - Annotations and Core Endpoint Generation (v1.1 KrakenD)
+**Current focus:** Phase 13 - Gateway Features (v1.1 KrakenD)
 
 ## Current Position
 
-Phase: 12 of 14 (Annotations and Core Endpoint Generation)
-Plan: 4 of 4 in current phase
-Status: Phase Complete
-Last activity: 2026-02-25 -- Completed 12-04 (Validation and Golden Tests)
+Phase: 13 of 14 (Gateway Features)
+Plan: 1 of 3 in current phase
+Status: In Progress
+Last activity: 2026-02-25 -- Completed 13-01 (Foundation and Rate Limiting)
 
-Progress: [##########] 100%
+Progress: [###-------] 33%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 4 (v1.1 milestone)
-- Average duration: 4min
-- Total execution time: 18min
+- Total plans completed: 5 (v1.1 milestone)
+- Average duration: 5min
+- Total execution time: 23min
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 12 | 4 | 18min | 4min |
+| 13 | 1 | 5min | 5min |
 
 **Recent Trend:**
-- Last 5 plans: 12-01 (4min), 12-02 (6min), 12-03 (3min), 12-04 (5min)
+- Last 5 plans: 12-02 (6min), 12-03 (3min), 12-04 (5min), 13-01 (5min)
 - Trend: consistent
 
 *Updated after each plan completion*
@@ -53,6 +54,10 @@ Progress: [##########] 100%
 - Sort all forwarding lists for deterministic golden file comparison
 - Path segment trie for route conflict detection -- simple recursive structure, efficient for typical API route counts
 - Error messages reference endpoint indices (not RPC names) since Endpoint struct does not carry RPC name metadata
+- KrakenDConfig wrapper struct lives in types.go alongside Endpoint/Backend -- keeps all output types co-located
+- ExtraConfig is map[string]any with omitempty -- nil maps omitted from JSON so existing golden files unaffected
+- resolve/build pattern for extra_config: resolveX picks service or method level, buildXConfig creates map for namespace
+- Rate limit int32 fields stored as int32 in map (not float64) -- Go json.Marshal handles correctly
 
 ### Pending Todos
 
@@ -65,6 +70,6 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-25
-Stopped at: Completed 12-04-PLAN.md (Phase 12 complete)
-Resume file: .planning/phases/12-annotations-and-core-endpoint-generation/12-04-SUMMARY.md
-Next: Phase 13 planning
+Stopped at: Completed 13-01-PLAN.md
+Resume file: .planning/phases/13-gateway-features/13-01-SUMMARY.md
+Next: 13-02-PLAN.md (JWT validation, circuit breaker, cache)
