@@ -76,6 +76,7 @@ func GenerateService(service *protogen.Service) ([]Endpoint, error) {
 		}
 
 		ep.InputHeaders = deriveInputHeaders(service, hm.method)
+		ep.InputQueryStrings = deriveInputQueryStrings(hm.method)
 
 		endpoints = append(endpoints, ep)
 	}
@@ -188,6 +189,24 @@ func deriveInputHeaders(service *protogen.Service, method *protogen.Method) []st
 
 	if len(names) == 0 {
 		return nil
+	}
+
+	sort.Strings(names)
+	return names
+}
+
+// deriveInputQueryStrings extracts query parameter names from the request
+// message's sebuf.http.query annotations. Returns nil if no query params are
+// annotated so that the omitempty JSON tag omits the field.
+func deriveInputQueryStrings(method *protogen.Method) []string {
+	params := annotations.GetQueryParams(method.Input)
+	if len(params) == 0 {
+		return nil
+	}
+
+	names := make([]string, 0, len(params))
+	for _, qp := range params {
+		names = append(names, qp.ParamName)
 	}
 
 	sort.Strings(names)
