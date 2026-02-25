@@ -2,6 +2,7 @@ package krakendgen
 
 import (
 	"fmt"
+	"sort"
 
 	"google.golang.org/protobuf/compiler/protogen"
 	"google.golang.org/protobuf/proto"
@@ -73,6 +74,8 @@ func GenerateService(service *protogen.Service) ([]Endpoint, error) {
 		if timeout != "" {
 			ep.Timeout = timeout
 		}
+
+		ep.InputHeaders = deriveInputHeaders(service, hm.method)
 
 		endpoints = append(endpoints, ep)
 	}
@@ -161,4 +164,32 @@ func resolveTimeout(gwConfig *krakend.GatewayConfig, epConfig *krakend.EndpointC
 		return epConfig.GetTimeout()
 	}
 	return gwConfig.GetTimeout()
+}
+
+// deriveInputHeaders extracts header names from service-level and method-level
+// header annotations, merges them (method overrides service for same-name
+// headers), and returns a sorted list of header names. Returns nil if no
+// headers are annotated so that the omitempty JSON tag omits the field.
+func deriveInputHeaders(service *protogen.Service, method *protogen.Method) []string {
+	serviceHeaders := annotations.GetServiceHeaders(service)
+	methodHeaders := annotations.GetMethodHeaders(method)
+
+	combined := annotations.CombineHeaders(serviceHeaders, methodHeaders)
+	if len(combined) == 0 {
+		return nil
+	}
+
+	names := make([]string, 0, len(combined))
+	for _, h := range combined {
+		if name := h.GetName(); name != "" {
+			names = append(names, name)
+		}
+	}
+
+	if len(names) == 0 {
+		return nil
+	}
+
+	sort.Strings(names)
+	return names
 }
