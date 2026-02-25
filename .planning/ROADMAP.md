@@ -211,7 +211,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Depends on**: Nothing (first phase of v1.1 milestone; reuses existing sebuf.http annotations from v1.0)
 **Requirements**: ANNO-01, ANNO-02, ANNO-03, ANNO-04, CORE-01, CORE-02, CORE-03, CORE-04, CORE-05, CORE-06, FWD-01, FWD-02, FWD-03, VALD-01, VALD-02, TEST-01, TEST-03, TEST-04
 **Success Criteria** (what must be TRUE):
-  1. Running `protoc --krakend_out=. --krakend_opt=host=http://backend:8080 service.proto` produces a `{ServiceName}.krakend.json` file containing a valid JSON array of KrakenD endpoint objects with correct HTTP methods and paths derived from `sebuf.http.config` annotations
+  1. Running `protoc --krakend_out=. service.proto` on a service annotated with `gateway_config` produces a `{ServiceName}.krakend.json` file containing a valid JSON array of KrakenD endpoint objects with correct HTTP methods and paths derived from `sebuf.http.config` annotations, and backend host from the `gateway_config` annotation
   2. KrakenD endpoint objects include `input_headers` auto-populated from `sebuf.http.service_headers` and `sebuf.http.method_headers`, and `input_query_strings` auto-populated from `sebuf.http.query` annotations -- never empty arrays, never wildcards
   3. Service-level `gateway_config` annotation sets defaults (host, timeout) for all endpoints in a service, and method-level `endpoint_config` annotation overrides those defaults for individual RPCs
   4. Generation fails with a clear error message when two RPCs produce identical (path, method) tuples, or when static and parameterized routes conflict at the same path level (e.g., `/users/search` vs `/users/{id}`)

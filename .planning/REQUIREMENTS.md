@@ -18,7 +18,7 @@ Requirements for the KrakenD config generator milestone. Each maps to roadmap ph
 
 - [ ] **CORE-01**: Plugin reads `sebuf.http.config` annotations to extract HTTP path and method for each RPC
 - [ ] **CORE-02**: Plugin generates one JSON file per proto service (`{ServiceName}.krakend.json`) containing an array of KrakenD endpoint objects
-- [ ] **CORE-03**: Backend host is configurable via plugin parameter (`--krakend_opt=host=http://backend:8080`)
+- [ ] **CORE-03**: Backend host is required via `gateway_config` annotation (no plugin parameter -- host lives in proto annotations per user decision)
 - [ ] **CORE-04**: Backend host is configurable via service-level annotation (overrides plugin parameter)
 - [ ] **CORE-05**: Per-endpoint timeout is configurable via service-level default and method-level override
 - [ ] **CORE-06**: Output encoding defaults to JSON for all endpoints
