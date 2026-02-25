@@ -202,7 +202,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 12: Annotations and Core Endpoint Generation** - Proto annotation package, plugin scaffold, endpoint/backend generation, auto-derived forwarding, and route validation (completed 2026-02-25)
 - [x] **Phase 13: Gateway Features** - Rate limiting, JWT authentication, circuit breaker, caching, concurrent calls, and namespace validation (completed 2026-02-25)
-- [ ] **Phase 14: Documentation and Examples** - Example proto with all annotations and Flexible Config integration guide
+- [ ] **Phase 14: Documentation and Examples** - Proto enums for type safety, krakend check validation, example with all annotations, and Flexible Config integration guide
 
 ## Phase Details
 
@@ -219,10 +219,10 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Plans**: 4 plans
 
 Plans:
-- [ ] 12-01-PLAN.md -- Proto annotation package (sebuf.krakend), generated Go code, plugin scaffold, KrakenD JSON types
-- [ ] 12-02-PLAN.md -- Core endpoint/backend generation with host and timeout config, annotation override semantics
-- [ ] 12-03-PLAN.md -- Auto-derived header and query string forwarding from sebuf.http annotations
-- [ ] 12-04-PLAN.md -- Route validation (duplicate endpoints, static vs param conflicts) and golden file test suite
+- [x] 12-01-PLAN.md -- Proto annotation package (sebuf.krakend), generated Go code, plugin scaffold, KrakenD JSON types
+- [x] 12-02-PLAN.md -- Core endpoint/backend generation with host and timeout config, annotation override semantics
+- [x] 12-03-PLAN.md -- Auto-derived header and query string forwarding from sebuf.http annotations
+- [x] 12-04-PLAN.md -- Route validation (duplicate endpoints, static vs param conflicts) and golden file test suite
 
 ### Phase 13: Gateway Features
 **Goal**: Users can annotate their proto services with rate limiting, JWT authentication, circuit breaker, caching, and concurrency settings that generate correct KrakenD extra_config entries
@@ -237,9 +237,9 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
-- [ ] 13-01-PLAN.md -- Wrap output in standalone KrakenD config, proto messages, namespace constants, struct extensions, and rate limiting
-- [ ] 13-02-PLAN.md -- JWT authentication and claim propagation with auto input_headers augmentation
-- [ ] 13-03-PLAN.md -- Circuit breaker, caching, concurrent calls, validation, and full-features-combined golden test
+- [x] 13-01-PLAN.md -- Wrap output in standalone KrakenD config, proto messages, namespace constants, struct extensions, and rate limiting
+- [x] 13-02-PLAN.md -- JWT authentication and claim propagation with auto input_headers augmentation
+- [x] 13-03-PLAN.md -- Circuit breaker, caching, concurrent calls, validation, and full-features-combined golden test
 
 ### Phase 14: Documentation and Examples
 **Goal**: Users have a working example and a clear guide showing how to use protoc-gen-krakend annotations and compose per-service fragments into a complete KrakenD configuration
@@ -248,10 +248,12 @@ Plans:
 **Success Criteria** (what must be TRUE):
   1. An example proto file in `examples/` demonstrates every KrakenD annotation (gateway_config, endpoint_config, rate limiting, JWT, circuit breaker, caching) with inline comments explaining each setting
   2. A Flexible Config integration guide shows how to use KrakenD's `FC_ENABLE=1` with `{{ include }}` directives to compose per-service `.krakend.json` fragments into a complete `krakend.json`, including the comma-handling pattern for multi-service includes
-**Plans**: TBD
+**Plans**: 3 plans
 
 Plans:
-- [ ] 14-01: Example proto and Flexible Config integration guide
+- [ ] 14-01-PLAN.md -- Proto enums (RateLimitStrategy, JWTAlgorithm), cache oneOf fix, krakend check -lc test
+- [ ] 14-02-PLAN.md -- Multi-service krakend-gateway example with Flexible Config template and Makefile workflow
+- [ ] 14-03-PLAN.md -- README KrakenD section and CLAUDE.md documentation updates
 
 ## Progress
 
@@ -262,4 +264,4 @@ Phases execute in numeric order: 12 -> 13 -> 14
 |-------|----------------|--------|-----------|
 | 12. Annotations and Core Endpoint Generation | 4/4 | Complete    | 2026-02-25 |
 | 13. Gateway Features | 3/3 | Complete    | 2026-02-25 |
-| 14. Documentation and Examples | 0/1 | Not started | - |
+| 14. Documentation and Examples | 0/3 | Not started | - |
