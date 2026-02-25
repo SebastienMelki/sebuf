@@ -1,3 +1,35 @@
+// KrakenD API Gateway annotations for sebuf.
+//
+// These annotations let you configure KrakenD gateway behavior directly in your
+// proto service definitions. The protoc-gen-krakend plugin reads these annotations
+// and generates per-service KrakenD JSON configuration files.
+//
+// Two annotation levels:
+//   - Service-level: (sebuf.krakend.gateway_config) — sets defaults for all endpoints
+//   - Method-level:  (sebuf.krakend.endpoint_config) — overrides defaults per-RPC
+//
+// Method-level always wins when both are set. Fields omitted at method level
+// inherit from the service-level config.
+//
+// Example usage:
+//
+//   service UserService {
+//     option (sebuf.krakend.gateway_config) = {
+//       host: ["http://users-backend:8080"]
+//       timeout: "3s"
+//       rate_limit: { max_rate: 100, strategy: RATE_LIMIT_STRATEGY_IP }
+//       jwt: { alg: JWT_ALGORITHM_RS256, jwk_url: "https://auth.example.com/.well-known/jwks.json" }
+//     };
+//
+//     rpc GetUser(GetUserRequest) returns (User) {
+//       option (sebuf.http.config) = { path: "/users/{id}", method: HTTP_METHOD_GET };
+//       option (sebuf.krakend.endpoint_config) = { timeout: "5s" };  // Override just timeout
+//     };
+//   }
+//
+// Extension numbers 51001-51002 are reserved for KrakenD annotations,
+// above the sebuf.http range (50003-50020).
+
 syntax = "proto3";
 
 package sebuf.krakend;
@@ -6,143 +38,418 @@ import "google/protobuf/descriptor.proto";
 
 option go_package = "github.com/SebastienMelki/sebuf/krakend;krakend";
 
-// RateLimitStrategy identifies the client for per-client rate limiting.
+// ---------------------------------------------------------------------------
+// Enums
+// ---------------------------------------------------------------------------
+
+// RateLimitStrategy identifies how KrakenD determines the client identity
+// for per-client rate limiting (client_max_rate / client_capacity).
+//
+// Maps to the KrakenD "strategy" field in qos/ratelimit/router.
+// See: https://www.krakend.io/docs/endpoints/rate-limit/
 enum RateLimitStrategy {
+  // No strategy specified. The strategy field is omitted from JSON output,
+  // which means KrakenD applies no per-client limiting (only global max_rate).
   RATE_LIMIT_STRATEGY_UNSPECIFIED = 0;
+
+  // Rate limit by client IP address. KrakenD reads the client IP from
+  // the request (respecting X-Forwarded-For when configured).
+  // JSON output: "strategy": "ip"
   RATE_LIMIT_STRATEGY_IP = 1;
+
+  // Rate limit by a specific request header value. Requires the "key" field
+  // to specify which header (e.g., "X-API-Key"). Each unique header value
+  // gets its own rate limit bucket.
+  // JSON output: "strategy": "header"
   RATE_LIMIT_STRATEGY_HEADER = 2;
+
+  // Rate limit by a URL parameter value. Requires the "key" field to specify
+  // which parameter. Each unique parameter value gets its own bucket.
+  // JSON output: "strategy": "param"
   RATE_LIMIT_STRATEGY_PARAM = 3;
 }
 
-// JWTAlgorithm specifies the JWT signing algorithm.
+// JWTAlgorithm specifies the signing algorithm used to verify JWT tokens.
+//
+// Maps to the KrakenD "alg" field in auth/validator.
+// Must match the algorithm used by your identity provider's JWKS endpoint.
+// See: https://www.krakend.io/docs/authorization/jwt-validation/
 enum JWTAlgorithm {
+  // No algorithm specified. The alg field is omitted from JSON output.
+  // KrakenD requires an algorithm, so this should not be used in practice.
   JWT_ALGORITHM_UNSPECIFIED = 0;
-  JWT_ALGORITHM_RS256 = 1;
-  JWT_ALGORITHM_RS384 = 2;
-  JWT_ALGORITHM_RS512 = 3;
-  JWT_ALGORITHM_HS256 = 4;
-  JWT_ALGORITHM_HS384 = 5;
-  JWT_ALGORITHM_HS512 = 6;
-  JWT_ALGORITHM_ES256 = 7;
-  JWT_ALGORITHM_ES384 = 8;
-  JWT_ALGORITHM_ES512 = 9;
-  JWT_ALGORITHM_PS256 = 10;
-  JWT_ALGORITHM_PS384 = 11;
-  JWT_ALGORITHM_PS512 = 12;
-  JWT_ALGORITHM_EDDSA = 13;
+
+  // RSA PKCS#1 v1.5 with SHA-256/384/512. Most common for Auth0, Okta, etc.
+  JWT_ALGORITHM_RS256 = 1;   // JSON: "RS256"
+  JWT_ALGORITHM_RS384 = 2;   // JSON: "RS384"
+  JWT_ALGORITHM_RS512 = 3;   // JSON: "RS512"
+
+  // HMAC with SHA-256/384/512. Symmetric — same secret signs and verifies.
+  // Use only when the signing secret can be securely shared with KrakenD.
+  JWT_ALGORITHM_HS256 = 4;   // JSON: "HS256"
+  JWT_ALGORITHM_HS384 = 5;   // JSON: "HS384"
+  JWT_ALGORITHM_HS512 = 6;   // JSON: "HS512"
+
+  // ECDSA with P-256/P-384/P-521 curves and SHA-256/384/512.
+  // Smaller keys than RSA with equivalent security.
+  JWT_ALGORITHM_ES256 = 7;   // JSON: "ES256"
+  JWT_ALGORITHM_ES384 = 8;   // JSON: "ES384"
+  JWT_ALGORITHM_ES512 = 9;   // JSON: "ES512"
+
+  // RSA-PSS with SHA-256/384/512. More secure padding than PKCS#1 v1.5.
+  JWT_ALGORITHM_PS256 = 10;  // JSON: "PS256"
+  JWT_ALGORITHM_PS384 = 11;  // JSON: "PS384"
+  JWT_ALGORITHM_PS512 = 12;  // JSON: "PS512"
+
+  // Edwards-curve Digital Signature Algorithm (Ed25519).
+  // High performance, small signatures.
+  JWT_ALGORITHM_EDDSA = 13;  // JSON: "EdDSA"
 }
 
-// GatewayConfig sets service-wide KrakenD defaults.
-// Applied to a service via (sebuf.krakend.gateway_config).
+// ---------------------------------------------------------------------------
+// Service-level configuration
+// ---------------------------------------------------------------------------
+
+// GatewayConfig sets service-wide KrakenD defaults for all endpoints in a service.
+//
+// Applied via: option (sebuf.krakend.gateway_config) = { ... };
+//
+// Every field here establishes a default that individual RPCs can override
+// using EndpointConfig. The generator reads sebuf.http annotations (path,
+// method, headers, query params) from each RPC and combines them with this
+// config to produce complete KrakenD endpoint objects.
+//
+// Only services with at least one HTTP-annotated RPC produce output.
+// Services without gateway_config but with HTTP RPCs produce endpoints
+// with empty arrays (no host, no extra_config).
 message GatewayConfig {
-  // Backend host URLs (e.g., "http://backend:8080"). Required.
-  // Must include scheme (http:// or https://).
-  // Multiple hosts enable KrakenD load balancing.
+  // Backend host URLs that KrakenD forwards requests to.
+  // Must include scheme (e.g., "http://users-backend:8080").
+  // Multiple hosts enable KrakenD's built-in load balancing across backends.
+  // At least one host is required for meaningful output.
   repeated string host = 1;
 
-  // Default timeout for all endpoints in this service.
-  // KrakenD duration format: "2s", "500ms", "1m".
-  // Omit to use KrakenD's built-in default.
+  // Default request timeout for all endpoints in this service.
+  // Uses KrakenD's duration format: "3s", "500ms", "1m30s".
+  // When omitted, the timeout field is excluded from JSON output and
+  // KrakenD applies its own default (typically unlimited or global config).
   string timeout = 2;
 
-  // Default endpoint-level rate limiting (qos/ratelimit/router).
+  // Endpoint-level rate limiting applied to all RPCs in this service.
+  // Controls how many requests per second KrakenD accepts before returning 429.
+  // Maps to KrakenD namespace: "qos/ratelimit/router" in endpoint extra_config.
   RateLimitConfig rate_limit = 3;
 
-  // Default backend-level rate limiting (qos/ratelimit/proxy).
+  // Backend-level rate limiting applied to all RPCs in this service.
+  // Controls how many requests per second KrakenD sends to each backend.
+  // Maps to KrakenD namespace: "qos/ratelimit/proxy" in backend extra_config.
   BackendRateLimitConfig backend_rate_limit = 4;
 
-  // JWT validation configuration (auth/validator). Service-level only.
+  // JWT token validation configuration.
+  // Service-level ONLY — there is no method-level JWT override, because
+  // authentication should be consistent across all endpoints in a service.
+  // Maps to KrakenD namespace: "auth/validator" in endpoint extra_config.
+  // When propagate_claims is set, the mapped headers are automatically added
+  // to input_headers so KrakenD forwards them to backends.
   JWTConfig jwt = 5;
 
-  // Default circuit breaker for all backends (qos/circuit-breaker).
+  // Circuit breaker configuration for all backends in this service.
+  // Prevents cascading failures by stopping requests to unhealthy backends.
+  // Maps to KrakenD namespace: "qos/circuit-breaker" in backend extra_config.
   CircuitBreakerConfig circuit_breaker = 6;
 
-  // Default HTTP cache configuration (qos/http-cache).
+  // HTTP response cache configuration for all endpoints in this service.
+  // Caches backend responses to reduce load and latency.
+  // Maps to KrakenD namespace: "qos/http-cache" in backend extra_config.
+  //
+  // IMPORTANT: KrakenD enforces a oneOf constraint — "shared" mode and
+  // "max_items"/"max_size" mode are mutually exclusive. Setting shared=true
+  // with max_items or max_size causes a generation-time validation error.
   CacheConfig cache = 7;
 
-  // Default concurrent calls for all endpoints.
+  // Number of concurrent requests KrakenD makes to backends for each
+  // incoming request. KrakenD sends N identical requests and returns the
+  // fastest successful response. Useful for latency-sensitive endpoints.
+  // Default: 1 (no concurrency). Typical values: 2-3.
   int32 concurrent_calls = 8;
 }
 
-// EndpointConfig overrides service-level defaults for a specific RPC.
-// Applied to an rpc method via (sebuf.krakend.endpoint_config).
+// ---------------------------------------------------------------------------
+// Method-level configuration (overrides)
+// ---------------------------------------------------------------------------
+
+// EndpointConfig overrides service-level GatewayConfig defaults for a
+// specific RPC method. Only the fields you set here override; omitted
+// fields inherit from GatewayConfig.
+//
+// Applied via: option (sebuf.krakend.endpoint_config) = { ... };
+//
+// Note: JWT is NOT available at method level — authentication is always
+// service-wide. All other gateway features can be overridden per-endpoint.
 message EndpointConfig {
-  // Override backend host for this specific endpoint.
+  // Override backend hosts for this specific endpoint.
+  // Use when this RPC routes to a different backend than the service default.
   repeated string host = 1;
 
   // Override timeout for this specific endpoint.
+  // Use for endpoints that are known to be slow (e.g., report generation).
   string timeout = 2;
 
-  // Override endpoint-level rate limiting (qos/ratelimit/router).
+  // Override endpoint-level rate limiting for this RPC.
+  // Use to set stricter limits on expensive endpoints (e.g., writes)
+  // or looser limits on cheap endpoints (e.g., health checks).
   RateLimitConfig rate_limit = 3;
 
-  // Override backend-level rate limiting (qos/ratelimit/proxy).
+  // Override backend-level rate limiting for this RPC.
   BackendRateLimitConfig backend_rate_limit = 4;
 
-  // Override circuit breaker for this endpoint's backend.
+  // Override circuit breaker settings for this endpoint's backend.
+  // Use to set more aggressive circuit breaking on flaky endpoints.
   CircuitBreakerConfig circuit_breaker = 5;
 
-  // Override HTTP cache for this endpoint.
+  // Override cache settings for this endpoint.
+  // Common pattern: service uses shared=true, but a specific endpoint
+  // uses max_items/max_size for more granular cache control.
+  //
+  // IMPORTANT: same oneOf constraint as GatewayConfig.cache —
+  // shared and max_items/max_size are mutually exclusive.
   CacheConfig cache = 6;
 
   // Override concurrent calls for this endpoint.
   int32 concurrent_calls = 7;
 }
 
-// RateLimitConfig configures endpoint-level rate limiting (qos/ratelimit/router).
+// ---------------------------------------------------------------------------
+// Rate limiting
+// ---------------------------------------------------------------------------
+
+// RateLimitConfig configures endpoint-level rate limiting.
+// Maps to KrakenD namespace: "qos/ratelimit/router" in endpoint extra_config.
+//
+// Two tiers of limiting:
+//   - Global: max_rate + capacity — total requests/second across all clients
+//   - Per-client: client_max_rate + client_capacity — per-client bucket
+//     (requires strategy to identify clients)
+//
+// See: https://www.krakend.io/docs/endpoints/rate-limit/
 message RateLimitConfig {
+  // Maximum requests per second across ALL clients combined.
+  // When exceeded, KrakenD returns HTTP 429 Too Many Requests.
+  // Set to 0 to disable global limiting (only per-client applies).
   int32 max_rate = 1;
+
+  // Token bucket capacity for global rate limiting.
+  // Allows bursts up to this size before rate limiting kicks in.
+  // Defaults to max_rate if omitted.
   int32 capacity = 2;
+
+  // Time window for rate calculation. KrakenD duration format.
+  // Default: "1s" (rates are per-second). Use "1m" for per-minute rates.
   string every = 3;
+
+  // Maximum requests per second for each individual client.
+  // Requires "strategy" to identify clients. Without strategy, this is ignored.
   int32 client_max_rate = 4;
+
+  // Token bucket capacity for per-client rate limiting.
+  // Allows per-client bursts. Defaults to client_max_rate if omitted.
   int32 client_capacity = 5;
+
+  // How to identify individual clients for per-client limiting.
+  // Required when client_max_rate is set. Without this, only global
+  // limiting applies.
   RateLimitStrategy strategy = 6;
+
+  // Header or parameter name used with HEADER or PARAM strategy.
+  // Example: strategy=RATE_LIMIT_STRATEGY_HEADER, key="X-API-Key"
+  // means each unique X-API-Key value gets its own rate limit bucket.
+  // Ignored when strategy is IP or UNSPECIFIED.
   string key = 7;
 }
 
-// BackendRateLimitConfig configures backend-level rate limiting (qos/ratelimit/proxy).
+// BackendRateLimitConfig configures backend-level rate limiting.
+// Maps to KrakenD namespace: "qos/ratelimit/proxy" in backend extra_config.
+//
+// Limits how fast KrakenD sends requests to backends, protecting them
+// from being overwhelmed even when endpoint-level limits allow more traffic.
+//
+// See: https://www.krakend.io/docs/backends/rate-limit/
 message BackendRateLimitConfig {
+  // Maximum requests per second KrakenD sends to this backend.
   int32 max_rate = 1;
+
+  // Token bucket capacity. Allows bursts up to this size.
+  // Defaults to max_rate if omitted.
   int32 capacity = 2;
+
+  // Time window for rate calculation. Default: "1s".
   string every = 3;
 }
 
-// JWTConfig configures JWT validation (auth/validator).
+// ---------------------------------------------------------------------------
+// JWT Authentication
+// ---------------------------------------------------------------------------
+
+// JWTConfig configures JWT token validation at the gateway level.
+// Maps to KrakenD namespace: "auth/validator" in endpoint extra_config.
+//
+// KrakenD validates tokens BEFORE forwarding to backends, rejecting
+// invalid/expired tokens with HTTP 401. This offloads auth from services.
+//
+// Service-level only — all endpoints in a service share the same JWT config.
+//
+// See: https://www.krakend.io/docs/authorization/jwt-validation/
 message JWTConfig {
+  // Signing algorithm. Must match what your identity provider uses.
+  // RS256 is the most common (Auth0, Okta, Keycloak, Firebase).
   JWTAlgorithm alg = 1;
+
+  // URL to the JSON Web Key Set (JWKS) endpoint.
+  // KrakenD fetches public keys from here to verify token signatures.
+  // Example: "https://auth.example.com/.well-known/jwks.json"
   string jwk_url = 2;
+
+  // Expected audience claim(s) in the JWT. Token is rejected if its "aud"
+  // claim doesn't match any of these values.
+  // Example: ["https://api.example.com"]
   repeated string audience = 3;
+
+  // Expected issuer claim in the JWT. Token is rejected if its "iss"
+  // claim doesn't match this value.
+  // Example: "https://auth.example.com/"
   string issuer = 4;
+
+  // Enable JWKS response caching. Reduces load on the identity provider
+  // by caching the public keys. Recommended for production.
+  // Default: false (no caching). Only included in JSON when true.
   bool cache = 5;
+
+  // Forward JWT claims as request headers to backends.
+  // Each entry maps a JWT claim to a header name. KrakenD extracts the
+  // claim value from the validated token and sets it as a request header.
+  //
+  // Example: { claim: "sub", header: "X-User" } means the "sub" claim
+  // value is forwarded as the "X-User" header to backends.
+  //
+  // Headers from propagate_claims are automatically added to input_headers
+  // (with dedup and sort) so KrakenD forwards them under its zero-trust model.
+  //
+  // Serialized as array-of-arrays per KrakenD spec:
+  //   "propagate_claims": [["sub", "X-User"], ["org_id", "X-Org-ID"]]
   repeated ClaimToHeader propagate_claims = 6;
 }
 
-// ClaimToHeader maps a JWT claim to a request header for backend forwarding.
+// ClaimToHeader maps a single JWT claim to a request header.
+// Used within JWTConfig.propagate_claims.
+//
+// When KrakenD validates a JWT, it can extract claim values and inject them
+// as request headers for the backend. This lets backends trust header values
+// (e.g., X-User) without parsing JWTs themselves.
 message ClaimToHeader {
+  // JWT claim name to extract (e.g., "sub", "email", "org_id").
   string claim = 1;
+
+  // Request header name to set (e.g., "X-User", "X-Org-ID").
+  // This header is automatically added to the endpoint's input_headers list.
   string header = 2;
 }
 
-// CircuitBreakerConfig configures the circuit breaker (qos/circuit-breaker).
+// ---------------------------------------------------------------------------
+// Circuit Breaker
+// ---------------------------------------------------------------------------
+
+// CircuitBreakerConfig configures the circuit breaker pattern for backends.
+// Maps to KrakenD namespace: "qos/circuit-breaker" in backend extra_config.
+//
+// Prevents cascading failures: when a backend starts failing, the circuit
+// "opens" and KrakenD returns errors immediately without hitting the backend,
+// giving it time to recover.
+//
+// States: Closed (normal) -> Open (failing, skip backend) -> Half-Open (test)
+//
+// See: https://www.krakend.io/docs/backends/circuit-breaker/
 message CircuitBreakerConfig {
+  // Sampling window in seconds. KrakenD counts errors within this window
+  // to decide whether to open the circuit.
+  // Example: 60 means "if max_errors occur within 60 seconds, open circuit"
   int32 interval = 1;
+
+  // Seconds the circuit stays open before moving to half-open state.
+  // During this time, ALL requests get an immediate error (no backend call).
+  // After timeout, KrakenD sends a single probe request to test recovery.
   int32 timeout = 2;
+
+  // Number of consecutive errors within the interval that triggers opening.
+  // Lower values = more aggressive (opens faster, protects backend sooner).
+  // Example: 3 means "3 errors in {interval}s opens the circuit"
   int32 max_errors = 3;
+
+  // Human-readable name for this circuit breaker. Appears in logs and metrics.
+  // Example: "users-cb", "products-cb"
   string name = 4;
+
+  // Log state transitions (Closed->Open, Open->Half-Open, etc.).
+  // Useful for debugging. Default: false.
   bool log_status_change = 5;
 }
 
-// CacheConfig configures HTTP caching (qos/http-cache).
+// ---------------------------------------------------------------------------
+// HTTP Caching
+// ---------------------------------------------------------------------------
+
+// CacheConfig configures HTTP response caching for backends.
+// Maps to KrakenD namespace: "qos/http-cache" in backend extra_config.
+//
+// Caches backend responses to reduce load and improve latency.
+// KrakenD respects Cache-Control headers from backends.
+//
+// IMPORTANT: KrakenD enforces a oneOf constraint between two cache modes:
+//   - Shared mode: shared=true — uses KrakenD's shared in-memory cache
+//   - Sized mode: max_items + max_size — per-endpoint cache with limits
+// These modes are MUTUALLY EXCLUSIVE. Setting shared=true with max_items
+// or max_size causes a generation-time validation error.
+//
+// See: https://www.krakend.io/docs/backends/caching/
 message CacheConfig {
+  // Use KrakenD's shared in-memory cache across all endpoints.
+  // Mutually exclusive with max_items/max_size.
+  // When true, max_items and max_size MUST be 0/unset.
   bool shared = 1;
+
+  // Maximum number of cached items for this endpoint's cache.
+  // Mutually exclusive with shared=true.
+  // Both max_items and max_size should be set together.
   int32 max_items = 2;
+
+  // Maximum total cache size in bytes for this endpoint.
+  // Mutually exclusive with shared=true.
+  // Example: 10485760 = 10 MB.
+  // Both max_items and max_size should be set together.
   int32 max_size = 3;
 }
 
+// ---------------------------------------------------------------------------
+// Proto extensions (annotation attachment points)
+// ---------------------------------------------------------------------------
+
+// Attach GatewayConfig to a protobuf service definition.
+// Extension number 51001 (above sebuf.http range 50003-50020).
+//
+// Usage:
+//   service MyService {
+//     option (sebuf.krakend.gateway_config) = { host: ["http://backend:8080"] };
+//   }
 extend google.protobuf.ServiceOptions {
   GatewayConfig gateway_config = 51001;
 }
 
+// Attach EndpointConfig to a specific RPC method definition.
+// Extension number 51002 (above sebuf.http range 50003-50020).
+//
+// Usage:
+//   rpc MyMethod(Req) returns (Res) {
+//     option (sebuf.krakend.endpoint_config) = { timeout: "10s" };
+//   }
 extend google.protobuf.MethodOptions {
   EndpointConfig endpoint_config = 51002;
 }
