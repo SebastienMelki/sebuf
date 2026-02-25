@@ -514,11 +514,33 @@ type RateLimitConfig struct {
 	// How to identify individual clients for per-client limiting.
 	// Required when client_max_rate is set. Without this, only global
 	// limiting applies.
+	//
+	// The "key" field behavior depends on the strategy:
+	//   - IP:     key is IGNORED (client identified by IP address automatically)
+	//   - HEADER: key is REQUIRED — name of the header to identify clients
+	//     e.g., strategy: RATE_LIMIT_STRATEGY_HEADER, key: "X-API-Key"
+	//   - PARAM:  key is REQUIRED — name of the URL parameter to identify clients
+	//     e.g., strategy: RATE_LIMIT_STRATEGY_PARAM, key: "user_id"
 	Strategy RateLimitStrategy `protobuf:"varint,6,opt,name=strategy,proto3,enum=sebuf.krakend.RateLimitStrategy" json:"strategy,omitempty"`
-	// Header or parameter name used with HEADER or PARAM strategy.
-	// Example: strategy=RATE_LIMIT_STRATEGY_HEADER, key="X-API-Key"
-	// means each unique X-API-Key value gets its own rate limit bucket.
-	// Ignored when strategy is IP or UNSPECIFIED.
+	// Header or URL parameter name that identifies individual clients.
+	//
+	// Required when strategy is HEADER or PARAM. Ignored when strategy is IP.
+	//
+	// Example with HEADER strategy:
+	//
+	//	rate_limit: {
+	//	  client_max_rate: 10
+	//	  strategy: RATE_LIMIT_STRATEGY_HEADER
+	//	  key: "X-API-Key"  // Each unique API key gets 10 req/s
+	//	}
+	//
+	// Example with PARAM strategy:
+	//
+	//	rate_limit: {
+	//	  client_max_rate: 5
+	//	  strategy: RATE_LIMIT_STRATEGY_PARAM
+	//	  key: "user_id"  // Each unique user_id gets 5 req/s
+	//	}
 	Key           string `protobuf:"bytes,7,opt,name=key,proto3" json:"key,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
