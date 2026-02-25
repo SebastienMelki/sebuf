@@ -326,6 +326,11 @@ func TestKrakenDValidationErrors(t *testing.T) {
 			protoFile: "invalid_cache.proto",
 			wantErr:   "max_items and max_size must both be set",
 		},
+		{
+			name:      "rate limit HEADER strategy missing key",
+			protoFile: "invalid_rate_limit_key.proto",
+			wantErr:   "requires a key",
+		},
 	}
 
 	for _, tc := range testCases {

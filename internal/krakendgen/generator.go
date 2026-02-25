@@ -50,7 +50,12 @@ func GenerateService(service *protogen.Service) ([]Endpoint, error) {
 	basePath := annotations.GetServiceBasePath(service)
 	serviceName := string(service.Desc.Name())
 
-	// Validate service-level circuit breaker and cache configs before building endpoints.
+	// Validate service-level rate limit, circuit breaker, and cache configs before building endpoints.
+	if rl := gwConfig.GetRateLimit(); rl != nil {
+		if err := validateRateLimit(rl, serviceName); err != nil {
+			return nil, err
+		}
+	}
 	if cb := gwConfig.GetCircuitBreaker(); cb != nil {
 		if err := validateCircuitBreaker(cb, serviceName); err != nil {
 			return nil, err
@@ -66,8 +71,13 @@ func GenerateService(service *protogen.Service) ([]Endpoint, error) {
 	for _, hm := range httpMethods {
 		epConfig := getEndpointConfig(hm.method)
 
-		// Validate method-level circuit breaker and cache if present.
+		// Validate method-level rate limit, circuit breaker, and cache if present.
 		if epConfig != nil {
+			if rl := epConfig.GetRateLimit(); rl != nil {
+				if err := validateRateLimit(rl, serviceName); err != nil {
+					return nil, err
+				}
+			}
 			if cb := epConfig.GetCircuitBreaker(); cb != nil {
 				if err := validateCircuitBreaker(cb, serviceName); err != nil {
 					return nil, err
@@ -294,6 +304,20 @@ func resolveBackendRateLimit(gwConfig *krakend.GatewayConfig, epConfig *krakend.
 
 // buildRateLimitRouterConfig builds the endpoint-level rate limit config map
 // for the qos/ratelimit/router namespace. Only includes non-zero fields.
+// validateRateLimit verifies that HEADER and PARAM strategies have a key set.
+// IP strategy does not need a key (KrakenD reads the client IP automatically).
+func validateRateLimit(rl *krakend.RateLimitConfig, serviceName string) error {
+	s := rl.GetStrategy()
+	if (s == krakend.RateLimitStrategy_RATE_LIMIT_STRATEGY_HEADER ||
+		s == krakend.RateLimitStrategy_RATE_LIMIT_STRATEGY_PARAM) && rl.GetKey() == "" {
+		return fmt.Errorf(
+			"service %s: rate_limit strategy %s requires a key (header or param name)",
+			serviceName, s,
+		)
+	}
+	return nil
+}
+
 func buildRateLimitRouterConfig(rl *krakend.RateLimitConfig) map[string]any {
 	m := make(map[string]any)
 
