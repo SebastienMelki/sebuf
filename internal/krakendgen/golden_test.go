@@ -199,6 +199,11 @@ func TestKrakenDGoldenFiles(t *testing.T) {
 			protoFile:    "rate_limit_service.proto",
 			serviceNames: []string{"RateLimitService"},
 		},
+		{
+			name:         "jwt_auth_service",
+			protoFile:    "jwt_auth_service.proto",
+			serviceNames: []string{"JWTAuthService"},
+		},
 	}
 
 	for _, tc := range testCases {
