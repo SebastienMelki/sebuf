@@ -39,8 +39,7 @@
           "extra_config": {
             "qos/http-cache": {
               "max_items": 1000,
-              "max_size": 10485760,
-              "shared": true
+              "max_size": 10485760
             }
           }
         }

@@ -6,6 +6,32 @@ import "google/protobuf/descriptor.proto";
 
 option go_package = "github.com/SebastienMelki/sebuf/krakend;krakend";
 
+// RateLimitStrategy identifies the client for per-client rate limiting.
+enum RateLimitStrategy {
+  RATE_LIMIT_STRATEGY_UNSPECIFIED = 0;
+  RATE_LIMIT_STRATEGY_IP = 1;
+  RATE_LIMIT_STRATEGY_HEADER = 2;
+  RATE_LIMIT_STRATEGY_PARAM = 3;
+}
+
+// JWTAlgorithm specifies the JWT signing algorithm.
+enum JWTAlgorithm {
+  JWT_ALGORITHM_UNSPECIFIED = 0;
+  JWT_ALGORITHM_RS256 = 1;
+  JWT_ALGORITHM_RS384 = 2;
+  JWT_ALGORITHM_RS512 = 3;
+  JWT_ALGORITHM_HS256 = 4;
+  JWT_ALGORITHM_HS384 = 5;
+  JWT_ALGORITHM_HS512 = 6;
+  JWT_ALGORITHM_ES256 = 7;
+  JWT_ALGORITHM_ES384 = 8;
+  JWT_ALGORITHM_ES512 = 9;
+  JWT_ALGORITHM_PS256 = 10;
+  JWT_ALGORITHM_PS384 = 11;
+  JWT_ALGORITHM_PS512 = 12;
+  JWT_ALGORITHM_EDDSA = 13;
+}
+
 // GatewayConfig sets service-wide KrakenD defaults.
 // Applied to a service via (sebuf.krakend.gateway_config).
 message GatewayConfig {
@@ -70,7 +96,7 @@ message RateLimitConfig {
   string every = 3;
   int32 client_max_rate = 4;
   int32 client_capacity = 5;
-  string strategy = 6;
+  RateLimitStrategy strategy = 6;
   string key = 7;
 }
 
@@ -83,7 +109,7 @@ message BackendRateLimitConfig {
 
 // JWTConfig configures JWT validation (auth/validator).
 message JWTConfig {
-  string alg = 1;
+  JWTAlgorithm alg = 1;
   string jwk_url = 2;
   repeated string audience = 3;
   string issuer = 4;

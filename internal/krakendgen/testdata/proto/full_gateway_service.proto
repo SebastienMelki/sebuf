@@ -35,14 +35,14 @@ service FullGatewayService {
     rate_limit: {
       max_rate: 100
       client_max_rate: 10
-      strategy: "ip"
+      strategy: RATE_LIMIT_STRATEGY_IP
     }
     backend_rate_limit: {
       max_rate: 50
       capacity: 50
     }
     jwt: {
-      alg: "RS256"
+      alg: JWT_ALGORITHM_RS256
       jwk_url: "https://auth.example.com/.well-known/jwks.json"
       audience: ["api.example.com"]
       issuer: "https://auth.example.com"

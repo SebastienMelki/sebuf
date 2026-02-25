@@ -33,7 +33,7 @@ service JWTAuthService {
   option (sebuf.krakend.gateway_config) = {
     host: ["http://backend:8080"]
     jwt: {
-      alg: "RS256"
+      alg: JWT_ALGORITHM_RS256
       jwk_url: "https://auth.example.com/.well-known/jwks.json"
       audience: ["api.example.com"]
       issuer: "https://auth.example.com"

@@ -34,7 +34,7 @@ service RateLimitService {
     rate_limit: {
       max_rate: 100
       client_max_rate: 10
-      strategy: "ip"
+      strategy: RATE_LIMIT_STRATEGY_IP
     }
     backend_rate_limit: {
       max_rate: 50
@@ -60,7 +60,7 @@ service RateLimitService {
       rate_limit: {
         max_rate: 200
         capacity: 200
-        strategy: "header"
+        strategy: RATE_LIMIT_STRATEGY_HEADER
         key: "X-API-Key"
       }
       backend_rate_limit: {

@@ -2,7 +2,7 @@
 // versions:
 // 	protoc-gen-go v1.36.11
 // 	protoc        v6.33.4
-// source: sebuf/krakend/krakend.proto
+// source: proto/sebuf/krakend/krakend.proto
 
 package krakend
 
@@ -21,6 +21,142 @@ const (
 	// Verify that runtime/protoimpl is sufficiently up-to-date.
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
+
+// RateLimitStrategy identifies the client for per-client rate limiting.
+type RateLimitStrategy int32
+
+const (
+	RateLimitStrategy_RATE_LIMIT_STRATEGY_UNSPECIFIED RateLimitStrategy = 0
+	RateLimitStrategy_RATE_LIMIT_STRATEGY_IP          RateLimitStrategy = 1
+	RateLimitStrategy_RATE_LIMIT_STRATEGY_HEADER      RateLimitStrategy = 2
+	RateLimitStrategy_RATE_LIMIT_STRATEGY_PARAM       RateLimitStrategy = 3
+)
+
+// Enum value maps for RateLimitStrategy.
+var (
+	RateLimitStrategy_name = map[int32]string{
+		0: "RATE_LIMIT_STRATEGY_UNSPECIFIED",
+		1: "RATE_LIMIT_STRATEGY_IP",
+		2: "RATE_LIMIT_STRATEGY_HEADER",
+		3: "RATE_LIMIT_STRATEGY_PARAM",
+	}
+	RateLimitStrategy_value = map[string]int32{
+		"RATE_LIMIT_STRATEGY_UNSPECIFIED": 0,
+		"RATE_LIMIT_STRATEGY_IP":          1,
+		"RATE_LIMIT_STRATEGY_HEADER":      2,
+		"RATE_LIMIT_STRATEGY_PARAM":       3,
+	}
+)
+
+func (x RateLimitStrategy) Enum() *RateLimitStrategy {
+	p := new(RateLimitStrategy)
+	*p = x
+	return p
+}
+
+func (x RateLimitStrategy) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (RateLimitStrategy) Descriptor() protoreflect.EnumDescriptor {
+	return file_proto_sebuf_krakend_krakend_proto_enumTypes[0].Descriptor()
+}
+
+func (RateLimitStrategy) Type() protoreflect.EnumType {
+	return &file_proto_sebuf_krakend_krakend_proto_enumTypes[0]
+}
+
+func (x RateLimitStrategy) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use RateLimitStrategy.Descriptor instead.
+func (RateLimitStrategy) EnumDescriptor() ([]byte, []int) {
+	return file_proto_sebuf_krakend_krakend_proto_rawDescGZIP(), []int{0}
+}
+
+// JWTAlgorithm specifies the JWT signing algorithm.
+type JWTAlgorithm int32
+
+const (
+	JWTAlgorithm_JWT_ALGORITHM_UNSPECIFIED JWTAlgorithm = 0
+	JWTAlgorithm_JWT_ALGORITHM_RS256       JWTAlgorithm = 1
+	JWTAlgorithm_JWT_ALGORITHM_RS384       JWTAlgorithm = 2
+	JWTAlgorithm_JWT_ALGORITHM_RS512       JWTAlgorithm = 3
+	JWTAlgorithm_JWT_ALGORITHM_HS256       JWTAlgorithm = 4
+	JWTAlgorithm_JWT_ALGORITHM_HS384       JWTAlgorithm = 5
+	JWTAlgorithm_JWT_ALGORITHM_HS512       JWTAlgorithm = 6
+	JWTAlgorithm_JWT_ALGORITHM_ES256       JWTAlgorithm = 7
+	JWTAlgorithm_JWT_ALGORITHM_ES384       JWTAlgorithm = 8
+	JWTAlgorithm_JWT_ALGORITHM_ES512       JWTAlgorithm = 9
+	JWTAlgorithm_JWT_ALGORITHM_PS256       JWTAlgorithm = 10
+	JWTAlgorithm_JWT_ALGORITHM_PS384       JWTAlgorithm = 11
+	JWTAlgorithm_JWT_ALGORITHM_PS512       JWTAlgorithm = 12
+	JWTAlgorithm_JWT_ALGORITHM_EDDSA       JWTAlgorithm = 13
+)
+
+// Enum value maps for JWTAlgorithm.
+var (
+	JWTAlgorithm_name = map[int32]string{
+		0:  "JWT_ALGORITHM_UNSPECIFIED",
+		1:  "JWT_ALGORITHM_RS256",
+		2:  "JWT_ALGORITHM_RS384",
+		3:  "JWT_ALGORITHM_RS512",
+		4:  "JWT_ALGORITHM_HS256",
+		5:  "JWT_ALGORITHM_HS384",
+		6:  "JWT_ALGORITHM_HS512",
+		7:  "JWT_ALGORITHM_ES256",
+		8:  "JWT_ALGORITHM_ES384",
+		9:  "JWT_ALGORITHM_ES512",
+		10: "JWT_ALGORITHM_PS256",
+		11: "JWT_ALGORITHM_PS384",
+		12: "JWT_ALGORITHM_PS512",
+		13: "JWT_ALGORITHM_EDDSA",
+	}
+	JWTAlgorithm_value = map[string]int32{
+		"JWT_ALGORITHM_UNSPECIFIED": 0,
+		"JWT_ALGORITHM_RS256":       1,
+		"JWT_ALGORITHM_RS384":       2,
+		"JWT_ALGORITHM_RS512":       3,
+		"JWT_ALGORITHM_HS256":       4,
+		"JWT_ALGORITHM_HS384":       5,
+		"JWT_ALGORITHM_HS512":       6,
+		"JWT_ALGORITHM_ES256":       7,
+		"JWT_ALGORITHM_ES384":       8,
+		"JWT_ALGORITHM_ES512":       9,
+		"JWT_ALGORITHM_PS256":       10,
+		"JWT_ALGORITHM_PS384":       11,
+		"JWT_ALGORITHM_PS512":       12,
+		"JWT_ALGORITHM_EDDSA":       13,
+	}
+)
+
+func (x JWTAlgorithm) Enum() *JWTAlgorithm {
+	p := new(JWTAlgorithm)
+	*p = x
+	return p
+}
+
+func (x JWTAlgorithm) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (JWTAlgorithm) Descriptor() protoreflect.EnumDescriptor {
+	return file_proto_sebuf_krakend_krakend_proto_enumTypes[1].Descriptor()
+}
+
+func (JWTAlgorithm) Type() protoreflect.EnumType {
+	return &file_proto_sebuf_krakend_krakend_proto_enumTypes[1]
+}
+
+func (x JWTAlgorithm) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use JWTAlgorithm.Descriptor instead.
+func (JWTAlgorithm) EnumDescriptor() ([]byte, []int) {
+	return file_proto_sebuf_krakend_krakend_proto_rawDescGZIP(), []int{1}
+}
 
 // GatewayConfig sets service-wide KrakenD defaults.
 // Applied to a service via (sebuf.krakend.gateway_config).
@@ -52,7 +188,7 @@ type GatewayConfig struct {
 
 func (x *GatewayConfig) Reset() {
 	*x = GatewayConfig{}
-	mi := &file_sebuf_krakend_krakend_proto_msgTypes[0]
+	mi := &file_proto_sebuf_krakend_krakend_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -64,7 +200,7 @@ func (x *GatewayConfig) String() string {
 func (*GatewayConfig) ProtoMessage() {}
 
 func (x *GatewayConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_sebuf_krakend_krakend_proto_msgTypes[0]
+	mi := &file_proto_sebuf_krakend_krakend_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -77,7 +213,7 @@ func (x *GatewayConfig) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GatewayConfig.ProtoReflect.Descriptor instead.
 func (*GatewayConfig) Descriptor() ([]byte, []int) {
-	return file_sebuf_krakend_krakend_proto_rawDescGZIP(), []int{0}
+	return file_proto_sebuf_krakend_krakend_proto_rawDescGZIP(), []int{0}
 }
 
 func (x *GatewayConfig) GetHost() []string {
@@ -160,7 +296,7 @@ type EndpointConfig struct {
 
 func (x *EndpointConfig) Reset() {
 	*x = EndpointConfig{}
-	mi := &file_sebuf_krakend_krakend_proto_msgTypes[1]
+	mi := &file_proto_sebuf_krakend_krakend_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -172,7 +308,7 @@ func (x *EndpointConfig) String() string {
 func (*EndpointConfig) ProtoMessage() {}
 
 func (x *EndpointConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_sebuf_krakend_krakend_proto_msgTypes[1]
+	mi := &file_proto_sebuf_krakend_krakend_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -185,7 +321,7 @@ func (x *EndpointConfig) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EndpointConfig.ProtoReflect.Descriptor instead.
 func (*EndpointConfig) Descriptor() ([]byte, []int) {
-	return file_sebuf_krakend_krakend_proto_rawDescGZIP(), []int{1}
+	return file_proto_sebuf_krakend_krakend_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *EndpointConfig) GetHost() []string {
@@ -245,7 +381,7 @@ type RateLimitConfig struct {
 	Every          string                 `protobuf:"bytes,3,opt,name=every,proto3" json:"every,omitempty"`
 	ClientMaxRate  int32                  `protobuf:"varint,4,opt,name=client_max_rate,json=clientMaxRate,proto3" json:"client_max_rate,omitempty"`
 	ClientCapacity int32                  `protobuf:"varint,5,opt,name=client_capacity,json=clientCapacity,proto3" json:"client_capacity,omitempty"`
-	Strategy       string                 `protobuf:"bytes,6,opt,name=strategy,proto3" json:"strategy,omitempty"`
+	Strategy       RateLimitStrategy      `protobuf:"varint,6,opt,name=strategy,proto3,enum=sebuf.krakend.RateLimitStrategy" json:"strategy,omitempty"`
 	Key            string                 `protobuf:"bytes,7,opt,name=key,proto3" json:"key,omitempty"`
 	unknownFields  protoimpl.UnknownFields
 	sizeCache      protoimpl.SizeCache
@@ -253,7 +389,7 @@ type RateLimitConfig struct {
 
 func (x *RateLimitConfig) Reset() {
 	*x = RateLimitConfig{}
-	mi := &file_sebuf_krakend_krakend_proto_msgTypes[2]
+	mi := &file_proto_sebuf_krakend_krakend_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -265,7 +401,7 @@ func (x *RateLimitConfig) String() string {
 func (*RateLimitConfig) ProtoMessage() {}
 
 func (x *RateLimitConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_sebuf_krakend_krakend_proto_msgTypes[2]
+	mi := &file_proto_sebuf_krakend_krakend_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -278,7 +414,7 @@ func (x *RateLimitConfig) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RateLimitConfig.ProtoReflect.Descriptor instead.
 func (*RateLimitConfig) Descriptor() ([]byte, []int) {
-	return file_sebuf_krakend_krakend_proto_rawDescGZIP(), []int{2}
+	return file_proto_sebuf_krakend_krakend_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *RateLimitConfig) GetMaxRate() int32 {
@@ -316,11 +452,11 @@ func (x *RateLimitConfig) GetClientCapacity() int32 {
 	return 0
 }
 
-func (x *RateLimitConfig) GetStrategy() string {
+func (x *RateLimitConfig) GetStrategy() RateLimitStrategy {
 	if x != nil {
 		return x.Strategy
 	}
-	return ""
+	return RateLimitStrategy_RATE_LIMIT_STRATEGY_UNSPECIFIED
 }
 
 func (x *RateLimitConfig) GetKey() string {
@@ -342,7 +478,7 @@ type BackendRateLimitConfig struct {
 
 func (x *BackendRateLimitConfig) Reset() {
 	*x = BackendRateLimitConfig{}
-	mi := &file_sebuf_krakend_krakend_proto_msgTypes[3]
+	mi := &file_proto_sebuf_krakend_krakend_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -354,7 +490,7 @@ func (x *BackendRateLimitConfig) String() string {
 func (*BackendRateLimitConfig) ProtoMessage() {}
 
 func (x *BackendRateLimitConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_sebuf_krakend_krakend_proto_msgTypes[3]
+	mi := &file_proto_sebuf_krakend_krakend_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -367,7 +503,7 @@ func (x *BackendRateLimitConfig) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BackendRateLimitConfig.ProtoReflect.Descriptor instead.
 func (*BackendRateLimitConfig) Descriptor() ([]byte, []int) {
-	return file_sebuf_krakend_krakend_proto_rawDescGZIP(), []int{3}
+	return file_proto_sebuf_krakend_krakend_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *BackendRateLimitConfig) GetMaxRate() int32 {
@@ -394,7 +530,7 @@ func (x *BackendRateLimitConfig) GetEvery() string {
 // JWTConfig configures JWT validation (auth/validator).
 type JWTConfig struct {
 	state           protoimpl.MessageState `protogen:"open.v1"`
-	Alg             string                 `protobuf:"bytes,1,opt,name=alg,proto3" json:"alg,omitempty"`
+	Alg             JWTAlgorithm           `protobuf:"varint,1,opt,name=alg,proto3,enum=sebuf.krakend.JWTAlgorithm" json:"alg,omitempty"`
 	JwkUrl          string                 `protobuf:"bytes,2,opt,name=jwk_url,json=jwkUrl,proto3" json:"jwk_url,omitempty"`
 	Audience        []string               `protobuf:"bytes,3,rep,name=audience,proto3" json:"audience,omitempty"`
 	Issuer          string                 `protobuf:"bytes,4,opt,name=issuer,proto3" json:"issuer,omitempty"`
@@ -406,7 +542,7 @@ type JWTConfig struct {
 
 func (x *JWTConfig) Reset() {
 	*x = JWTConfig{}
-	mi := &file_sebuf_krakend_krakend_proto_msgTypes[4]
+	mi := &file_proto_sebuf_krakend_krakend_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -418,7 +554,7 @@ func (x *JWTConfig) String() string {
 func (*JWTConfig) ProtoMessage() {}
 
 func (x *JWTConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_sebuf_krakend_krakend_proto_msgTypes[4]
+	mi := &file_proto_sebuf_krakend_krakend_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -431,14 +567,14 @@ func (x *JWTConfig) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use JWTConfig.ProtoReflect.Descriptor instead.
 func (*JWTConfig) Descriptor() ([]byte, []int) {
-	return file_sebuf_krakend_krakend_proto_rawDescGZIP(), []int{4}
+	return file_proto_sebuf_krakend_krakend_proto_rawDescGZIP(), []int{4}
 }
 
-func (x *JWTConfig) GetAlg() string {
+func (x *JWTConfig) GetAlg() JWTAlgorithm {
 	if x != nil {
 		return x.Alg
 	}
-	return ""
+	return JWTAlgorithm_JWT_ALGORITHM_UNSPECIFIED
 }
 
 func (x *JWTConfig) GetJwkUrl() string {
@@ -487,7 +623,7 @@ type ClaimToHeader struct {
 
 func (x *ClaimToHeader) Reset() {
 	*x = ClaimToHeader{}
-	mi := &file_sebuf_krakend_krakend_proto_msgTypes[5]
+	mi := &file_proto_sebuf_krakend_krakend_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -499,7 +635,7 @@ func (x *ClaimToHeader) String() string {
 func (*ClaimToHeader) ProtoMessage() {}
 
 func (x *ClaimToHeader) ProtoReflect() protoreflect.Message {
-	mi := &file_sebuf_krakend_krakend_proto_msgTypes[5]
+	mi := &file_proto_sebuf_krakend_krakend_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -512,7 +648,7 @@ func (x *ClaimToHeader) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ClaimToHeader.ProtoReflect.Descriptor instead.
 func (*ClaimToHeader) Descriptor() ([]byte, []int) {
-	return file_sebuf_krakend_krakend_proto_rawDescGZIP(), []int{5}
+	return file_proto_sebuf_krakend_krakend_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *ClaimToHeader) GetClaim() string {
@@ -543,7 +679,7 @@ type CircuitBreakerConfig struct {
 
 func (x *CircuitBreakerConfig) Reset() {
 	*x = CircuitBreakerConfig{}
-	mi := &file_sebuf_krakend_krakend_proto_msgTypes[6]
+	mi := &file_proto_sebuf_krakend_krakend_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -555,7 +691,7 @@ func (x *CircuitBreakerConfig) String() string {
 func (*CircuitBreakerConfig) ProtoMessage() {}
 
 func (x *CircuitBreakerConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_sebuf_krakend_krakend_proto_msgTypes[6]
+	mi := &file_proto_sebuf_krakend_krakend_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -568,7 +704,7 @@ func (x *CircuitBreakerConfig) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CircuitBreakerConfig.ProtoReflect.Descriptor instead.
 func (*CircuitBreakerConfig) Descriptor() ([]byte, []int) {
-	return file_sebuf_krakend_krakend_proto_rawDescGZIP(), []int{6}
+	return file_proto_sebuf_krakend_krakend_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *CircuitBreakerConfig) GetInterval() int32 {
@@ -618,7 +754,7 @@ type CacheConfig struct {
 
 func (x *CacheConfig) Reset() {
 	*x = CacheConfig{}
-	mi := &file_sebuf_krakend_krakend_proto_msgTypes[7]
+	mi := &file_proto_sebuf_krakend_krakend_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -630,7 +766,7 @@ func (x *CacheConfig) String() string {
 func (*CacheConfig) ProtoMessage() {}
 
 func (x *CacheConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_sebuf_krakend_krakend_proto_msgTypes[7]
+	mi := &file_proto_sebuf_krakend_krakend_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -643,7 +779,7 @@ func (x *CacheConfig) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CacheConfig.ProtoReflect.Descriptor instead.
 func (*CacheConfig) Descriptor() ([]byte, []int) {
-	return file_sebuf_krakend_krakend_proto_rawDescGZIP(), []int{7}
+	return file_proto_sebuf_krakend_krakend_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *CacheConfig) GetShared() bool {
@@ -667,14 +803,14 @@ func (x *CacheConfig) GetMaxSize() int32 {
 	return 0
 }
 
-var file_sebuf_krakend_krakend_proto_extTypes = []protoimpl.ExtensionInfo{
+var file_proto_sebuf_krakend_krakend_proto_extTypes = []protoimpl.ExtensionInfo{
 	{
 		ExtendedType:  (*descriptorpb.ServiceOptions)(nil),
 		ExtensionType: (*GatewayConfig)(nil),
 		Field:         51001,
 		Name:          "sebuf.krakend.gateway_config",
 		Tag:           "bytes,51001,opt,name=gateway_config",
-		Filename:      "sebuf/krakend/krakend.proto",
+		Filename:      "proto/sebuf/krakend/krakend.proto",
 	},
 	{
 		ExtendedType:  (*descriptorpb.MethodOptions)(nil),
@@ -682,27 +818,27 @@ var file_sebuf_krakend_krakend_proto_extTypes = []protoimpl.ExtensionInfo{
 		Field:         51002,
 		Name:          "sebuf.krakend.endpoint_config",
 		Tag:           "bytes,51002,opt,name=endpoint_config",
-		Filename:      "sebuf/krakend/krakend.proto",
+		Filename:      "proto/sebuf/krakend/krakend.proto",
 	},
 }
 
 // Extension fields to descriptorpb.ServiceOptions.
 var (
 	// optional sebuf.krakend.GatewayConfig gateway_config = 51001;
-	E_GatewayConfig = &file_sebuf_krakend_krakend_proto_extTypes[0]
+	E_GatewayConfig = &file_proto_sebuf_krakend_krakend_proto_extTypes[0]
 )
 
 // Extension fields to descriptorpb.MethodOptions.
 var (
 	// optional sebuf.krakend.EndpointConfig endpoint_config = 51002;
-	E_EndpointConfig = &file_sebuf_krakend_krakend_proto_extTypes[1]
+	E_EndpointConfig = &file_proto_sebuf_krakend_krakend_proto_extTypes[1]
 )
 
-var File_sebuf_krakend_krakend_proto protoreflect.FileDescriptor
+var File_proto_sebuf_krakend_krakend_proto protoreflect.FileDescriptor
 
-const file_sebuf_krakend_krakend_proto_rawDesc = "" +
+const file_proto_sebuf_krakend_krakend_proto_rawDesc = "" +
 	"\n" +
-	"\x1bsebuf/krakend/krakend.proto\x12\rsebuf.krakend\x1a google/protobuf/descriptor.proto\"\xa8\x03\n" +
+	"!proto/sebuf/krakend/krakend.proto\x12\rsebuf.krakend\x1a google/protobuf/descriptor.proto\"\xa8\x03\n" +
 	"\rGatewayConfig\x12\x12\n" +
 	"\x04host\x18\x01 \x03(\tR\x04host\x12\x18\n" +
 	"\atimeout\x18\x02 \x01(\tR\atimeout\x12=\n" +
@@ -721,21 +857,21 @@ const file_sebuf_krakend_krakend_proto_rawDesc = "" +
 	"\x12backend_rate_limit\x18\x04 \x01(\v2%.sebuf.krakend.BackendRateLimitConfigR\x10backendRateLimit\x12L\n" +
 	"\x0fcircuit_breaker\x18\x05 \x01(\v2#.sebuf.krakend.CircuitBreakerConfigR\x0ecircuitBreaker\x120\n" +
 	"\x05cache\x18\x06 \x01(\v2\x1a.sebuf.krakend.CacheConfigR\x05cache\x12)\n" +
-	"\x10concurrent_calls\x18\a \x01(\x05R\x0fconcurrentCalls\"\xdd\x01\n" +
+	"\x10concurrent_calls\x18\a \x01(\x05R\x0fconcurrentCalls\"\xff\x01\n" +
 	"\x0fRateLimitConfig\x12\x19\n" +
 	"\bmax_rate\x18\x01 \x01(\x05R\amaxRate\x12\x1a\n" +
 	"\bcapacity\x18\x02 \x01(\x05R\bcapacity\x12\x14\n" +
 	"\x05every\x18\x03 \x01(\tR\x05every\x12&\n" +
 	"\x0fclient_max_rate\x18\x04 \x01(\x05R\rclientMaxRate\x12'\n" +
-	"\x0fclient_capacity\x18\x05 \x01(\x05R\x0eclientCapacity\x12\x1a\n" +
-	"\bstrategy\x18\x06 \x01(\tR\bstrategy\x12\x10\n" +
+	"\x0fclient_capacity\x18\x05 \x01(\x05R\x0eclientCapacity\x12<\n" +
+	"\bstrategy\x18\x06 \x01(\x0e2 .sebuf.krakend.RateLimitStrategyR\bstrategy\x12\x10\n" +
 	"\x03key\x18\a \x01(\tR\x03key\"e\n" +
 	"\x16BackendRateLimitConfig\x12\x19\n" +
 	"\bmax_rate\x18\x01 \x01(\x05R\amaxRate\x12\x1a\n" +
 	"\bcapacity\x18\x02 \x01(\x05R\bcapacity\x12\x14\n" +
-	"\x05every\x18\x03 \x01(\tR\x05every\"\xc9\x01\n" +
-	"\tJWTConfig\x12\x10\n" +
-	"\x03alg\x18\x01 \x01(\tR\x03alg\x12\x17\n" +
+	"\x05every\x18\x03 \x01(\tR\x05every\"\xe6\x01\n" +
+	"\tJWTConfig\x12-\n" +
+	"\x03alg\x18\x01 \x01(\x0e2\x1b.sebuf.krakend.JWTAlgorithmR\x03alg\x12\x17\n" +
 	"\ajwk_url\x18\x02 \x01(\tR\x06jwkUrl\x12\x1a\n" +
 	"\baudience\x18\x03 \x03(\tR\baudience\x12\x16\n" +
 	"\x06issuer\x18\x04 \x01(\tR\x06issuer\x12\x14\n" +
@@ -754,78 +890,105 @@ const file_sebuf_krakend_krakend_proto_rawDesc = "" +
 	"\vCacheConfig\x12\x16\n" +
 	"\x06shared\x18\x01 \x01(\bR\x06shared\x12\x1b\n" +
 	"\tmax_items\x18\x02 \x01(\x05R\bmaxItems\x12\x19\n" +
-	"\bmax_size\x18\x03 \x01(\x05R\amaxSize:f\n" +
+	"\bmax_size\x18\x03 \x01(\x05R\amaxSize*\x93\x01\n" +
+	"\x11RateLimitStrategy\x12#\n" +
+	"\x1fRATE_LIMIT_STRATEGY_UNSPECIFIED\x10\x00\x12\x1a\n" +
+	"\x16RATE_LIMIT_STRATEGY_IP\x10\x01\x12\x1e\n" +
+	"\x1aRATE_LIMIT_STRATEGY_HEADER\x10\x02\x12\x1d\n" +
+	"\x19RATE_LIMIT_STRATEGY_PARAM\x10\x03*\xf2\x02\n" +
+	"\fJWTAlgorithm\x12\x1d\n" +
+	"\x19JWT_ALGORITHM_UNSPECIFIED\x10\x00\x12\x17\n" +
+	"\x13JWT_ALGORITHM_RS256\x10\x01\x12\x17\n" +
+	"\x13JWT_ALGORITHM_RS384\x10\x02\x12\x17\n" +
+	"\x13JWT_ALGORITHM_RS512\x10\x03\x12\x17\n" +
+	"\x13JWT_ALGORITHM_HS256\x10\x04\x12\x17\n" +
+	"\x13JWT_ALGORITHM_HS384\x10\x05\x12\x17\n" +
+	"\x13JWT_ALGORITHM_HS512\x10\x06\x12\x17\n" +
+	"\x13JWT_ALGORITHM_ES256\x10\a\x12\x17\n" +
+	"\x13JWT_ALGORITHM_ES384\x10\b\x12\x17\n" +
+	"\x13JWT_ALGORITHM_ES512\x10\t\x12\x17\n" +
+	"\x13JWT_ALGORITHM_PS256\x10\n" +
+	"\x12\x17\n" +
+	"\x13JWT_ALGORITHM_PS384\x10\v\x12\x17\n" +
+	"\x13JWT_ALGORITHM_PS512\x10\f\x12\x17\n" +
+	"\x13JWT_ALGORITHM_EDDSA\x10\r:f\n" +
 	"\x0egateway_config\x12\x1f.google.protobuf.ServiceOptions\x18\xb9\x8e\x03 \x01(\v2\x1c.sebuf.krakend.GatewayConfigR\rgatewayConfig:h\n" +
 	"\x0fendpoint_config\x12\x1e.google.protobuf.MethodOptions\x18\xba\x8e\x03 \x01(\v2\x1d.sebuf.krakend.EndpointConfigR\x0eendpointConfigB1Z/github.com/SebastienMelki/sebuf/krakend;krakendb\x06proto3"
 
 var (
-	file_sebuf_krakend_krakend_proto_rawDescOnce sync.Once
-	file_sebuf_krakend_krakend_proto_rawDescData []byte
+	file_proto_sebuf_krakend_krakend_proto_rawDescOnce sync.Once
+	file_proto_sebuf_krakend_krakend_proto_rawDescData []byte
 )
 
-func file_sebuf_krakend_krakend_proto_rawDescGZIP() []byte {
-	file_sebuf_krakend_krakend_proto_rawDescOnce.Do(func() {
-		file_sebuf_krakend_krakend_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_sebuf_krakend_krakend_proto_rawDesc), len(file_sebuf_krakend_krakend_proto_rawDesc)))
+func file_proto_sebuf_krakend_krakend_proto_rawDescGZIP() []byte {
+	file_proto_sebuf_krakend_krakend_proto_rawDescOnce.Do(func() {
+		file_proto_sebuf_krakend_krakend_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_proto_sebuf_krakend_krakend_proto_rawDesc), len(file_proto_sebuf_krakend_krakend_proto_rawDesc)))
 	})
-	return file_sebuf_krakend_krakend_proto_rawDescData
+	return file_proto_sebuf_krakend_krakend_proto_rawDescData
 }
 
-var file_sebuf_krakend_krakend_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
-var file_sebuf_krakend_krakend_proto_goTypes = []any{
-	(*GatewayConfig)(nil),               // 0: sebuf.krakend.GatewayConfig
-	(*EndpointConfig)(nil),              // 1: sebuf.krakend.EndpointConfig
-	(*RateLimitConfig)(nil),             // 2: sebuf.krakend.RateLimitConfig
-	(*BackendRateLimitConfig)(nil),      // 3: sebuf.krakend.BackendRateLimitConfig
-	(*JWTConfig)(nil),                   // 4: sebuf.krakend.JWTConfig
-	(*ClaimToHeader)(nil),               // 5: sebuf.krakend.ClaimToHeader
-	(*CircuitBreakerConfig)(nil),        // 6: sebuf.krakend.CircuitBreakerConfig
-	(*CacheConfig)(nil),                 // 7: sebuf.krakend.CacheConfig
-	(*descriptorpb.ServiceOptions)(nil), // 8: google.protobuf.ServiceOptions
-	(*descriptorpb.MethodOptions)(nil),  // 9: google.protobuf.MethodOptions
+var file_proto_sebuf_krakend_krakend_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
+var file_proto_sebuf_krakend_krakend_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
+var file_proto_sebuf_krakend_krakend_proto_goTypes = []any{
+	(RateLimitStrategy)(0),              // 0: sebuf.krakend.RateLimitStrategy
+	(JWTAlgorithm)(0),                   // 1: sebuf.krakend.JWTAlgorithm
+	(*GatewayConfig)(nil),               // 2: sebuf.krakend.GatewayConfig
+	(*EndpointConfig)(nil),              // 3: sebuf.krakend.EndpointConfig
+	(*RateLimitConfig)(nil),             // 4: sebuf.krakend.RateLimitConfig
+	(*BackendRateLimitConfig)(nil),      // 5: sebuf.krakend.BackendRateLimitConfig
+	(*JWTConfig)(nil),                   // 6: sebuf.krakend.JWTConfig
+	(*ClaimToHeader)(nil),               // 7: sebuf.krakend.ClaimToHeader
+	(*CircuitBreakerConfig)(nil),        // 8: sebuf.krakend.CircuitBreakerConfig
+	(*CacheConfig)(nil),                 // 9: sebuf.krakend.CacheConfig
+	(*descriptorpb.ServiceOptions)(nil), // 10: google.protobuf.ServiceOptions
+	(*descriptorpb.MethodOptions)(nil),  // 11: google.protobuf.MethodOptions
 }
-var file_sebuf_krakend_krakend_proto_depIdxs = []int32{
-	2,  // 0: sebuf.krakend.GatewayConfig.rate_limit:type_name -> sebuf.krakend.RateLimitConfig
-	3,  // 1: sebuf.krakend.GatewayConfig.backend_rate_limit:type_name -> sebuf.krakend.BackendRateLimitConfig
-	4,  // 2: sebuf.krakend.GatewayConfig.jwt:type_name -> sebuf.krakend.JWTConfig
-	6,  // 3: sebuf.krakend.GatewayConfig.circuit_breaker:type_name -> sebuf.krakend.CircuitBreakerConfig
-	7,  // 4: sebuf.krakend.GatewayConfig.cache:type_name -> sebuf.krakend.CacheConfig
-	2,  // 5: sebuf.krakend.EndpointConfig.rate_limit:type_name -> sebuf.krakend.RateLimitConfig
-	3,  // 6: sebuf.krakend.EndpointConfig.backend_rate_limit:type_name -> sebuf.krakend.BackendRateLimitConfig
-	6,  // 7: sebuf.krakend.EndpointConfig.circuit_breaker:type_name -> sebuf.krakend.CircuitBreakerConfig
-	7,  // 8: sebuf.krakend.EndpointConfig.cache:type_name -> sebuf.krakend.CacheConfig
-	5,  // 9: sebuf.krakend.JWTConfig.propagate_claims:type_name -> sebuf.krakend.ClaimToHeader
-	8,  // 10: sebuf.krakend.gateway_config:extendee -> google.protobuf.ServiceOptions
-	9,  // 11: sebuf.krakend.endpoint_config:extendee -> google.protobuf.MethodOptions
-	0,  // 12: sebuf.krakend.gateway_config:type_name -> sebuf.krakend.GatewayConfig
-	1,  // 13: sebuf.krakend.endpoint_config:type_name -> sebuf.krakend.EndpointConfig
-	14, // [14:14] is the sub-list for method output_type
-	14, // [14:14] is the sub-list for method input_type
-	12, // [12:14] is the sub-list for extension type_name
-	10, // [10:12] is the sub-list for extension extendee
-	0,  // [0:10] is the sub-list for field type_name
+var file_proto_sebuf_krakend_krakend_proto_depIdxs = []int32{
+	4,  // 0: sebuf.krakend.GatewayConfig.rate_limit:type_name -> sebuf.krakend.RateLimitConfig
+	5,  // 1: sebuf.krakend.GatewayConfig.backend_rate_limit:type_name -> sebuf.krakend.BackendRateLimitConfig
+	6,  // 2: sebuf.krakend.GatewayConfig.jwt:type_name -> sebuf.krakend.JWTConfig
+	8,  // 3: sebuf.krakend.GatewayConfig.circuit_breaker:type_name -> sebuf.krakend.CircuitBreakerConfig
+	9,  // 4: sebuf.krakend.GatewayConfig.cache:type_name -> sebuf.krakend.CacheConfig
+	4,  // 5: sebuf.krakend.EndpointConfig.rate_limit:type_name -> sebuf.krakend.RateLimitConfig
+	5,  // 6: sebuf.krakend.EndpointConfig.backend_rate_limit:type_name -> sebuf.krakend.BackendRateLimitConfig
+	8,  // 7: sebuf.krakend.EndpointConfig.circuit_breaker:type_name -> sebuf.krakend.CircuitBreakerConfig
+	9,  // 8: sebuf.krakend.EndpointConfig.cache:type_name -> sebuf.krakend.CacheConfig
+	0,  // 9: sebuf.krakend.RateLimitConfig.strategy:type_name -> sebuf.krakend.RateLimitStrategy
+	1,  // 10: sebuf.krakend.JWTConfig.alg:type_name -> sebuf.krakend.JWTAlgorithm
+	7,  // 11: sebuf.krakend.JWTConfig.propagate_claims:type_name -> sebuf.krakend.ClaimToHeader
+	10, // 12: sebuf.krakend.gateway_config:extendee -> google.protobuf.ServiceOptions
+	11, // 13: sebuf.krakend.endpoint_config:extendee -> google.protobuf.MethodOptions
+	2,  // 14: sebuf.krakend.gateway_config:type_name -> sebuf.krakend.GatewayConfig
+	3,  // 15: sebuf.krakend.endpoint_config:type_name -> sebuf.krakend.EndpointConfig
+	16, // [16:16] is the sub-list for method output_type
+	16, // [16:16] is the sub-list for method input_type
+	14, // [14:16] is the sub-list for extension type_name
+	12, // [12:14] is the sub-list for extension extendee
+	0,  // [0:12] is the sub-list for field type_name
 }
 
-func init() { file_sebuf_krakend_krakend_proto_init() }
-func file_sebuf_krakend_krakend_proto_init() {
-	if File_sebuf_krakend_krakend_proto != nil {
+func init() { file_proto_sebuf_krakend_krakend_proto_init() }
+func file_proto_sebuf_krakend_krakend_proto_init() {
+	if File_proto_sebuf_krakend_krakend_proto != nil {
 		return
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
-			RawDescriptor: unsafe.Slice(unsafe.StringData(file_sebuf_krakend_krakend_proto_rawDesc), len(file_sebuf_krakend_krakend_proto_rawDesc)),
-			NumEnums:      0,
+			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_sebuf_krakend_krakend_proto_rawDesc), len(file_proto_sebuf_krakend_krakend_proto_rawDesc)),
+			NumEnums:      2,
 			NumMessages:   8,
 			NumExtensions: 2,
 			NumServices:   0,
 		},
-		GoTypes:           file_sebuf_krakend_krakend_proto_goTypes,
-		DependencyIndexes: file_sebuf_krakend_krakend_proto_depIdxs,
-		MessageInfos:      file_sebuf_krakend_krakend_proto_msgTypes,
-		ExtensionInfos:    file_sebuf_krakend_krakend_proto_extTypes,
+		GoTypes:           file_proto_sebuf_krakend_krakend_proto_goTypes,
+		DependencyIndexes: file_proto_sebuf_krakend_krakend_proto_depIdxs,
+		EnumInfos:         file_proto_sebuf_krakend_krakend_proto_enumTypes,
+		MessageInfos:      file_proto_sebuf_krakend_krakend_proto_msgTypes,
+		ExtensionInfos:    file_proto_sebuf_krakend_krakend_proto_extTypes,
 	}.Build()
-	File_sebuf_krakend_krakend_proto = out.File
-	file_sebuf_krakend_krakend_proto_goTypes = nil
-	file_sebuf_krakend_krakend_proto_depIdxs = nil
+	File_proto_sebuf_krakend_krakend_proto = out.File
+	file_proto_sebuf_krakend_krakend_proto_goTypes = nil
+	file_proto_sebuf_krakend_krakend_proto_depIdxs = nil
 }

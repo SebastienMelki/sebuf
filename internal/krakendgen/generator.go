@@ -312,8 +312,8 @@ func buildRateLimitRouterConfig(rl *krakend.RateLimitConfig) map[string]any {
 	if rl.GetClientCapacity() != 0 {
 		m["client_capacity"] = rl.GetClientCapacity()
 	}
-	if rl.GetStrategy() != "" {
-		m["strategy"] = rl.GetStrategy()
+	if s := rateLimitStrategyToString(rl.GetStrategy()); s != "" {
+		m["strategy"] = s
 	}
 	if rl.GetKey() != "" {
 		m["key"] = rl.GetKey()
@@ -341,6 +341,60 @@ func buildBackendRateLimitConfig(brl *krakend.BackendRateLimitConfig) map[string
 }
 
 // ---------------------------------------------------------------------------
+// Enum-to-string mapping functions
+// ---------------------------------------------------------------------------
+
+// rateLimitStrategyToString converts a RateLimitStrategy enum to the lowercase
+// string value expected by KrakenD JSON config.
+func rateLimitStrategyToString(s krakend.RateLimitStrategy) string {
+	switch s {
+	case krakend.RateLimitStrategy_RATE_LIMIT_STRATEGY_IP:
+		return "ip"
+	case krakend.RateLimitStrategy_RATE_LIMIT_STRATEGY_HEADER:
+		return "header"
+	case krakend.RateLimitStrategy_RATE_LIMIT_STRATEGY_PARAM:
+		return "param"
+	default:
+		return ""
+	}
+}
+
+// jwtAlgorithmToString converts a JWTAlgorithm enum to the string value
+// expected by KrakenD JSON config.
+func jwtAlgorithmToString(a krakend.JWTAlgorithm) string {
+	switch a {
+	case krakend.JWTAlgorithm_JWT_ALGORITHM_RS256:
+		return "RS256"
+	case krakend.JWTAlgorithm_JWT_ALGORITHM_RS384:
+		return "RS384"
+	case krakend.JWTAlgorithm_JWT_ALGORITHM_RS512:
+		return "RS512"
+	case krakend.JWTAlgorithm_JWT_ALGORITHM_HS256:
+		return "HS256"
+	case krakend.JWTAlgorithm_JWT_ALGORITHM_HS384:
+		return "HS384"
+	case krakend.JWTAlgorithm_JWT_ALGORITHM_HS512:
+		return "HS512"
+	case krakend.JWTAlgorithm_JWT_ALGORITHM_ES256:
+		return "ES256"
+	case krakend.JWTAlgorithm_JWT_ALGORITHM_ES384:
+		return "ES384"
+	case krakend.JWTAlgorithm_JWT_ALGORITHM_ES512:
+		return "ES512"
+	case krakend.JWTAlgorithm_JWT_ALGORITHM_PS256:
+		return "PS256"
+	case krakend.JWTAlgorithm_JWT_ALGORITHM_PS384:
+		return "PS384"
+	case krakend.JWTAlgorithm_JWT_ALGORITHM_PS512:
+		return "PS512"
+	case krakend.JWTAlgorithm_JWT_ALGORITHM_EDDSA:
+		return "EdDSA"
+	default:
+		return ""
+	}
+}
+
+// ---------------------------------------------------------------------------
 // JWT auth/validator resolvers and builders
 // ---------------------------------------------------------------------------
 
@@ -349,8 +403,8 @@ func buildBackendRateLimitConfig(brl *krakend.BackendRateLimitConfig) map[string
 func buildAuthValidatorConfig(jwt *krakend.JWTConfig) map[string]any {
 	m := make(map[string]any)
 
-	if jwt.GetAlg() != "" {
-		m["alg"] = jwt.GetAlg()
+	if a := jwtAlgorithmToString(jwt.GetAlg()); a != "" {
+		m["alg"] = a
 	}
 	if jwt.GetJwkUrl() != "" {
 		m["jwk_url"] = jwt.GetJwkUrl()
@@ -473,6 +527,12 @@ func resolveCache(gwConfig *krakend.GatewayConfig, epConfig *krakend.EndpointCon
 // validateCache verifies that max_items and max_size are both set or both
 // unset. Having only one is a configuration error.
 func validateCache(cache *krakend.CacheConfig, serviceName string) error {
+	if cache.GetShared() && (cache.GetMaxItems() > 0 || cache.GetMaxSize() > 0) {
+		return fmt.Errorf(
+			"service %s: cache cannot combine shared with max_items/max_size (KrakenD oneOf constraint)",
+			serviceName,
+		)
+	}
 	hasMaxItems := cache.GetMaxItems() > 0
 	hasMaxSize := cache.GetMaxSize() > 0
 	if hasMaxItems != hasMaxSize {

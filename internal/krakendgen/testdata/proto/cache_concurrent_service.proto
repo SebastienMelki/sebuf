@@ -54,7 +54,6 @@ service CacheConcurrentService {
     };
     option (sebuf.krakend.endpoint_config) = {
       cache: {
-        shared: true
         max_items: 1000
         max_size: 10485760
       }
