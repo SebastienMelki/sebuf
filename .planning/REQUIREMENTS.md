@@ -43,10 +43,10 @@ Requirements for the KrakenD config generator milestone. Each maps to roadmap ph
 
 ### Resilience
 
-- [ ] **RESL-01**: Circuit breaker configurable via annotation (`qos/circuit-breaker` namespace) at service and method level
-- [ ] **RESL-02**: Circuit breaker settings include interval, timeout, and max_errors
-- [ ] **RESL-03**: Concurrent calls configurable per endpoint (backend `concurrent_calls` field)
-- [ ] **RESL-04**: Backend caching configurable via annotation (`qos/http-cache` namespace)
+- [x] **RESL-01**: Circuit breaker configurable via annotation (`qos/circuit-breaker` namespace) at service and method level
+- [x] **RESL-02**: Circuit breaker settings include interval, timeout, and max_errors
+- [x] **RESL-03**: Concurrent calls configurable per endpoint (backend `concurrent_calls` field)
+- [x] **RESL-04**: Backend caching configurable via annotation (`qos/http-cache` namespace)
 
 ### Validation
 
@@ -57,7 +57,7 @@ Requirements for the KrakenD config generator milestone. Each maps to roadmap ph
 ### Testing
 
 - [x] **TEST-01**: Golden file tests cover all core generation scenarios (endpoint routing, backend mapping, timeouts)
-- [ ] **TEST-02**: Golden file tests cover gateway features (rate limiting, JWT, circuit breaker, caching, concurrent calls)
+- [x] **TEST-02**: Golden file tests cover gateway features (rate limiting, JWT, circuit breaker, caching, concurrent calls)
 - [x] **TEST-03**: Golden file tests cover auto-derived header and query string forwarding
 - [x] **TEST-04**: Golden file tests cover generation-time validation errors (duplicate endpoints, path conflicts)
 
@@ -129,15 +129,15 @@ Which phases cover which requirements. Updated during roadmap creation.
 | AUTH-01 | Phase 13 | Complete |
 | AUTH-02 | Phase 13 | Complete |
 | AUTH-03 | Phase 13 | Complete |
-| RESL-01 | Phase 13 | Pending |
-| RESL-02 | Phase 13 | Pending |
-| RESL-03 | Phase 13 | Pending |
-| RESL-04 | Phase 13 | Pending |
+| RESL-01 | Phase 13 | Complete |
+| RESL-02 | Phase 13 | Complete |
+| RESL-03 | Phase 13 | Complete |
+| RESL-04 | Phase 13 | Complete |
 | VALD-01 | Phase 12 | Complete |
 | VALD-02 | Phase 12 | Complete |
 | VALD-03 | Phase 13 | Complete |
 | TEST-01 | Phase 12 | Complete |
-| TEST-02 | Phase 13 | Pending |
+| TEST-02 | Phase 13 | Complete |
 | TEST-03 | Phase 12 | Complete |
 | TEST-04 | Phase 12 | Complete |
 | DOCS-01 | Phase 14 | Pending |
