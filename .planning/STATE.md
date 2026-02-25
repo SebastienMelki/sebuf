@@ -10,28 +10,28 @@ See: .planning/PROJECT.md (updated 2026-02-25)
 ## Current Position
 
 Phase: 12 of 14 (Annotations and Core Endpoint Generation)
-Plan: 2 of 4 in current phase
+Plan: 3 of 4 in current phase
 Status: Executing
-Last activity: 2026-02-25 -- Completed 12-02 (Core Endpoint Generation)
+Last activity: 2026-02-25 -- Completed 12-03 (Header and Query String Forwarding)
 
-Progress: [#####░░░░░] 50%
+Progress: [#######░░░] 75%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 2 (v1.1 milestone)
-- Average duration: 5min
-- Total execution time: 10min
+- Total plans completed: 3 (v1.1 milestone)
+- Average duration: 4min
+- Total execution time: 13min
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| 12 | 2 | 10min | 5min |
+| 12 | 3 | 13min | 4min |
 
 **Recent Trend:**
-- Last 5 plans: 12-01 (4min), 12-02 (6min)
-- Trend: --
+- Last 5 plans: 12-01 (4min), 12-02 (6min), 12-03 (3min)
+- Trend: accelerating
 
 *Updated after each plan completion*
 
@@ -48,6 +48,9 @@ Progress: [#####░░░░░] 50%
 - Only require gateway_config when service has HTTP-annotated RPCs -- bare services produce empty array
 - Timeout omitted from JSON via omitempty when not annotated at any level
 - Nil endpoint slice normalized to empty slice for JSON [] output
+- Reuse annotations.CombineHeaders for header merge in KrakenD -- method overrides service for same-name headers
+- Return nil (not empty slice) for empty forwarding lists -- omitempty omits from JSON (FWD-03)
+- Sort all forwarding lists for deterministic golden file comparison
 
 ### Pending Todos
 
@@ -60,6 +63,6 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-25
-Stopped at: Completed 12-02-PLAN.md
-Resume file: .planning/phases/12-annotations-and-core-endpoint-generation/12-02-SUMMARY.md
-Next: Execute 12-03-PLAN.md
+Stopped at: Completed 12-03-PLAN.md
+Resume file: .planning/phases/12-annotations-and-core-endpoint-generation/12-03-SUMMARY.md
+Next: Execute 12-04-PLAN.md

@@ -25,9 +25,9 @@ Requirements for the KrakenD config generator milestone. Each maps to roadmap ph
 
 ### Auto-Derived Forwarding
 
-- [ ] **FWD-01**: `input_headers` auto-populated from `sebuf.http.service_headers` and `sebuf.http.method_headers` annotations
-- [ ] **FWD-02**: `input_query_strings` auto-populated from `sebuf.http.query` annotations on request message fields
-- [ ] **FWD-03**: Auto-derived headers and query strings are never empty arrays (KrakenD zero-trust model)
+- [x] **FWD-01**: `input_headers` auto-populated from `sebuf.http.service_headers` and `sebuf.http.method_headers` annotations
+- [x] **FWD-02**: `input_query_strings` auto-populated from `sebuf.http.query` annotations on request message fields
+- [x] **FWD-03**: Auto-derived headers and query strings are never empty arrays (KrakenD zero-trust model)
 
 ### Rate Limiting
 
@@ -120,9 +120,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | CORE-04 | Phase 12 | Complete |
 | CORE-05 | Phase 12 | Complete |
 | CORE-06 | Phase 12 | Complete |
-| FWD-01 | Phase 12 | Pending |
-| FWD-02 | Phase 12 | Pending |
-| FWD-03 | Phase 12 | Pending |
+| FWD-01 | Phase 12 | Complete |
+| FWD-02 | Phase 12 | Complete |
+| FWD-03 | Phase 12 | Complete |
 | RLIM-01 | Phase 13 | Pending |
 | RLIM-02 | Phase 13 | Pending |
 | RLIM-03 | Phase 13 | Pending |
