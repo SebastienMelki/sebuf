@@ -1,0 +1,8 @@
+# Generated KrakenD configs (produced by make generate)
+generated/
+
+# Extracted partials (produced by make partials)
+gateway/partials/
+
+# Buf lock file
+buf.lock

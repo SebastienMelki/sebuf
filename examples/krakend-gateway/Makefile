@@ -23,7 +23,7 @@ PROTOS := proto/services/user_service.proto proto/services/product_service.proto
 
 # Full workflow: generate, extract partials, validate per-service, compose gateway config.
 all: generate partials validate compose
-	@echo "Done. Gateway config: gateway/krakend.json"
+	@echo "Done. All configs generated and validated."
 
 # Generate per-service KrakenD JSON configs from proto annotations.
 # Uses protoc directly with --proto_path for local sebuf proto resolution.
@@ -60,8 +60,8 @@ partials:
 # Per-service files are standalone -- they include $schema and version.
 validate:
 	@echo "Validating per-service configs..."
-	@krakend check -lc generated/UserService.krakend.json
-	@krakend check -lc generated/ProductService.krakend.json
+	@krakend check -l -c generated/UserService.krakend.json
+	@krakend check -l -c generated/ProductService.krakend.json
 	@echo "All configs valid."
 
 # Compose a complete gateway config from per-service partials using Flexible Config.
@@ -78,17 +78,12 @@ compose:
 	@FC_ENABLE=1 \
 		FC_PARTIALS=gateway/partials \
 		FC_SETTINGS=gateway/settings \
-		krakend check -dpc gateway/krakend.tmpl > gateway/krakend.json 2>&1 || true
-	@echo "Validating composed config..."
-	@FC_ENABLE=1 \
-		FC_PARTIALS=gateway/partials \
-		FC_SETTINGS=gateway/settings \
-		krakend check -lc gateway/krakend.tmpl
-	@echo "Composed config: gateway/krakend.json"
+		krakend check -l -c gateway/krakend.tmpl
+	@echo "Composed config validated. To inspect:"
+	@echo "  FC_ENABLE=1 FC_PARTIALS=gateway/partials FC_SETTINGS=gateway/settings krakend check -d -c gateway/krakend.tmpl"
 
-# Remove all generated and composed files.
+# Remove all generated files and extracted partials.
 clean:
 	@rm -rf generated
 	@rm -rf gateway/partials
-	@rm -f gateway/krakend.json
 	@echo "Cleaned."
