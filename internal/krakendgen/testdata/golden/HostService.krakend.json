@@ -1,0 +1,33 @@
+[
+  {
+    "endpoint": "/api/v1/normal",
+    "method": "GET",
+    "output_encoding": "json",
+    "backend": [
+      {
+        "url_pattern": "/api/v1/normal",
+        "host": [
+          "http://primary:8080",
+          "http://secondary:8080"
+        ],
+        "method": "GET",
+        "encoding": "json"
+      }
+    ]
+  },
+  {
+    "endpoint": "/api/v1/override",
+    "method": "GET",
+    "output_encoding": "json",
+    "backend": [
+      {
+        "url_pattern": "/api/v1/override",
+        "host": [
+          "http://special:9090"
+        ],
+        "method": "GET",
+        "encoding": "json"
+      }
+    ]
+  }
+]

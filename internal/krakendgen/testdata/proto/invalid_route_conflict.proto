@@ -1,0 +1,46 @@
+syntax = "proto3";
+
+package krakendtest;
+
+import "sebuf/http/annotations.proto";
+import "sebuf/http/headers.proto";
+import "sebuf/krakend/krakend.proto";
+
+option go_package = "github.com/SebastienMelki/sebuf/internal/krakendgen/testdata";
+
+message SearchUsersRequest {
+  string query = 1 [(sebuf.http.query) = { name: "q" }];
+}
+message SearchUsersResponse {
+  repeated string names = 1;
+}
+
+message GetUserRequest {
+  string id = 1;
+}
+message GetUserResponse {
+  string name = 1;
+}
+
+service RouteConflictService {
+  option (sebuf.http.service_config) = {
+    base_path: "/api/v1"
+  };
+  option (sebuf.krakend.gateway_config) = {
+    host: ["http://backend:8080"]
+  };
+
+  rpc SearchUsers(SearchUsersRequest) returns (SearchUsersResponse) {
+    option (sebuf.http.config) = {
+      path: "/users/search"
+      method: HTTP_METHOD_GET
+    };
+  }
+
+  rpc GetUser(GetUserRequest) returns (GetUserResponse) {
+    option (sebuf.http.config) = {
+      path: "/users/{id}"
+      method: HTTP_METHOD_GET
+    };
+  }
+}

@@ -1,0 +1,91 @@
+syntax = "proto3";
+
+package krakendtest;
+
+import "sebuf/http/annotations.proto";
+import "sebuf/http/headers.proto";
+import "sebuf/krakend/krakend.proto";
+
+option go_package = "github.com/SebastienMelki/sebuf/internal/krakendgen/testdata";
+
+message ServiceHeadersOnlyRequest {}
+message ServiceHeadersOnlyResponse {
+  string data = 1;
+}
+
+message MethodHeadersAddedRequest {
+  string body = 1;
+}
+message MethodHeadersAddedResponse {
+  string data = 1;
+}
+
+message NoHeadersRequest {}
+message NoHeadersResponse {
+  string data = 1;
+}
+
+service HeaderForwardingService {
+  option (sebuf.http.service_config) = {
+    base_path: "/api/v1"
+  };
+  option (sebuf.krakend.gateway_config) = {
+    host: ["http://backend:8080"]
+  };
+  option (sebuf.http.service_headers) = {
+    required_headers: [
+      {
+        name: "X-API-Key"
+        type: "string"
+        required: true
+      },
+      {
+        name: "X-Tenant-ID"
+        type: "string"
+        required: true
+      }
+    ]
+  };
+
+  // Only service headers -- should forward X-API-Key, X-Tenant-ID.
+  rpc ServiceHeadersOnly(ServiceHeadersOnlyRequest) returns (ServiceHeadersOnlyResponse) {
+    option (sebuf.http.config) = {
+      path: "/service-headers"
+      method: HTTP_METHOD_GET
+    };
+  }
+
+  // Method headers add X-Request-ID; combined = X-API-Key, X-Request-ID, X-Tenant-ID.
+  rpc MethodHeadersAdded(MethodHeadersAddedRequest) returns (MethodHeadersAddedResponse) {
+    option (sebuf.http.config) = {
+      path: "/method-headers"
+      method: HTTP_METHOD_POST
+    };
+    option (sebuf.http.method_headers) = {
+      required_headers: [
+        {
+          name: "X-Request-ID"
+          type: "string"
+          required: true
+        }
+      ]
+    };
+  }
+}
+
+// Separate service with no service_headers.
+service NoHeaderService {
+  option (sebuf.http.service_config) = {
+    base_path: "/api/v1"
+  };
+  option (sebuf.krakend.gateway_config) = {
+    host: ["http://backend:8080"]
+  };
+
+  rpc NoHeaders(NoHeadersRequest) returns (NoHeadersResponse) {
+    option (sebuf.http.config) = {
+      path: "/no-headers"
+      method: HTTP_METHOD_GET
+    };
+  }
+}
