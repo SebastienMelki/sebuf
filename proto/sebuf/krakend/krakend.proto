@@ -1,0 +1,39 @@
+syntax = "proto3";
+
+package sebuf.krakend;
+
+import "google/protobuf/descriptor.proto";
+
+option go_package = "github.com/SebastienMelki/sebuf/krakend;krakend";
+
+// GatewayConfig sets service-wide KrakenD defaults.
+// Applied to a service via (sebuf.krakend.gateway_config).
+message GatewayConfig {
+  // Backend host URLs (e.g., "http://backend:8080"). Required.
+  // Must include scheme (http:// or https://).
+  // Multiple hosts enable KrakenD load balancing.
+  repeated string host = 1;
+
+  // Default timeout for all endpoints in this service.
+  // KrakenD duration format: "2s", "500ms", "1m".
+  // Omit to use KrakenD's built-in default.
+  string timeout = 2;
+}
+
+// EndpointConfig overrides service-level defaults for a specific RPC.
+// Applied to an rpc method via (sebuf.krakend.endpoint_config).
+message EndpointConfig {
+  // Override backend host for this specific endpoint.
+  repeated string host = 1;
+
+  // Override timeout for this specific endpoint.
+  string timeout = 2;
+}
+
+extend google.protobuf.ServiceOptions {
+  GatewayConfig gateway_config = 51001;
+}
+
+extend google.protobuf.MethodOptions {
+  EndpointConfig endpoint_config = 51002;
+}

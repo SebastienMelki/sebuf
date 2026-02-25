@@ -111,10 +111,12 @@ proto:
 		--go_opt=Msebuf/http/annotations.proto=github.com/SebastienMelki/sebuf/http \
 		--go_opt=Msebuf/http/headers.proto=github.com/SebastienMelki/sebuf/http \
 		--go_opt=Msebuf/http/errors.proto=github.com/SebastienMelki/sebuf/http \
+		--go_opt=Msebuf/krakend/krakend.proto=github.com/SebastienMelki/sebuf/krakend \
 		--proto_path=. \
 		proto/sebuf/http/annotations.proto \
 		proto/sebuf/http/headers.proto \
-		proto/sebuf/http/errors.proto
+		proto/sebuf/http/errors.proto \
+		proto/sebuf/krakend/krakend.proto
 
 # Publish annotations to Buf Schema Registry
 .PHONY: publish
