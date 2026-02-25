@@ -1,30 +1,14 @@
-# Roadmap: sebuf v1.0
+# Roadmap: sebuf
 
-## Overview
+## Milestones
 
-sebuf v1.0 delivers complete JSON mapping control across all generators and adds three new language clients (Swift, Kotlin, Python). The work starts with foundation cleanup (landing pending PRs, fixing bugs, closing resolved issues), then extracts shared annotation infrastructure to eliminate 1,289 lines of duplication. Before any new features, existing Go and TypeScript clients get a thorough review and polish pass to establish the quality baseline. Then 8 JSON mapping features land with mandatory cross-generator consistency validation at every step. Language clients follow once the annotation design is locked down. A formal consistency audit and release readiness come last. The two capital sins are breaking backward compatibility and allowing inconsistencies between docs, clients, and servers.
+- [x] **v1.0 JSON Mapping & Polish** - Phases 1-11 (in progress)
+- [ ] **v1.1 KrakenD Config Generator** - Phases 12-14 (planned)
 
 ## Phases
 
-**Phase Numbering:**
-- Integer phases (1, 2, 3): Planned milestone work
-- Decimal phases (2.1, 2.2): Urgent insertions (marked with INSERTED)
-
-Decimal phases appear between their surrounding integers in numeric order.
-
-- [x] **Phase 1: Foundation - Quick Wins** - Land PR #98, fix #105, close resolved issues #91 and #94
-- [x] **Phase 2: Foundation - Shared Annotations** - Extract shared annotation parsing, audit serialization consistency
-- [x] **Phase 3: Existing Client Review** - Review and polish existing Go client and TypeScript client before building new features
-- [x] **Phase 4: JSON - Primitive Encoding** - int64/uint64 string encoding and enum string encoding across all generators
-- [x] **Phase 5: JSON - Nullable & Empty** - Nullable primitives and empty object handling across all generators
-- [x] **Phase 6: JSON - Data Encoding** - Timestamp formats and bytes encoding options across all generators
-- [x] **Phase 7: JSON - Structural Transforms** - Oneof discriminated unions and nested message flattening across all generators
-- [ ] **Phase 8: Language - Swift Client** - Idiomatic Swift HTTP client generator using URLSession and Codable
-- [ ] **Phase 9: Language - Kotlin Client** - Idiomatic Kotlin HTTP client generator using OkHttp and data classes
-- [ ] **Phase 10: Language - Python Client** - Idiomatic Python HTTP client generator using httpx and dataclasses
-- [ ] **Phase 11: Polish & Release** - Documentation, examples, formal consistency audit, cross-generator validation
-
-## Phase Details
+<details>
+<summary>v1.0 JSON Mapping & Polish (Phases 1-11)</summary>
 
 ### Phase 1: Foundation - Quick Wins
 **Goal**: Existing bugs are fixed, pending work is landed, and resolved issues are closed so the codebase is clean before structural changes
@@ -159,12 +143,6 @@ Plans:
 **Goal**: Swift developers can generate a type-safe HTTP client from proto definitions that supports all sebuf annotations including JSON mapping features
 **Depends on**: Phase 7 (all JSON mapping features complete)
 **Requirements**: LANG-01
-**Success Criteria** (what must be TRUE):
-  1. Running `protoc --swift-client_out=.` generates a compilable Swift package with service client classes, typed request/response structs (Codable), and error types
-  2. Generated Swift client supports all HTTP verbs, path/query parameters, header annotations, and all 8 JSON mapping annotations
-  3. Generated client uses URLSession with async/await, functional options pattern (Swift builder), and returns typed errors (ValidationError, ApiError)
-  4. Golden file tests cover the exhaustive proto fixture and pass for the Swift generator
-  5. A cross-generator consistency test confirms the Swift client produces identical JSON request/response shapes as the Go client for every RPC in the exhaustive test proto
 **Plans**: TBD
 
 Plans:
@@ -177,12 +155,6 @@ Plans:
 **Goal**: Kotlin developers can generate a type-safe HTTP client from proto definitions that supports all sebuf annotations including JSON mapping features
 **Depends on**: Phase 7 (all JSON mapping features complete)
 **Requirements**: LANG-02
-**Success Criteria** (what must be TRUE):
-  1. Running `protoc --kt-client_out=.` generates compilable Kotlin source with service client classes, data classes for request/response types, and sealed error classes
-  2. Generated Kotlin client supports all HTTP verbs, path/query parameters, header annotations, and all 8 JSON mapping annotations
-  3. Generated client uses OkHttp with coroutines, functional options pattern, and kotlinx.serialization-compatible data classes
-  4. Golden file tests cover the exhaustive proto fixture and pass for the Kotlin generator
-  5. A cross-generator consistency test confirms the Kotlin client produces identical JSON request/response shapes as the Go client for every RPC in the exhaustive test proto
 **Plans**: TBD
 
 Plans:
@@ -195,12 +167,6 @@ Plans:
 **Goal**: Python developers can generate a type-safe HTTP client from proto definitions that supports all sebuf annotations including JSON mapping features
 **Depends on**: Phase 7 (all JSON mapping features complete)
 **Requirements**: LANG-03
-**Success Criteria** (what must be TRUE):
-  1. Running `protoc --py-client_out=.` generates a Python package with service client classes, dataclass-based request/response types, and typed exception classes
-  2. Generated Python client supports all HTTP verbs, path/query parameters, header annotations, and all 8 JSON mapping annotations
-  3. Generated client uses httpx with async support, type hints throughout, and structured error types (ValidationError, ApiError)
-  4. Golden file tests cover the exhaustive proto fixture and pass for the Python generator
-  5. A cross-generator consistency test confirms the Python client produces identical JSON request/response shapes as the Go client for every RPC in the exhaustive test proto
 **Plans**: TBD
 
 Plans:
@@ -213,14 +179,6 @@ Plans:
 **Goal**: sebuf v1.0 is documented, tested, and passes a formal consistency audit confirming zero inconsistencies between all 7 generators, with zero backward compatibility breaks
 **Depends on**: Phase 10 (all features and language clients complete)
 **Requirements**: POL-01, POL-02, POL-03, POL-04, POL-05, POL-06
-**Success Criteria** (what must be TRUE):
-  1. README covers all features including JSON mapping annotations, language clients, and provides getting-started instructions for each generator
-  2. Example proto files exist demonstrating every JSON mapping annotation with expected JSON output documented inline
-  3. Multi-auth patterns example (#50) demonstrates service-level and method-level header combinations for common auth scenarios (API key, Bearer token, OAuth)
-  4. Golden file test coverage spans every annotation across all 7 generators (go-http, go-client, ts-client, swift-client, kt-client, py-client, openapiv3)
-  5. A formal cross-generator consistency audit verifies that the same proto definition produces semantically matching output across all 7 generators -- this is a dedicated pass, not just re-running phase-level consistency tests
-  6. A backward compatibility test suite verifies that proto files using only pre-v1.0 annotations (no JSON mapping annotations) produce byte-identical output to the pre-v1.0 generators
-  7. OpenAPI schemas are validated against the OpenAPI 3.1 specification, and the documented request/response shapes match what go-http actually serializes
 **Plans**: TBD
 
 Plans:
@@ -230,22 +188,78 @@ Plans:
 - [ ] 11-04: Formal cross-generator consistency audit (all 7 generators)
 - [ ] 11-05: Backward compatibility verification suite
 
+</details>
+
+## v1.1 KrakenD Config Generator
+
+**Milestone Goal:** Add a protoc-gen-krakend plugin that generates KrakenD API gateway configuration from proto service definitions, eliminating manual config drift between services and the gateway.
+
+**Phase Numbering:**
+- Integer phases (12, 13, 14): Planned milestone work
+- Decimal phases (12.1, 12.2): Urgent insertions (marked with INSERTED)
+
+Decimal phases appear between their surrounding integers in numeric order.
+
+- [ ] **Phase 12: Annotations and Core Endpoint Generation** - Proto annotation package, plugin scaffold, endpoint/backend generation, auto-derived forwarding, and route validation
+- [ ] **Phase 13: Gateway Features** - Rate limiting, JWT authentication, circuit breaker, caching, concurrent calls, and namespace validation
+- [ ] **Phase 14: Documentation and Examples** - Example proto with all annotations and Flexible Config integration guide
+
+## Phase Details
+
+### Phase 12: Annotations and Core Endpoint Generation
+**Goal**: Users can run protoc-gen-krakend and get correct, minimal KrakenD endpoint fragments with auto-derived header and query string forwarding from their existing proto service definitions
+**Depends on**: Nothing (first phase of v1.1 milestone; reuses existing sebuf.http annotations from v1.0)
+**Requirements**: ANNO-01, ANNO-02, ANNO-03, ANNO-04, CORE-01, CORE-02, CORE-03, CORE-04, CORE-05, CORE-06, FWD-01, FWD-02, FWD-03, VALD-01, VALD-02, TEST-01, TEST-03, TEST-04
+**Success Criteria** (what must be TRUE):
+  1. Running `protoc --krakend_out=. --krakend_opt=host=http://backend:8080 service.proto` produces a `{ServiceName}.krakend.json` file containing a valid JSON array of KrakenD endpoint objects with correct HTTP methods and paths derived from `sebuf.http.config` annotations
+  2. KrakenD endpoint objects include `input_headers` auto-populated from `sebuf.http.service_headers` and `sebuf.http.method_headers`, and `input_query_strings` auto-populated from `sebuf.http.query` annotations -- never empty arrays, never wildcards
+  3. Service-level `gateway_config` annotation sets defaults (host, timeout) for all endpoints in a service, and method-level `endpoint_config` annotation overrides those defaults for individual RPCs
+  4. Generation fails with a clear error message when two RPCs produce identical (path, method) tuples, or when static and parameterized routes conflict at the same path level (e.g., `/users/search` vs `/users/{id}`)
+  5. Golden file tests cover endpoint routing, backend mapping, timeouts, auto-derived forwarding, and all validation error scenarios
+**Plans**: TBD
+
+Plans:
+- [ ] 12-01: Proto annotation package and plugin scaffold
+- [ ] 12-02: Core endpoint/backend generation with host and timeout config
+- [ ] 12-03: Auto-derived header and query string forwarding
+- [ ] 12-04: Route validation and golden file test suite
+
+### Phase 13: Gateway Features
+**Goal**: Users can annotate their proto services with rate limiting, JWT authentication, circuit breaker, caching, and concurrency settings that generate correct KrakenD extra_config entries
+**Depends on**: Phase 12 (endpoint skeleton must exist for extra_config to attach to)
+**Requirements**: RLIM-01, RLIM-02, RLIM-03, AUTH-01, AUTH-02, AUTH-03, RESL-01, RESL-02, RESL-03, RESL-04, VALD-03, TEST-02
+**Success Criteria** (what must be TRUE):
+  1. A service or method annotated with rate limit settings produces endpoint-level `extra_config` with `"qos/ratelimit/router"` containing max_rate, capacity, and strategy, and/or backend-level `extra_config` with `"qos/ratelimit/proxy"` -- with method-level always overriding service-level
+  2. A service annotated with JWT validation settings produces endpoint-level `extra_config` with `"auth/validator"` containing JWK URL, algorithm, issuer, audience, and optional claim-to-header propagation rules
+  3. A service or method annotated with circuit breaker settings produces backend-level `extra_config` with `"qos/circuit-breaker"` containing interval, timeout, and max_errors -- with method-level always overriding service-level
+  4. Backend caching (`"qos/http-cache"`) and concurrent calls are configurable per endpoint, with service-level defaults and method-level overrides
+  5. All extra_config namespace strings (e.g., `"qos/ratelimit/router"`, `"auth/validator"`) are Go constants validated against a known allowlist, and golden file tests cover every gateway feature combination
+**Plans**: TBD
+
+Plans:
+- [ ] 13-01: Rate limiting (endpoint and backend) with service/method override semantics
+- [ ] 13-02: JWT authentication and claim propagation
+- [ ] 13-03: Circuit breaker, caching, concurrent calls, and namespace validation
+
+### Phase 14: Documentation and Examples
+**Goal**: Users have a working example and a clear guide showing how to use protoc-gen-krakend annotations and compose per-service fragments into a complete KrakenD configuration
+**Depends on**: Phase 13 (all features must exist before documenting them)
+**Requirements**: DOCS-01, DOCS-02
+**Success Criteria** (what must be TRUE):
+  1. An example proto file in `examples/` demonstrates every KrakenD annotation (gateway_config, endpoint_config, rate limiting, JWT, circuit breaker, caching) with inline comments explaining each setting
+  2. A Flexible Config integration guide shows how to use KrakenD's `FC_ENABLE=1` with `{{ include }}` directives to compose per-service `.krakend.json` fragments into a complete `krakend.json`, including the comma-handling pattern for multi-service includes
+**Plans**: TBD
+
+Plans:
+- [ ] 14-01: Example proto and Flexible Config integration guide
+
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8 -> 9 -> 10 -> 11
-Note: Phases 8, 9, 10 (language clients) can execute in parallel after Phase 7 completes.
+Phases execute in numeric order: 12 -> 13 -> 14
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Foundation - Quick Wins | 2/2 | Complete | 2026-02-05 |
-| 2. Foundation - Shared Annotations | 4/4 | Complete | 2026-02-05 |
-| 3. Existing Client Review | 6/6 | Complete | 2026-02-05 |
-| 4. JSON - Primitive Encoding | 5/5 | Complete | 2026-02-06 |
-| 5. JSON - Nullable & Empty | 4/4 | Complete | 2026-02-06 |
-| 6. JSON - Data Encoding | 4/4 | Complete | 2026-02-06 |
-| 7. JSON - Structural Transforms | 4/4 | Complete | 2026-02-06 |
-| 8. Language - Swift Client | 0/4 | Not started | - |
-| 9. Language - Kotlin Client | 0/4 | Not started | - |
-| 10. Language - Python Client | 0/4 | Not started | - |
-| 11. Polish & Release | 0/5 | Not started | - |
+| 12. Annotations and Core Endpoint Generation | 0/4 | Not started | - |
+| 13. Gateway Features | 0/3 | Not started | - |
+| 14. Documentation and Examples | 0/1 | Not started | - |

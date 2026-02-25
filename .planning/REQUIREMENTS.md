@@ -1,7 +1,7 @@
 # Requirements: protoc-gen-krakend (v1.1)
 
 **Defined:** 2026-02-25
-**Core Value:** Proto definitions are the single source of truth — KrakenD gateway config stays in sync with service definitions automatically.
+**Core Value:** Proto definitions are the single source of truth -- KrakenD gateway config stays in sync with service definitions automatically.
 
 ## v1.1 Requirements
 
@@ -96,7 +96,7 @@ Deferred to future milestone. Tracked but not in current roadmap.
 
 | Feature | Reason |
 |---------|--------|
-| Full krakend.json generation | Infrastructure concern — global config (port, TLS, telemetry) is deployment-specific |
+| Full krakend.json generation | Infrastructure concern -- global config (port, TLS, telemetry) is deployment-specific |
 | API key authentication | KrakenD Enterprise-only feature |
 | gRPC backend integration | Enterprise-only, contradicts sebuf's HTTP focus |
 | Telemetry/logging config | Operational concern, not API shape |
@@ -110,44 +110,44 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| ANNO-01 | — | Pending |
-| ANNO-02 | — | Pending |
-| ANNO-03 | — | Pending |
-| ANNO-04 | — | Pending |
-| CORE-01 | — | Pending |
-| CORE-02 | — | Pending |
-| CORE-03 | — | Pending |
-| CORE-04 | — | Pending |
-| CORE-05 | — | Pending |
-| CORE-06 | — | Pending |
-| FWD-01 | — | Pending |
-| FWD-02 | — | Pending |
-| FWD-03 | — | Pending |
-| RLIM-01 | — | Pending |
-| RLIM-02 | — | Pending |
-| RLIM-03 | — | Pending |
-| AUTH-01 | — | Pending |
-| AUTH-02 | — | Pending |
-| AUTH-03 | — | Pending |
-| RESL-01 | — | Pending |
-| RESL-02 | — | Pending |
-| RESL-03 | — | Pending |
-| RESL-04 | — | Pending |
-| VALD-01 | — | Pending |
-| VALD-02 | — | Pending |
-| VALD-03 | — | Pending |
-| TEST-01 | — | Pending |
-| TEST-02 | — | Pending |
-| TEST-03 | — | Pending |
-| TEST-04 | — | Pending |
-| DOCS-01 | — | Pending |
-| DOCS-02 | — | Pending |
+| ANNO-01 | Phase 12 | Pending |
+| ANNO-02 | Phase 12 | Pending |
+| ANNO-03 | Phase 12 | Pending |
+| ANNO-04 | Phase 12 | Pending |
+| CORE-01 | Phase 12 | Pending |
+| CORE-02 | Phase 12 | Pending |
+| CORE-03 | Phase 12 | Pending |
+| CORE-04 | Phase 12 | Pending |
+| CORE-05 | Phase 12 | Pending |
+| CORE-06 | Phase 12 | Pending |
+| FWD-01 | Phase 12 | Pending |
+| FWD-02 | Phase 12 | Pending |
+| FWD-03 | Phase 12 | Pending |
+| RLIM-01 | Phase 13 | Pending |
+| RLIM-02 | Phase 13 | Pending |
+| RLIM-03 | Phase 13 | Pending |
+| AUTH-01 | Phase 13 | Pending |
+| AUTH-02 | Phase 13 | Pending |
+| AUTH-03 | Phase 13 | Pending |
+| RESL-01 | Phase 13 | Pending |
+| RESL-02 | Phase 13 | Pending |
+| RESL-03 | Phase 13 | Pending |
+| RESL-04 | Phase 13 | Pending |
+| VALD-01 | Phase 12 | Pending |
+| VALD-02 | Phase 12 | Pending |
+| VALD-03 | Phase 13 | Pending |
+| TEST-01 | Phase 12 | Pending |
+| TEST-02 | Phase 13 | Pending |
+| TEST-03 | Phase 12 | Pending |
+| TEST-04 | Phase 12 | Pending |
+| DOCS-01 | Phase 14 | Pending |
+| DOCS-02 | Phase 14 | Pending |
 
 **Coverage:**
 - v1.1 requirements: 32 total
-- Mapped to phases: 0
-- Unmapped: 32
+- Mapped to phases: 32
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-02-25*
-*Last updated: 2026-02-25 after initial definition*
+*Last updated: 2026-02-25 after roadmap creation*
