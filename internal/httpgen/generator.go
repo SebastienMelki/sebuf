@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"unicode"
 
 	"google.golang.org/protobuf/compiler/protogen"
 
@@ -887,18 +888,18 @@ func (g *Generator) getPathParams(method *protogen.Method) []string {
 }
 
 func camelToSnake(s string) string {
-	var result []byte
+	var b strings.Builder
 	for i, r := range s {
 		if r >= 'A' && r <= 'Z' {
 			if i > 0 {
-				result = append(result, '_')
+				b.WriteByte('_')
 			}
-			result = append(result, byte(r+'a'-'A')) //nolint:gosec // r is guaranteed ASCII uppercase A-Z
+			b.WriteRune(unicode.ToLower(r))
 		} else {
-			result = append(result, byte(r)) //nolint:gosec // r is guaranteed ASCII lowercase or digit
+			b.WriteRune(r)
 		}
 	}
-	return string(result)
+	return b.String()
 }
 
 // generateErrorResponseFunctions generates error response helper functions.

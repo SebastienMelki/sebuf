@@ -10,22 +10,22 @@ option go_package = "github.com/SebastienMelki/sebuf/http;http";
 message Header {
   // Name of the header parameter
   string name = 1;
-  
+
   // Description of the header parameter
   string description = 2;
-  
+
   // Type of the header parameter (string, integer, number, boolean, array)
   string type = 3;
-  
+
   // Whether the header is required
   bool required = 4;
-  
+
   // Schema format (e.g. "uuid", "email", "date-time")
   string format = 5;
-  
+
   // Example value for the header
   string example = 6;
-  
+
   // Whether the header is deprecated
   bool deprecated = 7;
 }

@@ -80,30 +80,30 @@ enum JWTAlgorithm {
   JWT_ALGORITHM_UNSPECIFIED = 0;
 
   // RSA PKCS#1 v1.5 with SHA-256/384/512. Most common for Auth0, Okta, etc.
-  JWT_ALGORITHM_RS256 = 1;   // JSON: "RS256"
-  JWT_ALGORITHM_RS384 = 2;   // JSON: "RS384"
-  JWT_ALGORITHM_RS512 = 3;   // JSON: "RS512"
+  JWT_ALGORITHM_RS256 = 1; // JSON: "RS256"
+  JWT_ALGORITHM_RS384 = 2; // JSON: "RS384"
+  JWT_ALGORITHM_RS512 = 3; // JSON: "RS512"
 
   // HMAC with SHA-256/384/512. Symmetric — same secret signs and verifies.
   // Use only when the signing secret can be securely shared with KrakenD.
-  JWT_ALGORITHM_HS256 = 4;   // JSON: "HS256"
-  JWT_ALGORITHM_HS384 = 5;   // JSON: "HS384"
-  JWT_ALGORITHM_HS512 = 6;   // JSON: "HS512"
+  JWT_ALGORITHM_HS256 = 4; // JSON: "HS256"
+  JWT_ALGORITHM_HS384 = 5; // JSON: "HS384"
+  JWT_ALGORITHM_HS512 = 6; // JSON: "HS512"
 
   // ECDSA with P-256/P-384/P-521 curves and SHA-256/384/512.
   // Smaller keys than RSA with equivalent security.
-  JWT_ALGORITHM_ES256 = 7;   // JSON: "ES256"
-  JWT_ALGORITHM_ES384 = 8;   // JSON: "ES384"
-  JWT_ALGORITHM_ES512 = 9;   // JSON: "ES512"
+  JWT_ALGORITHM_ES256 = 7; // JSON: "ES256"
+  JWT_ALGORITHM_ES384 = 8; // JSON: "ES384"
+  JWT_ALGORITHM_ES512 = 9; // JSON: "ES512"
 
   // RSA-PSS with SHA-256/384/512. More secure padding than PKCS#1 v1.5.
-  JWT_ALGORITHM_PS256 = 10;  // JSON: "PS256"
-  JWT_ALGORITHM_PS384 = 11;  // JSON: "PS384"
-  JWT_ALGORITHM_PS512 = 12;  // JSON: "PS512"
+  JWT_ALGORITHM_PS256 = 10; // JSON: "PS256"
+  JWT_ALGORITHM_PS384 = 11; // JSON: "PS384"
+  JWT_ALGORITHM_PS512 = 12; // JSON: "PS512"
 
   // Edwards-curve Digital Signature Algorithm (Ed25519).
   // High performance, small signatures.
-  JWT_ALGORITHM_EDDSA = 13;  // JSON: "EdDSA"
+  JWT_ALGORITHM_EDDSA = 13; // JSON: "EdDSA"
 }
 
 // ---------------------------------------------------------------------------
