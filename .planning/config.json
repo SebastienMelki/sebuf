@@ -4,7 +4,7 @@
   "parallelization": true,
   "commit_docs": true,
   "model_profile": "quality",
-  "branching_strategy": "phase",
+  "branching_strategy": "none",
   "phase_branch_template": "gsd/phase-{phase}-{slug}",
   "github_issues": true,
   "workflow": {
