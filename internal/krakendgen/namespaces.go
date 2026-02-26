@@ -8,7 +8,7 @@ const (
 	NamespaceHTTPCache       = "qos/http-cache"
 )
 
-var KnownNamespaces = []string{
+var KnownNamespaces = []string{ //nolint:gochecknoglobals // package-level registry used by tests
 	NamespaceRateLimitRouter,
 	NamespaceRateLimitProxy,
 	NamespaceAuthValidator,

@@ -209,7 +209,11 @@ func TestKrakenDGoldenFiles(t *testing.T) {
 				if created := tryCreateGoldenFile(t, goldenFile, generatedContent, goldenReadErr); created {
 					return
 				}
-				t.Fatalf("Failed to read golden file %s: %v\nRun with UPDATE_GOLDEN=1 to create it", goldenFile, goldenReadErr)
+				t.Fatalf(
+					"Failed to read golden file %s: %v\nRun with UPDATE_GOLDEN=1 to create it",
+					goldenFile,
+					goldenReadErr,
+				)
 			}
 
 			if !bytes.Equal(generatedContent, goldenContent) {
@@ -343,9 +347,9 @@ func TestKrakenDSchemaValidation(t *testing.T) {
 			cmd := exec.Command(krakendPath, "check", "-lc", filePath)
 			var stderr bytes.Buffer
 			cmd.Stderr = &stderr
-			if err := cmd.Run(); err != nil {
+			if runErr := cmd.Run(); runErr != nil {
 				t.Errorf("krakend check -lc failed for %s: %v\n%s",
-					entry.Name(), err, stderr.String())
+					entry.Name(), runErr, stderr.String())
 			}
 		})
 	}

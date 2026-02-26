@@ -20,28 +20,13 @@ import (
 // If at least one RPC has HTTP config, the service must have a
 // sebuf.krakend.gateway_config annotation providing a backend host.
 // If no RPCs have HTTP config, an empty slice is returned without error.
+
 func GenerateService(service *protogen.Service) ([]Endpoint, error) {
-	// Collect RPCs that have HTTP annotations before requiring gateway_config.
-	// This avoids failing on services that have nothing to do with HTTP/KrakenD.
-	type httpMethod struct {
-		method     *protogen.Method
-		httpConfig *annotations.HTTPConfig
-	}
-
-	var httpMethods []httpMethod
-	for _, method := range service.Methods {
-		cfg := annotations.GetMethodHTTPConfig(method)
-		if cfg != nil {
-			httpMethods = append(httpMethods, httpMethod{method: method, httpConfig: cfg})
-		}
-	}
-
-	// No HTTP-annotated RPCs -- nothing to generate.
+	httpMethods := collectHTTPMethods(service)
 	if len(httpMethods) == 0 {
 		return nil, nil
 	}
 
-	// At least one RPC needs a backend, so gateway_config is required.
 	gwConfig, err := getGatewayConfig(service)
 	if err != nil {
 		return nil, err
@@ -50,104 +35,151 @@ func GenerateService(service *protogen.Service) ([]Endpoint, error) {
 	basePath := annotations.GetServiceBasePath(service)
 	serviceName := string(service.Desc.Name())
 
-	// Validate service-level rate limit, circuit breaker, and cache configs before building endpoints.
-	if rl := gwConfig.GetRateLimit(); rl != nil {
-		if err := validateRateLimit(rl, serviceName); err != nil {
-			return nil, err
-		}
-	}
-	if cb := gwConfig.GetCircuitBreaker(); cb != nil {
-		if err := validateCircuitBreaker(cb, serviceName); err != nil {
-			return nil, err
-		}
-	}
-	if cache := gwConfig.GetCache(); cache != nil {
-		if err := validateCache(cache, serviceName); err != nil {
-			return nil, err
-		}
+	if err = validateGatewayConfigs(gwConfig, serviceName); err != nil {
+		return nil, err
 	}
 
 	endpoints := make([]Endpoint, 0, len(httpMethods))
 	for _, hm := range httpMethods {
 		epConfig := getEndpointConfig(hm.method)
 
-		// Validate method-level rate limit, circuit breaker, and cache if present.
-		if epConfig != nil {
-			if rl := epConfig.GetRateLimit(); rl != nil {
-				if err := validateRateLimit(rl, serviceName); err != nil {
-					return nil, err
-				}
-			}
-			if cb := epConfig.GetCircuitBreaker(); cb != nil {
-				if err := validateCircuitBreaker(cb, serviceName); err != nil {
-					return nil, err
-				}
-			}
-			if cache := epConfig.GetCache(); cache != nil {
-				if err := validateCache(cache, serviceName); err != nil {
-					return nil, err
-				}
-			}
+		if err = validateEndpointConfigs(epConfig, serviceName); err != nil {
+			return nil, err
 		}
 
-		fullPath := annotations.BuildHTTPPath(basePath, hm.httpConfig.Path)
-		host := resolveHost(gwConfig, epConfig)
-		timeout := resolveTimeout(gwConfig, epConfig)
-
-		ep := Endpoint{
-			Endpoint:       fullPath,
-			Method:         hm.httpConfig.Method,
-			OutputEncoding: "json",
-			Backend: []Backend{
-				{
-					URLPattern: fullPath,
-					Host:       host,
-					Method:     hm.httpConfig.Method,
-					Encoding:   "json",
-				},
-			},
-		}
-
-		if timeout != "" {
-			ep.Timeout = timeout
-		}
-
-		if cc := resolveConcurrentCalls(gwConfig, epConfig); cc > 0 {
-			ep.ConcurrentCalls = cc
-		}
-
-		ep.InputHeaders = deriveInputHeaders(service, hm.method)
-
-		// Auto-add JWT propagated claim headers to input_headers.
-		if jwt := gwConfig.GetJwt(); jwt != nil {
-			propagatedHeaders := getJWTPropagatedHeaderNames(jwt)
-			if len(propagatedHeaders) > 0 {
-				headers := ep.InputHeaders
-				if headers == nil {
-					headers = []string{}
-				}
-				for _, h := range propagatedHeaders {
-					if !containsString(headers, h) {
-						headers = append(headers, h)
-					}
-				}
-				sort.Strings(headers)
-				ep.InputHeaders = headers
-			}
-		}
-
-		ep.InputQueryStrings = deriveInputQueryStrings(hm.method)
-		ep.ExtraConfig = buildEndpointExtraConfig(gwConfig, epConfig)
-		ep.Backend[0].ExtraConfig = buildBackendExtraConfig(gwConfig, epConfig)
-
+		ep := buildEndpoint(service, hm, gwConfig, epConfig, basePath)
 		endpoints = append(endpoints, ep)
 	}
 
-	if err := ValidateRoutes(endpoints, serviceName); err != nil {
+	if err = ValidateRoutes(endpoints, serviceName); err != nil {
 		return nil, err
 	}
 
 	return endpoints, nil
+}
+
+// httpMethod pairs a protogen method with its parsed HTTP config.
+type httpMethod struct {
+	method     *protogen.Method
+	httpConfig *annotations.HTTPConfig
+}
+
+// collectHTTPMethods returns RPCs that have sebuf.http.config annotations.
+func collectHTTPMethods(service *protogen.Service) []httpMethod {
+	var methods []httpMethod
+	for _, method := range service.Methods {
+		cfg := annotations.GetMethodHTTPConfig(method)
+		if cfg != nil {
+			methods = append(methods, httpMethod{method: method, httpConfig: cfg})
+		}
+	}
+	return methods
+}
+
+// validateGatewayConfigs validates service-level rate limit, circuit breaker, and cache configs.
+func validateGatewayConfigs(gwConfig *krakend.GatewayConfig, serviceName string) error {
+	if rl := gwConfig.GetRateLimit(); rl != nil {
+		if err := validateRateLimit(rl, serviceName); err != nil {
+			return err
+		}
+	}
+	if cb := gwConfig.GetCircuitBreaker(); cb != nil {
+		if err := validateCircuitBreaker(cb, serviceName); err != nil {
+			return err
+		}
+	}
+	if cache := gwConfig.GetCache(); cache != nil {
+		if err := validateCache(cache, serviceName); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// validateEndpointConfigs validates method-level rate limit, circuit breaker, and cache configs.
+func validateEndpointConfigs(epConfig *krakend.EndpointConfig, serviceName string) error {
+	if epConfig == nil {
+		return nil
+	}
+	if rl := epConfig.GetRateLimit(); rl != nil {
+		if err := validateRateLimit(rl, serviceName); err != nil {
+			return err
+		}
+	}
+	if cb := epConfig.GetCircuitBreaker(); cb != nil {
+		if err := validateCircuitBreaker(cb, serviceName); err != nil {
+			return err
+		}
+	}
+	if cache := epConfig.GetCache(); cache != nil {
+		if err := validateCache(cache, serviceName); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// buildEndpoint constructs a single KrakenD Endpoint from an RPC's annotations.
+func buildEndpoint(
+	service *protogen.Service,
+	hm httpMethod,
+	gwConfig *krakend.GatewayConfig,
+	epConfig *krakend.EndpointConfig,
+	basePath string,
+) Endpoint {
+	fullPath := annotations.BuildHTTPPath(basePath, hm.httpConfig.Path)
+
+	ep := Endpoint{
+		Endpoint:       fullPath,
+		Method:         hm.httpConfig.Method,
+		OutputEncoding: "json",
+		Backend: []Backend{
+			{
+				URLPattern: fullPath,
+				Host:       resolveHost(gwConfig, epConfig),
+				Method:     hm.httpConfig.Method,
+				Encoding:   "json",
+			},
+		},
+	}
+
+	if timeout := resolveTimeout(gwConfig, epConfig); timeout != "" {
+		ep.Timeout = timeout
+	}
+	if cc := resolveConcurrentCalls(gwConfig, epConfig); cc > 0 {
+		ep.ConcurrentCalls = cc
+	}
+
+	ep.InputHeaders = mergeJWTHeaders(
+		deriveInputHeaders(service, hm.method),
+		gwConfig.GetJwt(),
+	)
+	ep.InputQueryStrings = deriveInputQueryStrings(hm.method)
+	ep.ExtraConfig = buildEndpointExtraConfig(gwConfig, epConfig)
+	ep.Backend[0].ExtraConfig = buildBackendExtraConfig(gwConfig, epConfig)
+
+	return ep
+}
+
+// mergeJWTHeaders adds JWT propagated claim headers to the input headers list.
+func mergeJWTHeaders(headers []string, jwt *krakend.JWTConfig) []string {
+	if jwt == nil {
+		return headers
+	}
+	propagated := getJWTPropagatedHeaderNames(jwt)
+	if len(propagated) == 0 {
+		return headers
+	}
+	if headers == nil {
+		headers = []string{}
+	}
+	for _, h := range propagated {
+		if !containsString(headers, h) {
+			headers = append(headers, h)
+		}
+	}
+	sort.Strings(headers)
+	return headers
 }
 
 // getGatewayConfig reads the sebuf.krakend.gateway_config extension from the
@@ -295,7 +327,10 @@ func resolveRateLimit(gwConfig *krakend.GatewayConfig, epConfig *krakend.Endpoin
 // resolveBackendRateLimit returns the method-level backend rate limit if
 // present, otherwise the service-level backend rate limit. Returns nil if
 // neither has it.
-func resolveBackendRateLimit(gwConfig *krakend.GatewayConfig, epConfig *krakend.EndpointConfig) *krakend.BackendRateLimitConfig {
+func resolveBackendRateLimit(
+	gwConfig *krakend.GatewayConfig,
+	epConfig *krakend.EndpointConfig,
+) *krakend.BackendRateLimitConfig {
 	if epConfig != nil && epConfig.GetBackendRateLimit() != nil {
 		return epConfig.GetBackendRateLimit()
 	}
@@ -378,6 +413,8 @@ func rateLimitStrategyToString(s krakend.RateLimitStrategy) string {
 		return "header"
 	case krakend.RateLimitStrategy_RATE_LIMIT_STRATEGY_PARAM:
 		return "param"
+	case krakend.RateLimitStrategy_RATE_LIMIT_STRATEGY_UNSPECIFIED:
+		return ""
 	default:
 		return ""
 	}
@@ -413,6 +450,8 @@ func jwtAlgorithmToString(a krakend.JWTAlgorithm) string {
 		return "PS512"
 	case krakend.JWTAlgorithm_JWT_ALGORITHM_EDDSA:
 		return "EdDSA"
+	case krakend.JWTAlgorithm_JWT_ALGORITHM_UNSPECIFIED:
+		return ""
 	default:
 		return ""
 	}
@@ -497,7 +536,10 @@ func containsString(slice []string, s string) bool {
 
 // resolveCircuitBreaker returns the method-level circuit breaker if present,
 // otherwise the service-level circuit breaker. Returns nil if neither has it.
-func resolveCircuitBreaker(gwConfig *krakend.GatewayConfig, epConfig *krakend.EndpointConfig) *krakend.CircuitBreakerConfig {
+func resolveCircuitBreaker(
+	gwConfig *krakend.GatewayConfig,
+	epConfig *krakend.EndpointConfig,
+) *krakend.CircuitBreakerConfig {
 	if epConfig != nil && epConfig.GetCircuitBreaker() != nil {
 		return epConfig.GetCircuitBreaker()
 	}

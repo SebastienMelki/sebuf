@@ -70,9 +70,10 @@ func generateFiles(plugin *protogen.Plugin) {
 		allEndpoints = []krakendgen.Endpoint{}
 	}
 
+	const krakendSchemaVersion = 3
 	config := krakendgen.KrakenDConfig{
 		Schema:    "https://www.krakend.io/schema/krakend.json",
-		Version:   3,
+		Version:   krakendSchemaVersion,
 		Endpoints: allEndpoints,
 	}
 

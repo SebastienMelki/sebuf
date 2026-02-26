@@ -893,9 +893,9 @@ func camelToSnake(s string) string {
 			if i > 0 {
 				result = append(result, '_')
 			}
-			result = append(result, byte(r+'a'-'A'))
+			result = append(result, byte(r+'a'-'A')) //nolint:gosec // r is guaranteed ASCII uppercase A-Z
 		} else {
-			result = append(result, byte(r))
+			result = append(result, byte(r)) //nolint:gosec // r is guaranteed ASCII lowercase or digit
 		}
 	}
 	return string(result)
