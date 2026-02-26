@@ -1,0 +1,19 @@
+# buf.yaml is used for linting only. Code generation uses protoc directly
+# because the krakend proto (sebuf/krakend/krakend.proto) may not yet be
+# published to the BSR. The Makefile handles proto_path resolution.
+version: v2
+modules:
+  - path: proto
+lint:
+  use:
+    - STANDARD
+  except:
+    - PACKAGE_VERSION_SUFFIX
+    - PACKAGE_DIRECTORY_MATCH
+    - RPC_REQUEST_RESPONSE_UNIQUE
+    - RPC_RESPONSE_STANDARD_NAME
+    - RPC_REQUEST_STANDARD_NAME
+    - FIELD_NOT_REQUIRED
+    - IMPORT_USED
+  enum_zero_value_suffix: _UNSPECIFIED
+  service_suffix: Service

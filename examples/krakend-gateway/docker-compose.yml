@@ -1,0 +1,29 @@
+services:
+  backend:
+    build:
+      context: ../..
+      dockerfile: examples/krakend-gateway/Dockerfile
+    networks:
+      gateway-net:
+        aliases:
+          - users-backend
+          - products-backend
+    expose:
+      - "8080"
+    ports:
+      - "8081:8080"
+
+  gateway:
+    image: devopsfaith/krakend:2.7
+    volumes:
+      - ./gateway:/etc/krakend
+    command: ["run", "-c", "/etc/krakend/krakend.json"]
+    ports:
+      - "8080:8080"
+    depends_on:
+      - backend
+    networks:
+      - gateway-net
+
+networks:
+  gateway-net:

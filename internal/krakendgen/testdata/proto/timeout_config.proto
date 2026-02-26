@@ -1,0 +1,62 @@
+syntax = "proto3";
+
+package krakendtest;
+
+import "sebuf/http/annotations.proto";
+import "sebuf/http/headers.proto";
+import "sebuf/krakend/krakend.proto";
+
+option go_package = "github.com/SebastienMelki/sebuf/internal/krakendgen/testdata";
+
+message SlowRequest {}
+message SlowResponse {
+  string result = 1;
+}
+
+message FastRequest {}
+message FastResponse {
+  string result = 1;
+}
+
+message DefaultRequest {}
+message DefaultResponse {
+  string result = 1;
+}
+
+service TimeoutService {
+  option (sebuf.http.service_config) = {
+    base_path: "/api/v1"
+  };
+  option (sebuf.krakend.gateway_config) = {
+    host: ["http://backend:8080"]
+    timeout: "3s"
+  };
+
+  // No endpoint_config -- inherits service timeout "3s".
+  rpc SlowOperation(SlowRequest) returns (SlowResponse) {
+    option (sebuf.http.config) = {
+      path: "/slow"
+      method: HTTP_METHOD_POST
+    };
+  }
+
+  // Endpoint-level timeout override.
+  rpc FastOperation(FastRequest) returns (FastResponse) {
+    option (sebuf.http.config) = {
+      path: "/fast"
+      method: HTTP_METHOD_GET
+    };
+    option (sebuf.krakend.endpoint_config) = {
+      timeout: "500ms"
+    };
+  }
+
+  // Endpoint config present but timeout empty -- service timeout applies.
+  rpc DefaultTimeout(DefaultRequest) returns (DefaultResponse) {
+    option (sebuf.http.config) = {
+      path: "/default"
+      method: HTTP_METHOD_GET
+    };
+    option (sebuf.krakend.endpoint_config) = {};
+  }
+}

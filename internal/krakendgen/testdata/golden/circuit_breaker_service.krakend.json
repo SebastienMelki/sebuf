@@ -1,0 +1,52 @@
+{
+  "$schema": "https://www.krakend.io/schema/krakend.json",
+  "version": 3,
+  "endpoints": [
+    {
+      "endpoint": "/api/v1/items",
+      "method": "GET",
+      "output_encoding": "json",
+      "backend": [
+        {
+          "url_pattern": "/api/v1/items",
+          "host": [
+            "http://backend:8080"
+          ],
+          "method": "GET",
+          "encoding": "json",
+          "extra_config": {
+            "qos/circuit-breaker": {
+              "interval": 60,
+              "log_status_change": true,
+              "max_errors": 3,
+              "timeout": 10
+            }
+          }
+        }
+      ]
+    },
+    {
+      "endpoint": "/api/v1/items/{id}",
+      "method": "GET",
+      "output_encoding": "json",
+      "backend": [
+        {
+          "url_pattern": "/api/v1/items/{id}",
+          "host": [
+            "http://backend:8080"
+          ],
+          "method": "GET",
+          "encoding": "json",
+          "extra_config": {
+            "qos/circuit-breaker": {
+              "interval": 30,
+              "max_errors": 5,
+              "name": "custom-cb",
+              "timeout": 5
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,14 @@
+# Generated Go code (produced by make generate-go)
+api/
+
+# Generated KrakenD config (produced by make generate-krakend)
+gateway/krakend.json
+
+# Go sum file (reproducible via go mod tidy)
+go.sum
+
+# Buf lock file
+buf.lock
+
+# Built binary
+krakend-gateway

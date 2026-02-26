@@ -1,408 +1,634 @@
-# Architecture Research: JSON Mapping Annotations and Multi-Language Generator Structure
+# Architecture Patterns
 
-## 1. Current Architecture Analysis
+**Domain:** protoc-gen-krakend -- KrakenD API gateway config generation from protobuf
+**Researched:** 2026-02-25
 
-### 1.1 Plugin Structure (As-Is)
+## Recommended Architecture
 
-Each of the four generators lives in its own `internal/` package with a separate `cmd/` entry point:
+protoc-gen-krakend follows the same structural pattern as the existing sebuf generators, with one key difference: it produces KrakenD JSON endpoint fragments (not Go or TypeScript code). This makes it most analogous to protoc-gen-openapiv3, which also produces structured data output (YAML/JSON) rather than compilable code.
 
-```
-cmd/protoc-gen-go-http/main.go      --> internal/httpgen/
-cmd/protoc-gen-go-client/main.go    --> internal/clientgen/
-cmd/protoc-gen-ts-client/main.go    --> internal/tsclientgen/
-cmd/protoc-gen-openapiv3/main.go    --> internal/openapiv3/
-```
-
-Each generator package has its own `annotations.go` file that independently extracts protobuf extension options from `proto/sebuf/http/*.proto`. The generated Go types for these extensions live in the `http/` runtime package (e.g., `http.E_Config`, `http.E_ServiceHeaders`).
-
-### 1.2 Measured Duplication
-
-Annotation parsing is duplicated across all four generators -- 1,289 total lines across four `annotations.go` files:
-
-| Generator | File | Lines | Duplicated Functions |
-|-----------|------|-------|---------------------|
-| httpgen | `internal/httpgen/annotations.go` | 392 | getMethodHTTPConfig, httpMethodToString, extractPathParams, getServiceHTTPConfig, getServiceHeaders, getMethodHeaders, getQueryParams, hasUnwrapAnnotation, getUnwrapField, getFieldExamples |
-| clientgen | `internal/clientgen/annotations.go` | 241 | getMethodHTTPConfig, httpMethodToString, extractPathParams, getServiceHTTPConfig, getServiceHeaders, getMethodHeaders, getQueryParams |
-| tsclientgen | `internal/tsclientgen/annotations.go` | 250 | getMethodHTTPConfig, httpMethodToString, extractPathParams, getServiceHTTPConfig, getServiceHeaders, getMethodHeaders, getQueryParams, hasUnwrapAnnotation |
-| openapiv3 | `internal/openapiv3/http_annotations.go` | 406 | getMethodHTTPConfig, httpMethodToString, extractPathParams, getServiceHTTPConfig, getServiceHeaders, getMethodHeaders, getQueryParams, combineHeaders, convertHeadersToParameters, hasUnwrapAnnotation |
-
-The functions `getMethodHTTPConfig`, `httpMethodToString`, `extractPathParams`, `getServiceHTTPConfig`, `getServiceHeaders`, `getMethodHeaders`, and `getQueryParams` are copy-pasted across all four packages with near-identical implementations. The only differences are:
-
-1. **Return types for QueryParam**: Each generator uses a slightly different `QueryParam` struct (httpgen uses `FieldGoName`, clientgen adds `FieldKind`, tsclientgen uses `FieldJSONName` + `FieldKind`, openapiv3 carries `*protogen.Field` directly).
-2. **HTTP method casing**: httpgen/clientgen/tsclientgen use uppercase ("GET"), openapiv3 uses lowercase ("get").
-3. **Unwrap handling**: httpgen has full unwrap validation (`getUnwrapField` with error return), tsclientgen and openapiv3 have simpler `hasUnwrapAnnotation` checks, clientgen has none.
-
-### 1.3 Data Flow (As-Is)
+### High-Level Component Diagram
 
 ```
-Proto Definitions (proto/sebuf/http/*.proto)
-         |
-         v
-Generated Go Types (http/*.pb.go)    <-- proto extension descriptors
-         |
-         v
-Each Generator's annotations.go      <-- duplicated extraction logic
-         |
-         v
-Generator-specific types (HTTPConfig, QueryParam variants)
-         |
-         v
-Code generation output (Go handlers, Go client, TS client, OpenAPI spec)
+proto files (*.proto)
+    |
+    |  sebuf.http annotations (path, method, headers, query)    -- EXISTING, reused
+    |  sebuf.krakend annotations (rate_limit, auth, backend)    -- NEW
+    |
+    v
+protoc (with --krakend_out=...)
+    |
+    v
+cmd/protoc-gen-krakend/main.go            -- NEW entry point
+    |
+    |  reads protogen.Plugin (services, methods, messages)
+    |  delegates to generator
+    |
+    v
+internal/krakendgen/generator.go          -- NEW generator
+    |
+    |  reads annotations via internal/annotations/  -- EXISTING shared package
+    |  reads krakend-specific annotations via krakend/ Go package -- NEW
+    |  builds KrakenD endpoint config structs
+    |  marshals to JSON
+    |
+    v
+Per-service JSON output files:
+    UserService.krakend.json
+    OrderService.krakend.json
+    ...
 ```
 
-### 1.4 Additional Duplication
+### Component Boundaries
 
-Beyond annotations, there are also duplicated helper functions:
+| Component | Responsibility | Communicates With |
+|-----------|---------------|-------------------|
+| `proto/sebuf/krakend/` | Define gateway-specific proto annotations (rate limiting, auth, backend config, timeout) | Compiled to Go package by protoc-gen-go |
+| `krakend/` (Go package at repo root) | Generated Go code from krakend protos -- provides typed access to extension fields | Used by `internal/krakendgen/` |
+| `cmd/protoc-gen-krakend/` | Entry point: reads protoc request, creates plugin, iterates files/services, delegates to generator, writes response | `internal/krakendgen/` |
+| `internal/krakendgen/` | Core logic: extracts HTTP + KrakenD annotations, builds KrakenD config structs, serializes to JSON | `internal/annotations/` (HTTP config, headers, path params, query params), `krakend/` (gateway annotations) |
+| `internal/annotations/` | Shared annotation parsing (already exists) -- provides HTTP config, headers, path building, query params | Used by all generators including krakendgen |
 
-- `lowerFirst` is defined in httpgen, clientgen, and tsclientgen
-- `getMapValueField` is defined in both httpgen/unwrap.go and openapiv3/types.go
-- `hasUnwrapAnnotation` is defined in httpgen, tsclientgen, and openapiv3
-- Path building logic exists in clientgen, tsclientgen, and openapiv3
-
----
-
-## 2. Proposed Architecture for JSON Mapping Layer
-
-### 2.1 New Shared Package: `internal/annotations`
-
-Create a single shared package that owns all annotation extraction logic. All generators import from this package instead of maintaining their own copies.
+### Data Flow
 
 ```
-internal/annotations/
-    annotations.go     -- HTTPConfig, ServiceConfig extraction
-    headers.go         -- ServiceHeaders, MethodHeaders extraction
-    query.go           -- QueryParam extraction (unified struct)
-    unwrap.go          -- Unwrap annotation extraction and validation
-    jsonmapping.go     -- New JSON mapping annotations (nullable, timestamps, etc.)
-    helpers.go         -- Shared utilities (pathParamRegex, lowerFirst, etc.)
-    annotations_test.go
+1. protoc parses .proto files with sebuf.http.* and sebuf.krakend.* annotations
+2. protoc invokes protoc-gen-krakend via stdin (CodeGeneratorRequest)
+3. cmd/protoc-gen-krakend/main.go:
+   a. Reads request from stdin
+   b. Parses plugin parameters (e.g., backend_host, default_timeout)
+   c. Creates protogen.Plugin
+   d. For each file with Generate=true:
+      i.  For each service in the file:
+          - Extract base path via annotations.GetServiceBasePath()
+          - Extract service-level KrakenD config (auth, rate limit defaults)
+          - For each method:
+            * Extract HTTP config via annotations.GetMethodHTTPConfig()
+            * Extract headers via annotations.GetServiceHeaders/GetMethodHeaders
+            * Extract query params via annotations.GetQueryParams
+            * Extract KrakenD-specific annotations (rate limit, auth, backend config)
+            * Build KrakenD endpoint object
+          - Collect all endpoints into per-service fragment
+          - Marshal to indented JSON
+      ii. Write per-service JSON file via plugin.NewGeneratedFile()
+4. cmd/protoc-gen-krakend/main.go writes CodeGeneratorResponse to stdout
 ```
 
-#### 2.1.1 Unified Data Types
+### KrakenD Output Structure
 
-The shared package defines canonical data types that generators consume:
+Each service produces a JSON file containing an array of KrakenD endpoint objects. The output is designed to be composable via KrakenD Flexible Config templates.
 
+**Example output (`UserService.krakend.json`):**
+
+```json
+[
+  {
+    "endpoint": "/api/v1/users",
+    "method": "POST",
+    "backend": [
+      {
+        "url_pattern": "/api/v1/users",
+        "host": ["http://user-service:8080"],
+        "method": "POST"
+      }
+    ],
+    "input_headers": ["Content-Type", "X-API-Key", "X-Request-ID"],
+    "timeout": "3s",
+    "extra_config": {
+      "qos/ratelimit/router": {
+        "max_rate": 100,
+        "client_max_rate": 10,
+        "strategy": "header",
+        "key": "X-API-Key"
+      },
+      "auth/validator": {
+        "alg": "RS256",
+        "jwk_url": "https://auth.example.com/.well-known/jwks.json",
+        "audience": ["api.example.com"],
+        "roles_key": "roles",
+        "roles": ["user", "admin"],
+        "cache": true
+      }
+    }
+  },
+  {
+    "endpoint": "/api/v1/users/{id}",
+    "method": "GET",
+    "backend": [
+      {
+        "url_pattern": "/api/v1/users/{id}",
+        "host": ["http://user-service:8080"],
+        "method": "GET",
+        "extra_config": {
+          "qos/circuit-breaker": {
+            "interval": 60,
+            "timeout": 10,
+            "max_errors": 3,
+            "log_status_change": true
+          }
+        }
+      }
+    ],
+    "input_headers": ["Authorization", "X-API-Key"],
+    "timeout": "2s"
+  }
+]
+```
+
+**Decision: Output per-service endpoint arrays (JSON array, not wrapped object).** This format is the simplest to compose in KrakenD Flexible Config templates. The user's `krakend.tmpl` includes fragments like:
+
+```
+{
+  "version": 3,
+  "endpoints": [
+    {{ include "UserService.krakend.json" }}
+    ,{{ include "OrderService.krakend.json" }}
+  ],
+  "extra_config": {
+    "security/cors": { ... }
+  }
+}
+```
+
+### KrakenD Path Variable Compatibility
+
+KrakenD and sebuf both use `{variable}` syntax for path parameters, so path strings pass through directly. Example: `/api/v1/users/{id}` from `sebuf.http.config.path` maps directly to the KrakenD endpoint path and backend `url_pattern`.
+
+## Patterns to Follow
+
+### Pattern 1: Mirror the OpenAPI Generator Structure
+
+The openapiv3 generator is the closest analog -- it produces structured data output, one file per service, using `plugin.NewGeneratedFile()` for output. protoc-gen-krakend should follow the same pattern.
+
+**What:** Entry point reads request, parses parameters, iterates services, delegates to generator, writes per-service output files.
+
+**When:** Always -- this is the established sebuf convention.
+
+**Example entry point (`cmd/protoc-gen-krakend/main.go`):**
 ```go
-package annotations
+package main
 
-// HTTPConfig is the parsed HTTP configuration for an RPC method.
-type HTTPConfig struct {
-    Path       string
-    Method     string   // Always uppercase: "GET", "POST", etc.
-    PathParams []string
-}
+import (
+    "fmt"
+    "io"
+    "os"
+    "strings"
 
-// ServiceConfig is the parsed HTTP configuration for a service.
-type ServiceConfig struct {
-    BasePath string
-}
+    "google.golang.org/protobuf/compiler/protogen"
+    "google.golang.org/protobuf/proto"
+    "google.golang.org/protobuf/types/pluginpb"
 
-// QueryParam is the parsed query parameter configuration.
-// Contains all fields any generator might need.
-type QueryParam struct {
-    ProtoFieldName string              // "user_id"
-    GoFieldName    string              // "UserId"
-    JSONFieldName  string              // "userId"
-    ParamName      string              // URL query param name
-    Required       bool
-    FieldKind      string              // "string", "int32", etc.
-    Field          *protogen.Field     // Full field reference for generators that need it
-}
+    "github.com/SebastienMelki/sebuf/internal/krakendgen"
+)
 
-// UnwrapInfo is the parsed unwrap annotation for a field.
-type UnwrapInfo struct {
-    Field        *protogen.Field
-    ElementType  *protogen.Message
-    IsRootUnwrap bool
-    IsMapField   bool
+func main() {
+    input, err := io.ReadAll(os.Stdin)
+    if err != nil {
+        panic(err)
+    }
+    var req pluginpb.CodeGeneratorRequest
+    if err := proto.Unmarshal(input, &req); err != nil {
+        panic(err)
+    }
+
+    params := parseParameters(req.GetParameter())
+    opts := krakendgen.Options{
+        BackendHost: params["backend_host"],
+        DefaultTimeout: params["timeout"],
+    }
+
+    plugin, err := protogen.Options{}.New(&req)
+    if err != nil {
+        panic(err)
+    }
+
+    for _, file := range plugin.Files {
+        if !file.Generate {
+            continue
+        }
+        for _, service := range file.Services {
+            gen := krakendgen.NewGenerator(service, opts)
+            output, err := gen.Generate()
+            if err != nil {
+                panic(err)
+            }
+            filename := fmt.Sprintf("%s.krakend.json", service.Desc.Name())
+            gf := plugin.NewGeneratedFile(filename, "")
+            gf.Write(output)
+        }
+    }
+
+    resp := plugin.Response()
+    resp.SupportedFeatures = proto.Uint64(
+        uint64(pluginpb.CodeGeneratorResponse_FEATURE_PROTO3_OPTIONAL),
+    )
+    out, _ := proto.Marshal(resp)
+    os.Stdout.Write(out)
 }
 ```
 
-Each generator picks the subset of fields it needs. The openapiv3 generator uses `Field` for schema generation; tsclientgen uses `JSONFieldName` and `FieldKind`; clientgen uses `GoFieldName` and `FieldKind`.
+### Pattern 2: Reuse Shared Annotations Package
 
-#### 2.1.2 JSON Mapping Annotation Types
+The `internal/annotations/` package already provides everything needed for HTTP routing info. Do not duplicate this logic.
 
-New annotations for v1.0 JSON mapping features will be defined in `proto/sebuf/http/annotations.proto` (extending FieldOptions, MessageOptions, and FileOptions) and parsed in `internal/annotations/jsonmapping.go`:
+**What:** Use `annotations.GetMethodHTTPConfig()`, `annotations.GetServiceBasePath()`, `annotations.GetServiceHeaders()`, `annotations.GetMethodHeaders()`, `annotations.CombineHeaders()`, `annotations.GetQueryParams()`, `annotations.BuildHTTPPath()`, and `annotations.ExtractPathParams()`.
 
+**When:** For extracting HTTP routing information from proto service definitions.
+
+**Example:**
 ```go
-// NullableConfig controls null vs absent vs default semantics.
-type NullableConfig struct {
-    Behavior NullBehavior // OMIT_DEFAULT, NULL_DEFAULT, ALWAYS_PRESENT
-}
+func (g *Generator) buildEndpoint(service *protogen.Service, method *protogen.Method) *Endpoint {
+    // Reuse existing annotations -- same functions used by openapiv3, httpgen, etc.
+    basePath := annotations.GetServiceBasePath(service)
+    httpConfig := annotations.GetMethodHTTPConfig(method)
 
-// TimestampConfig controls timestamp serialization format.
-type TimestampConfig struct {
-    Format TimestampFormat // RFC3339, UNIX_SECONDS, UNIX_MILLIS, DATE_ONLY
-}
+    var path, httpMethod string
+    if httpConfig != nil {
+        path = annotations.BuildHTTPPath(basePath, httpConfig.Path)
+        httpMethod = httpConfig.Method
+    } else {
+        path = fmt.Sprintf("/%s/%s", service.Desc.Name(), method.Desc.Name())
+        httpMethod = "POST"
+    }
 
-// FieldCasingConfig controls JSON field name casing.
-type FieldCasingConfig struct {
-    Style CasingStyle // CAMEL_CASE, SNAKE_CASE, PASCAL_CASE, KEBAB_CASE
-    Name  string      // Explicit override
-}
+    // Headers from sebuf.http annotations -> KrakenD input_headers
+    serviceHeaders := annotations.GetServiceHeaders(service)
+    methodHeaders := annotations.GetMethodHeaders(method)
+    combined := annotations.CombineHeaders(serviceHeaders, methodHeaders)
+    inputHeaders := extractHeaderNames(combined)
 
-// BytesEncodingConfig controls bytes field encoding.
-type BytesEncodingConfig struct {
-    Encoding BytesEncoding // BASE64, BASE64URL, HEX
-}
+    // Query params from sebuf.http annotations -> KrakenD input_query_strings
+    queryParams := annotations.GetQueryParams(method.Input)
+    inputQueryStrings := extractQueryParamNames(queryParams)
 
-// OneofConfig controls oneof serialization strategy.
-type OneofConfig struct {
-    Style    OneofStyle // FLATTENED (discriminated union) vs WRAPPED
-    TypeField string    // Discriminator field name
-}
-
-// EnumEncodingConfig controls enum string encoding.
-type EnumEncodingConfig struct {
-    Style EnumStyle // NAME (default), NUMBER, CUSTOM
+    return &Endpoint{
+        Endpoint:          path,
+        Method:            httpMethod,
+        InputHeaders:      inputHeaders,
+        InputQueryStrings: inputQueryStrings,
+        // ... backend, extra_config from krakend annotations
+    }
 }
 ```
 
-### 2.2 Component Boundaries
+### Pattern 3: Typed Config Structs with JSON Tags
 
+Build KrakenD config as Go structs with `json:"..."` tags, then marshal. This ensures valid JSON output, enables unit testing of the struct-building logic, and follows Go conventions.
+
+**What:** Define Go structs matching KrakenD's JSON schema, build them from proto annotations, marshal to JSON.
+
+**When:** Always -- do not use string concatenation or template-based JSON generation.
+
+**Example (`internal/krakendgen/types.go`):**
+```go
+package krakendgen
+
+// Endpoint represents a single KrakenD endpoint.
+type Endpoint struct {
+    Endpoint          string         `json:"endpoint"`
+    Method            string         `json:"method"`
+    Backend           []*Backend     `json:"backend"`
+    InputHeaders      []string       `json:"input_headers,omitempty"`
+    InputQueryStrings []string       `json:"input_query_strings,omitempty"`
+    Timeout           string         `json:"timeout,omitempty"`
+    ExtraConfig       map[string]any `json:"extra_config,omitempty"`
+}
+
+// Backend represents a KrakenD backend.
+type Backend struct {
+    URLPattern  string         `json:"url_pattern"`
+    Host        []string       `json:"host"`
+    Method      string         `json:"method,omitempty"`
+    Encoding    string         `json:"encoding,omitempty"`
+    ExtraConfig map[string]any `json:"extra_config,omitempty"`
+}
+
+// RateLimitConfig represents qos/ratelimit/router config.
+type RateLimitConfig struct {
+    MaxRate        int    `json:"max_rate,omitempty"`
+    Capacity       int    `json:"capacity,omitempty"`
+    Every          string `json:"every,omitempty"`
+    ClientMaxRate  int    `json:"client_max_rate,omitempty"`
+    ClientCapacity int    `json:"client_capacity,omitempty"`
+    Strategy       string `json:"strategy,omitempty"`
+    Key            string `json:"key,omitempty"`
+}
+
+// AuthValidatorConfig represents auth/validator config.
+type AuthValidatorConfig struct {
+    Alg       string   `json:"alg"`
+    JWKURL    string   `json:"jwk_url,omitempty"`
+    Audience  []string `json:"audience,omitempty"`
+    Issuer    string   `json:"issuer,omitempty"`
+    RolesKey  string   `json:"roles_key,omitempty"`
+    Roles     []string `json:"roles,omitempty"`
+    ScopesKey string   `json:"scopes_key,omitempty"`
+    Scopes    []string `json:"scopes,omitempty"`
+    Cache     bool     `json:"cache,omitempty"`
+}
+
+// CircuitBreakerConfig represents qos/circuit-breaker config.
+type CircuitBreakerConfig struct {
+    Interval        int    `json:"interval"`
+    Timeout         int    `json:"timeout"`
+    MaxErrors       int    `json:"max_errors"`
+    Name            string `json:"name,omitempty"`
+    LogStatusChange bool   `json:"log_status_change,omitempty"`
+}
 ```
-                   Proto Definitions
-                   (proto/sebuf/http/*.proto)
-                          |
-                          v
-                   Generated Go Types
-                   (http/*.pb.go)
-                          |
-                          v
-               +---------------------+
-               | internal/annotations|   <-- SINGLE source of truth
-               | (shared parsing)    |       for annotation extraction
-               +---------------------+
-                    |    |    |    |
-         +------+  |    |    |  +-------+
-         |      |  |    |    |  |       |
-         v      v  v    v    v  v       v
-    httpgen  clientgen  tsclientgen  openapiv3   [future: pyclientgen, ...]
-    (server)  (Go client) (TS client) (OpenAPI)
+
+### Pattern 4: Plugin Parameters for Deployment-Specific Values
+
+Backend host addresses, default timeouts, and environment-specific settings should come from protoc plugin parameters, not proto annotations. Proto annotations define the API shape; plugin parameters configure deployment.
+
+**What:** Use `--krakend_opt=backend_host=http://user-service:8080,timeout=3s` for values that vary per deployment.
+
+**When:** For any value that is deployment-specific rather than API-shape-specific.
+
+**Example invocation:**
+```bash
+protoc \
+  --krakend_out=./gateway/endpoints \
+  --krakend_opt=backend_host=http://user-service:8080,timeout=3s \
+  --proto_path=proto \
+  proto/services/user_service.proto
 ```
 
-**Boundary rules:**
+### Pattern 5: Golden File Tests for JSON Output
 
-1. `internal/annotations` knows about `protogen` types and `http` extension types. It does NOT know about any generator's output format.
-2. Each generator imports `internal/annotations` for parsed data. Generators never import `http.E_Config` directly -- they go through the shared package.
-3. Each generator owns its own output format logic (Go code generation, TypeScript code generation, YAML/JSON schemas).
-4. The `proto/sebuf/http/` directory owns all annotation definitions. The `http/` runtime package owns the generated Go types for these protos.
+Follow the exact same golden file test pattern as openapiv3. Build the plugin binary, run protoc against test protos, compare output byte-for-byte with golden files. Support `UPDATE_GOLDEN=1` for updating.
 
-### 2.3 OpenAPI-specific Annotation Consumers
+**What:** Exhaustive golden file tests in `internal/krakendgen/golden_test.go` with test protos in `internal/krakendgen/testdata/proto/` and golden outputs in `internal/krakendgen/testdata/golden/`.
 
-The openapiv3 generator has additional annotation consumers (e.g., `combineHeaders`, `convertHeadersToParameters`, validation constraint extraction). These should remain in `internal/openapiv3/` because they produce OpenAPI-specific output types (libopenapi's `v3.Parameter`, `base.Schema`). The shared `internal/annotations` only handles extraction from protobuf descriptors -- not conversion to output formats.
+**When:** For every generated output variation.
 
-Similarly, `internal/httpgen/unwrap.go` contains Go code generation logic for MarshalJSON/UnmarshalJSON methods. The unwrap detection logic (`collectUnwrapContext`, `collectAllUnwrapFields`) should move to `internal/annotations`, but the code generation methods stay in httpgen.
-
----
-
-## 3. Multi-Language Generator Structure
-
-### 3.1 Pattern for New Language Generators
-
-Each new language generator follows the established pattern:
-
+**Test directory structure:**
 ```
-cmd/protoc-gen-{lang}-client/main.go     -- Entry point (thin)
-internal/{lang}clientgen/
-    generator.go         -- Main Generator struct, file iteration
-    types.go             -- Language-specific type mapping (proto -> lang types)
-    helpers.go           -- Naming conventions (snake_case, camelCase, PascalCase)
-    golden_test.go       -- Golden file tests
+internal/krakendgen/
+    generator.go
+    types.go
+    annotations.go          -- KrakenD-specific annotation extraction
+    golden_test.go
+    generator_test.go       -- unit tests for individual functions
     testdata/
-        proto/           -- Test proto files
-        golden/          -- Expected output files
+        proto/
+            simple_service.proto       -- basic routing only
+            rate_limited_service.proto  -- rate limiting annotations
+            auth_service.proto         -- JWT auth annotations
+            backend_config.proto       -- circuit breaker, timeouts
+            full_featured.proto        -- all features combined
+            no_annotations.proto       -- fallback behavior
+            headers_and_query.proto    -- input_headers, input_query_strings
+        golden/
+            SimpleService.krakend.json
+            RateLimitedService.krakend.json
+            AuthService.krakend.json
+            ...
 ```
 
-All generators import `internal/annotations` for annotation parsing. They never duplicate annotation extraction logic.
+## Anti-Patterns to Avoid
 
-### 3.2 What Is Shared vs. Per-Language
+### Anti-Pattern 1: Monolithic Config Output
 
-**Shared (in `internal/annotations`):**
-- All annotation extraction (HTTP config, headers, query params, unwrap, JSON mapping)
-- Validation of annotation correctness (e.g., unwrap on non-repeated fields)
-- Canonical data types for parsed annotations
+**What:** Generating a single `krakend.json` with all services merged.
+**Why bad:** Breaks the per-service output convention, makes Flexible Config composition harder, and does not scale when different services are compiled separately.
+**Instead:** Output one `ServiceName.krakend.json` per service, each containing that service's endpoint array.
 
-**Per-language (in `internal/{lang}clientgen`):**
-- Type mapping: `protoreflect.Kind` -> language-specific type strings
-- Naming conventions: proto field names -> language-idiomatic names
-- Code generation: producing the actual source file content
-- Error type generation: language-specific error classes/structs
-- Client class/struct generation: constructor, method calls, options pattern
-- Test infrastructure: golden files specific to that language's output
+### Anti-Pattern 2: Duplicating HTTP Annotation Parsing
 
-### 3.3 No Shared Code Generation Template
+**What:** Re-implementing HTTP config extraction in krakendgen instead of using `internal/annotations/`.
+**Why bad:** Creates divergence risk -- if annotations change, krakendgen could generate endpoints with paths/methods that don't match the Go HTTP handlers or OpenAPI specs.
+**Instead:** Always use `internal/annotations/` for HTTP routing info. Only add new code in krakendgen for KrakenD-specific annotations.
 
-Each language generator writes its output differently. Go generators use `protogen.GeneratedFile.P()` (which handles imports automatically). TypeScript uses a `printer` function. OpenAPI uses libopenapi structs rendered to YAML/JSON. New languages will use string building appropriate to their output format.
+### Anti-Pattern 3: Embedding Deployment Config in Proto Annotations
 
-Attempting to share code generation templates across languages would create coupling without benefit, since each language has fundamentally different syntax, conventions, and packaging.
+**What:** Putting backend host URLs, environment-specific timeouts, or infrastructure-specific values in proto annotations.
+**Why bad:** Proto files define the API contract, not deployment topology. Backend hosts change per environment; proto files should not.
+**Instead:** Use plugin parameters (`--krakend_opt=backend_host=...`) for deployment-specific values. Proto annotations should only define API-shape concerns (rate limits, auth requirements, circuit breaker thresholds).
 
----
+### Anti-Pattern 4: String Concatenation for JSON
 
-## 4. Build Order
+**What:** Building JSON output via `fmt.Sprintf` or string concatenation.
+**Why bad:** Fragile, hard to test, prone to escaping bugs, no type safety.
+**Instead:** Use typed Go structs with `json:"..."` tags and `json.MarshalIndent()`.
 
-### 4.1 Foundation Phase (Do First)
+### Anti-Pattern 5: Modeling Every KrakenD Config Field in Proto
 
-These changes establish the shared infrastructure. They should be done before any new JSON mapping features.
+**What:** Trying to model every KrakenD extra_config namespace and field in proto annotations.
+**Why bad:** KrakenD config surface is enormous (100+ namespaces). Proto annotations should cover the 80% use case.
+**Instead:** Model the top features (rate limiting, JWT auth, circuit breaker, timeouts). Provide a `raw_extra_config` string field on both endpoint and backend config that gets parsed as JSON and merged into the output. This is the escape hatch for any KrakenD feature not directly modeled.
 
-| Step | Task | Rationale |
-|------|------|-----------|
-| 1 | Create `internal/annotations/` package with canonical types | Foundation for all subsequent work |
-| 2 | Move `getMethodHTTPConfig`, `getServiceHTTPConfig`, `extractPathParams`, `httpMethodToString` to shared package | These are 100% identical across all 4 generators |
-| 3 | Move `getServiceHeaders`, `getMethodHeaders` to shared package | Also 100% identical |
-| 4 | Unify `getQueryParams` with a single `QueryParam` struct that has all needed fields | Currently 4 different struct definitions |
-| 5 | Move `hasUnwrapAnnotation` and core unwrap detection to shared package | Currently in httpgen, tsclientgen, openapiv3 |
-| 6 | Move shared helpers (`lowerFirst`, `getMapValueField`, path building) to shared package | Eliminate remaining utility duplication |
-| 7 | Update all 4 generators to import from `internal/annotations` | Remove all `annotations.go` files from individual generators |
-| 8 | Update all golden files (`UPDATE_GOLDEN=1`) | Generated output should not change -- this is a pure refactor |
+## Component Build Order
 
-**Expected outcome**: 1,289 lines of duplicated annotation code across 4 files reduced to ~300 lines in one shared package, with 4 thin import wrappers (or no wrappers at all).
+The build order matters because of dependency chains.
 
-**Risk mitigation**: Run golden file tests after each step to verify no output changes. This is a pure refactoring -- no behavior change.
+### Phase 1: Proto Annotations (no code dependencies)
+1. **`proto/sebuf/krakend/krakend.proto`** -- Define the proto annotation messages and extensions
+2. **`krakend/*.pb.go`** -- Run `protoc --go_out` to generate Go code from the proto
+3. **Update `Makefile` proto target** to include the new proto files
+4. **Update `proto/buf.yaml`** if needed for the new package
 
-### 4.2 JSON Mapping Features Phase (v1.0 Features)
+This must come first because everything downstream imports the generated Go types for extension field access.
 
-After the shared annotation package is in place, add JSON mapping annotations one at a time. Each feature follows the same pattern:
+### Phase 2: Generator Foundation (depends on Phase 1)
+5. **`internal/krakendgen/types.go`** -- Go structs matching KrakenD JSON schema
+6. **`internal/krakendgen/annotations.go`** -- KrakenD-specific annotation extraction functions (reads `krakend/` Go package extension types)
+7. **`internal/krakendgen/generator.go`** -- Core logic: iterate methods, extract annotations, build config structs, marshal JSON
+8. **`cmd/protoc-gen-krakend/main.go`** -- Entry point wiring
 
-1. Define the annotation in `proto/sebuf/http/annotations.proto`
-2. Generate Go types (`make proto`)
-3. Add extraction logic in `internal/annotations/jsonmapping.go`
-4. Implement in all 4 generators simultaneously
-5. Add golden file test cases for each generator
+### Phase 3: Tests (depends on Phase 2)
+9. **Test protos** in `internal/krakendgen/testdata/proto/` (symlink shared protos from httpgen where applicable)
+10. **Golden files** in `internal/krakendgen/testdata/golden/`
+11. **`internal/krakendgen/golden_test.go`** -- Golden file tests
+12. **`internal/krakendgen/generator_test.go`** -- Unit tests for individual builder functions
 
-**Recommended feature order** (based on dependencies and complexity):
+### Phase 4: Documentation and Distribution
+13. **Update CLAUDE.md** with krakendgen architecture and test instructions
+14. **Update `.goreleaser.yaml`** to include protoc-gen-krakend binary
+15. **Update README.md** with KrakenD generator documentation
+16. **Publish updated proto to BSR** via `make publish`
 
-| Priority | Feature | Issue | Why This Order |
-|----------|---------|-------|----------------|
-| 1 | Fix conditional imports (#105) | #105 | Quick fix, unblocks PR merges |
-| 2 | Land cross-file unwrap (#98) | PR #98 | Already in PR, validates shared package approach |
-| 3 | Nullable primitives | #87 | Fundamental -- affects how all other features handle zero/null |
-| 4 | int64/uint64 as string | #88 | Simple, well-defined -- changes one type mapping per generator |
-| 5 | Enum string encoding | #89 | Builds on type mapping, well-defined scope |
-| 6 | Field name casing options | #94 | Affects JSON field names throughout, should come before complex features |
-| 7 | Empty object handling | #93 | Related to nullable, defines baseline behavior |
-| 8 | Bytes encoding options | #95 | Simple, isolated to bytes fields |
-| 9 | Timestamp formats | #92 | Well-defined formats, touches type system |
-| 10 | Oneof as discriminated union | #90 | Most complex -- requires structural changes to generated output |
-| 11 | Nested message flattening | #96 | Most invasive -- changes message structure in output |
-| 12 | Root-level arrays (#91) | #91 | Verify coverage via existing unwrap, may be already done |
+## Integration Points with Existing sebuf Code
 
-### 4.3 Multi-Language Generators Phase (v2.0)
+### 1. `internal/annotations/` (read-only dependency)
 
-New language generators are independent of each other and can be developed in parallel. However, the JSON mapping foundation (Phase 4.2) must be complete first, because each new generator must implement all JSON mapping features from day one.
+The krakendgen package imports and calls existing annotation functions. No changes needed to the shared annotations package.
 
-**Recommended starter order** (based on ecosystem value and complexity):
+| Function | What krakendgen uses it for |
+|----------|-----------------------------|
+| `GetMethodHTTPConfig(method)` | Endpoint path, HTTP method, path params |
+| `GetServiceBasePath(service)` | Service-level path prefix |
+| `BuildHTTPPath(base, method)` | Full endpoint path construction |
+| `GetServiceHeaders(service)` | Service-level headers -> `input_headers` |
+| `GetMethodHeaders(method)` | Method-level headers -> `input_headers` |
+| `CombineHeaders(svc, method)` | Merged headers with method override |
+| `GetQueryParams(message)` | Query params -> `input_query_strings` |
+| `ExtractPathParams(path)` | Path variable extraction (for validation) |
+| `HTTPMethodToString(method)` | HTTP method enum to string |
 
-| Priority | Language | Rationale |
-|----------|----------|-----------|
-| 1 | Python | Largest API consumer base, simple type system |
-| 2 | Kotlin | Android market, coroutine-based async aligns with RPC pattern |
-| 3 | Swift | iOS market, complements Kotlin for full mobile coverage |
-| 4 | Rust | Growing systems ecosystem, strict type system validates design |
-| 5 | Java | Enterprise market, shares patterns with Kotlin |
-| 6 | C# | .NET ecosystem, async/await pattern |
-| 7 | Dart | Flutter market, similar to TypeScript in pattern |
-| 8 | Ruby | Web ecosystem, dynamic typing |
+### 2. `proto/sebuf/http/` (read-only dependency)
 
-Each generator should be developed as:
-1. Scaffold: cmd entry point + empty generator struct
-2. Type mapping: proto types -> language types
-3. Basic client: constructor, single method, no options
-4. Full client: all annotations, headers, query params, error handling
-5. JSON mapping: all v1.0 JSON mapping features
-6. Golden file tests: comprehensive test coverage
+Existing HTTP annotations are consumed but not modified. Test protos in krakendgen will import `sebuf/http/annotations.proto` alongside the new `sebuf/krakend/krakend.proto`.
 
----
+### 3. `proto/sebuf/krakend/` (new package)
 
-## 5. Impact on Existing Tests
+New proto package with `go_package = "github.com/SebastienMelki/sebuf/krakend;krakend"`. This generates to `krakend/*.pb.go` at the repo root, matching the `http/*.pb.go` pattern.
 
-### 5.1 Golden File Tests Are the Safety Net
+### 4. Makefile Auto-Discovery
 
-The project's golden file tests (`UPDATE_GOLDEN=1 go test -run TestExhaustiveGoldenFiles`) capture the exact output of each generator. During the refactoring phase (4.1), golden files must NOT change -- any change means the refactoring introduced a bug.
+The Makefile auto-discovers `cmd/*` directories via `$(wildcard $(CMD_DIR)/*)`. Adding `cmd/protoc-gen-krakend/` automatically includes it in `make build` with zero Makefile changes. The proto target needs updating to include the new proto files.
 
-During the feature phase (4.2), golden files will be updated to include new annotation behaviors. Each new test proto file should exercise the specific JSON mapping feature being added.
+### 5. `proto/buf.yaml` Registry
 
-### 5.2 Test Strategy for Shared Package
+The buf.yaml module (`buf.build/sebmelki/sebuf`) needs to include the new `sebuf/krakend/` package so downstream users can import the KrakenD annotations via `deps: [buf.build/sebmelki/sebuf]`. The `make publish` target handles pushing to BSR.
 
-`internal/annotations` should have its own unit tests that verify annotation extraction against mock protogen structures. These tests complement (not replace) the golden file tests in each generator.
+### 6. `.goreleaser.yaml`
 
----
+The release configuration needs a new binary entry for `protoc-gen-krakend` so it is distributed via Homebrew, Docker, and package managers alongside the existing plugins.
 
-## 6. File-Level Impact Map
+## Proto Annotation Design
 
-### Files Created
+The `proto/sebuf/krakend/krakend.proto` defines gateway-specific annotations at service and method levels. It lives in a separate proto package from `sebuf.http` because gateway configuration is a fundamentally different concern than HTTP API shape.
 
-| New File | Purpose |
-|----------|---------|
-| `internal/annotations/annotations.go` | HTTPConfig, ServiceConfig extraction |
-| `internal/annotations/headers.go` | ServiceHeaders, MethodHeaders extraction |
-| `internal/annotations/query.go` | Unified QueryParam extraction |
-| `internal/annotations/unwrap.go` | Unwrap detection and validation |
-| `internal/annotations/jsonmapping.go` | New JSON mapping annotation parsing |
-| `internal/annotations/helpers.go` | Shared utilities |
-| `internal/annotations/annotations_test.go` | Unit tests |
-| `proto/sebuf/http/annotations.proto` | Extended with JSON mapping options |
+```protobuf
+syntax = "proto3";
 
-### Files Removed
+package sebuf.krakend;
 
-| Removed File | Replaced By |
-|-------------|-------------|
-| `internal/httpgen/annotations.go` | `internal/annotations/` (extraction only; httpgen-specific types like UnwrapFieldInfo may stay or move) |
-| `internal/clientgen/annotations.go` | `internal/annotations/` |
-| `internal/tsclientgen/annotations.go` | `internal/annotations/` |
+import "google/protobuf/descriptor.proto";
 
-### Files Modified
+option go_package = "github.com/SebastienMelki/sebuf/krakend;krakend";
 
-| Modified File | Change |
-|--------------|--------|
-| `internal/openapiv3/http_annotations.go` | Remove duplicated extraction functions, keep OpenAPI-specific converters (`combineHeaders`, `convertHeadersToParameters`, `mapHeaderTypeToOpenAPI`) |
-| `internal/httpgen/generator.go` | Import from `internal/annotations` |
-| `internal/httpgen/unwrap.go` | Import shared unwrap detection, keep Go code generation |
-| `internal/httpgen/validation.go` | Import shared helpers |
-| `internal/clientgen/generator.go` | Import from `internal/annotations` |
-| `internal/tsclientgen/generator.go` | Import from `internal/annotations` |
-| `internal/tsclientgen/types.go` | Import shared `hasUnwrapAnnotation` |
-| `internal/openapiv3/generator.go` | Import from `internal/annotations` |
-| `internal/openapiv3/types.go` | Import shared `hasUnwrapAnnotation`, `getMapValueField` |
+// EndpointConfig defines KrakenD endpoint-level configuration.
+// Applied to individual RPC methods via (sebuf.krakend.endpoint_config).
+message EndpointConfig {
+  // Endpoint timeout (e.g., "3s", "1500ms"). Overrides service default.
+  string timeout = 1;
 
----
+  // Rate limiting configuration for this endpoint.
+  RateLimitConfig rate_limit = 2;
 
-## 7. Key Architectural Decisions
+  // Backend configuration for this endpoint.
+  BackendConfig backend = 3;
 
-### 7.1 Shared Package vs. Interface-Based Abstraction
+  // Raw JSON to merge into the endpoint's extra_config.
+  // Escape hatch for any KrakenD feature not directly modeled.
+  string raw_extra_config = 10;
+}
 
-**Decision**: Use a shared package with concrete types, not an interface/plugin architecture.
+// ServiceGatewayConfig defines KrakenD configuration defaults for all RPCs in a service.
+// Applied to a service via (sebuf.krakend.gateway_config).
+message ServiceGatewayConfig {
+  // Default timeout for all endpoints in this service.
+  string default_timeout = 1;
 
-**Rationale**: All generators run as separate protoc plugins (separate OS processes). They cannot share code at runtime via interfaces. The shared package is a compile-time dependency only. An interface-based abstraction would add complexity without enabling runtime composition.
+  // Auth/JWT configuration applied to all endpoints.
+  AuthConfig auth = 2;
 
-### 7.2 Unified QueryParam vs. Generator-Specific Wrappers
+  // Default rate limiting for all endpoints (method-level overrides).
+  RateLimitConfig default_rate_limit = 3;
 
-**Decision**: Single `QueryParam` struct with all fields, consumed selectively by each generator.
+  // Default backend configuration for all endpoints.
+  BackendConfig default_backend = 4;
 
-**Rationale**: The alternative (shared extraction returning a minimal type, with each generator wrapping it) adds an unnecessary translation layer. A single struct with fields like `GoFieldName`, `JSONFieldName`, `FieldKind`, and `Field` is simpler. Generators ignore fields they don't need.
+  // Raw JSON to merge into every endpoint's extra_config in this service.
+  string raw_extra_config = 10;
+}
 
-### 7.3 HTTP Method Case Convention
+// RateLimitConfig maps to KrakenD's qos/ratelimit/router namespace.
+message RateLimitConfig {
+  int32 max_rate = 1;          // Max requests all users in time frame
+  int32 capacity = 2;          // Max tokens in bucket (defaults to max_rate)
+  string every = 3;            // Time period: "1s", "10m", "1h"
+  int32 client_max_rate = 4;   // Max requests per individual client
+  int32 client_capacity = 5;   // Max tokens per client bucket
+  string strategy = 6;         // "ip", "header", or "param"
+  string key = 7;              // Header or param name for client identification
+}
 
-**Decision**: Store as uppercase in shared package ("GET", "POST"). OpenAPI generator lowercases on output.
+// AuthConfig maps to KrakenD's auth/validator namespace.
+message AuthConfig {
+  string alg = 1;              // Hashing algorithm: RS256, HS256, ES256, etc.
+  string jwk_url = 2;          // Remote JWK endpoint URL
+  repeated string audience = 3;
+  string issuer = 4;
+  string roles_key = 5;
+  repeated string roles = 6;
+  string scopes_key = 7;
+  repeated string scopes = 8;
+  bool cache = 9;              // Enable JWK key caching
+}
 
-**Rationale**: Uppercase matches Go's `net/http` constants and is the convention in httpgen, clientgen, and tsclientgen. Only OpenAPI needs lowercase, and that's an output format concern.
+// BackendConfig defines backend-level KrakenD configuration.
+message BackendConfig {
+  // Circuit breaker configuration.
+  CircuitBreakerConfig circuit_breaker = 1;
+  // Backend encoding (default: "json").
+  string encoding = 2;
+  // Raw JSON to merge into the backend's extra_config.
+  string raw_extra_config = 10;
+}
 
-### 7.4 JSON Mapping Annotations as Proto Options
+// CircuitBreakerConfig maps to KrakenD's qos/circuit-breaker namespace.
+message CircuitBreakerConfig {
+  int32 interval = 1;          // Error counting window in seconds
+  int32 timeout = 2;           // Seconds before retesting backend
+  int32 max_errors = 3;        // Consecutive errors to trigger open state
+  bool log_status_change = 4;  // Log circuit breaker state changes
+}
 
-**Decision**: All new JSON mapping annotations are proto field/message/file options in `proto/sebuf/http/annotations.proto`, not generator parameters.
+// Extension for method options (extension number 51001, outside sebuf.http range)
+extend google.protobuf.MethodOptions {
+  optional EndpointConfig endpoint_config = 51001;
+}
 
-**Rationale**: Proto-level annotations are portable across all generators, visible in the proto source, and version-controlled with the API definition. Generator parameters (like `format=json` for OpenAPI) are for output format concerns, not API semantics.
+// Extension for service options (extension number 51002, outside sebuf.http range)
+extend google.protobuf.ServiceOptions {
+  optional ServiceGatewayConfig gateway_config = 51002;
+}
+```
 
-### 7.5 Annotation Proto Location
+**Extension number range:** 51000+ to avoid collision with the existing sebuf.http range (50003-50020). This provides clean separation between the two proto packages.
 
-**Decision**: Keep all annotations in `proto/sebuf/http/annotations.proto` (one file), rather than splitting across multiple proto files per feature.
+**Key design choices:**
+- Service-level `gateway_config` provides defaults; method-level `endpoint_config` overrides.
+- `raw_extra_config` fields serve as escape hatches for any KrakenD feature not directly modeled (parsed as JSON and merged into extra_config).
+- Auth lives at service level only -- JWT config is typically uniform across all endpoints in a service.
+- Rate limiting can be set at both levels -- service default with per-endpoint overrides.
 
-**Rationale**: The annotations.proto file is manageable at its current size (74 lines) and will grow to perhaps 200 lines with all JSON mapping options. Users import a single proto path. Splitting would complicate imports for marginal organizational benefit.
+## Key Design Decision: What Stays in Proto vs Plugin Parameters
 
----
+| Concern | In Proto Annotations | In Plugin Parameters | Rationale |
+|---------|---------------------|---------------------|-----------|
+| Endpoint path/method | Yes (sebuf.http) | No | API contract, same across all environments |
+| Rate limit thresholds | Yes (sebuf.krakend) | No | Part of API design intent |
+| Auth requirements (algorithm, audience, roles) | Yes (sebuf.krakend) | No | Part of API security contract |
+| JWK URL | Yes (sebuf.krakend) | Override via raw_extra_config | Usually stable, but may vary per env |
+| Circuit breaker thresholds | Yes (sebuf.krakend) | No | Part of resilience design |
+| Timeout | Yes (sebuf.krakend) | Also as default via plugin param | API has opinion, deployment can override |
+| Backend host | No | Yes (`backend_host`) | Deployment-specific, changes per env |
+| Backend encoding | Optionally (sebuf.krakend) | Default in plugin | Usually same across deployment |
 
-## 8. Summary
+## Scalability Considerations
 
-The core architectural insight is that annotation parsing is a cross-cutting concern that belongs in a shared package, while code generation output is generator-specific. The `internal/annotations` package forms the stable foundation that all current and future generators build on.
+| Concern | At 5 services | At 50 services | At 200+ services |
+|---------|--------------|----------------|------------------|
+| Output file count | 5 JSON files, trivial | 50 JSON files, FC templates get longer | Use `range` loops in FC templates over a directory |
+| Compilation time | Negligible | Negligible (protoc is per-file) | Consider buf workspace with parallel compilation |
+| Config correctness | Manual review feasible | Need `krakend check` in CI | Need automated consistency checks |
+| FC template complexity | Simple includes | Template loops with settings | Need structured FC with per-service settings files |
+| Annotation consistency | Easy to verify manually | Need CI checks for missing annotations | Lint rules for annotation completeness |
 
-The build order is: (1) extract shared annotation package from existing duplicated code, (2) add JSON mapping features using the shared package, (3) build new language generators that import the shared package from day one. Each phase validates the work of the previous phase -- the shared package is proven correct by golden file tests before new features build on it.
+## Sources
+
+- [KrakenD Configuration Structure](https://www.krakend.io/docs/configuration/structure/) -- root config format, version 3
+- [KrakenD Endpoint Configuration](https://www.krakend.io/docs/endpoints/) -- endpoint fields, input_headers, input_query_strings
+- [KrakenD Backend Configuration](https://www.krakend.io/docs/backends/) -- backend fields, url_pattern, host, encoding
+- [KrakenD Flexible Config](https://www.krakend.io/docs/configuration/flexible-config/) -- FC_ENABLE, templates, partials, settings
+- [KrakenD Templates](https://www.krakend.io/docs/configuration/templates/) -- Go template syntax, include/template directives
+- [KrakenD Rate Limiting](https://www.krakend.io/docs/endpoints/rate-limit/) -- qos/ratelimit/router namespace
+- [KrakenD JWT Validation](https://www.krakend.io/docs/authorization/jwt-validation/) -- auth/validator namespace
+- [KrakenD Circuit Breaker](https://www.krakend.io/docs/backends/circuit-breaker/) -- qos/circuit-breaker namespace
+- [KrakenD Timeouts](https://www.krakend.io/docs/throttling/timeouts/) -- endpoint and service timeout configuration
+- [KrakenD CORS](https://www.krakend.io/docs/service-settings/cors/) -- security/cors namespace (service-level, not per-endpoint)
+- Existing sebuf codebase: `internal/annotations/`, `internal/openapiv3/`, `cmd/protoc-gen-openapiv3/` -- patterns and conventions (HIGH confidence, read directly from source)

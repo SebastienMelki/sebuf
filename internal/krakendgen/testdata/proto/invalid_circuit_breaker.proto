@@ -1,0 +1,34 @@
+syntax = "proto3";
+
+package krakendtest;
+
+import "sebuf/http/annotations.proto";
+import "sebuf/krakend/krakend.proto";
+
+option go_package = "github.com/SebastienMelki/sebuf/internal/krakendgen/testdata";
+
+message PingRequest {}
+message PingResponse {
+  string status = 1;
+}
+
+// InvalidCircuitBreakerService has circuit breaker with missing required fields.
+// interval is set but timeout and max_errors are 0 (proto default).
+service InvalidCircuitBreakerService {
+  option (sebuf.http.service_config) = {
+    base_path: "/api/v1"
+  };
+  option (sebuf.krakend.gateway_config) = {
+    host: ["http://backend:8080"]
+    circuit_breaker: {
+      interval: 60
+    }
+  };
+
+  rpc Ping(PingRequest) returns (PingResponse) {
+    option (sebuf.http.config) = {
+      path: "/ping"
+      method: HTTP_METHOD_GET
+    };
+  }
+}

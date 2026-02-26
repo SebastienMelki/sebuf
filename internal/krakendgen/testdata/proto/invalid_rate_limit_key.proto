@@ -1,0 +1,35 @@
+syntax = "proto3";
+
+package krakendtest;
+
+import "sebuf/http/annotations.proto";
+import "sebuf/krakend/krakend.proto";
+
+option go_package = "github.com/SebastienMelki/sebuf/internal/krakendgen/testdata";
+
+message HealthRequest {}
+message HealthResponse {
+  string status = 1;
+}
+
+// InvalidRateLimitKeyService uses HEADER strategy without a key.
+service InvalidRateLimitKeyService {
+  option (sebuf.http.service_config) = {
+    base_path: "/api/v1"
+  };
+  option (sebuf.krakend.gateway_config) = {
+    host: ["http://backend:8080"]
+    rate_limit: {
+      max_rate: 100
+      client_max_rate: 10
+      strategy: RATE_LIMIT_STRATEGY_HEADER
+    }
+  };
+
+  rpc Health(HealthRequest) returns (HealthResponse) {
+    option (sebuf.http.config) = {
+      path: "/health"
+      method: HTTP_METHOD_GET
+    };
+  }
+}

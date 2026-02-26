@@ -1,0 +1,49 @@
+{
+  "$schema": "https://www.krakend.io/schema/krakend.json",
+  "version": 3,
+  "endpoints": [
+    {
+      "endpoint": "/api/v1/products",
+      "method": "GET",
+      "output_encoding": "json",
+      "concurrent_calls": 2,
+      "backend": [
+        {
+          "url_pattern": "/api/v1/products",
+          "host": [
+            "http://backend:8080"
+          ],
+          "method": "GET",
+          "encoding": "json",
+          "extra_config": {
+            "qos/http-cache": {
+              "shared": true
+            }
+          }
+        }
+      ]
+    },
+    {
+      "endpoint": "/api/v1/products/{id}",
+      "method": "GET",
+      "output_encoding": "json",
+      "concurrent_calls": 3,
+      "backend": [
+        {
+          "url_pattern": "/api/v1/products/{id}",
+          "host": [
+            "http://backend:8080"
+          ],
+          "method": "GET",
+          "encoding": "json",
+          "extra_config": {
+            "qos/http-cache": {
+              "max_items": 1000,
+              "max_size": 10485760
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,53 @@
+syntax = "proto3";
+
+package krakendtest;
+
+import "sebuf/http/annotations.proto";
+import "sebuf/http/headers.proto";
+import "sebuf/krakend/krakend.proto";
+
+option go_package = "github.com/SebastienMelki/sebuf/internal/krakendgen/testdata";
+
+message SearchRequest {
+  int32 page = 1 [(sebuf.http.query) = { name: "page" }];
+  int32 page_size = 2 [(sebuf.http.query) = { name: "page_size" }];
+  string filter = 3 [(sebuf.http.query) = { name: "filter" }];
+}
+
+message SearchResponse {
+  repeated string results = 1;
+}
+
+message CreateRequest {
+  string name = 1;
+  string value = 2;
+}
+
+message CreateResponse {
+  string id = 1;
+}
+
+service QueryForwardingService {
+  option (sebuf.http.service_config) = {
+    base_path: "/api/v1"
+  };
+  option (sebuf.krakend.gateway_config) = {
+    host: ["http://backend:8080"]
+  };
+
+  // GET with query-annotated fields.
+  rpc SearchWithQuery(SearchRequest) returns (SearchResponse) {
+    option (sebuf.http.config) = {
+      path: "/search"
+      method: HTTP_METHOD_GET
+    };
+  }
+
+  // POST with body fields only (no query annotations).
+  rpc NoQueryParams(CreateRequest) returns (CreateResponse) {
+    option (sebuf.http.config) = {
+      path: "/create"
+      method: HTTP_METHOD_POST
+    };
+  }
+}

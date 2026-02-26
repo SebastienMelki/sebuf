@@ -1,0 +1,81 @@
+syntax = "proto3";
+
+package krakendtest;
+
+import "sebuf/http/annotations.proto";
+import "sebuf/http/headers.proto";
+import "sebuf/krakend/krakend.proto";
+
+option go_package = "github.com/SebastienMelki/sebuf/internal/krakendgen/testdata";
+
+message CreateResourceRequest {
+  string name = 1;
+  string description = 2;
+}
+
+message Resource {
+  string id = 1;
+  string name = 2;
+  string description = 3;
+}
+
+message GetResourceRequest {
+  string id = 1;
+}
+
+// JWTAuthService demonstrates JWT authentication with claim propagation.
+// Service-level JWT config applies auth/validator extra_config to every endpoint.
+// Propagated claims auto-add their header names to input_headers.
+service JWTAuthService {
+  option (sebuf.http.service_config) = {
+    base_path: "/api/v1"
+  };
+  option (sebuf.krakend.gateway_config) = {
+    host: ["http://backend:8080"]
+    jwt: {
+      alg: JWT_ALGORITHM_RS256
+      jwk_url: "https://auth.example.com/.well-known/jwks.json"
+      audience: ["api.example.com"]
+      issuer: "https://auth.example.com"
+      cache: true
+      propagate_claims: [
+        {claim: "sub", header: "X-User"},
+        {claim: "org_id", header: "X-Org-ID"}
+      ]
+    }
+  };
+  option (sebuf.http.service_headers) = {
+    required_headers: [
+      {
+        name: "X-API-Key"
+        type: "string"
+        required: true
+      }
+    ]
+  };
+
+  // CreateResource -- POST with method-level headers and JWT.
+  rpc CreateResource(CreateResourceRequest) returns (Resource) {
+    option (sebuf.http.config) = {
+      path: "/resources"
+      method: HTTP_METHOD_POST
+    };
+    option (sebuf.http.method_headers) = {
+      required_headers: [
+        {
+          name: "X-Request-ID"
+          type: "string"
+          required: true
+        }
+      ]
+    };
+  }
+
+  // GetResource -- GET with only service-level headers and JWT.
+  rpc GetResource(GetResourceRequest) returns (Resource) {
+    option (sebuf.http.config) = {
+      path: "/resources/{id}"
+      method: HTTP_METHOD_GET
+    };
+  }
+}

@@ -29,7 +29,7 @@ This starts a working HTTP API with JSON endpoints and OpenAPI docs - all genera
 
 ## What you get
 
-**Five generators from one `.proto` file:**
+**Six generators from one `.proto` file:**
 
 | Generator | Output |
 |-----------|--------|
@@ -38,6 +38,7 @@ This starts a working HTTP API with JSON endpoints and OpenAPI docs - all genera
 | `protoc-gen-ts-client` | TypeScript HTTP clients with type safety, header helpers, and per-call options |
 | `protoc-gen-ts-server` | TypeScript HTTP servers with routing, request binding, validation, and error handling — runs on Node, Deno, Bun, Cloudflare Workers |
 | `protoc-gen-openapiv3` | OpenAPI v3.1 specs that stay in sync with your code, one file per service |
+| `protoc-gen-krakend` | KrakenD API gateway configs with rate limiting, JWT auth, circuit breakers, and caching |
 
 **Validation and error handling — built in, not bolted on:**
 
@@ -129,6 +130,57 @@ const routes = createUserServiceRoutes(handler);
 UserService.openapi.yaml
 ```
 
+## KrakenD API Gateway
+
+Generate KrakenD API gateway configuration directly from your proto definitions:
+
+```protobuf
+service UserService {
+  option (sebuf.krakend.gateway_config) = {
+    host: ["http://users-backend:8080"]
+    timeout: "3s"
+    rate_limit: {
+      max_rate: 100
+      client_max_rate: 10
+      strategy: RATE_LIMIT_STRATEGY_IP
+    }
+    jwt: {
+      alg: JWT_ALGORITHM_RS256
+      jwk_url: "https://auth.example.com/.well-known/jwks.json"
+    }
+  };
+
+  rpc GetUser(GetUserRequest) returns (User) {
+    option (sebuf.http.config) = {
+      path: "/users/{id}"
+      method: HTTP_METHOD_GET
+    };
+  }
+}
+```
+
+sebuf generates a complete, validated KrakenD configuration:
+
+```json
+{
+  "endpoint": "/api/v1/users/{id}",
+  "method": "GET",
+  "input_headers": ["Authorization", "X-API-Key"],
+  "backend": [{
+    "url_pattern": "/api/v1/users/{id}",
+    "host": ["http://users-backend:8080"]
+  }],
+  "extra_config": {
+    "auth/validator": { "alg": "RS256", "jwk_url": "..." },
+    "qos/ratelimit/router": { "max_rate": 100, "strategy": "ip" }
+  }
+}
+```
+
+Features: rate limiting, JWT authentication, circuit breakers, HTTP caching, concurrent calls, and automatic header/query forwarding. Per-service configs compose into a complete gateway via KrakenD Flexible Config.
+
+See the [KrakenD Gateway Example](./examples/krakend-gateway/) for a full walkthrough.
+
 ## Quick setup
 
 ```bash
@@ -138,6 +190,7 @@ go install github.com/SebastienMelki/sebuf/cmd/protoc-gen-go-client@latest
 go install github.com/SebastienMelki/sebuf/cmd/protoc-gen-openapiv3@latest
 go install github.com/SebastienMelki/sebuf/cmd/protoc-gen-ts-client@latest
 go install github.com/SebastienMelki/sebuf/cmd/protoc-gen-ts-server@latest
+go install github.com/SebastienMelki/sebuf/cmd/protoc-gen-krakend@latest
 
 # Try the complete example
 cd examples/simple-api && make demo
@@ -179,6 +232,7 @@ sebuf is used at [Sarwa](https://www.sarwa.co/), the fastest-growing investment 
 ## Next steps
 
 - **[Complete Tutorial](./examples/simple-api/)** - Full walkthrough with working code
+- **[KrakenD Gateway Example](./examples/krakend-gateway/)** - Generate and compose API gateway configuration
 - **[Documentation](./docs/)** - Comprehensive guides and API reference
 - **[More Examples](./docs/examples/)** - Additional patterns and use cases
 
@@ -191,6 +245,7 @@ sebuf stands on the shoulders of giants, integrating with an incredible ecosyste
 - **[Buf CLI](https://buf.build/)** - Modern protobuf tooling and dependency management
 - **[OpenAPI 3.1](https://spec.openapis.org/oas/v3.1.0)** - Industry standard API documentation
 - **[Common Expression Language (CEL)](https://github.com/google/cel-go)** by Google - Flexible validation rules
+- **[KrakenD](https://www.krakend.io/)** - High-performance API gateway with Flexible Config
 
 We're grateful to all maintainers of these projects that make sebuf possible.
 

@@ -397,7 +397,7 @@ func GenerateOneofDiscriminatedUnionType(p Printer, msgName string, info *annota
 			for _, childField := range variant.Field.Message.Fields {
 				jsonName := childField.Desc.JSONName()
 				tsType := TSFieldType(childField)
-				sb.WriteString(fmt.Sprintf("; %s: %s", jsonName, tsType))
+				fmt.Fprintf(&sb, "; %s: %s", jsonName, tsType)
 			}
 			branch += sb.String()
 			branch += " }"

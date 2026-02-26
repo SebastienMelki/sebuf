@@ -1,0 +1,123 @@
+{
+  "$schema": "https://www.krakend.io/schema/krakend.json",
+  "version": 3,
+  "endpoints": [
+    {
+      "endpoint": "/api/v1/documents",
+      "method": "POST",
+      "output_encoding": "json",
+      "timeout": "3s",
+      "concurrent_calls": 2,
+      "input_headers": [
+        "Authorization",
+        "X-API-Key",
+        "X-User"
+      ],
+      "backend": [
+        {
+          "url_pattern": "/api/v1/documents",
+          "host": [
+            "http://backend:8080"
+          ],
+          "method": "POST",
+          "encoding": "json",
+          "extra_config": {
+            "qos/circuit-breaker": {
+              "interval": 60,
+              "max_errors": 3,
+              "timeout": 10
+            },
+            "qos/http-cache": {
+              "shared": true
+            },
+            "qos/ratelimit/proxy": {
+              "capacity": 50,
+              "max_rate": 50
+            }
+          }
+        }
+      ],
+      "extra_config": {
+        "auth/validator": {
+          "alg": "RS256",
+          "audience": [
+            "api.example.com"
+          ],
+          "cache": true,
+          "issuer": "https://auth.example.com",
+          "jwk_url": "https://auth.example.com/.well-known/jwks.json",
+          "propagate_claims": [
+            [
+              "sub",
+              "X-User"
+            ]
+          ]
+        },
+        "qos/ratelimit/router": {
+          "client_max_rate": 10,
+          "max_rate": 100,
+          "strategy": "ip"
+        }
+      }
+    },
+    {
+      "endpoint": "/api/v1/documents/{id}",
+      "method": "GET",
+      "output_encoding": "json",
+      "timeout": "3s",
+      "concurrent_calls": 2,
+      "input_headers": [
+        "Authorization",
+        "X-API-Key",
+        "X-Request-ID",
+        "X-User"
+      ],
+      "backend": [
+        {
+          "url_pattern": "/api/v1/documents/{id}",
+          "host": [
+            "http://backend:8080"
+          ],
+          "method": "GET",
+          "encoding": "json",
+          "extra_config": {
+            "qos/circuit-breaker": {
+              "interval": 60,
+              "max_errors": 3,
+              "timeout": 10
+            },
+            "qos/http-cache": {
+              "shared": true
+            },
+            "qos/ratelimit/proxy": {
+              "capacity": 50,
+              "max_rate": 50
+            }
+          }
+        }
+      ],
+      "extra_config": {
+        "auth/validator": {
+          "alg": "RS256",
+          "audience": [
+            "api.example.com"
+          ],
+          "cache": true,
+          "issuer": "https://auth.example.com",
+          "jwk_url": "https://auth.example.com/.well-known/jwks.json",
+          "propagate_claims": [
+            [
+              "sub",
+              "X-User"
+            ]
+          ]
+        },
+        "qos/ratelimit/router": {
+          "client_max_rate": 10,
+          "max_rate": 100,
+          "strategy": "ip"
+        }
+      }
+    }
+  ]
+}

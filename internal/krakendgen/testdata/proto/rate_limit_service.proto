@@ -1,0 +1,73 @@
+syntax = "proto3";
+
+package krakendtest;
+
+import "sebuf/http/annotations.proto";
+import "sebuf/krakend/krakend.proto";
+
+option go_package = "github.com/SebastienMelki/sebuf/internal/krakendgen/testdata";
+
+message CreateOrderRequest {
+  string product = 1;
+  int32 quantity = 2;
+}
+
+message Order {
+  string id = 1;
+  string product = 2;
+  int32 quantity = 3;
+}
+
+message GetOrderRequest {
+  string id = 1;
+}
+
+// RateLimitService demonstrates rate limiting at service and method levels.
+// Service-level defaults: max_rate=100, client_max_rate=10, strategy=ip
+// Backend defaults: max_rate=50, capacity=50
+service RateLimitService {
+  option (sebuf.http.service_config) = {
+    base_path: "/api/v1"
+  };
+  option (sebuf.krakend.gateway_config) = {
+    host: ["http://orders:8080"]
+    rate_limit: {
+      max_rate: 100
+      client_max_rate: 10
+      strategy: RATE_LIMIT_STRATEGY_IP
+    }
+    backend_rate_limit: {
+      max_rate: 50
+      capacity: 50
+    }
+  };
+
+  // CreateOrder inherits service-level rate limit defaults.
+  rpc CreateOrder(CreateOrderRequest) returns (Order) {
+    option (sebuf.http.config) = {
+      path: "/orders"
+      method: HTTP_METHOD_POST
+    };
+  }
+
+  // GetOrder overrides both endpoint and backend rate limits.
+  rpc GetOrder(GetOrderRequest) returns (Order) {
+    option (sebuf.http.config) = {
+      path: "/orders/{id}"
+      method: HTTP_METHOD_GET
+    };
+    option (sebuf.krakend.endpoint_config) = {
+      rate_limit: {
+        max_rate: 200
+        capacity: 200
+        strategy: RATE_LIMIT_STRATEGY_HEADER
+        key: "X-API-Key"
+      }
+      backend_rate_limit: {
+        max_rate: 100
+        capacity: 100
+        every: "1s"
+      }
+    };
+  }
+}
