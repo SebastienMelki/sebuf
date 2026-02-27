@@ -3,7 +3,7 @@ module github.com/SebastienMelki/sebuf/examples/validation-showcase
 go 1.24.7
 
 require (
-	buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go v1.36.11-20251209175733-2a1774d88802.1
+	buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go v1.36.11-20260209202127-80ab13bee0bf.1
 	buf.build/go/protovalidate v0.14.0
 	github.com/SebastienMelki/sebuf v0.0.0-20250818125809-ff61bcf670dd
 	google.golang.org/protobuf v1.36.11
