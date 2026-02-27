@@ -366,7 +366,7 @@ export class RESTfulAPIServiceClient {
   async searchResources(req: SearchResourcesRequest, options?: RESTfulAPIServiceCallOptions): Promise<ListResourcesResponse> {
     let path = "/api/v1/resources/search";
     const params = new URLSearchParams();
-    if (req.statusFilter != null && req.statusFilter !== "") params.set("status", String(req.statusFilter));
+    if (req.statusFilter != null && req.statusFilter !== "RESOURCE_STATUS_UNSPECIFIED") params.set("status", String(req.statusFilter));
     if (req.query != null && req.query !== "") params.set("q", String(req.query));
     const url = this.baseURL + path + (params.toString() ? "?" + params.toString() : "");
 

@@ -689,7 +689,7 @@ export function createRESTfulAPIServiceRoutes(
           const url = new URL(req.url, "http://localhost");
           const params = url.searchParams;
           const body: SearchResourcesRequest = {
-            statusFilter: params.get("status") ?? "",
+            statusFilter: (params.get("status") ?? "RESOURCE_STATUS_UNSPECIFIED") as ResourceStatus,
             query: params.get("q") ?? "",
           };
           if (options?.validateRequest) {

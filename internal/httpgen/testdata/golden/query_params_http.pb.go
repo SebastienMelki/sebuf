@@ -15,6 +15,8 @@ type QueryParamServiceServer interface {
 	SearchRequired(context.Context, *SearchRequiredRequest) (*SearchResponse, error)
 	SearchCustomNames(context.Context, *SearchCustomNamesRequest) (*SearchResponse, error)
 	GetWithFilters(context.Context, *GetWithFiltersRequest) (*SearchResponse, error)
+	SearchAdvanced(context.Context, *SearchAdvancedRequest) (*SearchResponse, error)
+	GetDefaults(context.Context, *EmptyRequest) (*SearchResponse, error)
 }
 
 // RegisterQueryParamServiceServer registers the HTTP handlers for service QueryParamService to the given mux.
@@ -59,6 +61,24 @@ func RegisterQueryParamServiceServer(server QueryParamServiceServer, opts ...Ser
 
 	config.mux.Handle("GET /api/resources/{resource_id}/items", getWithFiltersHandler)
 
+	methodHeaders = getSearchAdvancedHeaders()
+	searchAdvancedHandler := BindingMiddleware[SearchAdvancedRequest](
+		genericHandler(server.SearchAdvanced, config.errorHandler), serviceHeaders, methodHeaders,
+		searchAdvancedPathParams, searchAdvancedQueryParams,
+		"GET", config.errorHandler,
+	)
+
+	config.mux.Handle("GET /api/search/advanced", searchAdvancedHandler)
+
+	methodHeaders = getGetDefaultsHeaders()
+	getDefaultsHandler := BindingMiddleware[EmptyRequest](
+		genericHandler(server.GetDefaults, config.errorHandler), serviceHeaders, methodHeaders,
+		getDefaultsPathParams, getDefaultsQueryParams,
+		"GET", config.errorHandler,
+	)
+
+	config.mux.Handle("GET /api/defaults", getDefaultsHandler)
+
 	return nil
 }
 
@@ -84,6 +104,16 @@ func getSearchCustomNamesHeaders() []*sebufhttp.Header {
 
 // getGetWithFiltersHeaders returns the method-level required headers for GetWithFilters
 func getGetWithFiltersHeaders() []*sebufhttp.Header {
+	return nil
+}
+
+// getSearchAdvancedHeaders returns the method-level required headers for SearchAdvanced
+func getSearchAdvancedHeaders() []*sebufhttp.Header {
+	return nil
+}
+
+// getGetDefaultsHeaders returns the method-level required headers for GetDefaults
+func getGetDefaultsHeaders() []*sebufhttp.Header {
 	return nil
 }
 
@@ -134,3 +164,19 @@ var getWithFiltersQueryParams = []QueryParamConfig{
 	{QueryName: "filter", FieldName: "filter", Required: false},
 	{QueryName: "limit", FieldName: "limit", Required: false},
 }
+
+// searchAdvancedPathParams contains path parameter configuration for SearchAdvanced
+var searchAdvancedPathParams = []PathParamConfig{}
+
+// searchAdvancedQueryParams contains query parameter configuration for SearchAdvanced
+var searchAdvancedQueryParams = []QueryParamConfig{
+	{QueryName: "region", FieldName: "region", Required: false},
+	{QueryName: "countries", FieldName: "countries", Required: false},
+	{QueryName: "keyword", FieldName: "keyword", Required: false},
+}
+
+// getDefaultsPathParams contains path parameter configuration for GetDefaults
+var getDefaultsPathParams = []PathParamConfig{}
+
+// getDefaultsQueryParams contains query parameter configuration for GetDefaults
+var getDefaultsQueryParams = []QueryParamConfig{}

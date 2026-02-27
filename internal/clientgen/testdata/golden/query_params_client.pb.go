@@ -31,6 +31,8 @@ type QueryParamServiceClient interface {
 	SearchRequired(ctx context.Context, req *SearchRequiredRequest, opts ...QueryParamServiceCallOption) (*SearchResponse, error)
 	SearchCustomNames(ctx context.Context, req *SearchCustomNamesRequest, opts ...QueryParamServiceCallOption) (*SearchResponse, error)
 	GetWithFilters(ctx context.Context, req *GetWithFiltersRequest, opts ...QueryParamServiceCallOption) (*SearchResponse, error)
+	SearchAdvanced(ctx context.Context, req *SearchAdvancedRequest, opts ...QueryParamServiceCallOption) (*SearchResponse, error)
+	GetDefaults(ctx context.Context, req *EmptyRequest, opts ...QueryParamServiceCallOption) (*SearchResponse, error)
 }
 
 // queryParamServiceClient is the implementation of QueryParamServiceClient.
@@ -376,6 +378,137 @@ func (c *queryParamServiceClient) GetWithFilters(ctx context.Context, req *GetWi
 	if len(queryParams) > 0 {
 		reqURL += "?" + queryParams.Encode()
 	}
+
+	contentType := c.contentType
+	if callOpts.contentType != "" {
+		contentType = callOpts.contentType
+	}
+
+	// Create HTTP request
+	httpReq, err := http.NewRequestWithContext(ctx, "GET", reqURL, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	// Set headers
+	httpReq.Header.Set("Content-Type", contentType)
+	for k, v := range c.defaultHeaders {
+		httpReq.Header.Set(k, v)
+	}
+	for k, v := range callOpts.headers {
+		httpReq.Header.Set(k, v)
+	}
+
+	// Execute request
+	resp, err := c.httpClient.Do(httpReq)
+	if err != nil {
+		return nil, fmt.Errorf("failed to execute request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	// Read response body
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response body: %w", err)
+	}
+
+	// Check for error status codes
+	if resp.StatusCode >= 400 {
+		return nil, c.handleErrorResponse(resp.StatusCode, respBody, contentType)
+	}
+
+	// Unmarshal response
+	result := &SearchResponse{}
+	if err := c.unmarshalResponse(respBody, result, contentType); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal response: %w", err)
+	}
+
+	return result, nil
+}
+
+// SearchAdvanced calls the SearchAdvanced RPC.
+func (c *queryParamServiceClient) SearchAdvanced(ctx context.Context, req *SearchAdvancedRequest, opts ...QueryParamServiceCallOption) (*SearchResponse, error) {
+	callOpts := &queryParamServiceCallOptions{}
+	for _, opt := range opts {
+		opt(callOpts)
+	}
+
+	// Build URL
+	path := "/api/search/advanced"
+	reqURL := c.baseURL + path
+
+	// Add query parameters
+	queryParams := url.Values{}
+	if req.Region != "" {
+		queryParams.Set("region", fmt.Sprint(req.Region))
+	}
+	if req.Countries != "" {
+		queryParams.Set("countries", fmt.Sprint(req.Countries))
+	}
+	if req.Keyword != "" {
+		queryParams.Set("keyword", fmt.Sprint(req.Keyword))
+	}
+	if len(queryParams) > 0 {
+		reqURL += "?" + queryParams.Encode()
+	}
+
+	contentType := c.contentType
+	if callOpts.contentType != "" {
+		contentType = callOpts.contentType
+	}
+
+	// Create HTTP request
+	httpReq, err := http.NewRequestWithContext(ctx, "GET", reqURL, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	// Set headers
+	httpReq.Header.Set("Content-Type", contentType)
+	for k, v := range c.defaultHeaders {
+		httpReq.Header.Set(k, v)
+	}
+	for k, v := range callOpts.headers {
+		httpReq.Header.Set(k, v)
+	}
+
+	// Execute request
+	resp, err := c.httpClient.Do(httpReq)
+	if err != nil {
+		return nil, fmt.Errorf("failed to execute request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	// Read response body
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response body: %w", err)
+	}
+
+	// Check for error status codes
+	if resp.StatusCode >= 400 {
+		return nil, c.handleErrorResponse(resp.StatusCode, respBody, contentType)
+	}
+
+	// Unmarshal response
+	result := &SearchResponse{}
+	if err := c.unmarshalResponse(respBody, result, contentType); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal response: %w", err)
+	}
+
+	return result, nil
+}
+
+// GetDefaults calls the GetDefaults RPC.
+func (c *queryParamServiceClient) GetDefaults(ctx context.Context, req *EmptyRequest, opts ...QueryParamServiceCallOption) (*SearchResponse, error) {
+	callOpts := &queryParamServiceCallOptions{}
+	for _, opt := range opts {
+		opt(callOpts)
+	}
+
+	// Build URL
+	path := "/api/defaults"
+	reqURL := c.baseURL + path
 
 	contentType := c.contentType
 	if callOpts.contentType != "" {

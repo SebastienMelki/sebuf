@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"google.golang.org/protobuf/compiler/protogen"
+	"google.golang.org/protobuf/reflect/protoreflect"
 
 	sebufhttp "github.com/SebastienMelki/sebuf/http"
 	"github.com/SebastienMelki/sebuf/internal/annotations"
@@ -592,8 +593,13 @@ func (g *Generator) generateQueryParamParsing(
 		return
 	}
 
-	p("          const url = new URL(req.url, \"http://localhost\");")
-	p("          const params = url.searchParams;")
+	if len(cfg.pathParams) > 0 {
+		// url already declared in path param extraction
+		p("          const params = url.searchParams;")
+	} else {
+		p("          const url = new URL(req.url, \"http://localhost\");")
+		p("          const params = url.searchParams;")
+	}
 	p("          const body: %s = {", inputType)
 	for _, qp := range cfg.queryParams {
 		g.generateQueryParamField(p, qp)
@@ -615,7 +621,26 @@ func (g *Generator) generateQueryParamField(p tscommon.Printer, qp annotations.Q
 	jsonName := qp.FieldJSONName
 	paramName := qp.ParamName
 
+	// Handle repeated fields: use getAll() for multi-value params
+	if qp.Field != nil && qp.Field.Desc.IsList() {
+		p(`            %s: params.getAll("%s"),`, jsonName, paramName)
+		return
+	}
+
 	if qp.Field != nil {
+		// Check if it's an enum field — cast to enum type with UNSPECIFIED default
+		if qp.Field.Desc.Kind() == protoreflect.EnumKind && qp.Field.Enum != nil {
+			unspecified := tscommon.TSEnumUnspecifiedValue(qp.Field)
+			p(
+				`            %s: (params.get("%s") ?? %s) as %s,`,
+				jsonName,
+				paramName,
+				unspecified,
+				string(qp.Field.Enum.Desc.Name()),
+			)
+			return
+		}
+
 		tsType := tscommon.TSScalarTypeForField(qp.Field)
 		switch tsType {
 		case tscommon.TSNumber:
@@ -634,6 +659,8 @@ func (g *Generator) generateQueryParamField(p tscommon.Printer, qp annotations.Q
 			p(`            %s: params.get("%s") ?? "0",`, jsonName, paramName)
 		case "bool":
 			p(`            %s: params.get("%s") === "true",`, jsonName, paramName)
+		case "enum":
+			p(`            %s: params.get("%s") ?? "",`, jsonName, paramName)
 		default:
 			p(`            %s: params.get("%s") ?? "",`, jsonName, paramName)
 		}

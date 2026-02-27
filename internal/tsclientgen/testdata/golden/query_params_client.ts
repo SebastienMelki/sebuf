@@ -37,6 +37,17 @@ export interface GetWithFiltersRequest {
   limit: number;
 }
 
+export interface SearchAdvancedRequest {
+  region: Region;
+  countries: string[];
+  keyword: string;
+}
+
+export interface EmptyRequest {
+}
+
+export type Region = "REGION_UNSPECIFIED" | "REGION_AMERICAS" | "REGION_EUROPE" | "REGION_ASIA";
+
 export interface FieldViolation {
   field: string;
   description: string;
@@ -180,6 +191,56 @@ export class QueryParamServiceClient {
     if (req.filter != null && req.filter !== "") params.set("filter", String(req.filter));
     if (req.limit != null && req.limit !== 0) params.set("limit", String(req.limit));
     const url = this.baseURL + path + (params.toString() ? "?" + params.toString() : "");
+
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+      ...this.defaultHeaders,
+      ...options?.headers,
+    };
+
+    const resp = await this.fetchFn(url, {
+      method: "GET",
+      headers,
+      signal: options?.signal,
+    });
+
+    if (!resp.ok) {
+      return this.handleError(resp);
+    }
+
+    return await resp.json() as SearchResponse;
+  }
+
+  async searchAdvanced(req: SearchAdvancedRequest, options?: QueryParamServiceCallOptions): Promise<SearchResponse> {
+    let path = "/api/search/advanced";
+    const params = new URLSearchParams();
+    if (req.region != null && req.region !== "REGION_UNSPECIFIED") params.set("region", String(req.region));
+    if (req.countries && req.countries.length > 0) req.countries.forEach(v => params.append("countries", v));
+    if (req.keyword != null && req.keyword !== "") params.set("keyword", String(req.keyword));
+    const url = this.baseURL + path + (params.toString() ? "?" + params.toString() : "");
+
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+      ...this.defaultHeaders,
+      ...options?.headers,
+    };
+
+    const resp = await this.fetchFn(url, {
+      method: "GET",
+      headers,
+      signal: options?.signal,
+    });
+
+    if (!resp.ok) {
+      return this.handleError(resp);
+    }
+
+    return await resp.json() as SearchResponse;
+  }
+
+  async getDefaults(_req: EmptyRequest, options?: QueryParamServiceCallOptions): Promise<SearchResponse> {
+    let path = "/api/defaults";
+    const url = this.baseURL + path;
 
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
