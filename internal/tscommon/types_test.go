@@ -77,12 +77,23 @@ func TestTSZeroCheck(t *testing.T) {
 	}
 }
 
+// readGoldenFile reads a golden file relative to the project root and returns its content.
+func readGoldenFile(t *testing.T, projectRoot, relPath string) string {
+	t.Helper()
+	goldenPath := filepath.Join(projectRoot, relPath)
+	content, readErr := os.ReadFile(goldenPath)
+	if readErr != nil {
+		t.Fatalf("Failed to read golden file %s: %v", relPath, readErr)
+	}
+	return string(content)
+}
+
 // TestTSEnumUnspecifiedValue_ViaGoldenOutput validates TSEnumUnspecifiedValue behavior
-// through the golden file output rather than direct function calls. TSEnumUnspecifiedValue
-// requires a real *protogen.Field with populated Enum and extension options, which
-// cannot be easily mocked. Instead, we verify the generated output captures the correct
-// behavior: custom enum_value annotations produce custom strings, while enums without
-// annotations use the proto name.
+// through the golden file output rather than direct function calls.
+// TSEnumUnspecifiedValue requires a real *protogen.Field with populated Enum and
+// extension options, which cannot be easily mocked. Instead, we verify the generated
+// output captures the correct behavior: custom enum_value annotations produce custom
+// strings, while enums without annotations use the proto name.
 func TestTSEnumUnspecifiedValue_ViaGoldenOutput(t *testing.T) {
 	// Find project root from the test's working directory (internal/tscommon/)
 	wd, err := os.Getwd()
@@ -92,32 +103,50 @@ func TestTSEnumUnspecifiedValue_ViaGoldenOutput(t *testing.T) {
 	projectRoot := filepath.Join(wd, "..", "..")
 
 	t.Run("custom_enum_value_Status", func(t *testing.T) {
-		goldenPath := filepath.Join(projectRoot, "internal", "tsclientgen", "testdata", "golden", "enum_encoding_client.ts")
-		content, err := os.ReadFile(goldenPath)
-		if err != nil {
-			t.Fatalf("Failed to read golden file: %v", err)
-		}
-		s := string(content)
+		s := readGoldenFile(
+			t, projectRoot,
+			"internal/tsclientgen/testdata/golden/enum_encoding_client.ts",
+		)
 
 		// Status enum has custom enum_value annotations: "unknown", "active", "inactive"
 		// TSEnumUnspecifiedValue should return "unknown" (custom) for first value
-		if !strings.Contains(s, `export type Status = "unknown" | "active" | "inactive";`) {
-			t.Error("Expected Status type with custom enum_value annotations (\"unknown\" | \"active\" | \"inactive\")")
+		expected := `export type Status = "unknown" | "active" | "inactive";`
+		if !strings.Contains(s, expected) {
+			t.Errorf("Expected Status type with custom enum_value annotations:\n  %s", expected)
 		}
 	})
 
 	t.Run("default_enum_value_Priority", func(t *testing.T) {
-		goldenPath := filepath.Join(projectRoot, "internal", "tsclientgen", "testdata", "golden", "enum_encoding_client.ts")
-		content, err := os.ReadFile(goldenPath)
-		if err != nil {
-			t.Fatalf("Failed to read golden file: %v", err)
-		}
-		s := string(content)
+		s := readGoldenFile(
+			t, projectRoot,
+			"internal/tsclientgen/testdata/golden/enum_encoding_client.ts",
+		)
 
 		// Priority enum has NO custom enum_value annotations
 		// TSEnumUnspecifiedValue should return "PRIORITY_LOW" (proto name) for first value
-		if !strings.Contains(s, `export type Priority = "PRIORITY_LOW" | "PRIORITY_MEDIUM" | "PRIORITY_HIGH";`) {
-			t.Error("Expected Priority type with proto names (\"PRIORITY_LOW\" | \"PRIORITY_MEDIUM\" | \"PRIORITY_HIGH\")")
+		expected := `export type Priority = "PRIORITY_LOW" | "PRIORITY_MEDIUM" | "PRIORITY_HIGH";`
+		if !strings.Contains(s, expected) {
+			t.Errorf("Expected Priority type with proto names:\n  %s", expected)
+		}
+	})
+
+	t.Run("custom_enum_value_Region_query_params", func(t *testing.T) {
+		s := readGoldenFile(
+			t, projectRoot,
+			"internal/tsclientgen/testdata/golden/query_params_client.ts",
+		)
+
+		// Region enum has custom enum_value annotations
+		expected := `export type Region = "unspecified" | "americas" | "europe" | "asia";`
+		if !strings.Contains(s, expected) {
+			t.Errorf("Expected Region type with custom enum_value annotations:\n  %s", expected)
+		}
+
+		// TSZeroCheckForField for enum query params should use custom unspecified value
+		if !strings.Contains(s, `req.region !== "unspecified"`) {
+			t.Error(
+				`Expected zero check to use custom enum_value "unspecified" for Region query param`,
+			)
 		}
 	})
 }

@@ -46,7 +46,7 @@ export interface SearchAdvancedRequest {
 export interface EmptyRequest {
 }
 
-export type Region = "REGION_UNSPECIFIED" | "REGION_AMERICAS" | "REGION_EUROPE" | "REGION_ASIA";
+export type Region = "unspecified" | "americas" | "europe" | "asia";
 
 export interface FieldViolation {
   field: string;
@@ -322,7 +322,7 @@ export function createQueryParamServiceRoutes(
           const url = new URL(req.url, "http://localhost");
           const params = url.searchParams;
           const body: SearchAdvancedRequest = {
-            region: (params.get("region") ?? "REGION_UNSPECIFIED") as Region,
+            region: (params.get("region") ?? "unspecified") as Region,
             countries: params.getAll("countries"),
             keyword: params.get("keyword") ?? "",
           };

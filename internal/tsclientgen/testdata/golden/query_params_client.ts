@@ -46,7 +46,7 @@ export interface SearchAdvancedRequest {
 export interface EmptyRequest {
 }
 
-export type Region = "REGION_UNSPECIFIED" | "REGION_AMERICAS" | "REGION_EUROPE" | "REGION_ASIA";
+export type Region = "unspecified" | "americas" | "europe" | "asia";
 
 export interface FieldViolation {
   field: string;
@@ -214,7 +214,7 @@ export class QueryParamServiceClient {
   async searchAdvanced(req: SearchAdvancedRequest, options?: QueryParamServiceCallOptions): Promise<SearchResponse> {
     let path = "/api/search/advanced";
     const params = new URLSearchParams();
-    if (req.region != null && req.region !== "REGION_UNSPECIFIED") params.set("region", String(req.region));
+    if (req.region != null && req.region !== "unspecified") params.set("region", String(req.region));
     if (req.countries && req.countries.length > 0) req.countries.forEach(v => params.append("countries", v));
     if (req.keyword != null && req.keyword !== "") params.set("keyword", String(req.keyword));
     const url = this.baseURL + path + (params.toString() ? "?" + params.toString() : "");

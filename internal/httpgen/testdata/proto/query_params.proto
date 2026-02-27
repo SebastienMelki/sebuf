@@ -100,10 +100,10 @@ message GetWithFiltersRequest {
 }
 
 enum Region {
-  REGION_UNSPECIFIED = 0;
-  REGION_AMERICAS = 1;
-  REGION_EUROPE = 2;
-  REGION_ASIA = 3;
+  REGION_UNSPECIFIED = 0 [(sebuf.http.enum_value) = "unspecified"];
+  REGION_AMERICAS = 1 [(sebuf.http.enum_value) = "americas"];
+  REGION_EUROPE = 2 [(sebuf.http.enum_value) = "europe"];
+  REGION_ASIA = 3 [(sebuf.http.enum_value) = "asia"];
 }
 
 message SearchAdvancedRequest {

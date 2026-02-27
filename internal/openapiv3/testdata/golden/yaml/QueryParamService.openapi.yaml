@@ -411,10 +411,10 @@ components:
                 region:
                     type: string
                     enum:
-                        - REGION_UNSPECIFIED
-                        - REGION_AMERICAS
-                        - REGION_EUROPE
-                        - REGION_ASIA
+                        - unspecified
+                        - americas
+                        - europe
+                        - asia
                 countries:
                     type: array
                     items:
