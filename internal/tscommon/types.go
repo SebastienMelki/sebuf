@@ -71,6 +71,24 @@ func TSScalarTypeForField(field *protogen.Field) string {
 	}
 }
 
+// TSEnumUnspecifiedValue returns the first enum value (UNSPECIFIED variant) as a quoted string.
+// For enum fields, this is the zero-value equivalent used in TS zero checks.
+func TSEnumUnspecifiedValue(field *protogen.Field) string {
+	if field.Desc.Kind() != protoreflect.EnumKind || field.Enum == nil {
+		return `""`
+	}
+	values := field.Enum.Values
+	if len(values) == 0 {
+		return `""`
+	}
+	// Check for custom enum_value annotation on the first value
+	customValue := annotations.GetEnumValueMapping(values[0])
+	if customValue != "" {
+		return fmt.Sprintf(`"%s"`, customValue)
+	}
+	return fmt.Sprintf(`"%s"`, string(values[0].Desc.Name()))
+}
+
 // TSZeroCheck returns the TypeScript zero-value check expression for a query param.
 // Uses the proto field kind (not TS type) to determine the appropriate check.
 // For int64/uint64 fields, this returns the STRING encoding check; use TSZeroCheckForField
@@ -89,6 +107,10 @@ func TSZeroCheck(fieldKind string) string {
 		"uint64", "fixed64":
 		// Default: 64-bit integers are encoded as strings in proto3 JSON
 		return ` !== "0"`
+	case "enum":
+		// Without field context, we cannot determine the UNSPECIFIED value;
+		// fall back to bool-style truthy check
+		return ""
 	default:
 		return ` !== ""`
 	}
@@ -97,10 +119,15 @@ func TSZeroCheck(fieldKind string) string {
 // TSZeroCheckForField returns the TypeScript zero-value check expression for a field,
 // checking encoding annotations for int64/uint64 fields.
 func TSZeroCheckForField(field *protogen.Field) string {
+	// Repeated fields use length check (truthy check pattern)
+	if field.Desc.IsList() {
+		return ""
+	}
+
 	kind := field.Desc.Kind()
 
 	// Check for int64/uint64 encoding annotation
-	//exhaustive:ignore - only int64 kinds need special handling, default covers all others
+	//exhaustive:ignore - only int64/enum kinds need special handling, default covers all others
 	switch kind {
 	case protoreflect.Int64Kind, protoreflect.Sint64Kind, protoreflect.Sfixed64Kind,
 		protoreflect.Uint64Kind, protoreflect.Fixed64Kind:
@@ -108,6 +135,8 @@ func TSZeroCheckForField(field *protogen.Field) string {
 			return " !== 0" // NUMBER encoding: numeric zero check
 		}
 		return ` !== "0"` // Default (STRING/UNSPECIFIED): string zero check
+	case protoreflect.EnumKind:
+		return " !== " + TSEnumUnspecifiedValue(field)
 	default:
 		// All other types use the base helper
 		return TSZeroCheck(kind.String())
