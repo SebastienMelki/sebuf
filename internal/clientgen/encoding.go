@@ -101,7 +101,11 @@ func collectWrapperContexts(file *protogen.File, directMsgNames map[string]bool)
 }
 
 // collectWrapperMessages recursively collects wrapper messages.
-func collectWrapperMessages(messages []*protogen.Message, directMsgNames map[string]bool, contexts *[]*Int64WrapperContext) {
+func collectWrapperMessages(
+	messages []*protogen.Message,
+	directMsgNames map[string]bool,
+	contexts *[]*Int64WrapperContext,
+) {
 	for _, msg := range messages {
 		// Skip messages that already have direct NUMBER fields (handled by existing logic)
 		if directMsgNames[string(msg.Desc.FullName())] {
@@ -410,7 +414,10 @@ func (g *Generator) generateWrapperMarshalJSON(gf *protogen.GeneratedFile, ctx *
 	}
 
 	gf.P("// MarshalJSON implements json.Marshaler for ", msgName, ".")
-	gf.P("// This method re-marshals nested messages that have int64_encoding=NUMBER fields: ", strings.Join(nestedFieldNames, ", "))
+	gf.P(
+		"// This method re-marshals nested messages that have int64_encoding=NUMBER fields: ",
+		strings.Join(nestedFieldNames, ", "),
+	)
 	gf.P("func (x *", msgName, ") MarshalJSON() ([]byte, error) {")
 	gf.P("if x == nil {")
 	gf.P("return []byte(\"null\"), nil")
@@ -457,7 +464,10 @@ func (g *Generator) generateWrapperUnmarshalJSON(gf *protogen.GeneratedFile, ctx
 	}
 
 	gf.P("// UnmarshalJSON implements json.Unmarshaler for ", msgName, ".")
-	gf.P("// This method handles nested messages that have int64_encoding=NUMBER fields: ", strings.Join(nestedFieldNames, ", "))
+	gf.P(
+		"// This method handles nested messages that have int64_encoding=NUMBER fields: ",
+		strings.Join(nestedFieldNames, ", "),
+	)
 	gf.P("func (x *", msgName, ") UnmarshalJSON(data []byte) error {")
 	gf.P("var raw map[string]json.RawMessage")
 	gf.P("if err := json.Unmarshal(data, &raw); err != nil {")
