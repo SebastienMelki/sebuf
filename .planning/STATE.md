@@ -12,7 +12,7 @@ See: .planning/PROJECT.md (updated 2026-02-05)
 Phase: 7 of 11 (JSON - Structural Transforms)
 Plan: 4 of 4 in current phase
 Status: Phase complete
-Last activity: 2026-02-27 - Completed quick task 1: Fix 6 TS generator bugs: enum query params, repeated fields, duplicate URL const, unused req param
+Last activity: 2026-02-27 - Completed quick task 2: Add unit tests for tscommon helpers and enum_value coverage
 
 Progress: [##############################] ~100% (29 plans of ~29 estimated total)
 
@@ -141,10 +141,11 @@ None -- Phase 7 complete, ready for language phases (8-10).
 | # | Description | Date | Commit | Directory |
 |---|-------------|------|--------|-----------|
 | 1 | Fix 6 TS generator bugs: enum query params, repeated fields, duplicate URL const, unused req param | 2026-02-27 | 9fef624 | [1-fix-6-ts-generator-bugs-enum-query-param](./quick/1-fix-6-ts-generator-bugs-enum-query-param/) |
+| 2 | Add unit tests for tscommon helpers and enum_value coverage | 2026-02-27 | 20957fd | [2-add-unit-tests-for-tscommon-helpers-and-](./quick/2-add-unit-tests-for-tscommon-helpers-and-/) |
 
 ## Session Continuity
 
 Last session: 2026-02-27
-Stopped at: Completed quick-1 (fix 6 TS generator bugs for enum/repeated query params)
+Stopped at: Completed quick-2 (add unit tests for tscommon helpers and enum_value coverage)
 Resume file: None
 Next: Phase 8 (Go Client Language) or Phase 9 (TS Client Language)
