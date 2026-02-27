@@ -272,6 +272,7 @@ export function createQueryParamServiceRoutes(
 
           const params = url.searchParams;
           const body: GetWithFiltersRequest = {
+            resourceId: pathParams["resource_id"],
             filter: params.get("filter") ?? "",
             limit: Number(params.get("limit") ?? "0"),
           };
@@ -281,8 +282,6 @@ export function createQueryParamServiceRoutes(
               throw new ValidationError(bodyViolations);
             }
           }
-
-          body.resourceId = pathParams["resource_id"];
 
           const ctx: ServerContext = {
             request: req,

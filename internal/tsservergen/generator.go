@@ -445,12 +445,12 @@ func (g *Generator) generateRouteEntry(p tscommon.Printer, service *protogen.Ser
 	// Parse request body or query params
 	if cfg.hasBody {
 		g.generateBodyParsing(p, method, tsMethodName)
+		// For body methods, path params must be merged after JSON parse
+		g.generatePathParamMerge(p, cfg, method)
 	} else {
+		// For non-body methods, path params are included in the body literal
 		g.generateQueryParamParsing(p, cfg, method, tsMethodName)
 	}
-
-	// Merge path params into body (same as Go generator: path params are fields on the request)
-	g.generatePathParamMerge(p, cfg, method)
 
 	// Build ServerContext
 	p("          const ctx: ServerContext = {")
@@ -588,7 +588,15 @@ func (g *Generator) generateQueryParamParsing(
 	inputType := string(method.Input.Desc.Name())
 
 	if len(cfg.queryParams) == 0 {
-		p("          const body = {} as %s;", inputType)
+		if len(cfg.pathParamFields) > 0 {
+			p("          const body: %s = {", inputType)
+			for _, ppf := range cfg.pathParamFields {
+				p("            %s: pathParams[\"%s\"],", ppf.jsonName, ppf.protoName)
+			}
+			p("          };")
+		} else {
+			p("          const body = {} as %s;", inputType)
+		}
 		p("")
 		return
 	}
@@ -601,6 +609,10 @@ func (g *Generator) generateQueryParamParsing(
 		p("          const params = url.searchParams;")
 	}
 	p("          const body: %s = {", inputType)
+	// Include path param fields in the literal so TS sees all required properties
+	for _, ppf := range cfg.pathParamFields {
+		p("            %s: pathParams[\"%s\"],", ppf.jsonName, ppf.protoName)
+	}
 	for _, qp := range cfg.queryParams {
 		g.generateQueryParamField(p, qp)
 	}

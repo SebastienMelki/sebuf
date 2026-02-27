@@ -121,9 +121,9 @@ export function createBytesEncodingServiceRoutes(
           const pathSegments = url.pathname.split("/");
           pathParams["id"] = decodeURIComponent(pathSegments[4] ?? "");
 
-          const body = {} as BytesEncodingRequest;
-
-          body.id = pathParams["id"];
+          const body: BytesEncodingRequest = {
+            id: pathParams["id"],
+          };
 
           const ctx: ServerContext = {
             request: req,
