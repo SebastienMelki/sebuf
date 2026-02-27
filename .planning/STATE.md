@@ -12,7 +12,7 @@ See: .planning/PROJECT.md (updated 2026-02-05)
 Phase: 7 of 11 (JSON - Structural Transforms)
 Plan: 4 of 4 in current phase
 Status: Phase complete
-Last activity: 2026-02-06 -- Completed 07-04-PLAN.md
+Last activity: 2026-02-27 - Completed quick task 1: Fix 6 TS generator bugs: enum query params, repeated fields, duplicate URL const, unused req param
 
 Progress: [##############################] ~100% (29 plans of ~29 estimated total)
 
@@ -135,6 +135,12 @@ None.
 ### Blockers/Concerns
 
 None -- Phase 7 complete, ready for language phases (8-10).
+
+### Quick Tasks Completed
+
+| # | Description | Date | Commit | Directory |
+|---|-------------|------|--------|-----------|
+| 1 | Fix 6 TS generator bugs: enum query params, repeated fields, duplicate URL const, unused req param | 2026-02-27 | 9fef624 | [1-fix-6-ts-generator-bugs-enum-query-param](./quick/1-fix-6-ts-generator-bugs-enum-query-param/) |
 
 ## Session Continuity
 
