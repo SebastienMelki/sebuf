@@ -1,0 +1,52 @@
+syntax = "proto3";
+
+package testdata.int64nestedencoding;
+
+option go_package = "github.com/SebastienMelki/sebuf/internal/httpgen/testdata/int64nestedencoding;int64nestedencoding";
+
+import "sebuf/http/annotations.proto";
+
+// Inner message with NUMBER-encoded int64 fields.
+message SensorReading {
+  // Unix timestamp in milliseconds - NUMBER encoding
+  int64 timestamp_ms = 1 [(sebuf.http.int64_encoding) = INT64_ENCODING_NUMBER];
+  // Sensor value sequence - NUMBER encoding
+  repeated int64 values = 2 [(sebuf.http.int64_encoding) = INT64_ENCODING_NUMBER];
+}
+
+// Wrapper response with a single nested SensorReading.
+// Tests that MarshalJSON is generated transitively for wrapper messages.
+message GetSensorReadingResponse {
+  SensorReading reading = 1;
+}
+
+// Wrapper response with multiple nested fields of the same type.
+// Tests that ALL nested fields are re-marshaled.
+message GetMultiSensorResponse {
+  SensorReading primary = 1;
+  SensorReading secondary = 2;
+}
+
+message GetSensorRequest {
+  string sensor_id = 1;
+}
+
+service SensorService {
+  option (sebuf.http.service_config) = {
+    base_path: "/api/v1"
+  };
+
+  rpc GetSensorReading(GetSensorRequest) returns (GetSensorReadingResponse) {
+    option (sebuf.http.config) = {
+      path: "/sensors/{sensor_id}"
+      method: HTTP_METHOD_GET
+    };
+  }
+
+  rpc GetMultiSensor(GetSensorRequest) returns (GetMultiSensorResponse) {
+    option (sebuf.http.config) = {
+      path: "/sensors/{sensor_id}/multi"
+      method: HTTP_METHOD_GET
+    };
+  }
+}
