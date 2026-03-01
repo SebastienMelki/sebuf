@@ -1,0 +1,18 @@
+syntax = "proto3";
+
+package test.messageonly.v1;
+
+option go_package = "test/messageonly/v1;messageonlyv1";
+
+import "google/protobuf/struct.proto";
+
+message DashboardState {
+  string status = 1;
+  repeated Worker workers = 2;
+  google.protobuf.Struct metrics = 3;
+}
+
+message Worker {
+  string id = 1;
+  string name = 2;
+}

@@ -11,6 +11,11 @@ func collectServiceMessages(file *protogen.File) *tscommon.MessageSet {
 	return tscommon.CollectServiceMessages(file)
 }
 
+// collectFileMessages collects all messages/enums declared in a message-only proto file.
+func collectFileMessages(file *protogen.File) *tscommon.MessageSet {
+	return tscommon.CollectFileMessages(file)
+}
+
 // generateEnumType writes a TypeScript string union type for a protobuf enum.
 func generateEnumType(p printer, enum *protogen.Enum) {
 	tscommon.GenerateEnumType(tscommon.Printer(p), enum)

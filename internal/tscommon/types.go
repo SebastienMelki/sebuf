@@ -18,6 +18,21 @@ const (
 	TSBoolean = "boolean"
 )
 
+var useProtoFieldNames bool
+
+// SetUseProtoFieldNames switches generated TypeScript field/property names from proto JSON names
+// to the original proto field names.
+func SetUseProtoFieldNames(v bool) {
+	useProtoFieldNames = v
+}
+
+func fieldName(field *protogen.Field) string {
+	if useProtoFieldNames {
+		return string(field.Desc.Name())
+	}
+	return field.Desc.JSONName()
+}
+
 // Printer is a function that prints a formatted line.
 type Printer func(format string, args ...interface{})
 
@@ -251,6 +266,18 @@ func CollectServiceMessages(file *protogen.File) *MessageSet {
 	return ms
 }
 
+// CollectFileMessages collects all top-level and nested messages/enums declared in a file.
+func CollectFileMessages(file *protogen.File) *MessageSet {
+	ms := NewMessageSet()
+	for _, enum := range file.Enums {
+		ms.AddEnum(enum)
+	}
+	for _, msg := range file.Messages {
+		ms.AddMessage(msg)
+	}
+	return ms
+}
+
 // TSFieldType returns the TypeScript type string for a protobuf field.
 func TSFieldType(field *protogen.Field) string {
 	// Handle map fields
@@ -424,7 +451,7 @@ func GenerateOneofDiscriminatedUnionType(p Printer, msgName string, info *annota
 			branch = fmt.Sprintf("{ %s: \"%s\"", info.Discriminator, variant.DiscriminatorVal)
 			var sb strings.Builder
 			for _, childField := range variant.Field.Message.Fields {
-				jsonName := childField.Desc.JSONName()
+				jsonName := fieldName(childField)
 				tsType := TSFieldType(childField)
 				fmt.Fprintf(&sb, "; %s: %s", jsonName, tsType)
 			}
@@ -432,7 +459,7 @@ func GenerateOneofDiscriminatedUnionType(p Printer, msgName string, info *annota
 			branch += " }"
 		case variant.IsMessage:
 			// Non-flattened message: { discriminator: "value", fieldName?: MessageType }
-			fieldJSONName := variant.Field.Desc.JSONName()
+			fieldJSONName := fieldName(variant.Field)
 			msgType := string(variant.Field.Message.Desc.Name())
 			branch = fmt.Sprintf(
 				"{ %s: \"%s\"; %s?: %s }",
@@ -443,7 +470,7 @@ func GenerateOneofDiscriminatedUnionType(p Printer, msgName string, info *annota
 			)
 		default:
 			// Non-flattened scalar: { discriminator: "value", fieldName?: scalarType }
-			fieldJSONName := variant.Field.Desc.JSONName()
+			fieldJSONName := fieldName(variant.Field)
 			tsType := TSScalarTypeForField(variant.Field)
 			branch = fmt.Sprintf(
 				"{ %s: \"%s\"; %s?: %s }",
@@ -564,7 +591,7 @@ func BuildOneofFieldSet(discriminatedOneofs []*annotations.OneofDiscriminatorInf
 
 // GenerateFieldDeclaration generates a single TypeScript field declaration line.
 func GenerateFieldDeclaration(p Printer, field *protogen.Field) {
-	jsonName := field.Desc.JSONName()
+	jsonName := fieldName(field)
 	tsType := TSFieldType(field)
 
 	//nolint:gocritic // if-else chain is clearer than switch for distinct boolean checks
@@ -591,7 +618,7 @@ func SnakeToUpperCamel(s string) string {
 // GenerateFlattenedFields inlines child message fields at the parent level with optional prefix.
 func GenerateFlattenedFields(p Printer, childMsg *protogen.Message, prefix string) {
 	for _, childField := range childMsg.Fields {
-		jsonName := prefix + childField.Desc.JSONName()
+		jsonName := prefix + fieldName(childField)
 		tsType := TSFieldType(childField)
 
 		//nolint:gocritic // if-else chain is clearer than switch for distinct boolean checks

@@ -239,6 +239,7 @@ export class QueryParamServiceClient {
   }
 
   async getDefaults(_req: EmptyRequest, options?: QueryParamServiceCallOptions): Promise<SearchResponse> {
+    const req = _req;
     let path = "/api/defaults";
     const url = this.baseURL + path;
 
