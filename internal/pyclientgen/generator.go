@@ -11,6 +11,11 @@ import (
 	"github.com/SebastienMelki/sebuf/internal/contractmodel"
 )
 
+const (
+	pythonAnyType    = "Any"
+	pythonStringType = "str"
+)
+
 type Generator struct {
 	plugin *protogen.Plugin
 }
@@ -84,7 +89,15 @@ func (g *Generator) generatePackage(pkg *contractmodel.Package) error {
 	for _, service := range pkg.Services {
 		gf.P(`    "`, service.Name, `": {`)
 		for _, method := range service.Methods {
-			gf.P(`        "`, method.Name, `": {"request_type": "`, method.InputType, `", "response_type": "`, method.ResponseType, `"},`)
+			gf.P(
+				`        "`,
+				method.Name,
+				`": {"request_type": "`,
+				method.InputType,
+				`", "response_type": "`,
+				method.ResponseType,
+				`"},`,
+			)
 		}
 		gf.P("    },")
 	}
@@ -108,7 +121,7 @@ func initFiles(packagePath string) []string {
 
 func pythonType(ref *contractmodel.TypeRef, repeated bool) string {
 	if ref == nil {
-		return "Any"
+		return pythonAnyType
 	}
 	base := pythonBaseType(ref)
 	if repeated {
@@ -120,19 +133,19 @@ func pythonType(ref *contractmodel.TypeRef, repeated bool) string {
 func pythonBaseType(ref *contractmodel.TypeRef) string {
 	switch ref.Kind {
 	case contractmodel.KindStruct:
-		return "dict[str, Any]"
+		return "dict[str, " + pythonAnyType + "]"
 	case contractmodel.KindTimestamp:
-		return "str"
+		return pythonStringType
 	case contractmodel.KindMessage:
 		return ref.Name
 	case contractmodel.KindEnum:
-		return "str"
+		return pythonStringType
 	case contractmodel.KindMap:
 		return fmt.Sprintf("dict[%s, %s]", pythonType(ref.MapKey, false), pythonType(ref.MapValue, false))
 	case contractmodel.KindScalar:
 		return pythonScalar(ref.Name)
 	default:
-		return "Any"
+		return pythonAnyType
 	}
 }
 
@@ -145,8 +158,8 @@ func pythonScalar(kind string) string {
 	case "bool":
 		return "bool"
 	case "string", "bytes":
-		return "str"
+		return pythonStringType
 	default:
-		return "Any"
+		return pythonAnyType
 	}
 }

@@ -57,4 +57,3 @@ export class ApiError extends Error {
     this.body = body;
   }
 }
-

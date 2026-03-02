@@ -233,6 +233,7 @@ func resolveType(field *protogen.Field, table *symbols) *TypeRef {
 		}
 	}
 
+	//nolint:exhaustive // scalar kinds intentionally fall through to scalarTypeRef in the default case
 	switch field.Desc.Kind() {
 	case protoreflect.EnumKind:
 		if name, ok := table.enums[field.Enum.Desc.FullName()]; ok {
@@ -255,6 +256,7 @@ func resolveType(field *protogen.Field, table *symbols) *TypeRef {
 }
 
 func resolveMapValueType(field *protogen.Field, table *symbols) *TypeRef {
+	//nolint:exhaustive // scalar kinds intentionally fall through to scalarTypeRef in the default case
 	switch field.Desc.Kind() {
 	case protoreflect.EnumKind:
 		if name, ok := table.enums[field.Enum.Desc.FullName()]; ok {

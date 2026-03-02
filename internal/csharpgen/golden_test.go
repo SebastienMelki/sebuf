@@ -68,7 +68,11 @@ func TestCSharpGenGoldenFiles(t *testing.T) {
 		t.Fatalf("Failed to read golden file %s: %v", goldenPath, goldenErr)
 	}
 	if !bytes.Equal(generatedContent, goldenContent) {
-		t.Fatalf("Generated file %s does not match golden file.\nDiff:\n%s", expectedFile, diffStrings(string(goldenContent), string(generatedContent)))
+		t.Fatalf(
+			"Generated file %s does not match golden file.\nDiff:\n%s",
+			expectedFile,
+			diffStrings(string(goldenContent), string(generatedContent)),
+		)
 	}
 }
 
@@ -80,7 +84,7 @@ func diffStrings(expected, actual string) string {
 	if len(actualLines) > maxLines {
 		maxLines = len(actualLines)
 	}
-	for i := 0; i < maxLines; i++ {
+	for i := range maxLines {
 		var expectedLine, actualLine string
 		if i < len(expectedLines) {
 			expectedLine = expectedLines[i]

@@ -10,7 +10,9 @@ import (
 	"github.com/SebastienMelki/sebuf/internal/tscommon"
 )
 
-// Generator handles TypeScript HTTP client code generation for protobuf services.
+const protoFieldNames = "proto"
+
+// Options configures TypeScript HTTP client generation.
 type Options struct {
 	FieldNames string
 }
@@ -30,7 +32,6 @@ func New(plugin *protogen.Plugin, opts Options) *Generator {
 
 // Generate processes all files and generates TypeScript clients.
 func (g *Generator) Generate() error {
-	tscommon.SetUseProtoFieldNames(g.opts.FieldNames == "proto")
 	for _, file := range g.plugin.Files {
 		if !file.Generate {
 			continue
@@ -71,7 +72,7 @@ func (g *Generator) generateClientFile(file *protogen.File) error {
 
 	// 2. Message interfaces
 	for _, msg := range ms.OrderedMessages() {
-		generateInterface(p, msg)
+		generateInterface(p, msg, g.useProtoFieldNames())
 	}
 
 	// 3. Enum types
@@ -81,6 +82,9 @@ func (g *Generator) generateClientFile(file *protogen.File) error {
 
 	// 4. Error types
 	g.writeErrorTypes(p)
+	if len(file.Services) > 0 {
+		p("")
+	}
 
 	// 5. Per service: options + client class
 	for _, service := range file.Services {
@@ -100,6 +104,10 @@ func (g *Generator) writeHeader(p printer, file *protogen.File) {
 
 func (g *Generator) writeErrorTypes(p printer) {
 	tscommon.WriteErrorTypes(tscommon.Printer(p))
+}
+
+func (g *Generator) useProtoFieldNames() bool {
+	return g.opts.FieldNames == protoFieldNames
 }
 
 func (g *Generator) generateServiceClient(p printer, service *protogen.Service) error {
@@ -313,13 +321,15 @@ func (g *Generator) resolveOutputType(method *protogen.Method) string {
 }
 
 // generateURLBuilding generates URL construction with path and query params.
+//
+//nolint:gocognit // URL generation combines path, query, and encoding concerns in one place for readability.
 func (g *Generator) generateURLBuilding(p printer, cfg *rpcMethodConfig) {
 	p(`    let path = "%s";`, cfg.fullPath)
 
 	// Path parameter substitution
 	for _, param := range cfg.pathParams {
 		jsonName := snakeToLowerCamel(param)
-		if g.opts.FieldNames == "proto" {
+		if g.useProtoFieldNames() {
 			jsonName = param
 		}
 		p(`    path = path.replace("{%s}", encodeURIComponent(String(req.%s)));`, param, jsonName)
@@ -331,7 +341,7 @@ func (g *Generator) generateURLBuilding(p printer, cfg *rpcMethodConfig) {
 		p("    const params = new URLSearchParams();")
 		for _, qp := range cfg.queryParams {
 			fieldName := qp.FieldJSONName
-			if qp.Field != nil && g.opts.FieldNames == "proto" {
+			if qp.Field != nil && g.useProtoFieldNames() {
 				fieldName = string(qp.Field.Desc.Name())
 			}
 
@@ -360,7 +370,6 @@ func (g *Generator) generateURLBuilding(p printer, cfg *rpcMethodConfig) {
 			}
 		}
 		p(`    const url = this.baseURL + path + (params.toString() ? "?" + params.toString() : "");`)
-
 	} else {
 		p("    const url = this.baseURL + path;")
 	}

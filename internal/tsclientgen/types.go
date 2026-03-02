@@ -22,8 +22,12 @@ func generateEnumType(p printer, enum *protogen.Enum) {
 }
 
 // generateInterface writes a TypeScript interface for a protobuf message.
-func generateInterface(p printer, msg *protogen.Message) {
-	tscommon.GenerateInterface(tscommon.Printer(p), msg)
+func generateInterface(p printer, msg *protogen.Message, useProtoFieldNames bool) {
+	tscommon.GenerateInterfaceWithOptions(
+		tscommon.Printer(p),
+		msg,
+		tscommon.GenerateOptions{UseProtoFieldNames: useProtoFieldNames},
+	)
 }
 
 // rootUnwrapTSType returns the TypeScript type for a root-unwrapped message.

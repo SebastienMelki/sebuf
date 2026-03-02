@@ -11,6 +11,11 @@ import (
 	"github.com/SebastienMelki/sebuf/internal/contractmodel"
 )
 
+const (
+	csharpObjectType = "object"
+	csharpStringType = "string"
+)
+
 type Options struct {
 	Namespace string
 	JSONLib   string
@@ -71,7 +76,13 @@ func (g *Generator) generatePackage(pkg *contractmodel.Package) error {
 		gf.P("    {")
 		for _, field := range message.Fields {
 			gf.P("        ", g.jsonAttribute(field.Name))
-			gf.P("        public ", csharpType(field.Type, field.Repeated), " ", pascalCase(field.Name), " { get; set; }")
+			gf.P(
+				"        public ",
+				csharpType(field.Type, field.Repeated),
+				" ",
+				pascalCase(field.Name),
+				" { get; set; }",
+			)
 		}
 		gf.P("    }")
 		gf.P()
@@ -100,7 +111,7 @@ func (g *Generator) jsonAttribute(name string) string {
 
 func csharpType(ref *contractmodel.TypeRef, repeated bool) string {
 	if ref == nil {
-		return "object"
+		return csharpObjectType
 	}
 	base := csharpBaseType(ref)
 	if repeated {
@@ -112,19 +123,19 @@ func csharpType(ref *contractmodel.TypeRef, repeated bool) string {
 func csharpBaseType(ref *contractmodel.TypeRef) string {
 	switch ref.Kind {
 	case contractmodel.KindStruct:
-		return "Dictionary<string, object>"
+		return "Dictionary<string, " + csharpObjectType + ">"
 	case contractmodel.KindTimestamp:
-		return "string"
+		return csharpStringType
 	case contractmodel.KindMessage:
 		return ref.Name
 	case contractmodel.KindEnum:
-		return "string"
+		return csharpStringType
 	case contractmodel.KindMap:
 		return fmt.Sprintf("Dictionary<%s, %s>", csharpType(ref.MapKey, false), csharpType(ref.MapValue, false))
 	case contractmodel.KindScalar:
 		return csharpScalar(ref.Name)
 	default:
-		return "object"
+		return csharpObjectType
 	}
 }
 
@@ -139,9 +150,9 @@ func csharpScalar(kind string) string {
 	case "bool":
 		return "bool"
 	case "string", "bytes":
-		return "string"
+		return csharpStringType
 	default:
-		return "object"
+		return csharpObjectType
 	}
 }
 
