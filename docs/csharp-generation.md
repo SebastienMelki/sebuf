@@ -1,8 +1,8 @@
-# C# Contract Generation
+# C# HTTP Client Generation
 
-> **Generate C# contract classes and service metadata from protobuf services**
+> **Generate C# contracts and `HttpClient` service clients from protobuf services**
 
-`protoc-gen-csharp-http` generates C# contract types from annotated protobuf packages. It is designed for SDKs, typed API integrations, and shared contracts where C# needs the same JSON-facing shape as other sebuf generators.
+`protoc-gen-csharp-http` generates C# contract types and `HttpClient`-based service clients from annotated protobuf packages. It is designed for SDKs, typed API integrations, and shared contracts where C# needs the same JSON-facing shape and HTTP calling surface as other sebuf generators.
 
 ## Quick Start
 
@@ -44,6 +44,9 @@ For each generated package, the plugin emits one `Contracts.g.cs` file containin
 
 - C# `enum` types for protobuf enums
 - C# classes for protobuf messages
+- `I{Service}Client` and `{Service}Client` types built on `HttpClient`
+- `{Service}ClientOptions` and `{Service}CallOptions` for headers and transport configuration
+- `ApiException` for non-success responses
 - `ServiceContracts` metadata with service name, base path, HTTP method, route, request type, and response type per RPC
 
 Nested protobuf messages and enums are flattened into idiomatic C# names such as `WidgetProfile` and `WidgetState`.
@@ -70,7 +73,7 @@ The generator reflects the JSON-facing contract shape for the supported annotati
 - `oneof_config`
   Emits discriminator properties and flattened discriminated-union fields when configured
 - `unwrap`
-  Root unwrap messages generate collection-shaped contracts such as `List<T>`
+  Root unwrap messages generate collection-shaped contracts such as `List<T>`, and map-value unwrap is preserved during client request/response serialization
 - `nullable`
   Uses nullable C# reference/value types where the JSON contract can be `null`
 - `empty_behavior`
@@ -87,7 +90,7 @@ The generator reflects the JSON-facing contract shape for the supported annotati
 - `timestamp_format`
   Maps timestamp fields to `string` or `long` depending on configured format
 - `bytes_encoding`
-  Represents bytes fields as `string`
+  Represents bytes fields as `byte[]` and re-encodes on the wire for `hex`, `base64_raw`, `base64url`, and `base64url_raw`
 
 ## Example
 
@@ -117,8 +120,24 @@ public sealed class Widget
 }
 ```
 
-## Current Scope
+## Client Runtime
 
-The C# generator currently produces contracts and route metadata. It does not yet emit a full HTTP client runtime.
+For each protobuf service, the generator emits:
+
+- `IWidgetServiceClient`
+- `WidgetServiceClient`
+- `WidgetServiceClientOptions`
+- `WidgetServiceCallOptions`
+
+Generated clients:
+
+- use `HttpClient`
+- build paths from annotated route params
+- add annotated query params for `GET` / `DELETE`
+- apply service-level and method-level headers
+- serialize request bodies as JSON
+- deserialize JSON responses into generated contracts
+- preserve `unwrap` and `bytes_encoding` wire behavior
+- throw `ApiException` for non-2xx responses
 
 See [examples/csharp-contracts-demo](../examples/csharp-contracts-demo/) for a working generation example.

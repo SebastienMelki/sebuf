@@ -141,9 +141,9 @@ cd examples/ts-client-demo && make demo
 **Prerequisites**: Node.js (for the TypeScript client)
 
 ### csharp-contracts-demo
-Contract-generation example for `protoc-gen-csharp-http`.
-- Generates C# classes and enums from protobuf packages
-- Shows `flatten`, `nullable`, `oneof_config`, `unwrap`, and service route metadata
+HTTP client generation example for `protoc-gen-csharp-http`.
+- Generates C# contracts plus `HttpClient` service clients
+- Shows `flatten`, `nullable`, `oneof_config`, `unwrap`, `bytes_encoding`, and service route metadata
 - Supports both `newtonsoft` and `System.Text.Json` output
 
 ```bash

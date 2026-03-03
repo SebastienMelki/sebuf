@@ -35,7 +35,7 @@ This starts a working HTTP API with JSON endpoints and OpenAPI docs - all genera
 |-----------|--------|
 | `protoc-gen-go-http` | Go HTTP servers with routing, request binding, validation, and error handling |
 | `protoc-gen-go-client` | Go HTTP clients with type safety, header helpers, and per-call options |
-| `protoc-gen-csharp-http` | C# contracts and HTTP route metadata for typed SDKs and integrations |
+| `protoc-gen-csharp-http` | C# contracts and `HttpClient` service clients for typed SDKs and integrations |
 | `protoc-gen-ts-client` | TypeScript HTTP clients with type safety, header helpers, and per-call options |
 | `protoc-gen-ts-server` | TypeScript HTTP servers with routing, request binding, validation, and error handling — runs on Node, Deno, Bun, Cloudflare Workers |
 | `protoc-gen-openapiv3` | OpenAPI v3.1 specs that stay in sync with your code, one file per service |

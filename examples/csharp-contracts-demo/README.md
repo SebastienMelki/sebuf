@@ -1,6 +1,6 @@
-# C# Contracts Demo
+# C# HTTP Client Demo
 
-This example shows how to generate C# contracts and route metadata with `protoc-gen-csharp-http`.
+This example shows how to generate C# contracts and `HttpClient` service clients with `protoc-gen-csharp-http`.
 
 ## What It Covers
 
@@ -8,6 +8,8 @@ This example shows how to generate C# contracts and route metadata with `protoc-
 - discriminated oneofs with `oneof_config`
 - nullable contract fields
 - root unwrap collection contracts
+- generated `I{Service}Client` / `{Service}Client` types
+- request/response JSON handling for `unwrap` and `bytes_encoding`
 - service route metadata
 - both `newtonsoft` and `System.Text.Json` output modes
 
@@ -22,6 +24,13 @@ Generated files:
 
 - `gen/newtonsoft/demo/contracts/v1/Contracts.g.cs`
 - `gen/system-text-json/demo/contracts/v1/Contracts.g.cs`
+
+Each generated file includes:
+
+- message and enum contracts
+- service clients and per-call options
+- `ApiException`
+- `ServiceContracts` metadata
 
 ## Proto
 
