@@ -62,10 +62,10 @@ func (g *Generator) generatePackage(pkg *contractmodel.Package) error {
 	gf.P("{")
 
 	for _, enum := range pkg.Enums {
-		gf.P("    public static class ", enum.Name)
+		gf.P("    public enum ", enum.Name)
 		gf.P("    {")
 		for _, value := range enum.Values {
-			gf.P(`        public const string `, pascalCase(value), ` = "`, value, `";`)
+			gf.P("        ", pascalCase(value.Name), " = ", value.Number, ",")
 		}
 		gf.P("    }")
 		gf.P()
@@ -78,7 +78,7 @@ func (g *Generator) generatePackage(pkg *contractmodel.Package) error {
 			gf.P("        ", g.jsonAttribute(field.Name))
 			gf.P(
 				"        public ",
-				csharpType(field.Type, field.Repeated),
+				csharpType(field),
 				" ",
 				pascalCase(field.Name),
 				" { get; set; }",
@@ -91,7 +91,20 @@ func (g *Generator) generatePackage(pkg *contractmodel.Package) error {
 	gf.P("    public static class ServiceContracts")
 	gf.P("    {")
 	for _, service := range pkg.Services {
-		gf.P(`        public const string `, service.Name, ` = "`, service.Name, `";`)
+		gf.P("        public static class ", service.Name)
+		gf.P("        {")
+		gf.P(`            public const string Name = "`, service.Name, `";`)
+		gf.P(`            public const string BasePath = "`, service.BasePath, `";`)
+		for _, method := range service.Methods {
+			gf.P("            public static class ", method.Name)
+			gf.P("            {")
+			gf.P(`                public const string HttpMethod = "`, method.HTTPMethod, `";`)
+			gf.P(`                public const string Path = "`, method.Path, `";`)
+			gf.P(`                public const string RequestType = "`, method.InputType, `";`)
+			gf.P(`                public const string ResponseType = "`, method.ResponseType, `";`)
+			gf.P("            }")
+		}
+		gf.P("        }")
 	}
 	gf.P("    }")
 	gf.P("}")
@@ -109,30 +122,59 @@ func (g *Generator) jsonAttribute(name string) string {
 	return `[JsonPropertyName("` + name + `")]`
 }
 
-func csharpType(ref *contractmodel.TypeRef, repeated bool) string {
+func csharpType(field *contractmodel.Field) string {
+	ref := field.Type
 	if ref == nil {
 		return csharpObjectType
 	}
 	base := csharpBaseType(ref)
-	if repeated {
+	if field.Repeated {
 		return "List<" + base + ">"
+	}
+	if shouldUseNullableType(field, ref, base) {
+		return base + "?"
 	}
 	return base
 }
 
 func csharpBaseType(ref *contractmodel.TypeRef) string {
 	switch ref.Kind {
-	case contractmodel.KindStruct:
-		return "Dictionary<string, " + csharpObjectType + ">"
-	case contractmodel.KindTimestamp:
-		return csharpStringType
 	case contractmodel.KindMessage:
 		return ref.Name
 	case contractmodel.KindEnum:
-		return csharpStringType
+		return ref.Name
+	case contractmodel.KindWellKnown:
+		return csharpWellKnownType(ref)
 	case contractmodel.KindMap:
-		return fmt.Sprintf("Dictionary<%s, %s>", csharpType(ref.MapKey, false), csharpType(ref.MapValue, false))
+		return fmt.Sprintf("Dictionary<%s, %s>", csharpBaseType(ref.MapKey), csharpBaseType(ref.MapValue))
 	case contractmodel.KindScalar:
+		return csharpScalar(ref.Name)
+	default:
+		return csharpObjectType
+	}
+}
+
+func csharpWellKnownType(ref *contractmodel.TypeRef) string {
+	switch ref.WellKnown {
+	case contractmodel.WellKnownStruct:
+		return "Dictionary<string, object>"
+	case contractmodel.WellKnownTimestamp, contractmodel.WellKnownDuration, contractmodel.WellKnownFieldMask:
+		return csharpStringType
+	case contractmodel.WellKnownListValue:
+		return "List<object>"
+	case contractmodel.WellKnownAny, contractmodel.WellKnownValue:
+		return csharpObjectType
+	case contractmodel.WellKnownEmpty:
+		return "object"
+	case contractmodel.WellKnownDoubleWrap,
+		contractmodel.WellKnownFloatWrap,
+		contractmodel.WellKnownInt64Wrap,
+		contractmodel.WellKnownUInt64Wrap,
+		contractmodel.WellKnownInt32Wrap,
+		contractmodel.WellKnownUInt32Wrap,
+		contractmodel.WellKnownBoolWrap,
+		contractmodel.WellKnownStringWrap,
+		contractmodel.WellKnownBytesWrap:
 		return csharpScalar(ref.Name)
 	default:
 		return csharpObjectType
@@ -156,12 +198,53 @@ func csharpScalar(kind string) string {
 	}
 }
 
+func shouldUseNullableType(field *contractmodel.Field, ref *contractmodel.TypeRef, base string) bool {
+	if ref == nil {
+		return false
+	}
+	if ref.Kind == contractmodel.KindWellKnown && isWrapper(ref.WellKnown) {
+		return isCSharpValueType(base)
+	}
+	if !field.Optional && !(field.HasPresence && ref.Kind == contractmodel.KindEnum) {
+		return false
+	}
+	return isCSharpValueType(base)
+}
+
+func isWrapper(kind contractmodel.WellKnownType) bool {
+	switch kind {
+	case contractmodel.WellKnownDoubleWrap,
+		contractmodel.WellKnownFloatWrap,
+		contractmodel.WellKnownInt64Wrap,
+		contractmodel.WellKnownUInt64Wrap,
+		contractmodel.WellKnownInt32Wrap,
+		contractmodel.WellKnownUInt32Wrap,
+		contractmodel.WellKnownBoolWrap,
+		contractmodel.WellKnownStringWrap,
+		contractmodel.WellKnownBytesWrap:
+		return true
+	default:
+		return false
+	}
+}
+
+func isCSharpValueType(name string) bool {
+	switch name {
+	case "double", "long", "int", "bool":
+		return true
+	default:
+		return !strings.Contains(name, "string") && !strings.Contains(name, "object") &&
+			!strings.Contains(name, "List<") && !strings.Contains(name, "Dictionary<")
+	}
+}
+
 func pascalCase(name string) string {
 	parts := strings.Split(name, "_")
 	for i, part := range parts {
 		if part == "" {
 			continue
 		}
+		part = strings.ToLower(part)
 		parts[i] = strings.ToUpper(part[:1]) + part[1:]
 	}
 	return strings.Join(parts, "")

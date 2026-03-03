@@ -1,0 +1,197 @@
+package csharpgen
+
+import (
+	"strings"
+	"testing"
+
+	"google.golang.org/protobuf/compiler/protogen"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/descriptorpb"
+	"google.golang.org/protobuf/types/pluginpb"
+
+	"github.com/SebastienMelki/sebuf/internal/contractmodel"
+)
+
+func TestPascalCase(t *testing.T) {
+	tests := []struct {
+		input string
+		want  string
+	}{
+		{input: "STATE_UNSPECIFIED", want: "StateUnspecified"},
+		{input: "item_state", want: "ItemState"},
+		{input: "already", want: "Already"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			if got := pascalCase(tt.input); got != tt.want {
+				t.Fatalf("pascalCase(%q) = %q, want %q", tt.input, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestJSONAttribute(t *testing.T) {
+	newtonsoft := &Generator{opts: Options{JSONLib: "newtonsoft"}}
+	if got := newtonsoft.jsonAttribute("owner_id"); got != `[JsonProperty("owner_id")]` {
+		t.Fatalf("Newtonsoft jsonAttribute = %q", got)
+	}
+
+	systemText := &Generator{opts: Options{JSONLib: "system_text_json"}}
+	if got := systemText.jsonAttribute("owner_id"); got != `[JsonPropertyName("owner_id")]` {
+		t.Fatalf("System.Text.Json jsonAttribute = %q", got)
+	}
+}
+
+func TestCSharpTypeMappings(t *testing.T) {
+	enumType := &contractmodel.TypeRef{Kind: contractmodel.KindEnum, Name: "WidgetState"}
+	if got := csharpType(&contractmodel.Field{Name: "state", Type: enumType, HasPresence: true}); got != "WidgetState?" {
+		t.Fatalf("enum csharpType = %q, want %q", got, "WidgetState?")
+	}
+
+	mapType := &contractmodel.TypeRef{
+		Kind: contractmodel.KindMap,
+		MapKey: &contractmodel.TypeRef{
+			Kind: contractmodel.KindScalar,
+			Name: "string",
+		},
+		MapValue: &contractmodel.TypeRef{
+			Kind: contractmodel.KindScalar,
+			Name: "int32",
+		},
+	}
+	if got := csharpType(&contractmodel.Field{Name: "scores", Type: mapType}); got != "Dictionary<string, int>" {
+		t.Fatalf("map csharpType = %q, want %q", got, "Dictionary<string, int>")
+	}
+
+	wrapperType := &contractmodel.TypeRef{
+		Kind:      contractmodel.KindWellKnown,
+		Name:      "int32",
+		WellKnown: contractmodel.WellKnownInt32Wrap,
+	}
+	if got := csharpType(&contractmodel.Field{Name: "count", Type: wrapperType}); got != "int?" {
+		t.Fatalf("wrapper csharpType = %q, want %q", got, "int?")
+	}
+
+	repeatedMessage := &contractmodel.Field{
+		Name:     "items",
+		Repeated: true,
+		Type: &contractmodel.TypeRef{
+			Kind: contractmodel.KindMessage,
+			Name: "WidgetDetails",
+		},
+	}
+	if got := csharpType(repeatedMessage); got != "List<WidgetDetails>" {
+		t.Fatalf("repeated message csharpType = %q, want %q", got, "List<WidgetDetails>")
+	}
+}
+
+func TestGeneratePackage(t *testing.T) {
+	plugin := newCSharpTestPlugin(t)
+	gen := New(plugin, Options{Namespace: "Test.Contracts", JSONLib: "newtonsoft"})
+
+	pkg := &contractmodel.Package{
+		Name: "test.contracts.v1",
+		Enums: []*contractmodel.Enum{
+			{
+				Name: "WidgetState",
+				Values: []*contractmodel.EnumValue{
+					{Name: "STATE_UNSPECIFIED", Number: 0},
+					{Name: "STATE_READY", Number: 1},
+				},
+			},
+		},
+		Messages: []*contractmodel.Message{
+			{
+				Name: "Widget",
+				Fields: []*contractmodel.Field{
+					{
+						Name: "id",
+						Type: &contractmodel.TypeRef{Kind: contractmodel.KindScalar, Name: "string"},
+					},
+					{
+						Name:        "state",
+						HasPresence: true,
+						Type:        &contractmodel.TypeRef{Kind: contractmodel.KindEnum, Name: "WidgetState"},
+					},
+					{
+						Name:     "meta",
+						Type:     &contractmodel.TypeRef{Kind: contractmodel.KindWellKnown, WellKnown: contractmodel.WellKnownStruct},
+						Repeated: false,
+					},
+				},
+			},
+		},
+		Services: []*contractmodel.Service{
+			{
+				Name:     "WidgetService",
+				BasePath: "/api/v1",
+				Methods: []*contractmodel.Method{
+					{
+						Name:         "GetWidget",
+						HTTPMethod:   "GET",
+						Path:         "/api/v1/widgets/{id}",
+						InputType:    "GetWidgetRequest",
+						ResponseType: "Widget",
+					},
+				},
+			},
+		},
+	}
+
+	if err := gen.generatePackage(pkg); err != nil {
+		t.Fatalf("generatePackage() error = %v", err)
+	}
+
+	output := generatedCSharpContent(t, plugin, "test/contracts/v1/Contracts.g.cs")
+	for _, want := range []string{
+		"public enum WidgetState",
+		"StateUnspecified = 0",
+		"public WidgetState? State { get; set; }",
+		`[JsonProperty("meta")]`,
+		"public Dictionary<string, object> Meta { get; set; }",
+		"public static class WidgetService",
+		`public const string Path = "/api/v1/widgets/{id}";`,
+		`public const string RequestType = "GetWidgetRequest";`,
+	} {
+		if !strings.Contains(output, want) {
+			t.Fatalf("generated output missing %q:\n%s", want, output)
+		}
+	}
+}
+
+func newCSharpTestPlugin(t *testing.T) *protogen.Plugin {
+	t.Helper()
+	req := &pluginpb.CodeGeneratorRequest{
+		Parameter:      proto.String("paths=source_relative"),
+		FileToGenerate: []string{"placeholder.proto"},
+		ProtoFile: []*descriptorpb.FileDescriptorProto{
+			{
+				Name:    proto.String("placeholder.proto"),
+				Package: proto.String("test.contracts.v1"),
+				Syntax:  proto.String("proto3"),
+				Options: &descriptorpb.FileOptions{
+					GoPackage: proto.String("github.com/SebastienMelki/sebuf/internal/testdata/csharp;csharptest"),
+				},
+			},
+		},
+	}
+
+	plugin, err := protogen.Options{}.New(req)
+	if err != nil {
+		t.Fatalf("protogen.Options.New() error = %v", err)
+	}
+	return plugin
+}
+
+func generatedCSharpContent(t *testing.T, plugin *protogen.Plugin, filename string) string {
+	t.Helper()
+	resp := plugin.Response()
+	for _, file := range resp.File {
+		if file.GetName() == filename {
+			return file.GetContent()
+		}
+	}
+	t.Fatalf("generated file %q not found", filename)
+	return ""
+}
