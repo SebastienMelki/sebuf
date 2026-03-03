@@ -35,6 +35,7 @@ This starts a working HTTP API with JSON endpoints and OpenAPI docs - all genera
 |-----------|--------|
 | `protoc-gen-go-http` | Go HTTP servers with routing, request binding, validation, and error handling |
 | `protoc-gen-go-client` | Go HTTP clients with type safety, header helpers, and per-call options |
+| `protoc-gen-csharp-http` | C# contracts and HTTP route metadata for typed SDKs and integrations |
 | `protoc-gen-ts-client` | TypeScript HTTP clients with type safety, header helpers, and per-call options |
 | `protoc-gen-ts-server` | TypeScript HTTP servers with routing, request binding, validation, and error handling — runs on Node, Deno, Bun, Cloudflare Workers |
 | `protoc-gen-openapiv3` | OpenAPI v3.1 specs that stay in sync with your code, one file per service |
@@ -135,6 +136,7 @@ UserService.openapi.yaml
 # Install the tools
 go install github.com/SebastienMelki/sebuf/cmd/protoc-gen-go-http@latest
 go install github.com/SebastienMelki/sebuf/cmd/protoc-gen-go-client@latest
+go install github.com/SebastienMelki/sebuf/cmd/protoc-gen-csharp-http@latest
 go install github.com/SebastienMelki/sebuf/cmd/protoc-gen-openapiv3@latest
 go install github.com/SebastienMelki/sebuf/cmd/protoc-gen-ts-client@latest
 go install github.com/SebastienMelki/sebuf/cmd/protoc-gen-ts-server@latest
@@ -180,6 +182,7 @@ sebuf is used at [Sarwa](https://www.sarwa.co/), the fastest-growing investment 
 
 - **[Complete Tutorial](./examples/simple-api/)** - Full walkthrough with working code
 - **[Documentation](./docs/)** - Comprehensive guides and API reference
+- **[C# Contract Generation](./docs/csharp-generation.md)** - C# plugin options, supported annotations, and examples
 - **[More Examples](./docs/examples/)** - Additional patterns and use cases
 
 ## Built on Great Tools
