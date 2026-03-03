@@ -395,6 +395,15 @@ func TestGeneratePackage(t *testing.T) {
 								},
 								IsMessage: true,
 							},
+							{
+								FieldName:          "rectangle",
+								DiscriminatorValue: "rectangle",
+								Type: &contractmodel.TypeRef{
+									Kind: contractmodel.KindMessage,
+									Name: "ShapeEnvelopeRectangle",
+								},
+								IsMessage: true,
+							},
 						},
 					},
 				},
@@ -405,6 +414,80 @@ func TestGeneratePackage(t *testing.T) {
 					{
 						Name: "radius",
 						Type: &contractmodel.TypeRef{Kind: contractmodel.KindScalar, Name: "double"},
+					},
+				},
+			},
+			{
+				Name: "ShapeEnvelopeRectangle",
+				Fields: []*contractmodel.Field{
+					{
+						Name: "width",
+						Type: &contractmodel.TypeRef{Kind: contractmodel.KindScalar, Name: "double"},
+					},
+					{
+						Name: "height",
+						Type: &contractmodel.TypeRef{Kind: contractmodel.KindScalar, Name: "double"},
+					},
+				},
+			},
+			{
+				Name: "NestedTextContent",
+				Fields: []*contractmodel.Field{
+					{
+						Name: "body",
+						Type: &contractmodel.TypeRef{Kind: contractmodel.KindScalar, Name: "string"},
+					},
+				},
+			},
+			{
+				Name: "NestedImageContent",
+				Fields: []*contractmodel.Field{
+					{
+						Name: "url",
+						Type: &contractmodel.TypeRef{Kind: contractmodel.KindScalar, Name: "string"},
+					},
+				},
+			},
+			{
+				Name: "NestedEvent",
+				Fields: []*contractmodel.Field{
+					{
+						Name: "id",
+						Type: &contractmodel.TypeRef{Kind: contractmodel.KindScalar, Name: "string"},
+					},
+					{
+						Name: "text",
+						Type: &contractmodel.TypeRef{Kind: contractmodel.KindMessage, Name: "NestedTextContent"},
+					},
+					{
+						Name: "image",
+						Type: &contractmodel.TypeRef{Kind: contractmodel.KindMessage, Name: "NestedImageContent"},
+					},
+				},
+				Oneofs: []*contractmodel.Oneof{
+					{
+						Name:          "content",
+						Discriminator: "kind",
+						Variants: []*contractmodel.OneofVariant{
+							{
+								FieldName:          "text",
+								DiscriminatorValue: "text",
+								Type: &contractmodel.TypeRef{
+									Kind: contractmodel.KindMessage,
+									Name: "NestedTextContent",
+								},
+								IsMessage: true,
+							},
+							{
+								FieldName:          "image",
+								DiscriminatorValue: "img",
+								Type: &contractmodel.TypeRef{
+									Kind: contractmodel.KindMessage,
+									Name: "NestedImageContent",
+								},
+								IsMessage: true,
+							},
+						},
 					},
 				},
 			},
@@ -557,6 +640,12 @@ func TestGeneratePackage(t *testing.T) {
 		"private static string NormalizeResponseJson(Type responseType, string json)",
 		"private static JToken NormalizeSerializedWidget(JToken token)",
 		"private static JToken NormalizeResponseWidget(JToken token)",
+		`obj["kind"] = "circle_shape";`,
+		`obj.Remove("width");`,
+		`obj.Remove("height");`,
+		"private static JToken NormalizeSerializedNestedEvent(JToken token)",
+		`obj["kind"] = "text";`,
+		`obj.Remove("image");`,
 		"private static JToken NormalizeSerializedEmptyBehaviorHolder(JToken token)",
 		"private static JToken NormalizeResponseEmptyBehaviorHolder(JToken token)",
 		"private static bool IsEmptyObject(JToken token)",

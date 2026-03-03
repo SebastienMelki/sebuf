@@ -99,6 +99,30 @@ namespace Test.Contracts
         public double Height { get; set; }
     }
 
+    public sealed class NestedShapeEnvelope
+    {
+        [JsonPropertyName("kind")]
+        public string? Kind { get; set; }
+        [JsonPropertyName("circle")]
+        public NestedShapeEnvelopeNestedCircle? Circle { get; set; }
+        [JsonPropertyName("rectangle")]
+        public NestedShapeEnvelopeNestedRectangle? Rectangle { get; set; }
+    }
+
+    public sealed class NestedShapeEnvelopeNestedCircle
+    {
+        [JsonPropertyName("radius")]
+        public double Radius { get; set; }
+    }
+
+    public sealed class NestedShapeEnvelopeNestedRectangle
+    {
+        [JsonPropertyName("width")]
+        public double Width { get; set; }
+        [JsonPropertyName("height")]
+        public double Height { get; set; }
+    }
+
     public sealed class DeepNest
     {
         [JsonPropertyName("level1")]
@@ -315,6 +339,8 @@ namespace Test.Contracts
             return messageType.Name switch
             {
                 "EmptyBehaviorHolder" => NormalizeSerializedEmptyBehaviorHolder(token),
+                "NestedShapeEnvelope" => NormalizeSerializedNestedShapeEnvelope(token),
+                "ShapeEnvelope" => NormalizeSerializedShapeEnvelope(token),
                 "Widget" => NormalizeSerializedWidget(token),
                 _ => token
             };
@@ -324,6 +350,8 @@ namespace Test.Contracts
             return messageType.Name switch
             {
                 "EmptyBehaviorHolder" => NormalizeResponseEmptyBehaviorHolder(token),
+                "NestedShapeEnvelope" => NormalizeResponseNestedShapeEnvelope(token),
+                "ShapeEnvelope" => NormalizeResponseShapeEnvelope(token),
                 "Widget" => NormalizeResponseWidget(token),
                 _ => token
             };
@@ -394,6 +422,136 @@ namespace Test.Contracts
                 if (IsEmptyObject(MetadataomitEmptyBehavior))
                 {
                     obj.Remove("metadataOmit");
+                }
+            }
+            return obj;
+        }
+
+        private static JsonNode NormalizeSerializedNestedShapeEnvelope(JsonNode token)
+        {
+            if (token is not JsonObject obj)
+            {
+                return token;
+            }
+            if (!obj.TryGetPropertyValue("kind", out var KindDiscriminator) || KindDiscriminator is null || string.IsNullOrEmpty(KindDiscriminator.GetValue<string>()))
+            {
+                if (obj.TryGetPropertyValue("circle", out var CircleCircleToken) && CircleCircleToken is not null)
+                {
+                    obj["kind"] = "circle_shape";
+                }
+                else if (obj.TryGetPropertyValue("rectangle", out var RectangleRectangleToken) && RectangleRectangleToken is not null)
+                {
+                    obj["kind"] = "rectangle";
+                }
+            }
+            if (obj.TryGetPropertyValue("kind", out var KindSelected) && KindSelected is JsonValue)
+            {
+                switch (KindSelected!.GetValue<string>())
+                {
+                    case "circle_shape":
+                        obj.Remove("rectangle");
+                        break;
+                    case "rectangle":
+                        obj.Remove("circle");
+                        break;
+                }
+            }
+            return obj;
+        }
+
+        private static JsonNode NormalizeResponseNestedShapeEnvelope(JsonNode token)
+        {
+            if (token is not JsonObject obj)
+            {
+                return token;
+            }
+            if (!obj.TryGetPropertyValue("kind", out var KindDiscriminator) || KindDiscriminator is null || string.IsNullOrEmpty(KindDiscriminator.GetValue<string>()))
+            {
+                if (obj.TryGetPropertyValue("circle", out var CircleCircleToken) && CircleCircleToken is not null)
+                {
+                    obj["kind"] = "circle_shape";
+                }
+                else if (obj.TryGetPropertyValue("rectangle", out var RectangleRectangleToken) && RectangleRectangleToken is not null)
+                {
+                    obj["kind"] = "rectangle";
+                }
+            }
+            if (obj.TryGetPropertyValue("kind", out var KindSelected) && KindSelected is JsonValue)
+            {
+                switch (KindSelected!.GetValue<string>())
+                {
+                    case "circle_shape":
+                        obj.Remove("rectangle");
+                        break;
+                    case "rectangle":
+                        obj.Remove("circle");
+                        break;
+                }
+            }
+            return obj;
+        }
+
+        private static JsonNode NormalizeSerializedShapeEnvelope(JsonNode token)
+        {
+            if (token is not JsonObject obj)
+            {
+                return token;
+            }
+            if (!obj.TryGetPropertyValue("kind", out var KindDiscriminator) || KindDiscriminator is null || string.IsNullOrEmpty(KindDiscriminator.GetValue<string>()))
+            {
+                if (obj.TryGetPropertyValue("radius", out var CircleRadiusToken) && CircleRadiusToken is not null)
+                {
+                    obj["kind"] = "circle_shape";
+                }
+                else if (obj.TryGetPropertyValue("width", out var RectangleWidthToken) && RectangleWidthToken is not null || obj.TryGetPropertyValue("height", out var RectangleHeightToken) && RectangleHeightToken is not null)
+                {
+                    obj["kind"] = "rectangle";
+                }
+            }
+            if (obj.TryGetPropertyValue("kind", out var KindSelected) && KindSelected is JsonValue)
+            {
+                switch (KindSelected!.GetValue<string>())
+                {
+                    case "circle_shape":
+                        obj.Remove("width");
+                        obj.Remove("height");
+                        break;
+                    case "rectangle":
+                        obj.Remove("radius");
+                        break;
+                }
+            }
+            return obj;
+        }
+
+        private static JsonNode NormalizeResponseShapeEnvelope(JsonNode token)
+        {
+            if (token is not JsonObject obj)
+            {
+                return token;
+            }
+            if (!obj.TryGetPropertyValue("kind", out var KindDiscriminator) || KindDiscriminator is null || string.IsNullOrEmpty(KindDiscriminator.GetValue<string>()))
+            {
+                if (obj.TryGetPropertyValue("radius", out var CircleRadiusToken) && CircleRadiusToken is not null)
+                {
+                    obj["kind"] = "circle_shape";
+                }
+                else if (obj.TryGetPropertyValue("width", out var RectangleWidthToken) && RectangleWidthToken is not null || obj.TryGetPropertyValue("height", out var RectangleHeightToken) && RectangleHeightToken is not null)
+                {
+                    obj["kind"] = "rectangle";
+                }
+            }
+            if (obj.TryGetPropertyValue("kind", out var KindSelected) && KindSelected is JsonValue)
+            {
+                switch (KindSelected!.GetValue<string>())
+                {
+                    case "circle_shape":
+                        obj.Remove("width");
+                        obj.Remove("height");
+                        break;
+                    case "rectangle":
+                        obj.Remove("radius");
+                        break;
                 }
             }
             return obj;
@@ -604,6 +762,8 @@ namespace Test.Contracts
             return messageType.Name switch
             {
                 "EmptyBehaviorHolder" => NormalizeSerializedEmptyBehaviorHolder(token),
+                "NestedShapeEnvelope" => NormalizeSerializedNestedShapeEnvelope(token),
+                "ShapeEnvelope" => NormalizeSerializedShapeEnvelope(token),
                 "Widget" => NormalizeSerializedWidget(token),
                 _ => token
             };
@@ -613,6 +773,8 @@ namespace Test.Contracts
             return messageType.Name switch
             {
                 "EmptyBehaviorHolder" => NormalizeResponseEmptyBehaviorHolder(token),
+                "NestedShapeEnvelope" => NormalizeResponseNestedShapeEnvelope(token),
+                "ShapeEnvelope" => NormalizeResponseShapeEnvelope(token),
                 "Widget" => NormalizeResponseWidget(token),
                 _ => token
             };
@@ -683,6 +845,136 @@ namespace Test.Contracts
                 if (IsEmptyObject(MetadataomitEmptyBehavior))
                 {
                     obj.Remove("metadataOmit");
+                }
+            }
+            return obj;
+        }
+
+        private static JsonNode NormalizeSerializedNestedShapeEnvelope(JsonNode token)
+        {
+            if (token is not JsonObject obj)
+            {
+                return token;
+            }
+            if (!obj.TryGetPropertyValue("kind", out var KindDiscriminator) || KindDiscriminator is null || string.IsNullOrEmpty(KindDiscriminator.GetValue<string>()))
+            {
+                if (obj.TryGetPropertyValue("circle", out var CircleCircleToken) && CircleCircleToken is not null)
+                {
+                    obj["kind"] = "circle_shape";
+                }
+                else if (obj.TryGetPropertyValue("rectangle", out var RectangleRectangleToken) && RectangleRectangleToken is not null)
+                {
+                    obj["kind"] = "rectangle";
+                }
+            }
+            if (obj.TryGetPropertyValue("kind", out var KindSelected) && KindSelected is JsonValue)
+            {
+                switch (KindSelected!.GetValue<string>())
+                {
+                    case "circle_shape":
+                        obj.Remove("rectangle");
+                        break;
+                    case "rectangle":
+                        obj.Remove("circle");
+                        break;
+                }
+            }
+            return obj;
+        }
+
+        private static JsonNode NormalizeResponseNestedShapeEnvelope(JsonNode token)
+        {
+            if (token is not JsonObject obj)
+            {
+                return token;
+            }
+            if (!obj.TryGetPropertyValue("kind", out var KindDiscriminator) || KindDiscriminator is null || string.IsNullOrEmpty(KindDiscriminator.GetValue<string>()))
+            {
+                if (obj.TryGetPropertyValue("circle", out var CircleCircleToken) && CircleCircleToken is not null)
+                {
+                    obj["kind"] = "circle_shape";
+                }
+                else if (obj.TryGetPropertyValue("rectangle", out var RectangleRectangleToken) && RectangleRectangleToken is not null)
+                {
+                    obj["kind"] = "rectangle";
+                }
+            }
+            if (obj.TryGetPropertyValue("kind", out var KindSelected) && KindSelected is JsonValue)
+            {
+                switch (KindSelected!.GetValue<string>())
+                {
+                    case "circle_shape":
+                        obj.Remove("rectangle");
+                        break;
+                    case "rectangle":
+                        obj.Remove("circle");
+                        break;
+                }
+            }
+            return obj;
+        }
+
+        private static JsonNode NormalizeSerializedShapeEnvelope(JsonNode token)
+        {
+            if (token is not JsonObject obj)
+            {
+                return token;
+            }
+            if (!obj.TryGetPropertyValue("kind", out var KindDiscriminator) || KindDiscriminator is null || string.IsNullOrEmpty(KindDiscriminator.GetValue<string>()))
+            {
+                if (obj.TryGetPropertyValue("radius", out var CircleRadiusToken) && CircleRadiusToken is not null)
+                {
+                    obj["kind"] = "circle_shape";
+                }
+                else if (obj.TryGetPropertyValue("width", out var RectangleWidthToken) && RectangleWidthToken is not null || obj.TryGetPropertyValue("height", out var RectangleHeightToken) && RectangleHeightToken is not null)
+                {
+                    obj["kind"] = "rectangle";
+                }
+            }
+            if (obj.TryGetPropertyValue("kind", out var KindSelected) && KindSelected is JsonValue)
+            {
+                switch (KindSelected!.GetValue<string>())
+                {
+                    case "circle_shape":
+                        obj.Remove("width");
+                        obj.Remove("height");
+                        break;
+                    case "rectangle":
+                        obj.Remove("radius");
+                        break;
+                }
+            }
+            return obj;
+        }
+
+        private static JsonNode NormalizeResponseShapeEnvelope(JsonNode token)
+        {
+            if (token is not JsonObject obj)
+            {
+                return token;
+            }
+            if (!obj.TryGetPropertyValue("kind", out var KindDiscriminator) || KindDiscriminator is null || string.IsNullOrEmpty(KindDiscriminator.GetValue<string>()))
+            {
+                if (obj.TryGetPropertyValue("radius", out var CircleRadiusToken) && CircleRadiusToken is not null)
+                {
+                    obj["kind"] = "circle_shape";
+                }
+                else if (obj.TryGetPropertyValue("width", out var RectangleWidthToken) && RectangleWidthToken is not null || obj.TryGetPropertyValue("height", out var RectangleHeightToken) && RectangleHeightToken is not null)
+                {
+                    obj["kind"] = "rectangle";
+                }
+            }
+            if (obj.TryGetPropertyValue("kind", out var KindSelected) && KindSelected is JsonValue)
+            {
+                switch (KindSelected!.GetValue<string>())
+                {
+                    case "circle_shape":
+                        obj.Remove("width");
+                        obj.Remove("height");
+                        break;
+                    case "rectangle":
+                        obj.Remove("radius");
+                        break;
                 }
             }
             return obj;

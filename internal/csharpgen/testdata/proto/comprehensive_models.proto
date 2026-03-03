@@ -59,6 +59,27 @@ message ShapeEnvelope {
   }
 }
 
+message NestedShapeEnvelope {
+  oneof shape {
+    option (sebuf.http.oneof_config) = {
+      discriminator: "kind"
+      flatten: false
+    };
+
+    NestedCircle circle = 1 [(sebuf.http.oneof_value) = "circle_shape"];
+    NestedRectangle rectangle = 2;
+  }
+
+  message NestedCircle {
+    double radius = 1;
+  }
+
+  message NestedRectangle {
+    double width = 1;
+    double height = 2;
+  }
+}
+
 message DeepNest {
   Level1 level1 = 1;
 

@@ -854,6 +854,7 @@ func (g *Generator) generateNewtonsoftMessageNormalizationBody(
 	for _, field := range message.Fields {
 		g.generateNewtonsoftFieldNormalization(gf, field, messageIndex, serialize)
 	}
+	g.generateNewtonsoftOneofNormalization(gf, message, messageIndex)
 	gf.P("            return obj;")
 }
 
@@ -1052,7 +1053,148 @@ func (g *Generator) generateSystemTextMessageNormalizationBody(
 	for _, field := range message.Fields {
 		g.generateSystemTextFieldNormalization(gf, field, messageIndex, serialize)
 	}
+	g.generateSystemTextOneofNormalization(gf, message, messageIndex)
 	gf.P("            return obj;")
+}
+
+func (g *Generator) generateNewtonsoftOneofNormalization(
+	gf *protogen.GeneratedFile,
+	message *contractmodel.Message,
+	messageIndex map[string]*contractmodel.Message,
+) {
+	for _, oneof := range message.Oneofs {
+		if oneof.Discriminator == "" {
+			continue
+		}
+		g.generateNewtonsoftDiscriminatorInference(gf, oneof, messageIndex)
+		g.generateNewtonsoftDiscriminatorCleanup(gf, oneof, messageIndex)
+	}
+}
+
+func (g *Generator) generateSystemTextOneofNormalization(
+	gf *protogen.GeneratedFile,
+	message *contractmodel.Message,
+	messageIndex map[string]*contractmodel.Message,
+) {
+	for _, oneof := range message.Oneofs {
+		if oneof.Discriminator == "" {
+			continue
+		}
+		g.generateSystemTextDiscriminatorInference(gf, oneof, messageIndex)
+		g.generateSystemTextDiscriminatorCleanup(gf, oneof, messageIndex)
+	}
+}
+
+func (g *Generator) generateNewtonsoftDiscriminatorInference(
+	gf *protogen.GeneratedFile,
+	oneof *contractmodel.Oneof,
+	messageIndex map[string]*contractmodel.Message,
+) {
+	discriminator := oneof.Discriminator
+	tokenName := pascalCase(discriminator) + "Discriminator"
+	gf.P(
+		`            if (!obj.TryGetValue("`, discriminator, `", out var `, tokenName,
+		`) || `, tokenName, `.Type == JTokenType.Null || string.IsNullOrEmpty(`, tokenName, `.Value<string>()))`,
+	)
+	gf.P("            {")
+	first := true
+	for _, variant := range oneof.Variants {
+		condition := newtonsoftVariantCondition(oneof, variant, messageIndex)
+		if condition == "" {
+			continue
+		}
+		if first {
+			gf.P("                if (", condition, ")")
+			first = false
+		} else {
+			gf.P("                else if (", condition, ")")
+		}
+		gf.P("                {")
+		gf.P(`                    obj["`, discriminator, `"] = "`, variant.DiscriminatorValue, `";`)
+		gf.P("                }")
+	}
+	gf.P("            }")
+}
+
+func (g *Generator) generateNewtonsoftDiscriminatorCleanup(
+	gf *protogen.GeneratedFile,
+	oneof *contractmodel.Oneof,
+	messageIndex map[string]*contractmodel.Message,
+) {
+	discriminator := oneof.Discriminator
+	tokenName := pascalCase(discriminator) + "Selected"
+	gf.P(
+		`            if (obj.TryGetValue("`, discriminator, `", out var `, tokenName,
+		`) && `, tokenName, `.Type == JTokenType.String)`,
+	)
+	gf.P("            {")
+	gf.P("                switch (", tokenName, ".Value<string>())")
+	gf.P("                {")
+	for _, variant := range oneof.Variants {
+		gf.P(`                    case "`, variant.DiscriminatorValue, `":`)
+		for _, jsonName := range oneofOtherVariantJSONFields(oneof, variant, messageIndex) {
+			gf.P(`                        obj.Remove("`, jsonName, `");`)
+		}
+		gf.P("                        break;")
+	}
+	gf.P("                }")
+	gf.P("            }")
+}
+
+func (g *Generator) generateSystemTextDiscriminatorInference(
+	gf *protogen.GeneratedFile,
+	oneof *contractmodel.Oneof,
+	messageIndex map[string]*contractmodel.Message,
+) {
+	discriminator := oneof.Discriminator
+	tokenName := pascalCase(discriminator) + "Discriminator"
+	gf.P(
+		`            if (!obj.TryGetPropertyValue("`, discriminator, `", out var `, tokenName,
+		`) || `, tokenName, ` is null || string.IsNullOrEmpty(`, tokenName, `.GetValue<string>()))`,
+	)
+	gf.P("            {")
+	first := true
+	for _, variant := range oneof.Variants {
+		condition := systemTextVariantCondition(oneof, variant, messageIndex)
+		if condition == "" {
+			continue
+		}
+		if first {
+			gf.P("                if (", condition, ")")
+			first = false
+		} else {
+			gf.P("                else if (", condition, ")")
+		}
+		gf.P("                {")
+		gf.P(`                    obj["`, discriminator, `"] = "`, variant.DiscriminatorValue, `";`)
+		gf.P("                }")
+	}
+	gf.P("            }")
+}
+
+func (g *Generator) generateSystemTextDiscriminatorCleanup(
+	gf *protogen.GeneratedFile,
+	oneof *contractmodel.Oneof,
+	messageIndex map[string]*contractmodel.Message,
+) {
+	discriminator := oneof.Discriminator
+	tokenName := pascalCase(discriminator) + "Selected"
+	gf.P(
+		`            if (obj.TryGetPropertyValue("`, discriminator, `", out var `, tokenName,
+		`) && `, tokenName, ` is JsonValue)`,
+	)
+	gf.P("            {")
+	gf.P("                switch (", tokenName, "!.GetValue<string>())")
+	gf.P("                {")
+	for _, variant := range oneof.Variants {
+		gf.P(`                    case "`, variant.DiscriminatorValue, `":`)
+		for _, jsonName := range oneofOtherVariantJSONFields(oneof, variant, messageIndex) {
+			gf.P(`                        obj.Remove("`, jsonName, `");`)
+		}
+		gf.P("                        break;")
+	}
+	gf.P("                }")
+	gf.P("            }")
 }
 
 //nolint:nestif // Branching mirrors generated JSON normalization cases.
@@ -1275,6 +1417,9 @@ func messageNeedsJSONNormalization(
 	if message == nil {
 		return false
 	}
+	if oneofNeedsNormalization(message, messageIndex) {
+		return true
+	}
 	if isRootUnwrapMessage(message) {
 		field := message.Fields[0]
 		return field.IsMap && field.Type != nil && field.Type.MapValue != nil &&
@@ -1297,6 +1442,108 @@ func messageNeedsJSONNormalization(
 		}
 	}
 	return false
+}
+
+func oneofNeedsNormalization(message *contractmodel.Message, messageIndex map[string]*contractmodel.Message) bool {
+	if message == nil {
+		return false
+	}
+	for _, oneof := range message.Oneofs {
+		if oneof.Discriminator == "" {
+			continue
+		}
+		if len(oneofVariantJSONFields(oneof, messageIndex)) > 0 {
+			return true
+		}
+	}
+	return false
+}
+
+func newtonsoftVariantCondition(
+	oneof *contractmodel.Oneof,
+	variant *contractmodel.OneofVariant,
+	messageIndex map[string]*contractmodel.Message,
+) string {
+	parts := variantPresenceExpressions(oneof, variant, messageIndex, func(jsonName string) string {
+		tokenName := pascalCase(variant.FieldName) + pascalCase(jsonName) + "Token"
+		return `obj.TryGetValue("` + jsonName + `", out var ` + tokenName + `) && ` + tokenName + `.Type != JTokenType.Null`
+	})
+	return strings.Join(parts, " || ")
+}
+
+func systemTextVariantCondition(
+	oneof *contractmodel.Oneof,
+	variant *contractmodel.OneofVariant,
+	messageIndex map[string]*contractmodel.Message,
+) string {
+	parts := variantPresenceExpressions(oneof, variant, messageIndex, func(jsonName string) string {
+		tokenName := pascalCase(variant.FieldName) + pascalCase(jsonName) + "Token"
+		return `obj.TryGetPropertyValue("` + jsonName + `", out var ` + tokenName + `) && ` + tokenName + ` is not null`
+	})
+	return strings.Join(parts, " || ")
+}
+
+func variantPresenceExpressions(
+	oneof *contractmodel.Oneof,
+	variant *contractmodel.OneofVariant,
+	messageIndex map[string]*contractmodel.Message,
+	expr func(string) string,
+) []string {
+	jsonFields := oneofVariantJSONFieldsForVariant(oneof, variant, messageIndex)
+	parts := make([]string, 0, len(jsonFields))
+	for _, jsonName := range jsonFields {
+		parts = append(parts, expr(jsonName))
+	}
+	return parts
+}
+
+func oneofVariantJSONFields(
+	oneof *contractmodel.Oneof,
+	messageIndex map[string]*contractmodel.Message,
+) []string {
+	var fields []string
+	for _, variant := range oneof.Variants {
+		fields = append(fields, oneofVariantJSONFieldsForVariant(oneof, variant, messageIndex)...)
+	}
+	return fields
+}
+
+func oneofOtherVariantJSONFields(
+	oneof *contractmodel.Oneof,
+	selected *contractmodel.OneofVariant,
+	messageIndex map[string]*contractmodel.Message,
+) []string {
+	var fields []string
+	for _, variant := range oneof.Variants {
+		if variant.FieldName == selected.FieldName {
+			continue
+		}
+		fields = append(fields, oneofVariantJSONFieldsForVariant(oneof, variant, messageIndex)...)
+	}
+	return fields
+}
+
+func oneofVariantJSONFieldsForVariant(
+	oneof *contractmodel.Oneof,
+	variant *contractmodel.OneofVariant,
+	messageIndex map[string]*contractmodel.Message,
+) []string {
+	if oneof.Flatten && variant.IsMessage {
+		child := messageIndex[variant.Type.Name]
+		if child == nil {
+			return nil
+		}
+		fields := make([]string, 0, len(child.Fields))
+		for _, field := range child.Fields {
+			jsonName := field.JSONName
+			if jsonName == "" {
+				jsonName = field.Name
+			}
+			fields = append(fields, jsonName)
+		}
+		return fields
+	}
+	return []string{variant.FieldName}
 }
 
 func mapValueUsesUnwrap(message *contractmodel.Message) bool {
