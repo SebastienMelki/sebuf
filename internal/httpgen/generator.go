@@ -91,9 +91,9 @@ func (g *Generator) generateFile(file *protogen.File) error {
 
 	// Compute the set of message names that have unwrap-generated MarshalJSON.
 	// This is passed to the encoding generator to avoid duplicate method declarations.
-	unwrapMsgNames, err := g.collectUnwrapMarshalJSONMessageNames(file)
-	if err != nil {
-		return fmt.Errorf("collecting unwrap MarshalJSON message names for %s: %w", file.Desc.Path(), err)
+	unwrapMsgNames, unwrapErr := g.collectUnwrapMarshalJSONMessageNames(file)
+	if unwrapErr != nil {
+		return fmt.Errorf("collecting unwrap MarshalJSON message names for %s: %w", file.Desc.Path(), unwrapErr)
 	}
 
 	// Generate encoding file if there are messages with int64_encoding=NUMBER annotations

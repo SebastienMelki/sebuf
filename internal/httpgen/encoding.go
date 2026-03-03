@@ -85,7 +85,11 @@ type Int64WrapperContext struct {
 
 // collectWrapperContexts finds messages that contain fields whose message type
 // has direct int64 NUMBER encoding (i.e., types already in directMsgNames).
-func collectWrapperContexts(file *protogen.File, directMsgNames map[string]bool, unwrapMsgNames map[string]bool) []*Int64WrapperContext {
+func collectWrapperContexts(
+	file *protogen.File,
+	directMsgNames map[string]bool,
+	unwrapMsgNames map[string]bool,
+) []*Int64WrapperContext {
 	var contexts []*Int64WrapperContext
 	collectWrapperMessages(file.Messages, directMsgNames, unwrapMsgNames, &contexts)
 	return contexts
