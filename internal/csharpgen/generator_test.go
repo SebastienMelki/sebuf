@@ -125,6 +125,141 @@ func TestCSharpTypeMappings(t *testing.T) {
 	if got := csharpType(repeatedMessage); got != "List<WidgetDetails>" {
 		t.Fatalf("repeated message csharpType = %q, want %q", got, "List<WidgetDetails>")
 	}
+
+	nullableString := &contractmodel.Field{
+		Name:        "display_name",
+		Optional:    true,
+		HasPresence: true,
+		Type:        &contractmodel.TypeRef{Kind: contractmodel.KindScalar, Name: "string"},
+		Annotations: contractmodel.FieldAnnotations{Nullable: true},
+	}
+	if got := csharpType(nullableString); got != "string?" {
+		t.Fatalf("nullable string csharpType = %q, want %q", got, "string?")
+	}
+
+	emptyBehaviorNull := &contractmodel.Field{
+		Name: "meta",
+		Type: &contractmodel.TypeRef{Kind: contractmodel.KindMessage, Name: "Metadata"},
+		Annotations: contractmodel.FieldAnnotations{
+			EmptyBehavior: sebufhttp.EmptyBehavior_EMPTY_BEHAVIOR_NULL,
+		},
+	}
+	if got := csharpType(emptyBehaviorNull); got != "Metadata?" {
+		t.Fatalf("empty_behavior null csharpType = %q, want %q", got, "Metadata?")
+	}
+}
+
+func TestMessageProperties(t *testing.T) {
+	gen := &Generator{opts: Options{JSONLib: "newtonsoft"}}
+	profile := &contractmodel.Message{
+		Name: "WidgetProfile",
+		Fields: []*contractmodel.Field{
+			{Name: "note", Type: &contractmodel.TypeRef{Kind: contractmodel.KindScalar, Name: "string"}},
+		},
+	}
+	circle := &contractmodel.Message{
+		Name: "ShapeEnvelopeCircle",
+		Fields: []*contractmodel.Field{
+			{Name: "radius", Type: &contractmodel.TypeRef{Kind: contractmodel.KindScalar, Name: "double"}},
+		},
+	}
+	rectangle := &contractmodel.Message{
+		Name: "ShapeEnvelopeRectangle",
+		Fields: []*contractmodel.Field{
+			{Name: "width", Type: &contractmodel.TypeRef{Kind: contractmodel.KindScalar, Name: "double"}},
+			{Name: "height", Type: &contractmodel.TypeRef{Kind: contractmodel.KindScalar, Name: "double"}},
+		},
+	}
+	index := map[string]*contractmodel.Message{
+		profile.Name:   profile,
+		circle.Name:    circle,
+		rectangle.Name: rectangle,
+	}
+
+	message := &contractmodel.Message{
+		Name: "Widget",
+		Fields: []*contractmodel.Field{
+			{Name: "id", Type: &contractmodel.TypeRef{Kind: contractmodel.KindScalar, Name: "string"}},
+			{
+				Name: "profile",
+				Type: &contractmodel.TypeRef{Kind: contractmodel.KindMessage, Name: "WidgetProfile"},
+				Annotations: contractmodel.FieldAnnotations{
+					Flatten:       true,
+					FlattenPrefix: "meta_",
+				},
+			},
+		},
+		Oneofs: []*contractmodel.Oneof{
+			{
+				Name:          "shape",
+				Discriminator: "kind",
+				Flatten:       true,
+				Variants: []*contractmodel.OneofVariant{
+					{
+						FieldName:          "circle",
+						DiscriminatorValue: "circle_shape",
+						Type: &contractmodel.TypeRef{
+							Kind: contractmodel.KindMessage,
+							Name: "ShapeEnvelopeCircle",
+						},
+						IsMessage: true,
+					},
+					{
+						FieldName:          "rectangle",
+						DiscriminatorValue: "rectangle",
+						Type: &contractmodel.TypeRef{
+							Kind: contractmodel.KindMessage,
+							Name: "ShapeEnvelopeRectangle",
+						},
+						IsMessage: true,
+					},
+				},
+			},
+		},
+	}
+
+	properties := gen.messageProperties(message, index)
+	got := make(map[string]string, len(properties))
+	for _, property := range properties {
+		got[property.jsonName] = property.typ
+	}
+
+	for jsonName, wantType := range map[string]string{
+		"id":        "string",
+		"meta_note": "string?",
+		"kind":      "string?",
+		"radius":    "double?",
+		"width":     "double?",
+		"height":    "double?",
+	} {
+		if got[jsonName] != wantType {
+			t.Fatalf("property %q = %q, want %q (all: %#v)", jsonName, got[jsonName], wantType, got)
+		}
+	}
+}
+
+func TestRootUnwrapBaseType(t *testing.T) {
+	message := &contractmodel.Message{
+		Name: "TagList",
+		Fields: []*contractmodel.Field{
+			{
+				Name:     "values",
+				Repeated: true,
+				Type:     &contractmodel.TypeRef{Kind: contractmodel.KindScalar, Name: "string"},
+			},
+		},
+		Unwrap: &contractmodel.Unwrap{
+			FieldName: "values",
+			IsRoot:    true,
+		},
+	}
+
+	if !isRootUnwrapMessage(message) {
+		t.Fatalf("expected root unwrap message")
+	}
+	if got := rootUnwrapBaseType(message); got != "List<string>" {
+		t.Fatalf("rootUnwrapBaseType() = %q, want %q", got, "List<string>")
+	}
 }
 
 func TestGeneratePackage(t *testing.T) {
@@ -144,11 +279,29 @@ func TestGeneratePackage(t *testing.T) {
 		},
 		Messages: []*contractmodel.Message{
 			{
+				Name: "WidgetProfile",
+				Fields: []*contractmodel.Field{
+					{
+						Name: "note",
+						Type: &contractmodel.TypeRef{Kind: contractmodel.KindScalar, Name: "string"},
+					},
+				},
+			},
+			{
 				Name: "Widget",
 				Fields: []*contractmodel.Field{
 					{
 						Name: "id",
 						Type: &contractmodel.TypeRef{Kind: contractmodel.KindScalar, Name: "string"},
+					},
+					{
+						Name:        "display_name",
+						Optional:    true,
+						HasPresence: true,
+						Type:        &contractmodel.TypeRef{Kind: contractmodel.KindScalar, Name: "string"},
+						Annotations: contractmodel.FieldAnnotations{
+							Nullable: true,
+						},
 					},
 					{
 						Name:        "state",
@@ -166,6 +319,55 @@ func TestGeneratePackage(t *testing.T) {
 						},
 						Repeated: false,
 					},
+					{
+						Name: "profile",
+						Type: &contractmodel.TypeRef{Kind: contractmodel.KindMessage, Name: "WidgetProfile"},
+						Annotations: contractmodel.FieldAnnotations{
+							Flatten:       true,
+							FlattenPrefix: "meta_",
+						},
+					},
+				},
+				Oneofs: []*contractmodel.Oneof{
+					{
+						Name:          "shape",
+						Discriminator: "kind",
+						Flatten:       true,
+						Variants: []*contractmodel.OneofVariant{
+							{
+								FieldName:          "circle",
+								DiscriminatorValue: "circle_shape",
+								Type: &contractmodel.TypeRef{
+									Kind: contractmodel.KindMessage,
+									Name: "ShapeEnvelopeCircle",
+								},
+								IsMessage: true,
+							},
+						},
+					},
+				},
+			},
+			{
+				Name: "ShapeEnvelopeCircle",
+				Fields: []*contractmodel.Field{
+					{
+						Name: "radius",
+						Type: &contractmodel.TypeRef{Kind: contractmodel.KindScalar, Name: "double"},
+					},
+				},
+			},
+			{
+				Name: "TagList",
+				Fields: []*contractmodel.Field{
+					{
+						Name:     "values",
+						Repeated: true,
+						Type:     &contractmodel.TypeRef{Kind: contractmodel.KindScalar, Name: "string"},
+					},
+				},
+				Unwrap: &contractmodel.Unwrap{
+					FieldName: "values",
+					IsRoot:    true,
 				},
 			},
 		},
@@ -197,8 +399,16 @@ func TestGeneratePackage(t *testing.T) {
 		"StateUnspecified = 0",
 		`[JsonConverter(typeof(StringEnumConverter))]`,
 		"public WidgetState? State { get; set; }",
+		"public string? DisplayName { get; set; }",
 		`[JsonProperty("meta")]`,
 		"public Dictionary<string, object> Meta { get; set; }",
+		`[JsonProperty("meta_note")]`,
+		"public string? MetaNote { get; set; }",
+		`[JsonProperty("kind")]`,
+		"public string? Kind { get; set; }",
+		`[JsonProperty("radius")]`,
+		"public double? Radius { get; set; }",
+		"public sealed class TagList : List<string>",
 		"public static class WidgetService",
 		`public const string Path = "/api/v1/widgets/{id}";`,
 		`public const string RequestType = "GetWidgetRequest";`,

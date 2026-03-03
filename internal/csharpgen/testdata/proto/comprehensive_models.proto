@@ -78,3 +78,13 @@ message WellKnownHolder {
 }
 
 message EmptyMessage {}
+
+message EmptyBehaviorHolder {
+  EmptyMessage metadata_preserve = 1;
+  EmptyMessage metadata_null = 2 [(sebuf.http.empty_behavior) = EMPTY_BEHAVIOR_NULL];
+  EmptyMessage metadata_omit = 3 [(sebuf.http.empty_behavior) = EMPTY_BEHAVIOR_OMIT];
+}
+
+message TagList {
+  repeated string values = 1 [(sebuf.http.unwrap) = true];
+}
