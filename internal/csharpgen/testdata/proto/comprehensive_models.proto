@@ -25,6 +25,8 @@ message Widget {
   string owner_id = 10 [(sebuf.http.query) = { name: "owner", required: true }];
   bytes payload = 11 [(sebuf.http.bytes_encoding) = BYTES_ENCODING_HEX];
   int64 version = 12 [(sebuf.http.int64_encoding) = INT64_ENCODING_NUMBER];
+  map<string, State> state_labels = 13;
+  map<string, Profile> profiles_by_id = 14;
 
   enum State {
     STATE_UNSPECIFIED = 0;

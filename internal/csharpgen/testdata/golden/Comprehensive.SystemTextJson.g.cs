@@ -40,6 +40,10 @@ namespace Test.Contracts
         public string Payload { get; set; }
         [JsonPropertyName("version")]
         public long Version { get; set; }
+        [JsonPropertyName("state_labels")]
+        public Dictionary<string, WidgetState> StateLabels { get; set; }
+        [JsonPropertyName("profiles_by_id")]
+        public Dictionary<string, WidgetProfile> ProfilesById { get; set; }
     }
 
     public sealed class WidgetProfile

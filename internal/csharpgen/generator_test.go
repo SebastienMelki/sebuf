@@ -67,6 +67,40 @@ func TestCSharpTypeMappings(t *testing.T) {
 		t.Fatalf("map csharpType = %q, want %q", got, "Dictionary<string, int>")
 	}
 
+	enumMapType := &contractmodel.TypeRef{
+		Kind: contractmodel.KindMap,
+		MapKey: &contractmodel.TypeRef{
+			Kind: contractmodel.KindScalar,
+			Name: "string",
+		},
+		MapValue: &contractmodel.TypeRef{
+			Kind: contractmodel.KindEnum,
+			Name: "WidgetState",
+		},
+	}
+	if got := csharpType(
+		&contractmodel.Field{Name: "states", Type: enumMapType},
+	); got != "Dictionary<string, WidgetState>" {
+		t.Fatalf("enum map csharpType = %q, want %q", got, "Dictionary<string, WidgetState>")
+	}
+
+	messageMapType := &contractmodel.TypeRef{
+		Kind: contractmodel.KindMap,
+		MapKey: &contractmodel.TypeRef{
+			Kind: contractmodel.KindScalar,
+			Name: "string",
+		},
+		MapValue: &contractmodel.TypeRef{
+			Kind: contractmodel.KindMessage,
+			Name: "WidgetProfile",
+		},
+	}
+	if got := csharpType(
+		&contractmodel.Field{Name: "profiles", Type: messageMapType},
+	); got != "Dictionary<string, WidgetProfile>" {
+		t.Fatalf("message map csharpType = %q, want %q", got, "Dictionary<string, WidgetProfile>")
+	}
+
 	int64String := &contractmodel.Field{
 		Name: "version",
 		Type: &contractmodel.TypeRef{Kind: contractmodel.KindScalar, Name: "int64"},
