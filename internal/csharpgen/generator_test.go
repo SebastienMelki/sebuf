@@ -9,6 +9,7 @@ import (
 	"google.golang.org/protobuf/types/descriptorpb"
 	"google.golang.org/protobuf/types/pluginpb"
 
+	sebufhttp "github.com/SebastienMelki/sebuf/http"
 	"github.com/SebastienMelki/sebuf/internal/contractmodel"
 )
 
@@ -66,6 +67,44 @@ func TestCSharpTypeMappings(t *testing.T) {
 		t.Fatalf("map csharpType = %q, want %q", got, "Dictionary<string, int>")
 	}
 
+	int64String := &contractmodel.Field{
+		Name: "version",
+		Type: &contractmodel.TypeRef{Kind: contractmodel.KindScalar, Name: "int64"},
+	}
+	if got := csharpType(int64String); got != "string" {
+		t.Fatalf("default int64 csharpType = %q, want %q", got, "string")
+	}
+
+	int64Number := &contractmodel.Field{
+		Name: "version",
+		Type: &contractmodel.TypeRef{Kind: contractmodel.KindScalar, Name: "int64"},
+		Annotations: contractmodel.FieldAnnotations{
+			Int64Encoding: sebufhttp.Int64Encoding_INT64_ENCODING_NUMBER,
+		},
+	}
+	if got := csharpType(int64Number); got != "long" {
+		t.Fatalf("number int64 csharpType = %q, want %q", got, "long")
+	}
+
+	timestampString := &contractmodel.Field{
+		Name: "created_at",
+		Type: &contractmodel.TypeRef{Kind: contractmodel.KindWellKnown, WellKnown: contractmodel.WellKnownTimestamp},
+	}
+	if got := csharpType(timestampString); got != "string" {
+		t.Fatalf("default timestamp csharpType = %q, want %q", got, "string")
+	}
+
+	timestampNumber := &contractmodel.Field{
+		Name: "created_at",
+		Type: &contractmodel.TypeRef{Kind: contractmodel.KindWellKnown, WellKnown: contractmodel.WellKnownTimestamp},
+		Annotations: contractmodel.FieldAnnotations{
+			TimestampFormat: sebufhttp.TimestampFormat_TIMESTAMP_FORMAT_UNIX_MILLIS,
+		},
+	}
+	if got := csharpType(timestampNumber); got != "long" {
+		t.Fatalf("unix millis timestamp csharpType = %q, want %q", got, "long")
+	}
+
 	wrapperType := &contractmodel.TypeRef{
 		Kind:      contractmodel.KindWellKnown,
 		Name:      "int32",
@@ -98,8 +137,8 @@ func TestGeneratePackage(t *testing.T) {
 			{
 				Name: "WidgetState",
 				Values: []*contractmodel.EnumValue{
-					{Name: "STATE_UNSPECIFIED", Number: 0},
-					{Name: "STATE_READY", Number: 1},
+					{Name: "STATE_UNSPECIFIED", JSONValue: "STATE_UNSPECIFIED", Number: 0},
+					{Name: "STATE_READY", JSONValue: "ready", Number: 1},
 				},
 			},
 		},
@@ -115,6 +154,9 @@ func TestGeneratePackage(t *testing.T) {
 						Name:        "state",
 						HasPresence: true,
 						Type:        &contractmodel.TypeRef{Kind: contractmodel.KindEnum, Name: "WidgetState"},
+						Annotations: contractmodel.FieldAnnotations{
+							EnumEncoding: sebufhttp.EnumEncoding_ENUM_ENCODING_STRING,
+						},
 					},
 					{
 						Name: "meta",
@@ -151,7 +193,9 @@ func TestGeneratePackage(t *testing.T) {
 	output := generatedCSharpContent(t, plugin, "test/contracts/v1/Contracts.g.cs")
 	for _, want := range []string{
 		"public enum WidgetState",
+		`[EnumMember(Value = "ready")]`,
 		"StateUnspecified = 0",
+		`[JsonConverter(typeof(StringEnumConverter))]`,
 		"public WidgetState? State { get; set; }",
 		`[JsonProperty("meta")]`,
 		"public Dictionary<string, object> Meta { get; set; }",
