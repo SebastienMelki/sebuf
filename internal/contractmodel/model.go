@@ -505,15 +505,35 @@ func wellKnownTypeRef(fullName protoreflect.FullName) *TypeRef {
 	case EmptyFullName:
 		return &TypeRef{Kind: KindWellKnown, Name: csharpFriendlyName(WellKnownEmpty), WellKnown: WellKnownEmpty}
 	case FieldMaskFullName:
-		return &TypeRef{Kind: KindWellKnown, Name: csharpFriendlyName(WellKnownFieldMask), WellKnown: WellKnownFieldMask}
+		return &TypeRef{
+			Kind:      KindWellKnown,
+			Name:      csharpFriendlyName(WellKnownFieldMask),
+			WellKnown: WellKnownFieldMask,
+		}
 	case ListValueFullName:
-		return &TypeRef{Kind: KindWellKnown, Name: csharpFriendlyName(WellKnownListValue), WellKnown: WellKnownListValue}
+		return &TypeRef{
+			Kind:      KindWellKnown,
+			Name:      csharpFriendlyName(WellKnownListValue),
+			WellKnown: WellKnownListValue,
+		}
 	case StructFullName:
-		return &TypeRef{Kind: KindWellKnown, Name: csharpFriendlyName(WellKnownStruct), WellKnown: WellKnownStruct}
+		return &TypeRef{
+			Kind:      KindWellKnown,
+			Name:      csharpFriendlyName(WellKnownStruct),
+			WellKnown: WellKnownStruct,
+		}
 	case TimestampFullName:
-		return &TypeRef{Kind: KindWellKnown, Name: csharpFriendlyName(WellKnownTimestamp), WellKnown: WellKnownTimestamp}
+		return &TypeRef{
+			Kind:      KindWellKnown,
+			Name:      csharpFriendlyName(WellKnownTimestamp),
+			WellKnown: WellKnownTimestamp,
+		}
 	case ValueFullName:
-		return &TypeRef{Kind: KindWellKnown, Name: csharpFriendlyName(WellKnownValue), WellKnown: WellKnownValue}
+		return &TypeRef{
+			Kind:      KindWellKnown,
+			Name:      csharpFriendlyName(WellKnownValue),
+			WellKnown: WellKnownValue,
+		}
 	case DoubleValueName:
 		return &TypeRef{Kind: KindWellKnown, Name: "double", WellKnown: WellKnownDoubleWrap}
 	case FloatValueName:
@@ -555,6 +575,24 @@ func csharpFriendlyName(kind WellKnownType) string {
 		return "Timestamp"
 	case WellKnownValue:
 		return "Value"
+	case WellKnownDoubleWrap:
+		return "double"
+	case WellKnownFloatWrap:
+		return "float"
+	case WellKnownInt64Wrap:
+		return "int64"
+	case WellKnownUInt64Wrap:
+		return "uint64"
+	case WellKnownInt32Wrap:
+		return "int32"
+	case WellKnownUInt32Wrap:
+		return "uint32"
+	case WellKnownBoolWrap:
+		return "bool"
+	case WellKnownStringWrap:
+		return "string"
+	case WellKnownBytesWrap:
+		return "bytes"
 	default:
 		return string(kind)
 	}

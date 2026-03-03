@@ -14,6 +14,8 @@ import (
 const (
 	csharpObjectType = "object"
 	csharpStringType = "string"
+	csharpDoubleType = "double"
+	csharpBoolType   = "bool"
 )
 
 type Options struct {
@@ -183,14 +185,14 @@ func csharpWellKnownType(ref *contractmodel.TypeRef) string {
 
 func csharpScalar(kind string) string {
 	switch kind {
-	case "double", "float":
-		return "double"
+	case csharpDoubleType, "float":
+		return csharpDoubleType
 	case "int64", "uint64", "fixed64", "sfixed64", "sint64":
 		return "long"
 	case "int32", "fixed32", "uint32", "sfixed32", "sint32":
 		return "int"
-	case "bool":
-		return "bool"
+	case csharpBoolType:
+		return csharpBoolType
 	case "string", "bytes":
 		return csharpStringType
 	default:
@@ -205,7 +207,7 @@ func shouldUseNullableType(field *contractmodel.Field, ref *contractmodel.TypeRe
 	if ref.Kind == contractmodel.KindWellKnown && isWrapper(ref.WellKnown) {
 		return isCSharpValueType(base)
 	}
-	if !field.Optional && !(field.HasPresence && ref.Kind == contractmodel.KindEnum) {
+	if !field.Optional && (!field.HasPresence || ref.Kind != contractmodel.KindEnum) {
 		return false
 	}
 	return isCSharpValueType(base)
@@ -223,6 +225,15 @@ func isWrapper(kind contractmodel.WellKnownType) bool {
 		contractmodel.WellKnownStringWrap,
 		contractmodel.WellKnownBytesWrap:
 		return true
+	case contractmodel.WellKnownAny,
+		contractmodel.WellKnownDuration,
+		contractmodel.WellKnownEmpty,
+		contractmodel.WellKnownFieldMask,
+		contractmodel.WellKnownListValue,
+		contractmodel.WellKnownStruct,
+		contractmodel.WellKnownTimestamp,
+		contractmodel.WellKnownValue:
+		return false
 	default:
 		return false
 	}
@@ -230,7 +241,7 @@ func isWrapper(kind contractmodel.WellKnownType) bool {
 
 func isCSharpValueType(name string) bool {
 	switch name {
-	case "double", "long", "int", "bool":
+	case csharpDoubleType, "long", "int", csharpBoolType:
 		return true
 	default:
 		return !strings.Contains(name, "string") && !strings.Contains(name, "object") &&

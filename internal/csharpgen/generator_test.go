@@ -45,7 +45,9 @@ func TestJSONAttribute(t *testing.T) {
 
 func TestCSharpTypeMappings(t *testing.T) {
 	enumType := &contractmodel.TypeRef{Kind: contractmodel.KindEnum, Name: "WidgetState"}
-	if got := csharpType(&contractmodel.Field{Name: "state", Type: enumType, HasPresence: true}); got != "WidgetState?" {
+	if got := csharpType(
+		&contractmodel.Field{Name: "state", Type: enumType, HasPresence: true},
+	); got != "WidgetState?" {
 		t.Fatalf("enum csharpType = %q, want %q", got, "WidgetState?")
 	}
 
@@ -115,8 +117,11 @@ func TestGeneratePackage(t *testing.T) {
 						Type:        &contractmodel.TypeRef{Kind: contractmodel.KindEnum, Name: "WidgetState"},
 					},
 					{
-						Name:     "meta",
-						Type:     &contractmodel.TypeRef{Kind: contractmodel.KindWellKnown, WellKnown: contractmodel.WellKnownStruct},
+						Name: "meta",
+						Type: &contractmodel.TypeRef{
+							Kind:      contractmodel.KindWellKnown,
+							WellKnown: contractmodel.WellKnownStruct,
+						},
 						Repeated: false,
 					},
 				},
@@ -187,7 +192,7 @@ func newCSharpTestPlugin(t *testing.T) *protogen.Plugin {
 func generatedCSharpContent(t *testing.T, plugin *protogen.Plugin, filename string) string {
 	t.Helper()
 	resp := plugin.Response()
-	for _, file := range resp.File {
+	for _, file := range resp.GetFile() {
 		if file.GetName() == filename {
 			return file.GetContent()
 		}

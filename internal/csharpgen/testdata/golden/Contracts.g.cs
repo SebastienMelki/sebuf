@@ -4,10 +4,10 @@ using Newtonsoft.Json;
 
 namespace Test.Contracts
 {
-    public static class ItemItem_State
+    public enum ItemState
     {
-        public const string STATEUNSPECIFIED = "STATE_UNSPECIFIED";
-        public const string STATEREADY = "STATE_READY";
+        StateUnspecified = 0,
+        StateReady = 1,
     }
 
     public sealed class Item
@@ -19,12 +19,12 @@ namespace Test.Contracts
         [JsonProperty("meta")]
         public Dictionary<string, object> Meta { get; set; }
         [JsonProperty("state")]
-        public string State { get; set; }
+        public ItemState State { get; set; }
         [JsonProperty("details")]
-        public Item__Item_Details Details { get; set; }
+        public ItemDetails Details { get; set; }
     }
 
-    public sealed class Item__Item_Details
+    public sealed class ItemDetails
     {
         [JsonProperty("note")]
         public string Note { get; set; }
@@ -40,6 +40,17 @@ namespace Test.Contracts
 
     public static class ServiceContracts
     {
-        public const string ContractService = "ContractService";
+        public static class ContractService
+        {
+            public const string Name = "ContractService";
+            public const string BasePath = "";
+            public static class FetchItem
+            {
+                public const string HttpMethod = "POST";
+                public const string Path = "/";
+                public const string RequestType = "FetchItemRequest";
+                public const string ResponseType = "Item";
+            }
+        }
     }
 }

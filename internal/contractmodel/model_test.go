@@ -37,6 +37,14 @@ func TestPackagesBuildsRichModel(t *testing.T) {
 		t.Fatalf("Package.SourceFiles = %v, want %v", got, want)
 	}
 
+	assertEnumModel(t, pkg)
+	assertWidgetModel(t, pkg)
+	assertOneofAndUnwrapModel(t, pkg)
+	assertServiceModel(t, pkg)
+}
+
+func assertEnumModel(t *testing.T, pkg *Package) {
+	t.Helper()
 	widgetState := findEnum(t, pkg, "WidgetState")
 	if widgetState.ProtoName != "State" {
 		t.Fatalf("Enum.ProtoName = %q, want %q", widgetState.ProtoName, "State")
@@ -44,7 +52,10 @@ func TestPackagesBuildsRichModel(t *testing.T) {
 	if got := widgetState.Values[1].JSONValue; got != "ready" {
 		t.Fatalf("Enum JSON mapping = %q, want %q", got, "ready")
 	}
+}
 
+func assertWidgetModel(t *testing.T, pkg *Package) {
+	t.Helper()
 	widgetDetails := findMessage(t, pkg, "WidgetDetails")
 	if widgetDetails.ProtoName != "Details" {
 		t.Fatalf("Nested message proto name = %q, want %q", widgetDetails.ProtoName, "Details")
@@ -60,7 +71,9 @@ func TestPackagesBuildsRichModel(t *testing.T) {
 	}
 
 	ownerID := findField(t, widget, "owner_id")
-	if ownerID.Annotations.Query == nil || ownerID.Annotations.Query.Name != "owner" || !ownerID.Annotations.Query.Required {
+	if ownerID.Annotations.Query == nil ||
+		ownerID.Annotations.Query.Name != "owner" ||
+		!ownerID.Annotations.Query.Required {
 		t.Fatalf("owner_id query annotation = %+v, want owner/required", ownerID.Annotations.Query)
 	}
 
@@ -94,7 +107,10 @@ func TestPackagesBuildsRichModel(t *testing.T) {
 	if !profile.Annotations.Flatten || profile.Annotations.FlattenPrefix != "meta_" {
 		t.Fatalf("profile flatten annotations = %+v", profile.Annotations)
 	}
+}
 
+func assertOneofAndUnwrapModel(t *testing.T, pkg *Package) {
+	t.Helper()
 	shapeHolder := findMessage(t, pkg, "ShapeHolder")
 	if len(shapeHolder.Oneofs) != 1 {
 		t.Fatalf("ShapeHolder.Oneofs = %d, want 1", len(shapeHolder.Oneofs))
@@ -111,7 +127,10 @@ func TestPackagesBuildsRichModel(t *testing.T) {
 	if tags.Unwrap == nil || !tags.Unwrap.IsRoot || tags.Unwrap.FieldName != "items" {
 		t.Fatalf("Tags unwrap = %+v, want root unwrap on items", tags.Unwrap)
 	}
+}
 
+func assertServiceModel(t *testing.T, pkg *Package) {
+	t.Helper()
 	service := findService(t, pkg, "WidgetService")
 	if service.BasePath != "/api/v1" {
 		t.Fatalf("Service.BasePath = %q, want %q", service.BasePath, "/api/v1")
@@ -160,10 +179,14 @@ func newContractModelPlugin(t *testing.T) *protogen.Plugin {
 	t.Helper()
 
 	widgetFile := &descriptorpb.FileDescriptorProto{
-		Name:       proto.String("widget.proto"),
-		Package:    proto.String("test.contracts.v1"),
-		Syntax:     proto.String("proto3"),
-		Dependency: []string{"google/protobuf/struct.proto", "google/protobuf/timestamp.proto", "proto/sebuf/http/annotations.proto"},
+		Name:    proto.String("widget.proto"),
+		Package: proto.String("test.contracts.v1"),
+		Syntax:  proto.String("proto3"),
+		Dependency: []string{
+			"google/protobuf/struct.proto",
+			"google/protobuf/timestamp.proto",
+			"proto/sebuf/http/annotations.proto",
+		},
 		Options: &descriptorpb.FileOptions{
 			GoPackage: proto.String("github.com/SebastienMelki/sebuf/internal/testcontracts/widget;widgetpb"),
 		},
@@ -172,7 +195,12 @@ func newContractModelPlugin(t *testing.T) *protogen.Plugin {
 			{
 				Name: proto.String("Tags"),
 				Field: []*descriptorpb.FieldDescriptorProto{
-					repeatedScalarField("items", 1, descriptorpb.FieldDescriptorProto_TYPE_STRING, withFieldOption(t, sebufhttp.E_Unwrap, true)),
+					repeatedScalarField(
+						"items",
+						1,
+						descriptorpb.FieldDescriptorProto_TYPE_STRING,
+						withFieldOption(t, sebufhttp.E_Unwrap, true),
+					),
 				},
 			},
 		},
@@ -193,7 +221,9 @@ func newContractModelPlugin(t *testing.T) *protogen.Plugin {
 			"proto/sebuf/http/annotations.proto",
 		},
 		Options: &descriptorpb.FileOptions{
-			GoPackage: proto.String("github.com/SebastienMelki/sebuf/internal/testcontracts/widgetservice;widgetservicepb"),
+			GoPackage: proto.String(
+				"github.com/SebastienMelki/sebuf/internal/testcontracts/widgetservice;widgetservicepb",
+			),
 		},
 		MessageType: []*descriptorpb.DescriptorProto{
 			shapeHolderDescriptor(t),
@@ -255,22 +285,54 @@ func widgetDescriptor(t *testing.T) *descriptorpb.DescriptorProto {
 		Name: proto.String("Widget"),
 		Field: []*descriptorpb.FieldDescriptorProto{
 			scalarField("id", 1, descriptorpb.FieldDescriptorProto_TYPE_STRING),
-			scalarField("owner_id", 2, descriptorpb.FieldDescriptorProto_TYPE_STRING,
-				withFieldOption(t, sebufhttp.E_Query, &sebufhttp.QueryConfig{Name: "owner", Required: true})),
-			optionalScalarField("display_name", 3, descriptorpb.FieldDescriptorProto_TYPE_STRING,
-				withFieldOption(t, sebufhttp.E_Nullable, true)),
-			messageField("created_at", 4, ".google.protobuf.Timestamp",
-				withFieldOption(t, sebufhttp.E_TimestampFormat, sebufhttp.TimestampFormat_TIMESTAMP_FORMAT_UNIX_MILLIS)),
-			scalarField("payload", 5, descriptorpb.FieldDescriptorProto_TYPE_BYTES,
-				withFieldOption(t, sebufhttp.E_BytesEncoding, sebufhttp.BytesEncoding_BYTES_ENCODING_HEX)),
-			scalarField("version", 6, descriptorpb.FieldDescriptorProto_TYPE_INT64,
-				withFieldOption(t, sebufhttp.E_Int64Encoding, sebufhttp.Int64Encoding_INT64_ENCODING_NUMBER)),
-			enumField("state", 7, ".test.contracts.v1.Widget.State",
-				withFieldOption(t, sebufhttp.E_EnumEncoding, sebufhttp.EnumEncoding_ENUM_ENCODING_NUMBER)),
+			scalarField(
+				"owner_id",
+				2,
+				descriptorpb.FieldDescriptorProto_TYPE_STRING,
+				withFieldOption(t, sebufhttp.E_Query, &sebufhttp.QueryConfig{Name: "owner", Required: true}),
+			),
+			optionalScalarField(
+				"display_name",
+				3,
+				descriptorpb.FieldDescriptorProto_TYPE_STRING,
+				withFieldOption(t, sebufhttp.E_Nullable, true),
+			),
+			messageField(
+				"created_at",
+				4,
+				".google.protobuf.Timestamp",
+				withFieldOption(
+					t,
+					sebufhttp.E_TimestampFormat,
+					sebufhttp.TimestampFormat_TIMESTAMP_FORMAT_UNIX_MILLIS,
+				),
+			),
+			scalarField(
+				"payload",
+				5,
+				descriptorpb.FieldDescriptorProto_TYPE_BYTES,
+				withFieldOption(t, sebufhttp.E_BytesEncoding, sebufhttp.BytesEncoding_BYTES_ENCODING_HEX),
+			),
+			scalarField(
+				"version",
+				6,
+				descriptorpb.FieldDescriptorProto_TYPE_INT64,
+				withFieldOption(t, sebufhttp.E_Int64Encoding, sebufhttp.Int64Encoding_INT64_ENCODING_NUMBER),
+			),
+			enumField(
+				"state",
+				7,
+				".test.contracts.v1.Widget.State",
+				withFieldOption(t, sebufhttp.E_EnumEncoding, sebufhttp.EnumEncoding_ENUM_ENCODING_NUMBER),
+			),
 			messageField("details", 8, ".test.contracts.v1.Widget.Details"),
-			messageField("profile", 9, ".test.contracts.v1.Widget.Profile",
+			messageField(
+				"profile",
+				9,
+				".test.contracts.v1.Widget.Profile",
 				withFieldOption(t, sebufhttp.E_Flatten, true),
-				withFieldOption(t, sebufhttp.E_FlattenPrefix, "meta_")),
+				withFieldOption(t, sebufhttp.E_FlattenPrefix, "meta_"),
+			),
 		},
 		NestedType: []*descriptorpb.DescriptorProto{
 			{
@@ -310,14 +372,23 @@ func shapeHolderDescriptor(t *testing.T) *descriptorpb.DescriptorProto {
 	return &descriptorpb.DescriptorProto{
 		Name: proto.String("ShapeHolder"),
 		Field: []*descriptorpb.FieldDescriptorProto{
-			messageFieldWithOneof("circle", 1, ".test.contracts.v1.ShapeHolder.Circle", 0,
-				withFieldOption(t, sebufhttp.E_OneofValue, "circle_shape")),
+			messageFieldWithOneof(
+				"circle",
+				1,
+				".test.contracts.v1.ShapeHolder.Circle",
+				0,
+				withFieldOption(t, sebufhttp.E_OneofValue, "circle_shape"),
+			),
 			messageFieldWithOneof("rectangle", 2, ".test.contracts.v1.ShapeHolder.Rectangle", 0),
 		},
 		OneofDecl: []*descriptorpb.OneofDescriptorProto{
 			{
-				Name:    proto.String("shape"),
-				Options: withOneofOption(t, sebufhttp.E_OneofConfig, &sebufhttp.OneofConfig{Discriminator: "kind", Flatten: true}),
+				Name: proto.String("shape"),
+				Options: withOneofOption(
+					t,
+					sebufhttp.E_OneofConfig,
+					&sebufhttp.OneofConfig{Discriminator: "kind", Flatten: true},
+				),
 			},
 		},
 		NestedType: []*descriptorpb.DescriptorProto{
@@ -382,7 +453,12 @@ func repeatedScalarField(
 	return field
 }
 
-func messageField(name string, number int32, typeName string, options ...*descriptorpb.FieldOptions) *descriptorpb.FieldDescriptorProto {
+func messageField(
+	name string,
+	number int32,
+	typeName string,
+	options ...*descriptorpb.FieldOptions,
+) *descriptorpb.FieldDescriptorProto {
 	field := &descriptorpb.FieldDescriptorProto{
 		Name:     proto.String(name),
 		Number:   proto.Int32(number),
@@ -396,7 +472,12 @@ func messageField(name string, number int32, typeName string, options ...*descri
 	return field
 }
 
-func enumField(name string, number int32, typeName string, options ...*descriptorpb.FieldOptions) *descriptorpb.FieldDescriptorProto {
+func enumField(
+	name string,
+	number int32,
+	typeName string,
+	options ...*descriptorpb.FieldOptions,
+) *descriptorpb.FieldDescriptorProto {
 	field := &descriptorpb.FieldDescriptorProto{
 		Name:     proto.String(name),
 		Number:   proto.Int32(number),
