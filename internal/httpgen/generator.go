@@ -16,6 +16,13 @@ type Generator struct {
 	plugin       *protogen.Plugin
 	generateMock bool
 	globalUnwrap *GlobalUnwrapInfo // Global unwrap info collected from all files
+
+	// directEncodingMsgNames is set per-file before generateUnwrapFile runs.
+	// It holds the full names of messages that will have custom MarshalJSON/UnmarshalJSON
+	// from the encoding generator (direct int64_encoding=NUMBER fields).
+	// The unwrap generator uses this to call json.Marshal instead of protojson.Marshal
+	// for those types, ensuring the custom encoding is applied.
+	directEncodingMsgNames map[string]bool
 }
 
 // Options configures the generator.
@@ -72,13 +79,25 @@ func (g *Generator) generateFile(file *protogen.File) error {
 		return err
 	}
 
+	// Pre-compute the set of messages with direct NUMBER encoding.
+	// Must be done before generateUnwrapFile so the unwrap generator can use json.Marshal
+	// for those types.
+	g.directEncodingMsgNames = collectDirectEncodingMsgNames(file)
+
 	// Generate unwrap file if there are messages with unwrap annotations
 	if err := g.generateUnwrapFile(file); err != nil {
 		return err
 	}
 
+	// Compute the set of message names that have unwrap-generated MarshalJSON.
+	// This is passed to the encoding generator to avoid duplicate method declarations.
+	unwrapMsgNames, err := g.collectUnwrapMarshalJSONMessageNames(file)
+	if err != nil {
+		return fmt.Errorf("collecting unwrap MarshalJSON message names for %s: %w", file.Desc.Path(), err)
+	}
+
 	// Generate encoding file if there are messages with int64_encoding=NUMBER annotations
-	if err := g.generateInt64EncodingFile(file); err != nil {
+	if err := g.generateInt64EncodingFile(file, unwrapMsgNames); err != nil {
 		return err
 	}
 

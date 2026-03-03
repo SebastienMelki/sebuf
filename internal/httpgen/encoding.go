@@ -85,9 +85,9 @@ type Int64WrapperContext struct {
 
 // collectWrapperContexts finds messages that contain fields whose message type
 // has direct int64 NUMBER encoding (i.e., types already in directMsgNames).
-func collectWrapperContexts(file *protogen.File, directMsgNames map[string]bool) []*Int64WrapperContext {
+func collectWrapperContexts(file *protogen.File, directMsgNames map[string]bool, unwrapMsgNames map[string]bool) []*Int64WrapperContext {
 	var contexts []*Int64WrapperContext
-	collectWrapperMessages(file.Messages, directMsgNames, &contexts)
+	collectWrapperMessages(file.Messages, directMsgNames, unwrapMsgNames, &contexts)
 	return contexts
 }
 
@@ -95,12 +95,27 @@ func collectWrapperContexts(file *protogen.File, directMsgNames map[string]bool)
 func collectWrapperMessages(
 	messages []*protogen.Message,
 	directMsgNames map[string]bool,
+	unwrapMsgNames map[string]bool, // messages to exclude (already have unwrap MarshalJSON)
 	contexts *[]*Int64WrapperContext,
 ) {
 	for _, msg := range messages {
+		// Bug fix: Skip synthetic proto3 map-entry messages.
+		// proto3 map<K,V> fields create implicit nested message types (e.g. Foo_BarEntry)
+		// that are never emitted as exported Go struct types by protoc-gen-go.
+		if msg.Desc.IsMapEntry() {
+			continue
+		}
+
 		// Skip messages that already have direct NUMBER fields (handled by existing logic)
 		if directMsgNames[string(msg.Desc.FullName())] {
-			collectWrapperMessages(msg.Messages, directMsgNames, contexts)
+			collectWrapperMessages(msg.Messages, directMsgNames, unwrapMsgNames, contexts)
+			continue
+		}
+
+		// Bug fix: Skip messages that already have unwrap-generated MarshalJSON.
+		// Both generators cannot emit MarshalJSON for the same type.
+		if unwrapMsgNames[string(msg.Desc.FullName())] {
+			collectWrapperMessages(msg.Messages, directMsgNames, unwrapMsgNames, contexts)
 			continue
 		}
 
@@ -121,8 +136,21 @@ func collectWrapperMessages(
 			})
 		}
 
-		collectWrapperMessages(msg.Messages, directMsgNames, contexts)
+		collectWrapperMessages(msg.Messages, directMsgNames, unwrapMsgNames, contexts)
 	}
+}
+
+// collectDirectEncodingMsgNames returns the set of message full names that will have
+// custom MarshalJSON/UnmarshalJSON from the encoding generator (direct NUMBER fields only).
+// This is used by the unwrap generator to call json.Marshal instead of protojson.Marshal
+// for item types that implement json.Marshaler via the encoding generator.
+func collectDirectEncodingMsgNames(file *protogen.File) map[string]bool {
+	contexts := collectInt64EncodingContext(file)
+	result := make(map[string]bool, len(contexts))
+	for _, ctx := range contexts {
+		result[string(ctx.Message.Desc.FullName())] = true
+	}
+	return result
 }
 
 // printInt64PrecisionWarning prints a generation-time warning for fields with NUMBER encoding.
@@ -134,7 +162,7 @@ func printInt64PrecisionWarning(w io.Writer, field *protogen.Field, messageName 
 }
 
 // generateInt64EncodingFile generates the *_encoding.pb.go file if needed.
-func (g *Generator) generateInt64EncodingFile(file *protogen.File) error {
+func (g *Generator) generateInt64EncodingFile(file *protogen.File, unwrapMsgNames map[string]bool) error {
 	contexts := collectInt64EncodingContext(file)
 
 	// Build set of message full names that have direct NUMBER fields
@@ -143,8 +171,8 @@ func (g *Generator) generateInt64EncodingFile(file *protogen.File) error {
 		directMsgNames[string(ctx.Message.Desc.FullName())] = true
 	}
 
-	// Collect wrapper messages whose fields reference messages with NUMBER fields
-	wrapperContexts := collectWrapperContexts(file, directMsgNames)
+	// Collect wrapper messages, excluding those with unwrap-generated MarshalJSON
+	wrapperContexts := collectWrapperContexts(file, directMsgNames, unwrapMsgNames)
 
 	// If no messages need int64 encoding, skip generation
 	if len(contexts) == 0 && len(wrapperContexts) == 0 {
