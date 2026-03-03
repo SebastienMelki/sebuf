@@ -157,6 +157,17 @@ func TestHTTPGenGoldenFiles(t *testing.T) {
 				"oneof_discriminator_oneof_discriminator.pb.go",
 			},
 		},
+		{
+			name:      "unwrap + int64 encoding (issue #134)",
+			protoFile: "unwrap_int64_encoding.proto",
+			expectedFiles: []string{
+				"unwrap_int64_encoding_http.pb.go",
+				"unwrap_int64_encoding_http_binding.pb.go",
+				"unwrap_int64_encoding_http_config.pb.go",
+				"unwrap_int64_encoding_unwrap.pb.go",
+				"unwrap_int64_encoding_encoding.pb.go",
+			},
+		},
 	}
 
 	// Get paths
