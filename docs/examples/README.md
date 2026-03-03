@@ -28,6 +28,7 @@ This starts a working HTTP API with user management, authentication, and OpenAPI
 | **[nested-resources](../../examples/nested-resources/)** | Organization hierarchy API | Deep path nesting (3 levels), multiple path params per endpoint |
 | **[multi-service-api](../../examples/multi-service-api/)** | Multi-tenant platform | Multiple services, different auth levels, service/method headers |
 | **[market-data-unwrap](../../examples/market-data-unwrap/)** | Financial market data API | Unwrap annotation for map values, JSON/protobuf compatibility |
+| **[csharp-contracts-demo](../../examples/csharp-contracts-demo/)** | C# contract generation demo | C# contracts, flattened fields, oneof discriminator metadata, root unwrap |
 | **[ts-client-demo](../../examples/ts-client-demo/)** | TypeScript client demo | TypeScript HTTP client, CRUD API, query params, headers, error handling |
 | **[ts-fullstack-demo](../../examples/ts-fullstack-demo/)** | TypeScript full-stack demo | TS client + TS server from same proto, CRUD, unwrap, custom errors |
 
@@ -138,6 +139,16 @@ cd examples/ts-client-demo && make demo
 ```
 
 **Prerequisites**: Node.js (for the TypeScript client)
+
+### csharp-contracts-demo
+HTTP client generation example for `protoc-gen-csharp-http`.
+- Generates C# contracts plus `HttpClient` service clients
+- Shows `flatten`, `nullable`, `oneof_config`, `unwrap`, `bytes_encoding`, and service route metadata
+- Supports both `newtonsoft` and `System.Text.Json` output
+
+```bash
+cd examples/csharp-contracts-demo && make generate
+```
 
 ### ts-fullstack-demo
 Full TypeScript stack: both client and server generated from the same proto.

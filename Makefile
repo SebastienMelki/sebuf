@@ -43,14 +43,14 @@ help:
 	@echo ""
 	@echo "Current binaries to build: $(BINARIES)"
 
-# Build all binaries
+# Build all binaries. This always rebuilds because generator implementations live
+# under internal/*, not just cmd/*, and stale binaries break golden tests.
 .PHONY: build
-build: $(BINARY_PATHS)
-
-# Pattern rule to build each binary
-$(BIN_DIR)/%: $(CMD_DIR)/%/*.go | $(BIN_DIR)
-	@echo "Building $*..."
-	@go build -o $@ ./$(CMD_DIR)/$*
+build: | $(BIN_DIR)
+	@for binary in $(BINARIES); do \
+		echo "Building $$binary..."; \
+		go build -o $(BIN_DIR)/$$binary ./$(CMD_DIR)/$$binary; \
+	done
 
 # Create bin directory
 $(BIN_DIR):

@@ -5,8 +5,9 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strings"
 	"testing"
+
+	"github.com/SebastienMelki/sebuf/internal/testutil"
 )
 
 // TestClientGenGoldenFiles tests HTTP client generation against golden files.
@@ -239,53 +240,8 @@ func compareGoldenFile(t *testing.T, expectedFile, goldenPath string, generatedC
 			"Run with UPDATE_GOLDEN=1 to update golden files after reviewing changes.\n"+
 			"Diff:\n%s",
 			expectedFile,
-			diffStrings(string(goldenContent), string(generatedContent)))
+			testutil.DiffStrings(string(goldenContent), string(generatedContent)))
 	}
-}
-
-// diffStrings returns a simple diff between two strings.
-func diffStrings(expected, actual string) string {
-	expectedLines := strings.Split(expected, "\n")
-	actualLines := strings.Split(actual, "\n")
-
-	var diff strings.Builder
-	maxLines := len(expectedLines)
-	if len(actualLines) > maxLines {
-		maxLines = len(actualLines)
-	}
-
-	diffCount := 0
-	const maxDiffs = 20
-
-	for i := 0; i < maxLines && diffCount < maxDiffs; i++ {
-		var expLine, actLine string
-		if i < len(expectedLines) {
-			expLine = expectedLines[i]
-		}
-		if i < len(actualLines) {
-			actLine = actualLines[i]
-		}
-
-		if expLine != actLine {
-			diff.WriteString("Line ")
-			diff.WriteRune(rune('0' + i/100))
-			diff.WriteRune(rune('0' + (i/10)%10))
-			diff.WriteRune(rune('0' + i%10))
-			diff.WriteString(":\n")
-			diff.WriteString("  expected: ")
-			diff.WriteString(expLine)
-			diff.WriteString("\n  actual:   ")
-			diff.WriteString(actLine)
-			diff.WriteString("\n")
-			diffCount++
-		}
-	}
-
-	if diffCount >= maxDiffs {
-		diff.WriteString("... (more differences truncated)\n")
-	}
-
-	return diff.String()
 }
 
 // TestGeneratedClientCodeCompiles verifies that generated code compiles correctly.
