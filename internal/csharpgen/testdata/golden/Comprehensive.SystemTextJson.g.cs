@@ -10,6 +10,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Text.Json.Nodes;
 
 namespace Test.Contracts
 {
@@ -57,7 +58,7 @@ namespace Test.Contracts
         [JsonPropertyName("owner_id")]
         public string OwnerId { get; set; }
         [JsonPropertyName("payload")]
-        public string Payload { get; set; }
+        public byte[] Payload { get; set; }
         [JsonPropertyName("version")]
         public long Version { get; set; }
         [JsonPropertyName("state_labels")]
@@ -277,12 +278,135 @@ namespace Test.Contracts
 
         private string SerializeRequest(object value)
         {
-            return JsonSerializer.Serialize(value, JsonOptions);
+            var json = JsonSerializer.Serialize(value, JsonOptions);
+            return NormalizeSerializedJson(value, json);
         }
 
         private static TResponse? DeserializeResponse<TResponse>(string json)
         {
+            json = NormalizeResponseJson(typeof(TResponse), json);
             return JsonSerializer.Deserialize<TResponse>(json, JsonOptions);
+        }
+
+        private static string NormalizeSerializedJson(object value, string json)
+        {
+            var token = JsonNode.Parse(json);
+            if (token is null)
+            {
+                return json;
+            }
+            var normalized = NormalizeSerializedNode(value.GetType(), token);
+            return normalized.ToJsonString();
+        }
+
+        private static string NormalizeResponseJson(Type responseType, string json)
+        {
+            var token = JsonNode.Parse(json);
+            if (token is null)
+            {
+                return json;
+            }
+            var normalized = NormalizeResponseNode(responseType, token);
+            return normalized.ToJsonString();
+        }
+
+        private static JsonNode NormalizeSerializedNode(Type messageType, JsonNode token)
+        {
+            return messageType.Name switch
+            {
+                "Widget" => NormalizeSerializedWidget(token),
+                _ => token
+            };
+        }
+        private static JsonNode NormalizeResponseNode(Type messageType, JsonNode token)
+        {
+            return messageType.Name switch
+            {
+                "Widget" => NormalizeResponseWidget(token),
+                _ => token
+            };
+        }
+        private static JsonNode NormalizeMapValueForSerialization(JsonNode token, Type messageType)
+        {
+            return messageType.Name switch
+            {
+                "Widget" => token is JsonObject obj && obj["tags"] is JsonNode value ? value : token,
+                _ => NormalizeSerializedNode(messageType, token)
+            };
+        }
+        private static JsonNode NormalizeMapValueForResponse(JsonNode token, Type messageType)
+        {
+            return messageType.Name switch
+            {
+                "Widget" => new JsonObject { ["tags"] = token.DeepClone() },
+                _ => NormalizeResponseNode(messageType, token)
+            };
+        }
+
+        private static JsonNode NormalizeSerializedWidget(JsonNode token)
+        {
+            if (token is not JsonObject obj)
+            {
+                return token;
+            }
+            if (obj["payload"] is JsonValue PayloadToken && PayloadToken.TryGetValue<string>(out var PayloadValue))
+            {
+                obj["payload"] = ReencodeBytes(PayloadValue, "base64", "hex");
+            }
+            return obj;
+        }
+
+        private static JsonNode NormalizeResponseWidget(JsonNode token)
+        {
+            if (token is not JsonObject obj)
+            {
+                return token;
+            }
+            if (obj["payload"] is JsonValue PayloadToken && PayloadToken.TryGetValue<string>(out var PayloadValue))
+            {
+                obj["payload"] = ReencodeBytes(PayloadValue, "hex", "base64");
+            }
+            return obj;
+        }
+
+        private static string EncodeBytes(byte[] bytes, string encoding)
+        {
+            var base64 = Convert.ToBase64String(bytes);
+            return encoding switch
+            {
+                "base64_raw" => base64.TrimEnd('='),
+                "base64url" => base64.Replace('+', '-').Replace('/', '_'),
+                "base64url_raw" => base64.Replace('+', '-').Replace('/', '_').TrimEnd('='),
+                "hex" => Convert.ToHexString(bytes).ToLowerInvariant(),
+                _ => base64
+            };
+        }
+
+        private static string ReencodeBytes(string encoded, string fromEncoding, string toEncoding)
+        {
+            return EncodeBytes(DecodeBytes(encoded, fromEncoding), toEncoding);
+        }
+
+        private static byte[] DecodeBytes(string encoded, string encoding)
+        {
+            return encoding switch
+            {
+                "hex" => Convert.FromHexString(encoded),
+                "base64url" => Convert.FromBase64String(NormalizeBase64(encoded.Replace('-', '+').Replace('_', '/'))),
+                "base64url_raw" => Convert.FromBase64String(NormalizeBase64(encoded.Replace('-', '+').Replace('_', '/'))),
+                "base64_raw" => Convert.FromBase64String(NormalizeBase64(encoded)),
+                _ => Convert.FromBase64String(NormalizeBase64(encoded))
+            };
+        }
+
+        private static string NormalizeBase64(string value)
+        {
+            var remainder = value.Length % 4;
+            if (remainder == 0)
+            {
+                return value;
+            }
+            return value + new string('=', 4 - remainder);
         }
 
         private static string FormatPathValue(object? value)
@@ -387,12 +511,135 @@ namespace Test.Contracts
 
         private string SerializeRequest(object value)
         {
-            return JsonSerializer.Serialize(value, JsonOptions);
+            var json = JsonSerializer.Serialize(value, JsonOptions);
+            return NormalizeSerializedJson(value, json);
         }
 
         private static TResponse? DeserializeResponse<TResponse>(string json)
         {
+            json = NormalizeResponseJson(typeof(TResponse), json);
             return JsonSerializer.Deserialize<TResponse>(json, JsonOptions);
+        }
+
+        private static string NormalizeSerializedJson(object value, string json)
+        {
+            var token = JsonNode.Parse(json);
+            if (token is null)
+            {
+                return json;
+            }
+            var normalized = NormalizeSerializedNode(value.GetType(), token);
+            return normalized.ToJsonString();
+        }
+
+        private static string NormalizeResponseJson(Type responseType, string json)
+        {
+            var token = JsonNode.Parse(json);
+            if (token is null)
+            {
+                return json;
+            }
+            var normalized = NormalizeResponseNode(responseType, token);
+            return normalized.ToJsonString();
+        }
+
+        private static JsonNode NormalizeSerializedNode(Type messageType, JsonNode token)
+        {
+            return messageType.Name switch
+            {
+                "Widget" => NormalizeSerializedWidget(token),
+                _ => token
+            };
+        }
+        private static JsonNode NormalizeResponseNode(Type messageType, JsonNode token)
+        {
+            return messageType.Name switch
+            {
+                "Widget" => NormalizeResponseWidget(token),
+                _ => token
+            };
+        }
+        private static JsonNode NormalizeMapValueForSerialization(JsonNode token, Type messageType)
+        {
+            return messageType.Name switch
+            {
+                "Widget" => token is JsonObject obj && obj["tags"] is JsonNode value ? value : token,
+                _ => NormalizeSerializedNode(messageType, token)
+            };
+        }
+        private static JsonNode NormalizeMapValueForResponse(JsonNode token, Type messageType)
+        {
+            return messageType.Name switch
+            {
+                "Widget" => new JsonObject { ["tags"] = token.DeepClone() },
+                _ => NormalizeResponseNode(messageType, token)
+            };
+        }
+
+        private static JsonNode NormalizeSerializedWidget(JsonNode token)
+        {
+            if (token is not JsonObject obj)
+            {
+                return token;
+            }
+            if (obj["payload"] is JsonValue PayloadToken && PayloadToken.TryGetValue<string>(out var PayloadValue))
+            {
+                obj["payload"] = ReencodeBytes(PayloadValue, "base64", "hex");
+            }
+            return obj;
+        }
+
+        private static JsonNode NormalizeResponseWidget(JsonNode token)
+        {
+            if (token is not JsonObject obj)
+            {
+                return token;
+            }
+            if (obj["payload"] is JsonValue PayloadToken && PayloadToken.TryGetValue<string>(out var PayloadValue))
+            {
+                obj["payload"] = ReencodeBytes(PayloadValue, "hex", "base64");
+            }
+            return obj;
+        }
+
+        private static string EncodeBytes(byte[] bytes, string encoding)
+        {
+            var base64 = Convert.ToBase64String(bytes);
+            return encoding switch
+            {
+                "base64_raw" => base64.TrimEnd('='),
+                "base64url" => base64.Replace('+', '-').Replace('/', '_'),
+                "base64url_raw" => base64.Replace('+', '-').Replace('/', '_').TrimEnd('='),
+                "hex" => Convert.ToHexString(bytes).ToLowerInvariant(),
+                _ => base64
+            };
+        }
+
+        private static string ReencodeBytes(string encoded, string fromEncoding, string toEncoding)
+        {
+            return EncodeBytes(DecodeBytes(encoded, fromEncoding), toEncoding);
+        }
+
+        private static byte[] DecodeBytes(string encoded, string encoding)
+        {
+            return encoding switch
+            {
+                "hex" => Convert.FromHexString(encoded),
+                "base64url" => Convert.FromBase64String(NormalizeBase64(encoded.Replace('-', '+').Replace('_', '/'))),
+                "base64url_raw" => Convert.FromBase64String(NormalizeBase64(encoded.Replace('-', '+').Replace('_', '/'))),
+                "base64_raw" => Convert.FromBase64String(NormalizeBase64(encoded)),
+                _ => Convert.FromBase64String(NormalizeBase64(encoded))
+            };
+        }
+
+        private static string NormalizeBase64(string value)
+        {
+            var remainder = value.Length % 4;
+            if (remainder == 0)
+            {
+                return value;
+            }
+            return value + new string('=', 4 - remainder);
         }
 
         private static string FormatPathValue(object? value)

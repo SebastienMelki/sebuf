@@ -10,6 +10,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
+using Newtonsoft.Json.Linq;
 
 namespace Test.Contracts
 {
@@ -147,12 +148,64 @@ namespace Test.Contracts
 
         private string SerializeRequest(object value)
         {
-            return JsonConvert.SerializeObject(value);
+            var json = JsonConvert.SerializeObject(value);
+            return NormalizeSerializedJson(value, json);
         }
 
         private static TResponse? DeserializeResponse<TResponse>(string json)
         {
+            json = NormalizeResponseJson(typeof(TResponse), json);
             return JsonConvert.DeserializeObject<TResponse>(json);
+        }
+
+        private static string NormalizeSerializedJson(object value, string json)
+        {
+            return json;
+        }
+
+        private static string NormalizeResponseJson(Type responseType, string json)
+        {
+            return json;
+        }
+
+        private static string EncodeBytes(byte[] bytes, string encoding)
+        {
+            var base64 = Convert.ToBase64String(bytes);
+            return encoding switch
+            {
+                "base64_raw" => base64.TrimEnd('='),
+                "base64url" => base64.Replace('+', '-').Replace('/', '_'),
+                "base64url_raw" => base64.Replace('+', '-').Replace('/', '_').TrimEnd('='),
+                "hex" => Convert.ToHexString(bytes).ToLowerInvariant(),
+                _ => base64
+            };
+        }
+
+        private static string ReencodeBytes(string encoded, string fromEncoding, string toEncoding)
+        {
+            return EncodeBytes(DecodeBytes(encoded, fromEncoding), toEncoding);
+        }
+
+        private static byte[] DecodeBytes(string encoded, string encoding)
+        {
+            return encoding switch
+            {
+                "hex" => Convert.FromHexString(encoded),
+                "base64url" => Convert.FromBase64String(NormalizeBase64(encoded.Replace('-', '+').Replace('_', '/'))),
+                "base64url_raw" => Convert.FromBase64String(NormalizeBase64(encoded.Replace('-', '+').Replace('_', '/'))),
+                "base64_raw" => Convert.FromBase64String(NormalizeBase64(encoded)),
+                _ => Convert.FromBase64String(NormalizeBase64(encoded))
+            };
+        }
+
+        private static string NormalizeBase64(string value)
+        {
+            var remainder = value.Length % 4;
+            if (remainder == 0)
+            {
+                return value;
+            }
+            return value + new string('=', 4 - remainder);
         }
 
         private static string FormatPathValue(object? value)

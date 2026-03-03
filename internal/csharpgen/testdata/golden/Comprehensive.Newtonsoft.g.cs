@@ -10,6 +10,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
+using Newtonsoft.Json.Linq;
 
 namespace Test.Contracts
 {
@@ -57,7 +58,7 @@ namespace Test.Contracts
         [JsonProperty("owner_id")]
         public string OwnerId { get; set; }
         [JsonProperty("payload")]
-        public string Payload { get; set; }
+        public byte[] Payload { get; set; }
         [JsonProperty("version")]
         public long Version { get; set; }
         [JsonProperty("state_labels")]
@@ -272,12 +273,127 @@ namespace Test.Contracts
 
         private string SerializeRequest(object value)
         {
-            return JsonConvert.SerializeObject(value);
+            var json = JsonConvert.SerializeObject(value);
+            return NormalizeSerializedJson(value, json);
         }
 
         private static TResponse? DeserializeResponse<TResponse>(string json)
         {
+            json = NormalizeResponseJson(typeof(TResponse), json);
             return JsonConvert.DeserializeObject<TResponse>(json);
+        }
+
+        private static string NormalizeSerializedJson(object value, string json)
+        {
+            var token = JToken.Parse(json);
+            var normalized = NormalizeSerializedToken(value.GetType(), token);
+            return normalized.ToString(Formatting.None);
+        }
+
+        private static string NormalizeResponseJson(Type responseType, string json)
+        {
+            var token = JToken.Parse(json);
+            var normalized = NormalizeResponseToken(responseType, token);
+            return normalized.ToString(Formatting.None);
+        }
+
+        private static JToken NormalizeSerializedToken(Type messageType, JToken token)
+        {
+            return messageType.Name switch
+            {
+                "Widget" => NormalizeSerializedWidget(token),
+                _ => token
+            };
+        }
+        private static JToken NormalizeResponseToken(Type messageType, JToken token)
+        {
+            return messageType.Name switch
+            {
+                "Widget" => NormalizeResponseWidget(token),
+                _ => token
+            };
+        }
+        private static JToken NormalizeMapValueForSerialization(JToken token, Type messageType)
+        {
+            return messageType.Name switch
+            {
+                "Widget" => token is JObject obj && obj.TryGetValue("tags", out var value) ? value : token,
+                _ => NormalizeSerializedToken(messageType, token)
+            };
+        }
+        private static JToken NormalizeMapValueForResponse(JToken token, Type messageType)
+        {
+            return messageType.Name switch
+            {
+                "Widget" => new JObject { ["tags"] = token },
+                _ => NormalizeResponseToken(messageType, token)
+            };
+        }
+
+        private static JToken NormalizeSerializedWidget(JToken token)
+        {
+            if (token is not JObject obj)
+            {
+                return token;
+            }
+            if (obj.TryGetValue("payload", out var PayloadToken) && PayloadToken.Type == JTokenType.String)
+            {
+                obj["payload"] = ReencodeBytes(PayloadToken.Value<string>()!, "base64", "hex");
+            }
+            return obj;
+        }
+
+        private static JToken NormalizeResponseWidget(JToken token)
+        {
+            if (token is not JObject obj)
+            {
+                return token;
+            }
+            if (obj.TryGetValue("payload", out var PayloadToken) && PayloadToken.Type == JTokenType.String)
+            {
+                obj["payload"] = ReencodeBytes(PayloadToken.Value<string>()!, "hex", "base64");
+            }
+            return obj;
+        }
+
+        private static string EncodeBytes(byte[] bytes, string encoding)
+        {
+            var base64 = Convert.ToBase64String(bytes);
+            return encoding switch
+            {
+                "base64_raw" => base64.TrimEnd('='),
+                "base64url" => base64.Replace('+', '-').Replace('/', '_'),
+                "base64url_raw" => base64.Replace('+', '-').Replace('/', '_').TrimEnd('='),
+                "hex" => Convert.ToHexString(bytes).ToLowerInvariant(),
+                _ => base64
+            };
+        }
+
+        private static string ReencodeBytes(string encoded, string fromEncoding, string toEncoding)
+        {
+            return EncodeBytes(DecodeBytes(encoded, fromEncoding), toEncoding);
+        }
+
+        private static byte[] DecodeBytes(string encoded, string encoding)
+        {
+            return encoding switch
+            {
+                "hex" => Convert.FromHexString(encoded),
+                "base64url" => Convert.FromBase64String(NormalizeBase64(encoded.Replace('-', '+').Replace('_', '/'))),
+                "base64url_raw" => Convert.FromBase64String(NormalizeBase64(encoded.Replace('-', '+').Replace('_', '/'))),
+                "base64_raw" => Convert.FromBase64String(NormalizeBase64(encoded)),
+                _ => Convert.FromBase64String(NormalizeBase64(encoded))
+            };
+        }
+
+        private static string NormalizeBase64(string value)
+        {
+            var remainder = value.Length % 4;
+            if (remainder == 0)
+            {
+                return value;
+            }
+            return value + new string('=', 4 - remainder);
         }
 
         private static string FormatPathValue(object? value)
@@ -377,12 +493,127 @@ namespace Test.Contracts
 
         private string SerializeRequest(object value)
         {
-            return JsonConvert.SerializeObject(value);
+            var json = JsonConvert.SerializeObject(value);
+            return NormalizeSerializedJson(value, json);
         }
 
         private static TResponse? DeserializeResponse<TResponse>(string json)
         {
+            json = NormalizeResponseJson(typeof(TResponse), json);
             return JsonConvert.DeserializeObject<TResponse>(json);
+        }
+
+        private static string NormalizeSerializedJson(object value, string json)
+        {
+            var token = JToken.Parse(json);
+            var normalized = NormalizeSerializedToken(value.GetType(), token);
+            return normalized.ToString(Formatting.None);
+        }
+
+        private static string NormalizeResponseJson(Type responseType, string json)
+        {
+            var token = JToken.Parse(json);
+            var normalized = NormalizeResponseToken(responseType, token);
+            return normalized.ToString(Formatting.None);
+        }
+
+        private static JToken NormalizeSerializedToken(Type messageType, JToken token)
+        {
+            return messageType.Name switch
+            {
+                "Widget" => NormalizeSerializedWidget(token),
+                _ => token
+            };
+        }
+        private static JToken NormalizeResponseToken(Type messageType, JToken token)
+        {
+            return messageType.Name switch
+            {
+                "Widget" => NormalizeResponseWidget(token),
+                _ => token
+            };
+        }
+        private static JToken NormalizeMapValueForSerialization(JToken token, Type messageType)
+        {
+            return messageType.Name switch
+            {
+                "Widget" => token is JObject obj && obj.TryGetValue("tags", out var value) ? value : token,
+                _ => NormalizeSerializedToken(messageType, token)
+            };
+        }
+        private static JToken NormalizeMapValueForResponse(JToken token, Type messageType)
+        {
+            return messageType.Name switch
+            {
+                "Widget" => new JObject { ["tags"] = token },
+                _ => NormalizeResponseToken(messageType, token)
+            };
+        }
+
+        private static JToken NormalizeSerializedWidget(JToken token)
+        {
+            if (token is not JObject obj)
+            {
+                return token;
+            }
+            if (obj.TryGetValue("payload", out var PayloadToken) && PayloadToken.Type == JTokenType.String)
+            {
+                obj["payload"] = ReencodeBytes(PayloadToken.Value<string>()!, "base64", "hex");
+            }
+            return obj;
+        }
+
+        private static JToken NormalizeResponseWidget(JToken token)
+        {
+            if (token is not JObject obj)
+            {
+                return token;
+            }
+            if (obj.TryGetValue("payload", out var PayloadToken) && PayloadToken.Type == JTokenType.String)
+            {
+                obj["payload"] = ReencodeBytes(PayloadToken.Value<string>()!, "hex", "base64");
+            }
+            return obj;
+        }
+
+        private static string EncodeBytes(byte[] bytes, string encoding)
+        {
+            var base64 = Convert.ToBase64String(bytes);
+            return encoding switch
+            {
+                "base64_raw" => base64.TrimEnd('='),
+                "base64url" => base64.Replace('+', '-').Replace('/', '_'),
+                "base64url_raw" => base64.Replace('+', '-').Replace('/', '_').TrimEnd('='),
+                "hex" => Convert.ToHexString(bytes).ToLowerInvariant(),
+                _ => base64
+            };
+        }
+
+        private static string ReencodeBytes(string encoded, string fromEncoding, string toEncoding)
+        {
+            return EncodeBytes(DecodeBytes(encoded, fromEncoding), toEncoding);
+        }
+
+        private static byte[] DecodeBytes(string encoded, string encoding)
+        {
+            return encoding switch
+            {
+                "hex" => Convert.FromHexString(encoded),
+                "base64url" => Convert.FromBase64String(NormalizeBase64(encoded.Replace('-', '+').Replace('_', '/'))),
+                "base64url_raw" => Convert.FromBase64String(NormalizeBase64(encoded.Replace('-', '+').Replace('_', '/'))),
+                "base64_raw" => Convert.FromBase64String(NormalizeBase64(encoded)),
+                _ => Convert.FromBase64String(NormalizeBase64(encoded))
+            };
+        }
+
+        private static string NormalizeBase64(string value)
+        {
+            var remainder = value.Length % 4;
+            if (remainder == 0)
+            {
+                return value;
+            }
+            return value + new string('=', 4 - remainder);
         }
 
         private static string FormatPathValue(object? value)

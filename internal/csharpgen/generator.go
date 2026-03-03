@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"path"
 	"slices"
+	"sort"
 	"strings"
 
 	"google.golang.org/protobuf/compiler/protogen"
@@ -22,6 +23,8 @@ const (
 	csharpBoolType   = "bool"
 	csharpLongType   = "long"
 	emptyTypeName    = "Empty"
+	bytesTypeName    = "bytes"
+	base64Encoding   = "base64"
 )
 
 type Options struct {
@@ -77,9 +80,11 @@ func (g *Generator) generatePackage(pkg *contractmodel.Package) error {
 	if g.useNewtonsoft() {
 		gf.P("using Newtonsoft.Json;")
 		gf.P("using Newtonsoft.Json.Converters;")
+		gf.P("using Newtonsoft.Json.Linq;")
 	} else {
 		gf.P("using System.Text.Json;")
 		gf.P("using System.Text.Json.Serialization;")
+		gf.P("using System.Text.Json.Nodes;")
 	}
 	gf.P()
 	gf.P("namespace ", g.opts.Namespace)
@@ -298,7 +303,7 @@ func (g *Generator) generateServiceClientClass(
 	for _, method := range service.Methods {
 		g.generateServiceClientMethod(gf, service, method, messageIndex)
 	}
-	g.generateServiceClientHelpers(gf, service)
+	g.generateServiceClientHelpers(gf, service, messageIndex)
 	gf.P("    }")
 	gf.P()
 }
@@ -414,7 +419,11 @@ func (g *Generator) generateQueryString(
 	}
 }
 
-func (g *Generator) generateServiceClientHelpers(gf *protogen.GeneratedFile, service *contractmodel.Service) {
+func (g *Generator) generateServiceClientHelpers(
+	gf *protogen.GeneratedFile,
+	service *contractmodel.Service,
+	messageIndex map[string]*contractmodel.Message,
+) {
 	gf.P("        private Dictionary<string, string> BuildHeaders(", service.Name, "CallOptions? options)")
 	gf.P("        {")
 	gf.P("            var headers = new Dictionary<string, string>(_defaultHeaders);")
@@ -438,6 +447,7 @@ func (g *Generator) generateServiceClientHelpers(gf *protogen.GeneratedFile, ser
 	g.generateSendAsync(gf)
 	g.generateSerializeRequest(gf)
 	g.generateDeserializeResponse(gf)
+	g.generateJSONNormalizationHelpers(gf, messageIndex)
 	g.generatePathAndQueryHelpers(gf)
 }
 
@@ -484,9 +494,11 @@ func (g *Generator) generateSerializeRequest(gf *protogen.GeneratedFile) {
 	gf.P("        private string SerializeRequest(object value)")
 	gf.P("        {")
 	if g.useNewtonsoft() {
-		gf.P("            return JsonConvert.SerializeObject(value);")
+		gf.P("            var json = JsonConvert.SerializeObject(value);")
+		gf.P("            return NormalizeSerializedJson(value, json);")
 	} else {
-		gf.P("            return JsonSerializer.Serialize(value, JsonOptions);")
+		gf.P("            var json = JsonSerializer.Serialize(value, JsonOptions);")
+		gf.P("            return NormalizeSerializedJson(value, json);")
 	}
 	gf.P("        }")
 	gf.P()
@@ -495,6 +507,7 @@ func (g *Generator) generateSerializeRequest(gf *protogen.GeneratedFile) {
 func (g *Generator) generateDeserializeResponse(gf *protogen.GeneratedFile) {
 	gf.P("        private static TResponse? DeserializeResponse<TResponse>(string json)")
 	gf.P("        {")
+	gf.P("            json = NormalizeResponseJson(typeof(TResponse), json);")
 	if g.useNewtonsoft() {
 		gf.P("            return JsonConvert.DeserializeObject<TResponse>(json);")
 	} else {
@@ -502,6 +515,792 @@ func (g *Generator) generateDeserializeResponse(gf *protogen.GeneratedFile) {
 	}
 	gf.P("        }")
 	gf.P()
+}
+
+func (g *Generator) generateJSONNormalizationHelpers(
+	gf *protogen.GeneratedFile,
+	messageIndex map[string]*contractmodel.Message,
+) {
+	messages := messagesRequiringJSONNormalization(messageIndex)
+	if len(messages) == 0 {
+		gf.P("        private static string NormalizeSerializedJson(object value, string json)")
+		gf.P("        {")
+		gf.P("            return json;")
+		gf.P("        }")
+		gf.P()
+		gf.P("        private static string NormalizeResponseJson(Type responseType, string json)")
+		gf.P("        {")
+		gf.P("            return json;")
+		gf.P("        }")
+		gf.P()
+		g.generateBytesEncodingHelpers(gf)
+		return
+	}
+
+	if g.useNewtonsoft() {
+		g.generateNewtonsoftJSONNormalizationHelpers(gf, messages, messageIndex)
+	} else {
+		g.generateSystemTextJSONNormalizationHelpers(gf, messages, messageIndex)
+	}
+	g.generateBytesEncodingHelpers(gf)
+}
+
+//nolint:funlen // Code generation for JSON normalization is intentionally verbose.
+func (g *Generator) generateNewtonsoftJSONNormalizationHelpers(
+	gf *protogen.GeneratedFile,
+	messages []*contractmodel.Message,
+	messageIndex map[string]*contractmodel.Message,
+) {
+	gf.P("        private static string NormalizeSerializedJson(object value, string json)")
+	gf.P("        {")
+	gf.P("            var token = JToken.Parse(json);")
+	gf.P("            var normalized = NormalizeSerializedToken(value.GetType(), token);")
+	gf.P("            return normalized.ToString(Formatting.None);")
+	gf.P("        }")
+	gf.P()
+	gf.P("        private static string NormalizeResponseJson(Type responseType, string json)")
+	gf.P("        {")
+	gf.P("            var token = JToken.Parse(json);")
+	gf.P("            var normalized = NormalizeResponseToken(responseType, token);")
+	gf.P("            return normalized.ToString(Formatting.None);")
+	gf.P("        }")
+	gf.P()
+	gf.P("        private static JToken NormalizeSerializedToken(Type messageType, JToken token)")
+	gf.P("        {")
+	gf.P("            return messageType.Name switch")
+	gf.P("            {")
+	for _, message := range messages {
+		gf.P(`                "`, message.Name, `" => NormalizeSerialized`, message.Name, "(token),")
+	}
+	gf.P("                _ => token")
+	gf.P("            };")
+	gf.P("        }")
+	gf.P("        private static JToken NormalizeResponseToken(Type messageType, JToken token)")
+	gf.P("        {")
+	gf.P("            return messageType.Name switch")
+	gf.P("            {")
+	for _, message := range messages {
+		gf.P(`                "`, message.Name, `" => NormalizeResponse`, message.Name, "(token),")
+	}
+	gf.P("                _ => token")
+	gf.P("            };")
+	gf.P("        }")
+	gf.P("        private static JToken NormalizeMapValueForSerialization(JToken token, Type messageType)")
+	gf.P("        {")
+	gf.P("            return messageType.Name switch")
+	gf.P("            {")
+	for _, message := range messages {
+		if !mapValueUsesUnwrap(message) {
+			continue
+		}
+		field := findField(message, message.Unwrap.FieldName)
+		if field == nil {
+			continue
+		}
+		jsonName := field.JSONName
+		if jsonName == "" {
+			jsonName = field.Name
+		}
+		gf.P(
+			`                "`, message.Name,
+			`" => token is JObject obj && obj.TryGetValue("`, jsonName,
+			`", out var value) ? value : token,`,
+		)
+	}
+	gf.P("                _ => NormalizeSerializedToken(messageType, token)")
+	gf.P("            };")
+	gf.P("        }")
+	gf.P("        private static JToken NormalizeMapValueForResponse(JToken token, Type messageType)")
+	gf.P("        {")
+	gf.P("            return messageType.Name switch")
+	gf.P("            {")
+	for _, message := range messages {
+		if !mapValueUsesUnwrap(message) {
+			continue
+		}
+		field := findField(message, message.Unwrap.FieldName)
+		if field == nil {
+			continue
+		}
+		jsonName := field.JSONName
+		if jsonName == "" {
+			jsonName = field.Name
+		}
+		gf.P(`                "`, message.Name, `" => new JObject { ["`, jsonName, `"] = token },`)
+	}
+	gf.P("                _ => NormalizeResponseToken(messageType, token)")
+	gf.P("            };")
+	gf.P("        }")
+	gf.P()
+	for _, message := range messages {
+		g.generateNewtonsoftMessageNormalizers(gf, message, messageIndex)
+	}
+}
+
+//nolint:funlen // Code generation for JSON normalization is intentionally verbose.
+func (g *Generator) generateSystemTextJSONNormalizationHelpers(
+	gf *protogen.GeneratedFile,
+	messages []*contractmodel.Message,
+	messageIndex map[string]*contractmodel.Message,
+) {
+	gf.P("        private static string NormalizeSerializedJson(object value, string json)")
+	gf.P("        {")
+	gf.P("            var token = JsonNode.Parse(json);")
+	gf.P("            if (token is null)")
+	gf.P("            {")
+	gf.P("                return json;")
+	gf.P("            }")
+	gf.P("            var normalized = NormalizeSerializedNode(value.GetType(), token);")
+	gf.P("            return normalized.ToJsonString();")
+	gf.P("        }")
+	gf.P()
+	gf.P("        private static string NormalizeResponseJson(Type responseType, string json)")
+	gf.P("        {")
+	gf.P("            var token = JsonNode.Parse(json);")
+	gf.P("            if (token is null)")
+	gf.P("            {")
+	gf.P("                return json;")
+	gf.P("            }")
+	gf.P("            var normalized = NormalizeResponseNode(responseType, token);")
+	gf.P("            return normalized.ToJsonString();")
+	gf.P("        }")
+	gf.P()
+	gf.P("        private static JsonNode NormalizeSerializedNode(Type messageType, JsonNode token)")
+	gf.P("        {")
+	gf.P("            return messageType.Name switch")
+	gf.P("            {")
+	for _, message := range messages {
+		gf.P(`                "`, message.Name, `" => NormalizeSerialized`, message.Name, "(token),")
+	}
+	gf.P("                _ => token")
+	gf.P("            };")
+	gf.P("        }")
+	gf.P("        private static JsonNode NormalizeResponseNode(Type messageType, JsonNode token)")
+	gf.P("        {")
+	gf.P("            return messageType.Name switch")
+	gf.P("            {")
+	for _, message := range messages {
+		gf.P(`                "`, message.Name, `" => NormalizeResponse`, message.Name, "(token),")
+	}
+	gf.P("                _ => token")
+	gf.P("            };")
+	gf.P("        }")
+	gf.P("        private static JsonNode NormalizeMapValueForSerialization(JsonNode token, Type messageType)")
+	gf.P("        {")
+	gf.P("            return messageType.Name switch")
+	gf.P("            {")
+	for _, message := range messages {
+		if !mapValueUsesUnwrap(message) {
+			continue
+		}
+		field := findField(message, message.Unwrap.FieldName)
+		if field == nil {
+			continue
+		}
+		jsonName := field.JSONName
+		if jsonName == "" {
+			jsonName = field.Name
+		}
+		gf.P(
+			`                "`, message.Name,
+			`" => token is JsonObject obj && obj["`, jsonName,
+			`"] is JsonNode value ? value : token,`,
+		)
+	}
+	gf.P("                _ => NormalizeSerializedNode(messageType, token)")
+	gf.P("            };")
+	gf.P("        }")
+	gf.P("        private static JsonNode NormalizeMapValueForResponse(JsonNode token, Type messageType)")
+	gf.P("        {")
+	gf.P("            return messageType.Name switch")
+	gf.P("            {")
+	for _, message := range messages {
+		if !mapValueUsesUnwrap(message) {
+			continue
+		}
+		field := findField(message, message.Unwrap.FieldName)
+		if field == nil {
+			continue
+		}
+		jsonName := field.JSONName
+		if jsonName == "" {
+			jsonName = field.Name
+		}
+		gf.P(`                "`, message.Name, `" => new JsonObject { ["`, jsonName, `"] = token.DeepClone() },`)
+	}
+	gf.P("                _ => NormalizeResponseNode(messageType, token)")
+	gf.P("            };")
+	gf.P("        }")
+	gf.P()
+	for _, message := range messages {
+		g.generateSystemTextMessageNormalizers(gf, message, messageIndex)
+	}
+}
+
+func (g *Generator) generateNewtonsoftMessageNormalizers(
+	gf *protogen.GeneratedFile,
+	message *contractmodel.Message,
+	messageIndex map[string]*contractmodel.Message,
+) {
+	gf.P("        private static JToken NormalizeSerialized", message.Name, "(JToken token)")
+	gf.P("        {")
+	g.generateNewtonsoftMessageNormalizationBody(gf, message, messageIndex, true)
+	gf.P("        }")
+	gf.P()
+	gf.P("        private static JToken NormalizeResponse", message.Name, "(JToken token)")
+	gf.P("        {")
+	g.generateNewtonsoftMessageNormalizationBody(gf, message, messageIndex, false)
+	gf.P("        }")
+	gf.P()
+}
+
+func (g *Generator) generateSystemTextMessageNormalizers(
+	gf *protogen.GeneratedFile,
+	message *contractmodel.Message,
+	messageIndex map[string]*contractmodel.Message,
+) {
+	gf.P("        private static JsonNode NormalizeSerialized", message.Name, "(JsonNode token)")
+	gf.P("        {")
+	g.generateSystemTextMessageNormalizationBody(gf, message, messageIndex, true)
+	gf.P("        }")
+	gf.P()
+	gf.P("        private static JsonNode NormalizeResponse", message.Name, "(JsonNode token)")
+	gf.P("        {")
+	g.generateSystemTextMessageNormalizationBody(gf, message, messageIndex, false)
+	gf.P("        }")
+	gf.P()
+}
+
+func (g *Generator) generateBytesEncodingHelpers(gf *protogen.GeneratedFile) {
+	gf.P("        private static string EncodeBytes(byte[] bytes, string encoding)")
+	gf.P("        {")
+	gf.P("            var base64 = Convert.ToBase64String(bytes);")
+	gf.P("            return encoding switch")
+	gf.P("            {")
+	gf.P(`                "base64_raw" => base64.TrimEnd('='),`)
+	gf.P(`                "base64url" => base64.Replace('+', '-').Replace('/', '_'),`)
+	gf.P(`                "base64url_raw" => base64.Replace('+', '-').Replace('/', '_').TrimEnd('='),`)
+	gf.P(`                "hex" => Convert.ToHexString(bytes).ToLowerInvariant(),`)
+	gf.P("                _ => base64")
+	gf.P("            };")
+	gf.P("        }")
+	gf.P()
+	gf.P("        private static string ReencodeBytes(string encoded, string fromEncoding, string toEncoding)")
+	gf.P("        {")
+	gf.P("            return EncodeBytes(DecodeBytes(encoded, fromEncoding), toEncoding);")
+	gf.P("        }")
+	gf.P()
+	gf.P("        private static byte[] DecodeBytes(string encoded, string encoding)")
+	gf.P("        {")
+	gf.P("            return encoding switch")
+	gf.P("            {")
+	gf.P(`                "hex" => Convert.FromHexString(encoded),`)
+	gf.P(
+		`                "base64url" => Convert.FromBase64String(`,
+		`NormalizeBase64(encoded.Replace('-', '+').Replace('_', '/'))),`,
+	)
+	gf.P(
+		`                "base64url_raw" => Convert.FromBase64String(`,
+		`NormalizeBase64(encoded.Replace('-', '+').Replace('_', '/'))),`,
+	)
+	gf.P(`                "base64_raw" => Convert.FromBase64String(NormalizeBase64(encoded)),`)
+	gf.P("                _ => Convert.FromBase64String(NormalizeBase64(encoded))")
+	gf.P("            };")
+	gf.P("        }")
+	gf.P()
+	gf.P("        private static string NormalizeBase64(string value)")
+	gf.P("        {")
+	gf.P("            var remainder = value.Length % 4;")
+	gf.P("            if (remainder == 0)")
+	gf.P("            {")
+	gf.P("                return value;")
+	gf.P("            }")
+	gf.P(`            return value + new string('=', 4 - remainder);`)
+	gf.P("        }")
+	gf.P()
+}
+
+func (g *Generator) generateNewtonsoftMessageNormalizationBody(
+	gf *protogen.GeneratedFile,
+	message *contractmodel.Message,
+	messageIndex map[string]*contractmodel.Message,
+	serialize bool,
+) {
+	if isRootUnwrapMessage(message) {
+		g.generateNewtonsoftRootUnwrapNormalizationBody(gf, message, messageIndex, serialize)
+		return
+	}
+
+	gf.P("            if (token is not JObject obj)")
+	gf.P("            {")
+	gf.P("                return token;")
+	gf.P("            }")
+	for _, field := range message.Fields {
+		g.generateNewtonsoftFieldNormalization(gf, field, messageIndex, serialize)
+	}
+	gf.P("            return obj;")
+}
+
+//nolint:nestif // Branching mirrors generated JSON normalization cases.
+func (g *Generator) generateNewtonsoftRootUnwrapNormalizationBody(
+	gf *protogen.GeneratedFile,
+	message *contractmodel.Message,
+	messageIndex map[string]*contractmodel.Message,
+	serialize bool,
+) {
+	if len(message.Fields) == 0 {
+		gf.P("            return token;")
+		return
+	}
+	field := message.Fields[0]
+	if !field.IsMap || field.Type == nil || field.Type.MapValue == nil {
+		gf.P("            return token;")
+		return
+	}
+	childMessage := field.Type.MapValue.Kind == contractmodel.KindMessage &&
+		messageNeedsJSONNormalization(messageIndex[field.Type.MapValue.Name], messageIndex)
+	if !childMessage {
+		gf.P("            return token;")
+		return
+	}
+	gf.P("            if (token is not JObject obj)")
+	gf.P("            {")
+	gf.P("                return token;")
+	gf.P("            }")
+	gf.P("            foreach (var property in obj.Properties().ToList())")
+	gf.P("            {")
+	if serialize {
+		if mapValueUsesUnwrap(messageIndex[field.Type.MapValue.Name]) {
+			gf.P(
+				"                property.Value = NormalizeMapValueForSerialization(",
+				"property.Value, typeof(", field.Type.MapValue.Name, "));",
+			)
+		} else {
+			gf.P(
+				"                property.Value = NormalizeSerializedToken(",
+				"typeof(", field.Type.MapValue.Name, "), property.Value);",
+			)
+		}
+	} else {
+		if mapValueUsesUnwrap(messageIndex[field.Type.MapValue.Name]) {
+			gf.P(
+				"                property.Value = NormalizeMapValueForResponse(",
+				"property.Value, typeof(", field.Type.MapValue.Name, "));",
+			)
+		} else {
+			gf.P(
+				"                property.Value = NormalizeResponseToken(",
+				"typeof(", field.Type.MapValue.Name, "), property.Value);",
+			)
+		}
+	}
+	gf.P("            }")
+	gf.P("            return obj;")
+}
+
+//nolint:funlen,gocognit,nestif,golines // Branching mirrors generated JSON normalization cases.
+func (g *Generator) generateNewtonsoftFieldNormalization(
+	gf *protogen.GeneratedFile,
+	field *contractmodel.Field,
+	messageIndex map[string]*contractmodel.Message,
+	serialize bool,
+) {
+	if field == nil {
+		return
+	}
+	jsonName := field.JSONName
+	if jsonName == "" {
+		jsonName = field.Name
+	}
+
+	if needsBytesEncodingNormalization(field) {
+		gf.P(
+			`            if (obj.TryGetValue("`, jsonName,
+			`", out var `, pascalCase(jsonName), `Token) && `,
+			pascalCase(jsonName), `Token.Type == JTokenType.String)`,
+		)
+		gf.P("            {")
+		if serialize {
+			gf.P(
+				`                obj["`, jsonName, `"] = ReencodeBytes(`, pascalCase(jsonName),
+				`Token.Value<string>()!, "`, base64Encoding, `", "`,
+				bytesEncodingName(field.Annotations.BytesEncoding), `");`,
+			)
+		} else {
+			gf.P(
+				`                obj["`, jsonName, `"] = ReencodeBytes(`, pascalCase(jsonName),
+				`Token.Value<string>()!, "`, bytesEncodingName(field.Annotations.BytesEncoding),
+				`", "`, base64Encoding, `");`,
+			)
+		}
+		gf.P("            }")
+	}
+
+	if field.IsMap && field.Type != nil && field.Type.MapValue != nil && field.Type.MapValue.Kind == contractmodel.KindMessage &&
+		messageNeedsJSONNormalization(messageIndex[field.Type.MapValue.Name], messageIndex) {
+		gf.P(`            if (obj.TryGetValue("`, jsonName, `", out var `, pascalCase(jsonName), `Map) && `, pascalCase(jsonName), `Map is JObject `, pascalCase(jsonName), `Object)`)
+		gf.P("            {")
+		gf.P("                foreach (var property in ", pascalCase(jsonName), "Object.Properties().ToList())")
+		gf.P("                {")
+		if serialize {
+			if mapValueUsesUnwrap(messageIndex[field.Type.MapValue.Name]) {
+				gf.P(
+					"                    property.Value = NormalizeMapValueForSerialization(",
+					"property.Value, typeof(", field.Type.MapValue.Name, "));",
+				)
+			} else {
+				gf.P(
+					"                    property.Value = NormalizeSerializedToken(",
+					"typeof(", field.Type.MapValue.Name, "), property.Value);",
+				)
+			}
+		} else {
+			if mapValueUsesUnwrap(messageIndex[field.Type.MapValue.Name]) {
+				gf.P(
+					"                    property.Value = NormalizeMapValueForResponse(",
+					"property.Value, typeof(", field.Type.MapValue.Name, "));",
+				)
+			} else {
+				gf.P(
+					"                    property.Value = NormalizeResponseToken(",
+					"typeof(", field.Type.MapValue.Name, "), property.Value);",
+				)
+			}
+		}
+		gf.P("                }")
+		gf.P("            }")
+		return
+	}
+
+	if field.Type != nil && field.Type.Kind == contractmodel.KindMessage && messageNeedsJSONNormalization(messageIndex[field.Type.Name], messageIndex) {
+		if field.Repeated {
+			gf.P(`            if (obj.TryGetValue("`, jsonName, `", out var `, pascalCase(jsonName), `List) && `, pascalCase(jsonName), `List is JArray `, pascalCase(jsonName), `Array)`)
+			gf.P("            {")
+			gf.P("                for (var i = 0; i < ", pascalCase(jsonName), "Array.Count; i++)")
+			gf.P("                {")
+			if serialize {
+				gf.P(
+					"                    ", pascalCase(jsonName),
+					"Array[i] = NormalizeSerializedToken(typeof(",
+					field.Type.Name, "), ", pascalCase(jsonName), "Array[i]!);",
+				)
+			} else {
+				gf.P(
+					"                    ", pascalCase(jsonName),
+					"Array[i] = NormalizeResponseToken(typeof(",
+					field.Type.Name, "), ", pascalCase(jsonName), "Array[i]!);",
+				)
+			}
+			gf.P("                }")
+			gf.P("            }")
+			return
+		}
+		gf.P(`            if (obj.TryGetValue("`, jsonName, `", out var `, pascalCase(jsonName), `Child) && `, pascalCase(jsonName), `Child.Type == JTokenType.Object)`)
+		gf.P("            {")
+		if serialize {
+			gf.P(
+				"                obj[\"", jsonName,
+				"\"] = NormalizeSerializedToken(typeof(", field.Type.Name,
+				"), ", pascalCase(jsonName), "Child);",
+			)
+		} else {
+			gf.P(
+				"                obj[\"", jsonName,
+				"\"] = NormalizeResponseToken(typeof(", field.Type.Name,
+				"), ", pascalCase(jsonName), "Child);",
+			)
+		}
+		gf.P("            }")
+	}
+}
+
+func (g *Generator) generateSystemTextMessageNormalizationBody(
+	gf *protogen.GeneratedFile,
+	message *contractmodel.Message,
+	messageIndex map[string]*contractmodel.Message,
+	serialize bool,
+) {
+	if isRootUnwrapMessage(message) {
+		g.generateSystemTextRootUnwrapNormalizationBody(gf, message, messageIndex, serialize)
+		return
+	}
+
+	gf.P("            if (token is not JsonObject obj)")
+	gf.P("            {")
+	gf.P("                return token;")
+	gf.P("            }")
+	for _, field := range message.Fields {
+		g.generateSystemTextFieldNormalization(gf, field, messageIndex, serialize)
+	}
+	gf.P("            return obj;")
+}
+
+//nolint:nestif // Branching mirrors generated JSON normalization cases.
+func (g *Generator) generateSystemTextRootUnwrapNormalizationBody(
+	gf *protogen.GeneratedFile,
+	message *contractmodel.Message,
+	messageIndex map[string]*contractmodel.Message,
+	serialize bool,
+) {
+	if len(message.Fields) == 0 {
+		gf.P("            return token;")
+		return
+	}
+	field := message.Fields[0]
+	if !field.IsMap || field.Type == nil || field.Type.MapValue == nil {
+		gf.P("            return token;")
+		return
+	}
+	childMessage := field.Type.MapValue.Kind == contractmodel.KindMessage &&
+		messageNeedsJSONNormalization(messageIndex[field.Type.MapValue.Name], messageIndex)
+	if !childMessage {
+		gf.P("            return token;")
+		return
+	}
+	gf.P("            if (token is not JsonObject obj)")
+	gf.P("            {")
+	gf.P("                return token;")
+	gf.P("            }")
+	gf.P("            foreach (var key in obj.Select(pair => pair.Key).ToList())")
+	gf.P("            {")
+	if serialize {
+		gf.P("                if (obj[key] is JsonNode value)")
+		gf.P("                {")
+		if mapValueUsesUnwrap(messageIndex[field.Type.MapValue.Name]) {
+			gf.P(
+				"                    obj[key] = NormalizeMapValueForSerialization(",
+				"value, typeof(", field.Type.MapValue.Name, "));",
+			)
+		} else {
+			gf.P(
+				"                    obj[key] = NormalizeSerializedNode(",
+				"typeof(", field.Type.MapValue.Name, "), value);",
+			)
+		}
+		gf.P("                }")
+	} else {
+		gf.P("                if (obj[key] is JsonNode value)")
+		gf.P("                {")
+		if mapValueUsesUnwrap(messageIndex[field.Type.MapValue.Name]) {
+			gf.P(
+				"                    obj[key] = NormalizeMapValueForResponse(",
+				"value, typeof(", field.Type.MapValue.Name, "));",
+			)
+		} else {
+			gf.P(
+				"                    obj[key] = NormalizeResponseNode(",
+				"typeof(", field.Type.MapValue.Name, "), value);",
+			)
+		}
+		gf.P("                }")
+	}
+	gf.P("            }")
+	gf.P("            return obj;")
+}
+
+//nolint:funlen,gocognit,nestif,golines // Branching mirrors generated JSON normalization cases.
+func (g *Generator) generateSystemTextFieldNormalization(
+	gf *protogen.GeneratedFile,
+	field *contractmodel.Field,
+	messageIndex map[string]*contractmodel.Message,
+	serialize bool,
+) {
+	if field == nil {
+		return
+	}
+	jsonName := field.JSONName
+	if jsonName == "" {
+		jsonName = field.Name
+	}
+
+	if needsBytesEncodingNormalization(field) {
+		gf.P(
+			`            if (obj["`, jsonName, `"] is JsonValue `,
+			pascalCase(jsonName), `Token && `,
+			pascalCase(jsonName), `Token.TryGetValue<string>(out var `,
+			pascalCase(jsonName), `Value))`,
+		)
+		gf.P("            {")
+		if serialize {
+			gf.P(
+				`                obj["`, jsonName, `"] = ReencodeBytes(`, pascalCase(jsonName),
+				`Value, "`, base64Encoding, `", "`,
+				bytesEncodingName(field.Annotations.BytesEncoding), `");`,
+			)
+		} else {
+			gf.P(
+				`                obj["`, jsonName, `"] = ReencodeBytes(`, pascalCase(jsonName),
+				`Value, "`, bytesEncodingName(field.Annotations.BytesEncoding),
+				`", "`, base64Encoding, `");`,
+			)
+		}
+		gf.P("            }")
+	}
+
+	if field.IsMap && field.Type != nil && field.Type.MapValue != nil && field.Type.MapValue.Kind == contractmodel.KindMessage &&
+		messageNeedsJSONNormalization(messageIndex[field.Type.MapValue.Name], messageIndex) {
+		gf.P(`            if (obj["`, jsonName, `"] is JsonObject `, pascalCase(jsonName), `Object)`)
+		gf.P("            {")
+		gf.P("                foreach (var key in ", pascalCase(jsonName), "Object.Select(pair => pair.Key).ToList())")
+		gf.P("                {")
+		gf.P("                    if (", pascalCase(jsonName), "Object[key] is JsonNode value)")
+		gf.P("                    {")
+		if serialize {
+			if mapValueUsesUnwrap(messageIndex[field.Type.MapValue.Name]) {
+				gf.P(
+					"                        ", pascalCase(jsonName),
+					"Object[key] = NormalizeMapValueForSerialization(",
+					"value, typeof(", field.Type.MapValue.Name, "));",
+				)
+			} else {
+				gf.P(
+					"                        ", pascalCase(jsonName),
+					"Object[key] = NormalizeSerializedNode(typeof(",
+					field.Type.MapValue.Name, "), value);",
+				)
+			}
+		} else {
+			if mapValueUsesUnwrap(messageIndex[field.Type.MapValue.Name]) {
+				gf.P(
+					"                        ", pascalCase(jsonName),
+					"Object[key] = NormalizeMapValueForResponse(",
+					"value, typeof(", field.Type.MapValue.Name, "));",
+				)
+			} else {
+				gf.P(
+					"                        ", pascalCase(jsonName),
+					"Object[key] = NormalizeResponseNode(typeof(",
+					field.Type.MapValue.Name, "), value);",
+				)
+			}
+		}
+		gf.P("                    }")
+		gf.P("                }")
+		gf.P("            }")
+		return
+	}
+
+	if field.Type != nil && field.Type.Kind == contractmodel.KindMessage && messageNeedsJSONNormalization(messageIndex[field.Type.Name], messageIndex) {
+		if field.Repeated {
+			gf.P(`            if (obj["`, jsonName, `"] is JsonArray `, pascalCase(jsonName), `Array)`)
+			gf.P("            {")
+			gf.P("                for (var i = 0; i < ", pascalCase(jsonName), "Array.Count; i++)")
+			gf.P("                {")
+			gf.P("                    if (", pascalCase(jsonName), "Array[i] is not JsonNode item)")
+			gf.P("                    {")
+			gf.P("                        continue;")
+			gf.P("                    }")
+			if serialize {
+				gf.P(
+					"                    ", pascalCase(jsonName),
+					"Array[i] = NormalizeSerializedNode(typeof(",
+					field.Type.Name, "), item);",
+				)
+			} else {
+				gf.P(
+					"                    ", pascalCase(jsonName),
+					"Array[i] = NormalizeResponseNode(typeof(",
+					field.Type.Name, "), item);",
+				)
+			}
+			gf.P("                }")
+			gf.P("            }")
+			return
+		}
+		gf.P(`            if (obj["`, jsonName, `"] is JsonNode child && child is JsonObject)`)
+		gf.P("            {")
+		if serialize {
+			gf.P(
+				"                obj[\"", jsonName,
+				"\"] = NormalizeSerializedNode(typeof(", field.Type.Name,
+				"), child);",
+			)
+		} else {
+			gf.P(
+				"                obj[\"", jsonName,
+				"\"] = NormalizeResponseNode(typeof(", field.Type.Name,
+				"), child);",
+			)
+		}
+		gf.P("            }")
+	}
+}
+
+func messagesRequiringJSONNormalization(messageIndex map[string]*contractmodel.Message) []*contractmodel.Message {
+	if len(messageIndex) == 0 {
+		return nil
+	}
+	names := make([]string, 0, len(messageIndex))
+	for name := range messageIndex {
+		if messageNeedsJSONNormalization(messageIndex[name], messageIndex) {
+			names = append(names, name)
+		}
+	}
+	sort.Strings(names)
+	result := make([]*contractmodel.Message, 0, len(names))
+	for _, name := range names {
+		result = append(result, messageIndex[name])
+	}
+	return result
+}
+
+func messageNeedsJSONNormalization(
+	message *contractmodel.Message,
+	messageIndex map[string]*contractmodel.Message,
+) bool {
+	if message == nil {
+		return false
+	}
+	if isRootUnwrapMessage(message) {
+		field := message.Fields[0]
+		return field.IsMap && field.Type != nil && field.Type.MapValue != nil &&
+			field.Type.MapValue.Kind == contractmodel.KindMessage && mapValueUsesUnwrap(messageIndex[field.Type.MapValue.Name])
+	}
+	for _, field := range message.Fields {
+		if needsBytesEncodingNormalization(field) {
+			return true
+		}
+		if field.IsMap && field.Type != nil && field.Type.MapValue != nil &&
+			field.Type.MapValue.Kind == contractmodel.KindMessage && mapValueUsesUnwrap(messageIndex[field.Type.MapValue.Name]) {
+			return true
+		}
+		if field.Type != nil && field.Type.Kind == contractmodel.KindMessage &&
+			messageNeedsJSONNormalization(messageIndex[field.Type.Name], messageIndex) {
+			return true
+		}
+	}
+	return false
+}
+
+func mapValueUsesUnwrap(message *contractmodel.Message) bool {
+	return message != nil && message.Unwrap != nil && !message.Unwrap.IsRoot
+}
+
+func needsBytesEncodingNormalization(field *contractmodel.Field) bool {
+	return field != nil &&
+		field.Type != nil &&
+		field.Type.Name == bytesTypeName &&
+		field.Annotations.BytesEncoding != sebufhttp.BytesEncoding_BYTES_ENCODING_UNSPECIFIED &&
+		field.Annotations.BytesEncoding != sebufhttp.BytesEncoding_BYTES_ENCODING_BASE64
+}
+
+func bytesEncodingName(encoding sebufhttp.BytesEncoding) string {
+	switch encoding {
+	case sebufhttp.BytesEncoding_BYTES_ENCODING_UNSPECIFIED:
+		return base64Encoding
+	case sebufhttp.BytesEncoding_BYTES_ENCODING_BASE64:
+		return base64Encoding
+	case sebufhttp.BytesEncoding_BYTES_ENCODING_BASE64_RAW:
+		return "base64_raw"
+	case sebufhttp.BytesEncoding_BYTES_ENCODING_BASE64URL:
+		return "base64url"
+	case sebufhttp.BytesEncoding_BYTES_ENCODING_BASE64URL_RAW:
+		return "base64url_raw"
+	case sebufhttp.BytesEncoding_BYTES_ENCODING_HEX:
+		return "hex"
+	default:
+		return base64Encoding
+	}
 }
 
 func (g *Generator) generatePathAndQueryHelpers(gf *protogen.GeneratedFile) {
@@ -582,7 +1381,7 @@ func csharpQueryCondition(field *contractmodel.Field, expr string) string {
 	switch field.Type.Kind {
 	case contractmodel.KindScalar:
 		switch field.Type.Name {
-		case csharpStringType, "bytes":
+		case csharpStringType, bytesTypeName:
 			return "!string.IsNullOrEmpty(" + expr + ")"
 		case "bool":
 			return expr
@@ -904,8 +1703,10 @@ func csharpScalar(field *contractmodel.Field) string {
 		return "int"
 	case csharpBoolType:
 		return csharpBoolType
-	case csharpStringType, "bytes":
+	case csharpStringType:
 		return csharpStringType
+	case bytesTypeName:
+		return "byte[]"
 	default:
 		return csharpObjectType
 	}

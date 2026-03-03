@@ -181,6 +181,17 @@ func TestCSharpTypeMappings(t *testing.T) {
 	if got := csharpType(emptyBehaviorNull); got != "Metadata?" {
 		t.Fatalf("empty_behavior null csharpType = %q, want %q", got, "Metadata?")
 	}
+
+	bytesHex := &contractmodel.Field{
+		Name: "payload",
+		Type: &contractmodel.TypeRef{Kind: contractmodel.KindScalar, Name: "bytes"},
+		Annotations: contractmodel.FieldAnnotations{
+			BytesEncoding: sebufhttp.BytesEncoding_BYTES_ENCODING_HEX,
+		},
+	}
+	if got := csharpType(bytesHex); got != "byte[]" {
+		t.Fatalf("bytes csharpType = %q, want %q", got, "byte[]")
+	}
 }
 
 func TestMessageProperties(t *testing.T) {
@@ -361,6 +372,13 @@ func TestGeneratePackage(t *testing.T) {
 							FlattenPrefix: "meta_",
 						},
 					},
+					{
+						Name: "payload",
+						Type: &contractmodel.TypeRef{Kind: contractmodel.KindScalar, Name: "bytes"},
+						Annotations: contractmodel.FieldAnnotations{
+							BytesEncoding: sebufhttp.BytesEncoding_BYTES_ENCODING_HEX,
+						},
+					},
 				},
 				Oneofs: []*contractmodel.Oneof{
 					{
@@ -405,6 +423,39 @@ func TestGeneratePackage(t *testing.T) {
 				},
 			},
 			{
+				Name: "OptionBarsList",
+				Fields: []*contractmodel.Field{
+					{
+						Name:     "bars",
+						Repeated: true,
+						Type:     &contractmodel.TypeRef{Kind: contractmodel.KindMessage, Name: "Widget"},
+					},
+				},
+				Unwrap: &contractmodel.Unwrap{
+					FieldName: "bars",
+				},
+			},
+			{
+				Name: "GetOptionBarsResponse",
+				Fields: []*contractmodel.Field{
+					{
+						Name:  "bars",
+						IsMap: true,
+						Type: &contractmodel.TypeRef{
+							Kind: contractmodel.KindMap,
+							MapKey: &contractmodel.TypeRef{
+								Kind: contractmodel.KindScalar,
+								Name: "string",
+							},
+							MapValue: &contractmodel.TypeRef{
+								Kind: contractmodel.KindMessage,
+								Name: "OptionBarsList",
+							},
+						},
+					},
+				},
+			},
+			{
 				Name: "GetWidgetRequest",
 				Fields: []*contractmodel.Field{
 					{
@@ -440,6 +491,13 @@ func TestGeneratePackage(t *testing.T) {
 							{Name: "X-Request-ID", Required: true},
 						},
 					},
+					{
+						Name:         "GetOptionBars",
+						HTTPMethod:   "POST",
+						Path:         "/api/v1/options/bars",
+						InputType:    "GetWidgetRequest",
+						ResponseType: "GetOptionBarsResponse",
+					},
 				},
 			},
 		},
@@ -461,6 +519,8 @@ func TestGeneratePackage(t *testing.T) {
 		"public Dictionary<string, object> Meta { get; set; }",
 		`[JsonProperty("meta_note")]`,
 		"public string? MetaNote { get; set; }",
+		`[JsonProperty("payload")]`,
+		"public byte[] Payload { get; set; }",
 		`[JsonProperty("kind")]`,
 		"public string? Kind { get; set; }",
 		`[JsonProperty("radius")]`,
@@ -471,6 +531,12 @@ func TestGeneratePackage(t *testing.T) {
 		"public sealed class WidgetServiceCallOptions",
 		"public interface IWidgetServiceClient",
 		"public sealed class WidgetServiceClient : IWidgetServiceClient",
+		"private static string NormalizeSerializedJson(object value, string json)",
+		"private static string NormalizeResponseJson(Type responseType, string json)",
+		"private static JToken NormalizeSerializedWidget(JToken token)",
+		"private static JToken NormalizeResponseWidget(JToken token)",
+		"private static JToken NormalizeMapValueForSerialization(JToken token, Type messageType)",
+		`"hex" => Convert.ToHexString(bytes).ToLowerInvariant(),`,
 		"public string? ApiKey { get; set; }",
 		"public string? RequestId { get; set; }",
 		"public async Task<Widget> GetWidgetAsync(GetWidgetRequest req, WidgetServiceCallOptions? options = null, CancellationToken cancellationToken = default)",
