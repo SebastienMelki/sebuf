@@ -314,6 +314,7 @@ namespace Test.Contracts
         {
             return messageType.Name switch
             {
+                "EmptyBehaviorHolder" => NormalizeSerializedEmptyBehaviorHolder(token),
                 "Widget" => NormalizeSerializedWidget(token),
                 _ => token
             };
@@ -322,6 +323,7 @@ namespace Test.Contracts
         {
             return messageType.Name switch
             {
+                "EmptyBehaviorHolder" => NormalizeResponseEmptyBehaviorHolder(token),
                 "Widget" => NormalizeResponseWidget(token),
                 _ => token
             };
@@ -341,6 +343,60 @@ namespace Test.Contracts
                 "Widget" => new JsonObject { ["tags"] = token.DeepClone() },
                 _ => NormalizeResponseNode(messageType, token)
             };
+        }
+        private static bool IsEmptyObject(JsonNode? token)
+        {
+            return token is JsonObject obj && obj.Count == 0;
+        }
+        private static bool ShouldOmitEmptyField(JsonNode? token)
+        {
+            return token is null || IsEmptyObject(token);
+        }
+
+        private static JsonNode NormalizeSerializedEmptyBehaviorHolder(JsonNode token)
+        {
+            if (token is not JsonObject obj)
+            {
+                return token;
+            }
+            if (obj.TryGetPropertyValue("metadataNull", out var MetadatanullEmptyBehavior))
+            {
+                if (IsEmptyObject(MetadatanullEmptyBehavior))
+                {
+                    obj["metadataNull"] = null;
+                }
+            }
+            if (obj.TryGetPropertyValue("metadataOmit", out var MetadataomitEmptyBehavior))
+            {
+                if (ShouldOmitEmptyField(MetadataomitEmptyBehavior))
+                {
+                    obj.Remove("metadataOmit");
+                }
+            }
+            return obj;
+        }
+
+        private static JsonNode NormalizeResponseEmptyBehaviorHolder(JsonNode token)
+        {
+            if (token is not JsonObject obj)
+            {
+                return token;
+            }
+            if (obj.TryGetPropertyValue("metadataNull", out var MetadatanullEmptyBehavior))
+            {
+                if (IsEmptyObject(MetadatanullEmptyBehavior))
+                {
+                    obj["metadataNull"] = null;
+                }
+            }
+            if (obj.TryGetPropertyValue("metadataOmit", out var MetadataomitEmptyBehavior))
+            {
+                if (IsEmptyObject(MetadataomitEmptyBehavior))
+                {
+                    obj.Remove("metadataOmit");
+                }
+            }
+            return obj;
         }
 
         private static JsonNode NormalizeSerializedWidget(JsonNode token)
@@ -547,6 +603,7 @@ namespace Test.Contracts
         {
             return messageType.Name switch
             {
+                "EmptyBehaviorHolder" => NormalizeSerializedEmptyBehaviorHolder(token),
                 "Widget" => NormalizeSerializedWidget(token),
                 _ => token
             };
@@ -555,6 +612,7 @@ namespace Test.Contracts
         {
             return messageType.Name switch
             {
+                "EmptyBehaviorHolder" => NormalizeResponseEmptyBehaviorHolder(token),
                 "Widget" => NormalizeResponseWidget(token),
                 _ => token
             };
@@ -574,6 +632,60 @@ namespace Test.Contracts
                 "Widget" => new JsonObject { ["tags"] = token.DeepClone() },
                 _ => NormalizeResponseNode(messageType, token)
             };
+        }
+        private static bool IsEmptyObject(JsonNode? token)
+        {
+            return token is JsonObject obj && obj.Count == 0;
+        }
+        private static bool ShouldOmitEmptyField(JsonNode? token)
+        {
+            return token is null || IsEmptyObject(token);
+        }
+
+        private static JsonNode NormalizeSerializedEmptyBehaviorHolder(JsonNode token)
+        {
+            if (token is not JsonObject obj)
+            {
+                return token;
+            }
+            if (obj.TryGetPropertyValue("metadataNull", out var MetadatanullEmptyBehavior))
+            {
+                if (IsEmptyObject(MetadatanullEmptyBehavior))
+                {
+                    obj["metadataNull"] = null;
+                }
+            }
+            if (obj.TryGetPropertyValue("metadataOmit", out var MetadataomitEmptyBehavior))
+            {
+                if (ShouldOmitEmptyField(MetadataomitEmptyBehavior))
+                {
+                    obj.Remove("metadataOmit");
+                }
+            }
+            return obj;
+        }
+
+        private static JsonNode NormalizeResponseEmptyBehaviorHolder(JsonNode token)
+        {
+            if (token is not JsonObject obj)
+            {
+                return token;
+            }
+            if (obj.TryGetPropertyValue("metadataNull", out var MetadatanullEmptyBehavior))
+            {
+                if (IsEmptyObject(MetadatanullEmptyBehavior))
+                {
+                    obj["metadataNull"] = null;
+                }
+            }
+            if (obj.TryGetPropertyValue("metadataOmit", out var MetadataomitEmptyBehavior))
+            {
+                if (IsEmptyObject(MetadataomitEmptyBehavior))
+                {
+                    obj.Remove("metadataOmit");
+                }
+            }
+            return obj;
         }
 
         private static JsonNode NormalizeSerializedWidget(JsonNode token)

@@ -301,6 +301,7 @@ namespace Test.Contracts
         {
             return messageType.Name switch
             {
+                "EmptyBehaviorHolder" => NormalizeSerializedEmptyBehaviorHolder(token),
                 "Widget" => NormalizeSerializedWidget(token),
                 _ => token
             };
@@ -309,6 +310,7 @@ namespace Test.Contracts
         {
             return messageType.Name switch
             {
+                "EmptyBehaviorHolder" => NormalizeResponseEmptyBehaviorHolder(token),
                 "Widget" => NormalizeResponseWidget(token),
                 _ => token
             };
@@ -328,6 +330,60 @@ namespace Test.Contracts
                 "Widget" => new JObject { ["tags"] = token },
                 _ => NormalizeResponseToken(messageType, token)
             };
+        }
+        private static bool IsEmptyObject(JToken token)
+        {
+            return token is JObject obj && !obj.Properties().Any();
+        }
+        private static bool ShouldOmitEmptyField(JToken token)
+        {
+            return token.Type == JTokenType.Null || IsEmptyObject(token);
+        }
+
+        private static JToken NormalizeSerializedEmptyBehaviorHolder(JToken token)
+        {
+            if (token is not JObject obj)
+            {
+                return token;
+            }
+            if (obj.TryGetValue("metadataNull", out var MetadatanullEmptyBehavior))
+            {
+                if (IsEmptyObject(MetadatanullEmptyBehavior))
+                {
+                    obj["metadataNull"] = JValue.CreateNull();
+                }
+            }
+            if (obj.TryGetValue("metadataOmit", out var MetadataomitEmptyBehavior))
+            {
+                if (ShouldOmitEmptyField(MetadataomitEmptyBehavior))
+                {
+                    obj.Remove("metadataOmit");
+                }
+            }
+            return obj;
+        }
+
+        private static JToken NormalizeResponseEmptyBehaviorHolder(JToken token)
+        {
+            if (token is not JObject obj)
+            {
+                return token;
+            }
+            if (obj.TryGetValue("metadataNull", out var MetadatanullEmptyBehavior))
+            {
+                if (IsEmptyObject(MetadatanullEmptyBehavior))
+                {
+                    obj["metadataNull"] = JValue.CreateNull();
+                }
+            }
+            if (obj.TryGetValue("metadataOmit", out var MetadataomitEmptyBehavior))
+            {
+                if (IsEmptyObject(MetadataomitEmptyBehavior))
+                {
+                    obj.Remove("metadataOmit");
+                }
+            }
+            return obj;
         }
 
         private static JToken NormalizeSerializedWidget(JToken token)
@@ -521,6 +577,7 @@ namespace Test.Contracts
         {
             return messageType.Name switch
             {
+                "EmptyBehaviorHolder" => NormalizeSerializedEmptyBehaviorHolder(token),
                 "Widget" => NormalizeSerializedWidget(token),
                 _ => token
             };
@@ -529,6 +586,7 @@ namespace Test.Contracts
         {
             return messageType.Name switch
             {
+                "EmptyBehaviorHolder" => NormalizeResponseEmptyBehaviorHolder(token),
                 "Widget" => NormalizeResponseWidget(token),
                 _ => token
             };
@@ -548,6 +606,60 @@ namespace Test.Contracts
                 "Widget" => new JObject { ["tags"] = token },
                 _ => NormalizeResponseToken(messageType, token)
             };
+        }
+        private static bool IsEmptyObject(JToken token)
+        {
+            return token is JObject obj && !obj.Properties().Any();
+        }
+        private static bool ShouldOmitEmptyField(JToken token)
+        {
+            return token.Type == JTokenType.Null || IsEmptyObject(token);
+        }
+
+        private static JToken NormalizeSerializedEmptyBehaviorHolder(JToken token)
+        {
+            if (token is not JObject obj)
+            {
+                return token;
+            }
+            if (obj.TryGetValue("metadataNull", out var MetadatanullEmptyBehavior))
+            {
+                if (IsEmptyObject(MetadatanullEmptyBehavior))
+                {
+                    obj["metadataNull"] = JValue.CreateNull();
+                }
+            }
+            if (obj.TryGetValue("metadataOmit", out var MetadataomitEmptyBehavior))
+            {
+                if (ShouldOmitEmptyField(MetadataomitEmptyBehavior))
+                {
+                    obj.Remove("metadataOmit");
+                }
+            }
+            return obj;
+        }
+
+        private static JToken NormalizeResponseEmptyBehaviorHolder(JToken token)
+        {
+            if (token is not JObject obj)
+            {
+                return token;
+            }
+            if (obj.TryGetValue("metadataNull", out var MetadatanullEmptyBehavior))
+            {
+                if (IsEmptyObject(MetadatanullEmptyBehavior))
+                {
+                    obj["metadataNull"] = JValue.CreateNull();
+                }
+            }
+            if (obj.TryGetValue("metadataOmit", out var MetadataomitEmptyBehavior))
+            {
+                if (IsEmptyObject(MetadataomitEmptyBehavior))
+                {
+                    obj.Remove("metadataOmit");
+                }
+            }
+            return obj;
         }
 
         private static JToken NormalizeSerializedWidget(JToken token)

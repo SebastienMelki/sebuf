@@ -631,6 +631,14 @@ func (g *Generator) generateNewtonsoftJSONNormalizationHelpers(
 	gf.P("                _ => NormalizeResponseToken(messageType, token)")
 	gf.P("            };")
 	gf.P("        }")
+	gf.P("        private static bool IsEmptyObject(JToken token)")
+	gf.P("        {")
+	gf.P("            return token is JObject obj && !obj.Properties().Any();")
+	gf.P("        }")
+	gf.P("        private static bool ShouldOmitEmptyField(JToken token)")
+	gf.P("        {")
+	gf.P("            return token.Type == JTokenType.Null || IsEmptyObject(token);")
+	gf.P("        }")
 	gf.P()
 	for _, message := range messages {
 		g.generateNewtonsoftMessageNormalizers(gf, message, messageIndex)
@@ -730,6 +738,14 @@ func (g *Generator) generateSystemTextJSONNormalizationHelpers(
 	}
 	gf.P("                _ => NormalizeResponseNode(messageType, token)")
 	gf.P("            };")
+	gf.P("        }")
+	gf.P("        private static bool IsEmptyObject(JsonNode? token)")
+	gf.P("        {")
+	gf.P("            return token is JsonObject obj && obj.Count == 0;")
+	gf.P("        }")
+	gf.P("        private static bool ShouldOmitEmptyField(JsonNode? token)")
+	gf.P("        {")
+	gf.P("            return token is null || IsEmptyObject(token);")
 	gf.P("        }")
 	gf.P()
 	for _, message := range messages {
@@ -936,6 +952,10 @@ func (g *Generator) generateNewtonsoftFieldNormalization(
 		gf.P("            }")
 	}
 
+	if emptyBehaviorNeedsNormalization(field) {
+		g.generateNewtonsoftEmptyBehaviorNormalization(gf, field, jsonName, serialize)
+	}
+
 	if field.IsMap && field.Type != nil && field.Type.MapValue != nil && field.Type.MapValue.Kind == contractmodel.KindMessage &&
 		messageNeedsJSONNormalization(messageIndex[field.Type.MapValue.Name], messageIndex) {
 		gf.P(`            if (obj.TryGetValue("`, jsonName, `", out var `, pascalCase(jsonName), `Map) && `, pascalCase(jsonName), `Map is JObject `, pascalCase(jsonName), `Object)`)
@@ -1137,6 +1157,10 @@ func (g *Generator) generateSystemTextFieldNormalization(
 		gf.P("            }")
 	}
 
+	if emptyBehaviorNeedsNormalization(field) {
+		g.generateSystemTextEmptyBehaviorNormalization(gf, field, jsonName, serialize)
+	}
+
 	if field.IsMap && field.Type != nil && field.Type.MapValue != nil && field.Type.MapValue.Kind == contractmodel.KindMessage &&
 		messageNeedsJSONNormalization(messageIndex[field.Type.MapValue.Name], messageIndex) {
 		gf.P(`            if (obj["`, jsonName, `"] is JsonObject `, pascalCase(jsonName), `Object)`)
@@ -1257,6 +1281,9 @@ func messageNeedsJSONNormalization(
 			field.Type.MapValue.Kind == contractmodel.KindMessage && mapValueUsesUnwrap(messageIndex[field.Type.MapValue.Name])
 	}
 	for _, field := range message.Fields {
+		if emptyBehaviorNeedsNormalization(field) {
+			return true
+		}
 		if needsBytesEncodingNormalization(field) {
 			return true
 		}
@@ -1282,6 +1309,75 @@ func needsBytesEncodingNormalization(field *contractmodel.Field) bool {
 		field.Type.Name == bytesTypeName &&
 		field.Annotations.BytesEncoding != sebufhttp.BytesEncoding_BYTES_ENCODING_UNSPECIFIED &&
 		field.Annotations.BytesEncoding != sebufhttp.BytesEncoding_BYTES_ENCODING_BASE64
+}
+
+func emptyBehaviorNeedsNormalization(field *contractmodel.Field) bool {
+	return field != nil &&
+		field.Type != nil &&
+		field.Type.Kind == contractmodel.KindMessage &&
+		!field.Repeated &&
+		!field.IsMap &&
+		(field.Annotations.EmptyBehavior == sebufhttp.EmptyBehavior_EMPTY_BEHAVIOR_NULL ||
+			field.Annotations.EmptyBehavior == sebufhttp.EmptyBehavior_EMPTY_BEHAVIOR_OMIT)
+}
+
+func (g *Generator) generateNewtonsoftEmptyBehaviorNormalization(
+	gf *protogen.GeneratedFile,
+	field *contractmodel.Field,
+	jsonName string,
+	serialize bool,
+) {
+	tokenName := pascalCase(jsonName) + "EmptyBehavior"
+	gf.P(`            if (obj.TryGetValue("`, jsonName, `", out var `, tokenName, `))`)
+	gf.P("            {")
+	g.generateEmptyBehaviorNormalizationBody(
+		gf, field, jsonName, tokenName, serialize, `                    obj["`+jsonName+`"] = JValue.CreateNull();`,
+	)
+	gf.P("            }")
+}
+
+func (g *Generator) generateSystemTextEmptyBehaviorNormalization(
+	gf *protogen.GeneratedFile,
+	field *contractmodel.Field,
+	jsonName string,
+	serialize bool,
+) {
+	tokenName := pascalCase(jsonName) + "EmptyBehavior"
+	gf.P(`            if (obj.TryGetPropertyValue("`, jsonName, `", out var `, tokenName, `))`)
+	gf.P("            {")
+	g.generateEmptyBehaviorNormalizationBody(
+		gf, field, jsonName, tokenName, serialize, `                    obj["`+jsonName+`"] = null;`,
+	)
+	gf.P("            }")
+}
+
+func (g *Generator) generateEmptyBehaviorNormalizationBody(
+	gf *protogen.GeneratedFile,
+	field *contractmodel.Field,
+	jsonName string,
+	tokenName string,
+	serialize bool,
+	nullAssignment string,
+) {
+	switch field.Annotations.EmptyBehavior {
+	case sebufhttp.EmptyBehavior_EMPTY_BEHAVIOR_UNSPECIFIED,
+		sebufhttp.EmptyBehavior_EMPTY_BEHAVIOR_PRESERVE:
+		// No special wire normalization needed.
+	case sebufhttp.EmptyBehavior_EMPTY_BEHAVIOR_NULL:
+		gf.P("                if (IsEmptyObject(", tokenName, "))")
+		gf.P("                {")
+		gf.P(nullAssignment)
+		gf.P("                }")
+	case sebufhttp.EmptyBehavior_EMPTY_BEHAVIOR_OMIT:
+		check := "IsEmptyObject(" + tokenName + ")"
+		if serialize {
+			check = "ShouldOmitEmptyField(" + tokenName + ")"
+		}
+		gf.P("                if (", check, ")")
+		gf.P("                {")
+		gf.P(`                    obj.Remove("`, jsonName, `");`)
+		gf.P("                }")
+	}
 }
 
 func bytesEncodingName(encoding sebufhttp.BytesEncoding) string {

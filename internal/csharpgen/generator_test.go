@@ -423,6 +423,28 @@ func TestGeneratePackage(t *testing.T) {
 				},
 			},
 			{
+				Name: "EmptyMessage",
+			},
+			{
+				Name: "EmptyBehaviorHolder",
+				Fields: []*contractmodel.Field{
+					{
+						Name: "metadata_null",
+						Type: &contractmodel.TypeRef{Kind: contractmodel.KindMessage, Name: "EmptyMessage"},
+						Annotations: contractmodel.FieldAnnotations{
+							EmptyBehavior: sebufhttp.EmptyBehavior_EMPTY_BEHAVIOR_NULL,
+						},
+					},
+					{
+						Name: "metadata_omit",
+						Type: &contractmodel.TypeRef{Kind: contractmodel.KindMessage, Name: "EmptyMessage"},
+						Annotations: contractmodel.FieldAnnotations{
+							EmptyBehavior: sebufhttp.EmptyBehavior_EMPTY_BEHAVIOR_OMIT,
+						},
+					},
+				},
+			},
+			{
 				Name: "OptionBarsList",
 				Fields: []*contractmodel.Field{
 					{
@@ -535,6 +557,12 @@ func TestGeneratePackage(t *testing.T) {
 		"private static string NormalizeResponseJson(Type responseType, string json)",
 		"private static JToken NormalizeSerializedWidget(JToken token)",
 		"private static JToken NormalizeResponseWidget(JToken token)",
+		"private static JToken NormalizeSerializedEmptyBehaviorHolder(JToken token)",
+		"private static JToken NormalizeResponseEmptyBehaviorHolder(JToken token)",
+		"private static bool IsEmptyObject(JToken token)",
+		"private static bool ShouldOmitEmptyField(JToken token)",
+		`obj["metadata_null"] = JValue.CreateNull();`,
+		`obj.Remove("metadata_omit");`,
 		"private static JToken NormalizeMapValueForSerialization(JToken token, Type messageType)",
 		`"hex" => Convert.ToHexString(bytes).ToLowerInvariant(),`,
 		"public string? ApiKey { get; set; }",
