@@ -451,14 +451,27 @@ func (g *Generator) generateWrapperMarshalJSON(gf *protogen.GeneratedFile, ctx *
 
 	for _, field := range ctx.NestedFields {
 		jsonName := field.Desc.JSONName()
-		gf.P("// Re-serialize \"", jsonName, "\" using its custom MarshalJSON")
-		gf.P("if x.", field.GoName, " != nil {")
-		gf.P("raw[\"", jsonName, "\"], err = json.Marshal(x.", field.GoName, ")")
-		gf.P("if err != nil {")
-		gf.P("return nil, err")
-		gf.P("}")
-		gf.P("}")
-		gf.P()
+		if field.Desc.IsList() {
+			// Repeated field: use len() check; json.Marshal on a slice calls each element's MarshalJSON.
+			gf.P("// Re-serialize repeated \"", jsonName, "\" using its custom MarshalJSON")
+			gf.P("if len(x.", field.GoName, ") > 0 {")
+			gf.P("raw[\"", jsonName, "\"], err = json.Marshal(x.", field.GoName, ")")
+			gf.P("if err != nil {")
+			gf.P("return nil, err")
+			gf.P("}")
+			gf.P("}")
+			gf.P()
+		} else {
+			// Singular field: nil check then re-serialize.
+			gf.P("// Re-serialize \"", jsonName, "\" using its custom MarshalJSON")
+			gf.P("if x.", field.GoName, " != nil {")
+			gf.P("raw[\"", jsonName, "\"], err = json.Marshal(x.", field.GoName, ")")
+			gf.P("if err != nil {")
+			gf.P("return nil, err")
+			gf.P("}")
+			gf.P("}")
+			gf.P()
+		}
 	}
 
 	gf.P("return json.Marshal(raw)")
@@ -490,19 +503,51 @@ func (g *Generator) generateWrapperUnmarshalJSON(gf *protogen.GeneratedFile, ctx
 
 	for _, field := range ctx.NestedFields {
 		jsonName := field.Desc.JSONName()
-		gf.P("// Handle \"", jsonName, "\" using its custom UnmarshalJSON")
-		gf.P("if rawVal, ok := raw[\"", jsonName, "\"]; ok {")
-		gf.P("inner := &", gf.QualifiedGoIdent(field.Message.GoIdent), "{}")
-		gf.P("if err := json.Unmarshal(rawVal, inner); err != nil {")
-		gf.P("return err")
-		gf.P("}")
-		gf.P("innerJSON, err := protojson.Marshal(inner)")
-		gf.P("if err != nil {")
-		gf.P("return err")
-		gf.P("}")
-		gf.P("raw[\"", jsonName, "\"] = innerJSON")
-		gf.P("}")
-		gf.P()
+		if field.Desc.IsList() {
+			// Repeated field: the JSON value is an array. Unmarshal as a slice so each
+			// element's custom UnmarshalJSON is called, then re-marshal each element
+			// back to protojson format for the final protojson.Unmarshal call.
+			gf.P("// Handle repeated \"", jsonName, "\" using its custom UnmarshalJSON")
+			gf.P("if rawVal, ok := raw[\"", jsonName, "\"]; ok {")
+			gf.P("var innerList []*", gf.QualifiedGoIdent(field.Message.GoIdent))
+			gf.P("if err := json.Unmarshal(rawVal, &innerList); err != nil {")
+			gf.P("return err")
+			gf.P("}")
+			gf.P("protoItems := make([]json.RawMessage, len(innerList))")
+			gf.P("for i, item := range innerList {")
+			gf.P("if item == nil {")
+			gf.P("protoItems[i] = json.RawMessage(\"null\")")
+			gf.P("continue")
+			gf.P("}")
+			gf.P("itemJSON, marshalErr := protojson.Marshal(item)")
+			gf.P("if marshalErr != nil {")
+			gf.P("return marshalErr")
+			gf.P("}")
+			gf.P("protoItems[i] = itemJSON")
+			gf.P("}")
+			gf.P("protoJSON, marshalErr := json.Marshal(protoItems)")
+			gf.P("if marshalErr != nil {")
+			gf.P("return marshalErr")
+			gf.P("}")
+			gf.P("raw[\"", jsonName, "\"] = protoJSON")
+			gf.P("}")
+			gf.P()
+		} else {
+			// Singular field: unmarshal as a single pointer, re-marshal with protojson.
+			gf.P("// Handle \"", jsonName, "\" using its custom UnmarshalJSON")
+			gf.P("if rawVal, ok := raw[\"", jsonName, "\"]; ok {")
+			gf.P("inner := &", gf.QualifiedGoIdent(field.Message.GoIdent), "{}")
+			gf.P("if err := json.Unmarshal(rawVal, inner); err != nil {")
+			gf.P("return err")
+			gf.P("}")
+			gf.P("innerJSON, err := protojson.Marshal(inner)")
+			gf.P("if err != nil {")
+			gf.P("return err")
+			gf.P("}")
+			gf.P("raw[\"", jsonName, "\"] = innerJSON")
+			gf.P("}")
+			gf.P()
+		}
 	}
 
 	gf.P("modified, err := json.Marshal(raw)")

@@ -168,6 +168,16 @@ func TestHTTPGenGoldenFiles(t *testing.T) {
 				"unwrap_int64_encoding_encoding.pb.go",
 			},
 		},
+		{
+			name:      "int64 repeated nested encoding (repeated wrapper bug)",
+			protoFile: "int64_repeated_nested_encoding.proto",
+			expectedFiles: []string{
+				"int64_repeated_nested_encoding_http.pb.go",
+				"int64_repeated_nested_encoding_http_binding.pb.go",
+				"int64_repeated_nested_encoding_http_config.pb.go",
+				"int64_repeated_nested_encoding_encoding.pb.go",
+			},
+		},
 	}
 
 	// Get paths
