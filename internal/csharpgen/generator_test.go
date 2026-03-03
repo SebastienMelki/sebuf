@@ -307,6 +307,91 @@ func TestRootUnwrapBaseType(t *testing.T) {
 	}
 }
 
+func TestMessageNeedsJSONNormalizationForRootUnwrap(t *testing.T) {
+	messageIndex := map[string]*contractmodel.Message{
+		"Widget": {
+			Name: "Widget",
+			Fields: []*contractmodel.Field{
+				{
+					Name: "payload",
+					Type: &contractmodel.TypeRef{Kind: contractmodel.KindScalar, Name: "bytes"},
+					Annotations: contractmodel.FieldAnnotations{
+						BytesEncoding: sebufhttp.BytesEncoding_BYTES_ENCODING_HEX,
+					},
+				},
+			},
+		},
+		"OptionBarsList": {
+			Name: "OptionBarsList",
+			Fields: []*contractmodel.Field{
+				{
+					Name:     "bars",
+					Repeated: true,
+					Type:     &contractmodel.TypeRef{Kind: contractmodel.KindMessage, Name: "Widget"},
+				},
+			},
+			Unwrap: &contractmodel.Unwrap{FieldName: "bars"},
+		},
+	}
+
+	rootRepeated := &contractmodel.Message{
+		Name: "RootRepeatedResponse",
+		Fields: []*contractmodel.Field{
+			{
+				Name:     "items",
+				Repeated: true,
+				Type:     &contractmodel.TypeRef{Kind: contractmodel.KindMessage, Name: "Widget"},
+			},
+		},
+		Unwrap: &contractmodel.Unwrap{FieldName: "items", IsRoot: true},
+	}
+	rootMap := &contractmodel.Message{
+		Name: "RootMapResponse",
+		Fields: []*contractmodel.Field{
+			{
+				Name:  "items",
+				IsMap: true,
+				Type: &contractmodel.TypeRef{
+					Kind:     contractmodel.KindMap,
+					MapKey:   &contractmodel.TypeRef{Kind: contractmodel.KindScalar, Name: "string"},
+					MapValue: &contractmodel.TypeRef{Kind: contractmodel.KindMessage, Name: "Widget"},
+				},
+			},
+		},
+		Unwrap: &contractmodel.Unwrap{FieldName: "items", IsRoot: true, IsMapField: true},
+	}
+	rootMapValueUnwrap := &contractmodel.Message{
+		Name: "RootMapWithValueUnwrapResponse",
+		Fields: []*contractmodel.Field{
+			{
+				Name:  "items",
+				IsMap: true,
+				Type: &contractmodel.TypeRef{
+					Kind:     contractmodel.KindMap,
+					MapKey:   &contractmodel.TypeRef{Kind: contractmodel.KindScalar, Name: "string"},
+					MapValue: &contractmodel.TypeRef{Kind: contractmodel.KindMessage, Name: "OptionBarsList"},
+				},
+			},
+		},
+		Unwrap: &contractmodel.Unwrap{FieldName: "items", IsRoot: true, IsMapField: true},
+	}
+
+	for _, tt := range []struct {
+		name    string
+		message *contractmodel.Message
+	}{
+		{name: "root repeated", message: rootRepeated},
+		{name: "root map", message: rootMap},
+		{name: "root map value unwrap", message: rootMapValueUnwrap},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			if !messageNeedsJSONNormalization(tt.message, messageIndex) {
+				t.Fatalf("expected %s to require normalization", tt.name)
+			}
+		})
+	}
+}
+
 func TestGeneratePackage(t *testing.T) {
 	plugin := newCSharpTestPlugin(t)
 	gen := New(plugin, Options{Namespace: "Test.Contracts", JSONLib: "newtonsoft"})
@@ -541,6 +626,70 @@ func TestGeneratePackage(t *testing.T) {
 				},
 			},
 			{
+				Name: "RootRepeatedResponse",
+				Fields: []*contractmodel.Field{
+					{
+						Name:     "items",
+						Repeated: true,
+						Type:     &contractmodel.TypeRef{Kind: contractmodel.KindMessage, Name: "Widget"},
+					},
+				},
+				Unwrap: &contractmodel.Unwrap{
+					FieldName: "items",
+					IsRoot:    true,
+				},
+			},
+			{
+				Name: "RootMapResponse",
+				Fields: []*contractmodel.Field{
+					{
+						Name:  "items",
+						IsMap: true,
+						Type: &contractmodel.TypeRef{
+							Kind: contractmodel.KindMap,
+							MapKey: &contractmodel.TypeRef{
+								Kind: contractmodel.KindScalar,
+								Name: "string",
+							},
+							MapValue: &contractmodel.TypeRef{
+								Kind: contractmodel.KindMessage,
+								Name: "Widget",
+							},
+						},
+					},
+				},
+				Unwrap: &contractmodel.Unwrap{
+					FieldName:  "items",
+					IsRoot:     true,
+					IsMapField: true,
+				},
+			},
+			{
+				Name: "RootMapWithValueUnwrapResponse",
+				Fields: []*contractmodel.Field{
+					{
+						Name:  "items",
+						IsMap: true,
+						Type: &contractmodel.TypeRef{
+							Kind: contractmodel.KindMap,
+							MapKey: &contractmodel.TypeRef{
+								Kind: contractmodel.KindScalar,
+								Name: "string",
+							},
+							MapValue: &contractmodel.TypeRef{
+								Kind: contractmodel.KindMessage,
+								Name: "OptionBarsList",
+							},
+						},
+					},
+				},
+				Unwrap: &contractmodel.Unwrap{
+					FieldName:  "items",
+					IsRoot:     true,
+					IsMapField: true,
+				},
+			},
+			{
 				Name: "GetOptionBarsResponse",
 				Fields: []*contractmodel.Field{
 					{
@@ -631,6 +780,9 @@ func TestGeneratePackage(t *testing.T) {
 		`[JsonProperty("radius")]`,
 		"public double? Radius { get; set; }",
 		"public sealed class TagList : List<string>",
+		"public sealed class RootRepeatedResponse : List<Widget>",
+		"public sealed class RootMapResponse : Dictionary<string, Widget>",
+		"public sealed class RootMapWithValueUnwrapResponse : Dictionary<string, OptionBarsList>",
 		"public sealed class ApiException : Exception",
 		"public sealed class WidgetServiceClientOptions",
 		"public sealed class WidgetServiceCallOptions",
@@ -646,6 +798,12 @@ func TestGeneratePackage(t *testing.T) {
 		"private static JToken NormalizeSerializedNestedEvent(JToken token)",
 		`obj["kind"] = "text";`,
 		`obj.Remove("image");`,
+		"private static JToken NormalizeSerializedRootRepeatedResponse(JToken token)",
+		"array[i] = NormalizeSerializedToken(typeof(Widget), array[i]!);",
+		"private static JToken NormalizeSerializedRootMapResponse(JToken token)",
+		"property.Value = NormalizeSerializedToken(typeof(Widget), property.Value);",
+		"private static JToken NormalizeSerializedRootMapWithValueUnwrapResponse(JToken token)",
+		"property.Value = NormalizeMapValueForSerialization(property.Value, typeof(OptionBarsList));",
 		"private static JToken NormalizeSerializedEmptyBehaviorHolder(JToken token)",
 		"private static JToken NormalizeResponseEmptyBehaviorHolder(JToken token)",
 		"private static bool IsEmptyObject(JToken token)",

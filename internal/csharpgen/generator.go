@@ -870,6 +870,27 @@ func (g *Generator) generateNewtonsoftRootUnwrapNormalizationBody(
 		return
 	}
 	field := message.Fields[0]
+	if field.Repeated {
+		if field.Type == nil || field.Type.Kind != contractmodel.KindMessage ||
+			!messageNeedsJSONNormalization(messageIndex[field.Type.Name], messageIndex) {
+			gf.P("            return token;")
+			return
+		}
+		gf.P("            if (token is not JArray array)")
+		gf.P("            {")
+		gf.P("                return token;")
+		gf.P("            }")
+		gf.P("            for (var i = 0; i < array.Count; i++)")
+		gf.P("            {")
+		if serialize {
+			gf.P("                array[i] = NormalizeSerializedToken(typeof(", field.Type.Name, "), array[i]!);")
+		} else {
+			gf.P("                array[i] = NormalizeResponseToken(typeof(", field.Type.Name, "), array[i]!);")
+		}
+		gf.P("            }")
+		gf.P("            return array;")
+		return
+	}
 	if !field.IsMap || field.Type == nil || field.Type.MapValue == nil {
 		gf.P("            return token;")
 		return
@@ -1209,6 +1230,31 @@ func (g *Generator) generateSystemTextRootUnwrapNormalizationBody(
 		return
 	}
 	field := message.Fields[0]
+	if field.Repeated {
+		if field.Type == nil || field.Type.Kind != contractmodel.KindMessage ||
+			!messageNeedsJSONNormalization(messageIndex[field.Type.Name], messageIndex) {
+			gf.P("            return token;")
+			return
+		}
+		gf.P("            if (token is not JsonArray array)")
+		gf.P("            {")
+		gf.P("                return token;")
+		gf.P("            }")
+		gf.P("            for (var i = 0; i < array.Count; i++)")
+		gf.P("            {")
+		gf.P("                if (array[i] is not JsonNode item)")
+		gf.P("                {")
+		gf.P("                    continue;")
+		gf.P("                }")
+		if serialize {
+			gf.P("                array[i] = NormalizeSerializedNode(typeof(", field.Type.Name, "), item);")
+		} else {
+			gf.P("                array[i] = NormalizeResponseNode(typeof(", field.Type.Name, "), item);")
+		}
+		gf.P("            }")
+		gf.P("            return array;")
+		return
+	}
 	if !field.IsMap || field.Type == nil || field.Type.MapValue == nil {
 		gf.P("            return token;")
 		return
@@ -1410,6 +1456,7 @@ func messagesRequiringJSONNormalization(messageIndex map[string]*contractmodel.M
 	return result
 }
 
+//nolint:gocognit // This is the central predicate for generated JSON normalization.
 func messageNeedsJSONNormalization(
 	message *contractmodel.Message,
 	messageIndex map[string]*contractmodel.Message,
@@ -1422,8 +1469,14 @@ func messageNeedsJSONNormalization(
 	}
 	if isRootUnwrapMessage(message) {
 		field := message.Fields[0]
-		return field.IsMap && field.Type != nil && field.Type.MapValue != nil &&
-			field.Type.MapValue.Kind == contractmodel.KindMessage && mapValueUsesUnwrap(messageIndex[field.Type.MapValue.Name])
+		if field.Repeated && field.Type != nil && field.Type.Kind == contractmodel.KindMessage {
+			return messageNeedsJSONNormalization(messageIndex[field.Type.Name], messageIndex)
+		}
+		if field.IsMap && field.Type != nil && field.Type.MapValue != nil &&
+			field.Type.MapValue.Kind == contractmodel.KindMessage {
+			return messageNeedsJSONNormalization(messageIndex[field.Type.MapValue.Name], messageIndex)
+		}
+		return false
 	}
 	for _, field := range message.Fields {
 		if emptyBehaviorNeedsNormalization(field) {
