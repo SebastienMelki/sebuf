@@ -8,10 +8,10 @@ import (
 )
 
 func main() {
-	options := pyclientgen.NewOptions()
+	options, cfg := pyclientgen.NewOptions()
 	options.Run(func(plugin *protogen.Plugin) error {
 		plugin.SupportedFeatures = uint64(pluginpb.CodeGeneratorResponse_FEATURE_PROTO3_OPTIONAL)
-		gen := pyclientgen.New(plugin)
+		gen := pyclientgen.New(plugin, *cfg)
 		return gen.Generate()
 	})
 }
