@@ -135,12 +135,18 @@ func assertServiceModel(t *testing.T, pkg *Package) {
 	if service.BasePath != "/api/v1" {
 		t.Fatalf("Service.BasePath = %q, want %q", service.BasePath, "/api/v1")
 	}
+	if len(service.Headers) != 1 || service.Headers[0].Name != "X-API-Key" {
+		t.Fatalf("Service.Headers = %+v, want X-API-Key", service.Headers)
+	}
 	getWidget := findMethod(t, service, "GetWidget")
 	if getWidget.HTTPMethod != "GET" || getWidget.Path != "/api/v1/widgets/{id}" {
 		t.Fatalf("GetWidget metadata = %+v", getWidget)
 	}
 	if got, want := getWidget.PathParams, []string{"id"}; !slices.Equal(got, want) {
 		t.Fatalf("GetWidget.PathParams = %v, want %v", got, want)
+	}
+	if len(getWidget.Headers) != 1 || getWidget.Headers[0].Name != "X-Request-ID" {
+		t.Fatalf("GetWidget.Headers = %+v, want X-Request-ID", getWidget.Headers)
 	}
 }
 
@@ -237,17 +243,27 @@ func newContractModelPlugin(t *testing.T) *protogen.Plugin {
 		},
 		Service: []*descriptorpb.ServiceDescriptorProto{
 			{
-				Name:    proto.String("WidgetService"),
-				Options: withServiceOption(t, sebufhttp.E_ServiceConfig, &sebufhttp.ServiceConfig{BasePath: "/api/v1"}),
+				Name: proto.String("WidgetService"),
+				Options: withServiceOptions(
+					withServiceOption(t, sebufhttp.E_ServiceConfig, &sebufhttp.ServiceConfig{BasePath: "/api/v1"}),
+					withServiceOption(t, sebufhttp.E_ServiceHeaders, &sebufhttp.ServiceHeaders{
+						RequiredHeaders: []*sebufhttp.Header{{Name: "X-API-Key", Required: true}},
+					}),
+				),
 				Method: []*descriptorpb.MethodDescriptorProto{
 					{
 						Name:       proto.String("GetWidget"),
 						InputType:  proto.String(".test.contracts.v1.GetWidgetRequest"),
 						OutputType: proto.String(".test.contracts.v1.Widget"),
-						Options: withMethodOption(t, sebufhttp.E_Config, &sebufhttp.HttpConfig{
-							Path:   "/widgets/{id}",
-							Method: sebufhttp.HttpMethod_HTTP_METHOD_GET,
-						}),
+						Options: withMethodOptions(
+							withMethodOption(t, sebufhttp.E_Config, &sebufhttp.HttpConfig{
+								Path:   "/widgets/{id}",
+								Method: sebufhttp.HttpMethod_HTTP_METHOD_GET,
+							}),
+							withMethodOption(t, sebufhttp.E_MethodHeaders, &sebufhttp.MethodHeaders{
+								RequiredHeaders: []*sebufhttp.Header{{Name: "X-Request-ID", Required: true}},
+							}),
+						),
 					},
 					{
 						Name:       proto.String("ResetWidget"),
@@ -544,11 +560,27 @@ func withMethodOption(t *testing.T, ext protoreflect.ExtensionType, value any) *
 	return opts
 }
 
+func withMethodOptions(options ...*descriptorpb.MethodOptions) *descriptorpb.MethodOptions {
+	merged := &descriptorpb.MethodOptions{}
+	for _, option := range options {
+		proto.Merge(merged, option)
+	}
+	return merged
+}
+
 func withServiceOption(t *testing.T, ext protoreflect.ExtensionType, value any) *descriptorpb.ServiceOptions {
 	t.Helper()
 	opts := &descriptorpb.ServiceOptions{}
 	proto.SetExtension(opts, ext, value)
 	return opts
+}
+
+func withServiceOptions(options ...*descriptorpb.ServiceOptions) *descriptorpb.ServiceOptions {
+	merged := &descriptorpb.ServiceOptions{}
+	for _, option := range options {
+		proto.Merge(merged, option)
+	}
+	return merged
 }
 
 func withOneofOption(t *testing.T, ext protoreflect.ExtensionType, value any) *descriptorpb.OneofOptions {

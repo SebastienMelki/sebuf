@@ -76,6 +76,12 @@ type Query struct {
 	Required bool
 }
 
+type Header struct {
+	Name        string
+	Description string
+	Required    bool
+}
+
 type FieldAnnotations struct {
 	Query           *Query
 	Unwrap          bool
@@ -151,11 +157,13 @@ type Method struct {
 	HTTPMethod   string
 	Path         string
 	PathParams   []string
+	Headers      []*Header
 }
 
 type Service struct {
 	Name     string
 	BasePath string
+	Headers  []*Header
 	Methods  []*Method
 }
 
@@ -424,6 +432,7 @@ func collectServices(files []*protogen.File, table *symbols) []*Service {
 	for _, file := range files {
 		for _, service := range file.Services {
 			basePath := annotations.GetServiceBasePath(service)
+			serviceHeaders := headersFromAnnotation(annotations.GetServiceHeaders(service))
 			methods := make([]*Method, 0, len(service.Methods))
 			for _, method := range service.Methods {
 				httpConfig := annotations.GetMethodHTTPConfig(method)
@@ -443,10 +452,31 @@ func collectServices(files []*protogen.File, table *symbols) []*Service {
 					HTTPMethod:   httpMethod,
 					Path:         fullPath,
 					PathParams:   pathParams,
+					Headers:      headersFromAnnotation(annotations.GetMethodHeaders(method)),
 				})
 			}
-			result = append(result, &Service{Name: service.GoName, BasePath: basePath, Methods: methods})
+			result = append(result, &Service{
+				Name:     service.GoName,
+				BasePath: basePath,
+				Headers:  serviceHeaders,
+				Methods:  methods,
+			})
 		}
+	}
+	return result
+}
+
+func headersFromAnnotation(headers []*sebufhttp.Header) []*Header {
+	result := make([]*Header, 0, len(headers))
+	for _, header := range headers {
+		if header == nil || header.GetName() == "" {
+			continue
+		}
+		result = append(result, &Header{
+			Name:        header.GetName(),
+			Description: header.GetDescription(),
+			Required:    header.GetRequired(),
+		})
 	}
 	return result
 }

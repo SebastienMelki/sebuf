@@ -404,11 +404,30 @@ func TestGeneratePackage(t *testing.T) {
 					IsRoot:    true,
 				},
 			},
+			{
+				Name: "GetWidgetRequest",
+				Fields: []*contractmodel.Field{
+					{
+						Name: "id",
+						Type: &contractmodel.TypeRef{Kind: contractmodel.KindScalar, Name: "string"},
+					},
+					{
+						Name: "owner_id",
+						Type: &contractmodel.TypeRef{Kind: contractmodel.KindScalar, Name: "string"},
+						Annotations: contractmodel.FieldAnnotations{
+							Query: &contractmodel.Query{Name: "owner"},
+						},
+					},
+				},
+			},
 		},
 		Services: []*contractmodel.Service{
 			{
 				Name:     "WidgetService",
 				BasePath: "/api/v1",
+				Headers: []*contractmodel.Header{
+					{Name: "X-API-Key", Required: true},
+				},
 				Methods: []*contractmodel.Method{
 					{
 						Name:         "GetWidget",
@@ -416,6 +435,10 @@ func TestGeneratePackage(t *testing.T) {
 						Path:         "/api/v1/widgets/{id}",
 						InputType:    "GetWidgetRequest",
 						ResponseType: "Widget",
+						PathParams:   []string{"id"},
+						Headers: []*contractmodel.Header{
+							{Name: "X-Request-ID", Required: true},
+						},
 					},
 				},
 			},
@@ -443,6 +466,19 @@ func TestGeneratePackage(t *testing.T) {
 		`[JsonProperty("radius")]`,
 		"public double? Radius { get; set; }",
 		"public sealed class TagList : List<string>",
+		"public sealed class ApiException : Exception",
+		"public sealed class WidgetServiceClientOptions",
+		"public sealed class WidgetServiceCallOptions",
+		"public interface IWidgetServiceClient",
+		"public sealed class WidgetServiceClient : IWidgetServiceClient",
+		"public string? ApiKey { get; set; }",
+		"public string? RequestId { get; set; }",
+		"public async Task<Widget> GetWidgetAsync(GetWidgetRequest req, WidgetServiceCallOptions? options = null, CancellationToken cancellationToken = default)",
+		`path = path.Replace("{id}", Uri.EscapeDataString(FormatPathValue(req.Id)));`,
+		`query.Add(Uri.EscapeDataString("owner") + "=" + Uri.EscapeDataString(FormatQueryValue(req.OwnerId)));`,
+		`headers["X-API-Key"] = options.ApiKey!;`,
+		`headers["X-Request-ID"] = options.RequestId!;`,
+		"return await SendAsync<Widget>(HttpMethod.Get, requestUri, null, headers, cancellationToken);",
 		"public static class WidgetService",
 		`public const string Path = "/api/v1/widgets/{id}";`,
 		`public const string RequestType = "GetWidgetRequest";`,
