@@ -139,6 +139,47 @@ func TestCSharpTypeMappings(t *testing.T) {
 		t.Fatalf("unix millis timestamp csharpType = %q, want %q", got, "long")
 	}
 
+	durationType := &contractmodel.Field{
+		Name: "ttl",
+		Type: &contractmodel.TypeRef{Kind: contractmodel.KindWellKnown, WellKnown: contractmodel.WellKnownDuration},
+	}
+	if got := csharpType(durationType); got != "string" {
+		t.Fatalf("duration csharpType = %q, want %q", got, "string")
+	}
+
+	fieldMaskType := &contractmodel.Field{
+		Name: "mask",
+		Type: &contractmodel.TypeRef{Kind: contractmodel.KindWellKnown, WellKnown: contractmodel.WellKnownFieldMask},
+	}
+	if got := csharpType(fieldMaskType); got != "string" {
+		t.Fatalf("field mask csharpType = %q, want %q", got, "string")
+	}
+
+	listValueType := &contractmodel.Field{
+		Name: "items",
+		Type: &contractmodel.TypeRef{Kind: contractmodel.KindWellKnown, WellKnown: contractmodel.WellKnownListValue},
+	}
+	if got := csharpType(listValueType); got != "List<object>" {
+		t.Fatalf("list value csharpType = %q, want %q", got, "List<object>")
+	}
+
+	anyType := &contractmodel.Field{
+		Name: "raw",
+		Type: &contractmodel.TypeRef{Kind: contractmodel.KindWellKnown, WellKnown: contractmodel.WellKnownAny},
+	}
+	if got := csharpType(anyType); got != "object" {
+		t.Fatalf("any csharpType = %q, want %q", got, "object")
+	}
+
+	bytesWrapperType := &contractmodel.TypeRef{
+		Kind:      contractmodel.KindWellKnown,
+		Name:      "bytes",
+		WellKnown: contractmodel.WellKnownBytesWrap,
+	}
+	if got := csharpType(&contractmodel.Field{Name: "wrapped_payload", Type: bytesWrapperType}); got != "byte[]?" {
+		t.Fatalf("bytes wrapper csharpType = %q, want %q", got, "byte[]?")
+	}
+
 	wrapperType := &contractmodel.TypeRef{
 		Kind:      contractmodel.KindWellKnown,
 		Name:      "int32",
@@ -383,6 +424,62 @@ func TestMessageNeedsJSONNormalizationForRootUnwrap(t *testing.T) {
 		{name: "root repeated", message: rootRepeated},
 		{name: "root map", message: rootMap},
 		{name: "root map value unwrap", message: rootMapValueUnwrap},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			if !messageNeedsJSONNormalization(tt.message, messageIndex) {
+				t.Fatalf("expected %s to require normalization", tt.name)
+			}
+		})
+	}
+}
+
+func TestMessageNeedsJSONNormalizationForNestedAnnotatedChildren(t *testing.T) {
+	messageIndex := map[string]*contractmodel.Message{
+		"Inner": {
+			Name: "Inner",
+			Fields: []*contractmodel.Field{
+				{
+					Name: "metadata_null",
+					Type: &contractmodel.TypeRef{Kind: contractmodel.KindMessage, Name: "EmptyMessage"},
+					Annotations: contractmodel.FieldAnnotations{
+						EmptyBehavior: sebufhttp.EmptyBehavior_EMPTY_BEHAVIOR_NULL,
+					},
+				},
+			},
+		},
+		"EmptyMessage": {Name: "EmptyMessage"},
+	}
+
+	outer := &contractmodel.Message{
+		Name: "Outer",
+		Fields: []*contractmodel.Field{
+			{
+				Name: "inner",
+				Type: &contractmodel.TypeRef{Kind: contractmodel.KindMessage, Name: "Inner"},
+			},
+		},
+	}
+	outerMap := &contractmodel.Message{
+		Name: "OuterMap",
+		Fields: []*contractmodel.Field{
+			{
+				Name:  "entries",
+				IsMap: true,
+				Type: &contractmodel.TypeRef{
+					Kind:     contractmodel.KindMap,
+					MapKey:   &contractmodel.TypeRef{Kind: contractmodel.KindScalar, Name: "string"},
+					MapValue: &contractmodel.TypeRef{Kind: contractmodel.KindMessage, Name: "Inner"},
+				},
+			},
+		},
+	}
+
+	for _, tt := range []struct {
+		name    string
+		message *contractmodel.Message
+	}{
+		{name: "nested child", message: outer},
+		{name: "map child", message: outerMap},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			if !messageNeedsJSONNormalization(tt.message, messageIndex) {

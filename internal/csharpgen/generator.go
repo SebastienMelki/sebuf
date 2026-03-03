@@ -1486,7 +1486,8 @@ func messageNeedsJSONNormalization(
 			return true
 		}
 		if field.IsMap && field.Type != nil && field.Type.MapValue != nil &&
-			field.Type.MapValue.Kind == contractmodel.KindMessage && mapValueUsesUnwrap(messageIndex[field.Type.MapValue.Name]) {
+			field.Type.MapValue.Kind == contractmodel.KindMessage &&
+			messageNeedsJSONNormalization(messageIndex[field.Type.MapValue.Name], messageIndex) {
 			return true
 		}
 		if field.Type != nil && field.Type.Kind == contractmodel.KindMessage &&
