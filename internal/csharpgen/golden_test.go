@@ -5,9 +5,9 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strconv"
-	"strings"
 	"testing"
+
+	"github.com/SebastienMelki/sebuf/internal/testutil"
 )
 
 func TestCSharpGenGoldenFiles(t *testing.T) {
@@ -101,38 +101,9 @@ func TestCSharpGenGoldenFiles(t *testing.T) {
 				t.Fatalf(
 					"Generated file %s does not match golden file.\nDiff:\n%s",
 					tc.expectedFile,
-					diffStrings(string(goldenContent), string(generatedContent)),
+					testutil.DiffStrings(string(goldenContent), string(generatedContent)),
 				)
 			}
 		})
 	}
-}
-
-func diffStrings(expected, actual string) string {
-	expectedLines := strings.Split(expected, "\n")
-	actualLines := strings.Split(actual, "\n")
-	var diff strings.Builder
-	maxLines := len(expectedLines)
-	if len(actualLines) > maxLines {
-		maxLines = len(actualLines)
-	}
-	for i := range maxLines {
-		var expectedLine, actualLine string
-		if i < len(expectedLines) {
-			expectedLine = expectedLines[i]
-		}
-		if i < len(actualLines) {
-			actualLine = actualLines[i]
-		}
-		if expectedLine != actualLine {
-			diff.WriteString("Line ")
-			diff.WriteString(strconv.Itoa(i + 1))
-			diff.WriteString(":\n  expected: ")
-			diff.WriteString(expectedLine)
-			diff.WriteString("\n  actual:   ")
-			diff.WriteString(actualLine)
-			diff.WriteString("\n")
-		}
-	}
-	return diff.String()
 }
