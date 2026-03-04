@@ -29,6 +29,7 @@ This starts a working HTTP API with user management, authentication, and OpenAPI
 | **[multi-service-api](../../examples/multi-service-api/)** | Multi-tenant platform | Multiple services, different auth levels, service/method headers |
 | **[market-data-unwrap](../../examples/market-data-unwrap/)** | Financial market data API | Unwrap annotation for map values, JSON/protobuf compatibility |
 | **[csharp-contracts-demo](../../examples/csharp-contracts-demo/)** | C# contract generation demo | C# contracts, flattened fields, oneof discriminator metadata, root unwrap |
+| **[python-client-demo](../../examples/python-client-demo/)** | Python client generation demo | Python contracts, `to_dict`/`from_dict`, typed service descriptors, HTTP clients |
 | **[ts-client-demo](../../examples/ts-client-demo/)** | TypeScript client demo | TypeScript HTTP client, CRUD API, query params, headers, error handling |
 | **[ts-fullstack-demo](../../examples/ts-fullstack-demo/)** | TypeScript full-stack demo | TS client + TS server from same proto, CRUD, unwrap, custom errors |
 
@@ -148,6 +149,16 @@ HTTP client generation example for `protoc-gen-csharp-http`.
 
 ```bash
 cd examples/csharp-contracts-demo && make generate
+```
+
+### python-client-demo
+HTTP client generation example for `protoc-gen-py-client`.
+- Generates Python dataclasses plus `urllib` service clients
+- Shows `nullable`, `query`, `enum_encoding`, `enum_value`, `bytes_encoding`, `timestamp_format`, `empty_behavior`, and `unwrap`
+- Uses the `package` generator option to place output under a custom Python package path
+
+```bash
+cd examples/python-client-demo && make generate
 ```
 
 ### ts-fullstack-demo
