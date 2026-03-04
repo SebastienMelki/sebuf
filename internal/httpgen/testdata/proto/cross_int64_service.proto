@@ -1,0 +1,34 @@
+// Test proto: response with unwrap map whose element type (Bar) lives in a different file.
+// Used by TestCrossFileInt64EncodingUnwrap to reproduce the cross-file int64 bypass bug.
+syntax = "proto3";
+
+package test.httpgen.crossint64;
+
+option go_package = "github.com/SebastienMelki/sebuf/internal/httpgen/testdata/generated/crossint64;crossint64";
+
+import "sebuf/http/annotations.proto";
+import "cross_int64_bar.proto";
+
+// GetBarsResponse has a map<string, BarList> where BarList (from the other file)
+// wraps Bar (also from the other file, with int64_encoding=NUMBER on volume).
+// The unwrap generator must emit json.Marshal(item) for Bar items so that
+// Bar.MarshalJSON (from the encoding generator) is called and volume stays a number.
+message GetBarsResponse {
+  map<string, BarList> bars = 1;
+  string next_page_token = 2;
+}
+
+message GetBarsRequest {
+  string symbols = 1 [(sebuf.http.query) = {name: "symbols"}];
+}
+
+service BarsService {
+  option (sebuf.http.service_config) = {base_path: "/v2"};
+
+  rpc GetBars(GetBarsRequest) returns (GetBarsResponse) {
+    option (sebuf.http.config) = {
+      path: "/bars"
+      method: HTTP_METHOD_GET
+    };
+  }
+}

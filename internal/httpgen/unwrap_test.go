@@ -401,3 +401,78 @@ func TestCrossFileUnwrapResolution(t *testing.T) {
 		}
 	})
 }
+
+// TestCrossFileInt64EncodingUnwrap proves that when Bar (with int64_encoding=NUMBER)
+// is defined in a separate proto file from GetBarsResponse (which has a map<string,BarList>
+// unwrap field), the unwrap generator must emit json.Marshal(item) — not protojson.Marshal(item).
+//
+// If this test fails with "uses protojson.Marshal instead of json.Marshal", it means
+// collectDirectEncodingMsgNames only scans the current file and misses Bar from the imported file,
+// causing Bar.MarshalJSON (from the encoding generator) to be bypassed at runtime.
+func TestCrossFileInt64EncodingUnwrap(t *testing.T) {
+	if _, err := exec.LookPath("protoc"); err != nil {
+		t.Skip("protoc not found")
+	}
+
+	baseDir, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("Failed to get working directory: %v", err)
+	}
+
+	projectRoot := filepath.Join(baseDir, "..", "..")
+	protoDir := filepath.Join(baseDir, "testdata", "proto")
+	tempDir := t.TempDir()
+	pluginPath := filepath.Join(projectRoot, "bin", "protoc-gen-go-http")
+
+	if _, buildStatErr := os.Stat(pluginPath); os.IsNotExist(buildStatErr) {
+		buildCmd := exec.Command("make", "build")
+		buildCmd.Dir = projectRoot
+		if buildErr := buildCmd.Run(); buildErr != nil {
+			t.Fatalf("Failed to build plugin: %v", buildErr)
+		}
+	}
+
+	// Both files are passed together — Bar is in cross_int64_bar.proto,
+	// GetBarsResponse is in cross_int64_service.proto.
+	cmd := exec.Command("protoc",
+		"--plugin=protoc-gen-go-http="+pluginPath,
+		"--go_out="+tempDir,
+		"--go_opt=paths=source_relative",
+		"--go-http_out="+tempDir,
+		"--go-http_opt=paths=source_relative",
+		"--proto_path="+protoDir,
+		"--proto_path="+filepath.Join(projectRoot, "proto"),
+		"cross_int64_bar.proto",
+		"cross_int64_service.proto",
+	)
+	cmd.Dir = protoDir
+
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
+
+	if runErr := cmd.Run(); runErr != nil {
+		t.Fatalf("protoc failed: %v\nstderr: %s", runErr, stderr.String())
+	}
+
+	// The unwrap file is generated for cross_int64_service.proto (it owns GetBarsResponse).
+	unwrapContent, readErr := os.ReadFile(filepath.Join(tempDir, "cross_int64_service_unwrap.pb.go"))
+	if readErr != nil {
+		t.Fatalf("Failed to read generated unwrap file: %v", readErr)
+	}
+	content := string(unwrapContent)
+
+	// Bar.MarshalJSON (from cross_int64_bar_encoding.pb.go) converts volume to a number.
+	// The unwrap generator must call json.Marshal(item) so that method is invoked.
+	// If it calls protojson.Marshal(item) instead, Bar.MarshalJSON is bypassed and
+	// volume will be serialized as a quoted string — wrong.
+	t.Run("uses json.Marshal for Bar items so Bar.MarshalJSON is called", func(t *testing.T) {
+		if strings.Contains(content, "protojson.Marshal(item)") {
+			t.Error("unwrap generator uses protojson.Marshal(item) instead of json.Marshal(item): " +
+				"Bar.MarshalJSON from the encoding generator will be bypassed, " +
+				"and int64 fields with NUMBER encoding will be serialized as quoted strings")
+		}
+		if !strings.Contains(content, "json.Marshal(item)") {
+			t.Error("expected json.Marshal(item) in generated unwrap file")
+		}
+	})
+}
