@@ -1,0 +1,59 @@
+syntax = "proto3";
+
+package demo.contracts.v1;
+
+option go_package = "github.com/SebastienMelki/sebuf/examples/python-client-demo/gen/go;contracts";
+
+import "google/protobuf/empty.proto";
+import "google/protobuf/timestamp.proto";
+import "sebuf/http/annotations.proto";
+
+message Product {
+  string id = 1;
+  optional string display_name = 2 [(sebuf.http.nullable) = true];
+  google.protobuf.Timestamp updated_at = 3 [(sebuf.http.timestamp_format) = TIMESTAMP_FORMAT_UNIX_MILLIS];
+  bytes payload = 4 [(sebuf.http.bytes_encoding) = BYTES_ENCODING_HEX];
+  Status status = 5 [(sebuf.http.enum_encoding) = ENUM_ENCODING_NUMBER];
+
+  enum Status {
+    STATUS_UNSPECIFIED = 0;
+    STATUS_ACTIVE = 1 [(sebuf.http.enum_value) = "active"];
+  }
+}
+
+message ProductList {
+  repeated Product values = 1 [(sebuf.http.unwrap) = true];
+}
+
+message SearchProductsRequest {
+  string owner_id = 1 [(sebuf.http.query) = { name: "owner" }];
+  repeated string tag_ids = 2 [(sebuf.http.query) = { name: "tag_id" }];
+}
+
+message ArchiveProductRequest {
+  string id = 1;
+}
+
+message EmptyEnvelope {
+  google.protobuf.Empty value = 1 [(sebuf.http.empty_behavior) = EMPTY_BEHAVIOR_NULL];
+}
+
+service CatalogService {
+  option (sebuf.http.service_config) = {
+    base_path: "/api/v1"
+  };
+
+  rpc SearchProducts(SearchProductsRequest) returns (ProductList) {
+    option (sebuf.http.config) = {
+      method: HTTP_METHOD_GET
+      path: "/products"
+    };
+  }
+
+  rpc ArchiveProduct(ArchiveProductRequest) returns (google.protobuf.Empty) {
+    option (sebuf.http.config) = {
+      method: HTTP_METHOD_POST
+      path: "/products/{id}:archive"
+    };
+  }
+}
