@@ -75,6 +75,7 @@ func (g *Generator) generateServerFile(file *protogen.File) error {
 
 	// 4. Error types (shared with client)
 	tscommon.WriteErrorTypes(tscommon.Printer(p))
+	p("")
 
 	// 5. Server-specific framework types
 	g.writeServerTypes(p)

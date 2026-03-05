@@ -18,6 +18,17 @@ const (
 	TSBoolean = "boolean"
 )
 
+type GenerateOptions struct {
+	UseProtoFieldNames bool
+}
+
+func fieldName(field *protogen.Field, opts GenerateOptions) string {
+	if opts.UseProtoFieldNames {
+		return string(field.Desc.Name())
+	}
+	return field.Desc.JSONName()
+}
+
 // Printer is a function that prints a formatted line.
 type Printer func(format string, args ...interface{})
 
@@ -251,6 +262,18 @@ func CollectServiceMessages(file *protogen.File) *MessageSet {
 	return ms
 }
 
+// CollectFileMessages collects all top-level and nested messages/enums declared in a file.
+func CollectFileMessages(file *protogen.File) *MessageSet {
+	ms := NewMessageSet()
+	for _, enum := range file.Enums {
+		ms.AddEnum(enum)
+	}
+	for _, msg := range file.Messages {
+		ms.AddMessage(msg)
+	}
+	return ms
+}
+
 // TSFieldType returns the TypeScript type string for a protobuf field.
 func TSFieldType(field *protogen.Field) string {
 	// Handle map fields
@@ -379,6 +402,12 @@ func GenerateEnumType(p Printer, enum *protogen.Enum) {
 // GenerateInterface writes a TypeScript interface for a protobuf message.
 // If the message has discriminated oneofs, it generates appropriate union types.
 func GenerateInterface(p Printer, msg *protogen.Message) {
+	GenerateInterfaceWithOptions(p, msg, GenerateOptions{})
+}
+
+// GenerateInterfaceWithOptions writes a TypeScript interface for a protobuf message.
+// If the message has discriminated oneofs, it generates appropriate union types.
+func GenerateInterfaceWithOptions(p Printer, msg *protogen.Message, opts GenerateOptions) {
 	name := string(msg.Desc.Name())
 
 	// Collect discriminated oneof info
@@ -401,18 +430,23 @@ func GenerateInterface(p Printer, msg *protogen.Message) {
 
 	// Generate discriminated union types before the message
 	for _, info := range discriminatedOneofs {
-		GenerateOneofDiscriminatedUnionType(p, name, info)
+		GenerateOneofDiscriminatedUnionType(p, name, info, opts)
 	}
 
 	if hasFlattenedOneof {
-		GenerateFlattenedOneofInterface(p, msg, name, discriminatedOneofs)
+		GenerateFlattenedOneofInterface(p, msg, name, discriminatedOneofs, opts)
 	} else {
-		GenerateStandardInterface(p, msg, name, discriminatedOneofs)
+		GenerateStandardInterface(p, msg, name, discriminatedOneofs, opts)
 	}
 }
 
 // GenerateOneofDiscriminatedUnionType generates a TypeScript discriminated union type for a oneof.
-func GenerateOneofDiscriminatedUnionType(p Printer, msgName string, info *annotations.OneofDiscriminatorInfo) {
+func GenerateOneofDiscriminatedUnionType(
+	p Printer,
+	msgName string,
+	info *annotations.OneofDiscriminatorInfo,
+	opts GenerateOptions,
+) {
 	unionName := msgName + SnakeToUpperCamel(string(info.Oneof.Desc.Name()))
 
 	var branches []string
@@ -424,7 +458,7 @@ func GenerateOneofDiscriminatedUnionType(p Printer, msgName string, info *annota
 			branch = fmt.Sprintf("{ %s: \"%s\"", info.Discriminator, variant.DiscriminatorVal)
 			var sb strings.Builder
 			for _, childField := range variant.Field.Message.Fields {
-				jsonName := childField.Desc.JSONName()
+				jsonName := fieldName(childField, opts)
 				tsType := TSFieldType(childField)
 				fmt.Fprintf(&sb, "; %s: %s", jsonName, tsType)
 			}
@@ -432,7 +466,7 @@ func GenerateOneofDiscriminatedUnionType(p Printer, msgName string, info *annota
 			branch += " }"
 		case variant.IsMessage:
 			// Non-flattened message: { discriminator: "value", fieldName?: MessageType }
-			fieldJSONName := variant.Field.Desc.JSONName()
+			fieldJSONName := fieldName(variant.Field, opts)
 			msgType := string(variant.Field.Message.Desc.Name())
 			branch = fmt.Sprintf(
 				"{ %s: \"%s\"; %s?: %s }",
@@ -443,7 +477,7 @@ func GenerateOneofDiscriminatedUnionType(p Printer, msgName string, info *annota
 			)
 		default:
 			// Non-flattened scalar: { discriminator: "value", fieldName?: scalarType }
-			fieldJSONName := variant.Field.Desc.JSONName()
+			fieldJSONName := fieldName(variant.Field, opts)
 			tsType := TSScalarTypeForField(variant.Field)
 			branch = fmt.Sprintf(
 				"{ %s: \"%s\"; %s?: %s }",
@@ -474,6 +508,7 @@ func GenerateFlattenedOneofInterface(
 	msg *protogen.Message,
 	name string,
 	discriminatedOneofs []*annotations.OneofDiscriminatorInfo,
+	opts GenerateOptions,
 ) {
 	// Build set of fields that belong to discriminated oneofs
 	oneofFields := BuildOneofFieldSet(discriminatedOneofs)
@@ -486,10 +521,10 @@ func GenerateFlattenedOneofInterface(
 		}
 		if annotations.IsFlattenField(field) && field.Message != nil {
 			prefix := annotations.GetFlattenPrefix(field)
-			GenerateFlattenedFields(p, field.Message, prefix)
+			GenerateFlattenedFields(p, field.Message, prefix, opts)
 			continue
 		}
-		GenerateFieldDeclaration(p, field)
+		GenerateFieldDeclaration(p, field, opts)
 	}
 	p("}")
 	p("")
@@ -511,6 +546,7 @@ func GenerateStandardInterface(
 	msg *protogen.Message,
 	name string,
 	discriminatedOneofs []*annotations.OneofDiscriminatorInfo,
+	opts GenerateOptions,
 ) {
 	// Build set of fields that belong to discriminated oneofs
 	oneofFields := BuildOneofFieldSet(discriminatedOneofs)
@@ -541,11 +577,11 @@ func GenerateStandardInterface(
 
 		if annotations.IsFlattenField(field) && field.Message != nil {
 			prefix := annotations.GetFlattenPrefix(field)
-			GenerateFlattenedFields(p, field.Message, prefix)
+			GenerateFlattenedFields(p, field.Message, prefix, opts)
 			continue
 		}
 
-		GenerateFieldDeclaration(p, field)
+		GenerateFieldDeclaration(p, field, opts)
 	}
 	p("}")
 	p("")
@@ -563,8 +599,8 @@ func BuildOneofFieldSet(discriminatedOneofs []*annotations.OneofDiscriminatorInf
 }
 
 // GenerateFieldDeclaration generates a single TypeScript field declaration line.
-func GenerateFieldDeclaration(p Printer, field *protogen.Field) {
-	jsonName := field.Desc.JSONName()
+func GenerateFieldDeclaration(p Printer, field *protogen.Field, opts GenerateOptions) {
+	jsonName := fieldName(field, opts)
 	tsType := TSFieldType(field)
 
 	//nolint:gocritic // if-else chain is clearer than switch for distinct boolean checks
@@ -589,9 +625,14 @@ func SnakeToUpperCamel(s string) string {
 }
 
 // GenerateFlattenedFields inlines child message fields at the parent level with optional prefix.
-func GenerateFlattenedFields(p Printer, childMsg *protogen.Message, prefix string) {
+func GenerateFlattenedFields(
+	p Printer,
+	childMsg *protogen.Message,
+	prefix string,
+	opts GenerateOptions,
+) {
 	for _, childField := range childMsg.Fields {
-		jsonName := prefix + childField.Desc.JSONName()
+		jsonName := prefix + fieldName(childField, opts)
 		tsType := TSFieldType(childField)
 
 		//nolint:gocritic // if-else chain is clearer than switch for distinct boolean checks
@@ -669,5 +710,4 @@ func WriteErrorTypes(p Printer) {
 	p("    this.body = body;")
 	p("  }")
 	p("}")
-	p("")
 }
