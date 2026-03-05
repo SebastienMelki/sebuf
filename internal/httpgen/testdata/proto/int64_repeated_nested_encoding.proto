@@ -1,0 +1,39 @@
+// Reproducer for the repeated-nested-int64-NUMBER bug:
+// A message with int64_encoding=NUMBER used as a repeated field in a response wrapper.
+syntax = "proto3";
+
+package testdata.int64repeatednested;
+
+option go_package = "github.com/SebastienMelki/sebuf/internal/httpgen/testdata/int64repeatednested;int64repeatednested";
+
+import "sebuf/http/annotations.proto";
+
+// Stock is a single item with an int64 NUMBER-encoded field.
+message Stock {
+  string symbol = 1;
+  int64 volume  = 2 [(sebuf.http.int64_encoding) = INT64_ENCODING_NUMBER];
+}
+
+// GetStocksResponse wraps a REPEATED Stock.
+// This is the bug trigger: the wrapper generator must emit []*Stock, not *Stock.
+message GetStocksResponse {
+  repeated Stock stocks      = 1;
+  string         last_updated = 2;
+}
+
+message GetStocksRequest {
+  string market = 1;
+}
+
+service StockService {
+  option (sebuf.http.service_config) = {
+    base_path: "/api/v1"
+  };
+
+  rpc GetStocks(GetStocksRequest) returns (GetStocksResponse) {
+    option (sebuf.http.config) = {
+      path: "/stocks/{market}"
+      method: HTTP_METHOD_GET
+    };
+  }
+}

@@ -27,6 +27,9 @@ func TestHTTPGenGoldenFiles(t *testing.T) {
 	testCases := []struct {
 		name      string
 		protoFile string
+		// extraProtoFiles holds additional proto files to pass to protoc alongside protoFile.
+		// Used for cross-file scenarios where two or more files must be compiled together.
+		extraProtoFiles []string
 		// Expected generated files (without path prefix)
 		expectedFiles []string
 	}{
@@ -157,6 +160,39 @@ func TestHTTPGenGoldenFiles(t *testing.T) {
 				"oneof_discriminator_oneof_discriminator.pb.go",
 			},
 		},
+		{
+			name:      "unwrap + int64 encoding (issue #134)",
+			protoFile: "unwrap_int64_encoding.proto",
+			expectedFiles: []string{
+				"unwrap_int64_encoding_http.pb.go",
+				"unwrap_int64_encoding_http_binding.pb.go",
+				"unwrap_int64_encoding_http_config.pb.go",
+				"unwrap_int64_encoding_unwrap.pb.go",
+				"unwrap_int64_encoding_encoding.pb.go",
+			},
+		},
+		{
+			name:      "int64 repeated nested encoding (repeated wrapper bug)",
+			protoFile: "int64_repeated_nested_encoding.proto",
+			expectedFiles: []string{
+				"int64_repeated_nested_encoding_http.pb.go",
+				"int64_repeated_nested_encoding_http_binding.pb.go",
+				"int64_repeated_nested_encoding_http_config.pb.go",
+				"int64_repeated_nested_encoding_encoding.pb.go",
+			},
+		},
+		{
+			name:            "cross-file unwrap + int64 encoding (issue #134 cross-file)",
+			protoFile:       "cross_int64_service.proto",
+			extraProtoFiles: []string{"cross_int64_bar.proto"},
+			expectedFiles: []string{
+				"cross_int64_service_http.pb.go",
+				"cross_int64_service_http_binding.pb.go",
+				"cross_int64_service_http_config.pb.go",
+				"cross_int64_service_unwrap.pb.go",
+				"cross_int64_bar_encoding.pb.go",
+			},
+		},
 	}
 
 	// Get paths
@@ -204,16 +240,18 @@ func TestHTTPGenGoldenFiles(t *testing.T) {
 			}
 
 			// Run protoc with go-http plugin (using explicit plugin path)
-			cmd := exec.Command("protoc",
-				"--plugin=protoc-gen-go-http="+pluginPath,
-				"--go_out="+tempDir,
+			protocArgs := []string{
+				"--plugin=protoc-gen-go-http=" + pluginPath,
+				"--go_out=" + tempDir,
 				"--go_opt=paths=source_relative",
-				"--go-http_out="+tempDir,
+				"--go-http_out=" + tempDir,
 				"--go-http_opt=paths=source_relative",
-				"--proto_path="+protoDir,
-				"--proto_path="+filepath.Join(projectRoot, "proto"),
+				"--proto_path=" + protoDir,
+				"--proto_path=" + filepath.Join(projectRoot, "proto"),
 				tc.protoFile,
-			)
+			}
+			protocArgs = append(protocArgs, tc.extraProtoFiles...)
+			cmd := exec.Command("protoc", protocArgs...)
 			cmd.Dir = protoDir
 
 			var stderr bytes.Buffer
