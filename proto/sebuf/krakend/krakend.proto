@@ -172,6 +172,14 @@ message GatewayConfig {
   // fastest successful response. Useful for latency-sensitive endpoints.
   // Default: 1 (no concurrency). Typical values: 2-3.
   int32 concurrent_calls = 8;
+
+  // Name of a shared input-headers partial template for Flexible Config output.
+  // When set, the .tmpl output uses {{ include "<partial>" }} instead of
+  // inlining the header list. The partial file is NOT generated — it must be
+  // hand-maintained by the gateway team so they can evolve header sets centrally.
+  // Example: "trading_input_headers.tmpl"
+  // When empty, the generator emits explicit "input_headers": [...] arrays.
+  string input_headers_partial = 9;
 }
 
 // ---------------------------------------------------------------------------
@@ -217,6 +225,12 @@ message EndpointConfig {
 
   // Override concurrent calls for this endpoint.
   int32 concurrent_calls = 7;
+
+  // Enable recaptcha/bot-protection for this endpoint.
+  // When true, the .tmpl output includes {{ include "recpatcha_validator.tmpl" }}
+  // in the endpoint's extra_config. The partial itself is hand-maintained by the
+  // gateway team. Only applicable to .tmpl output (ignored in .json).
+  bool recaptcha = 8;
 }
 
 // ---------------------------------------------------------------------------

@@ -12,7 +12,7 @@ See: .planning/PROJECT.md (updated 2026-02-25)
 Phase: 14 of 14 (Documentation and Examples)
 Plan: 3 of 3 in current phase
 Status: All Plans Complete
-Last activity: 2026-02-25 -- Completed 14-02 (KrakenD Gateway Example)
+Last activity: 2026-03-16 - Completed quick task 4: KrakenD generator: produce .tmpl files with Go template syntax for Flexible Config
 
 Progress: [##########] 100%
 
@@ -90,6 +90,7 @@ None.
 | 1 | Fix 6 TS generator bugs: enum query params, repeated fields, duplicate URL const, unused req param | 2026-02-27 | 9fef624 | [1-fix-6-ts-generator-bugs-enum-query-param](./quick/1-fix-6-ts-generator-bugs-enum-query-param/) |
 | 2 | Add unit tests for tscommon helpers and enum_value coverage | 2026-02-27 | 20957fd | [2-add-unit-tests-for-tscommon-helpers-and-](./quick/2-add-unit-tests-for-tscommon-helpers-and-/) |
 | 3 | Fix TS server path param fields missing from initial body literal | 2026-02-27 | ba48113 | [3-fix-ts-server-path-param-fields-missing-](./quick/3-fix-ts-server-path-param-fields-missing-/) |
+| 4 | KrakenD generator: produce .tmpl files with Go template syntax for Flexible Config | 2026-03-16 | pending | [3-krakend-generator-produce-tmpl-files-wit](./quick/3-krakend-generator-produce-tmpl-files-wit/) |
 
 ## Session Continuity
 

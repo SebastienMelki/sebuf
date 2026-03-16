@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/SebastienMelki/sebuf/internal/krakendgen"
 )
 
 // ---------------------------------------------------------------------------
@@ -222,6 +224,138 @@ func TestKrakenDGoldenFiles(t *testing.T) {
 				t.Logf("Match: %s (%d bytes)", tc.name, len(generatedContent))
 			}
 		})
+	}
+}
+
+// ---------------------------------------------------------------------------
+// TestKrakenDTemplateGoldenFiles — .tmpl Flexible Config output
+// ---------------------------------------------------------------------------
+
+func TestKrakenDTemplateGoldenFiles(t *testing.T) {
+	if _, err := exec.LookPath("protoc"); err != nil {
+		t.Skip("protoc not found, skipping template golden file tests")
+	}
+
+	baseDir, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("Failed to get working directory: %v", err)
+	}
+
+	projectRoot := filepath.Join(baseDir, "..", "..")
+	protoDir := filepath.Join(baseDir, "testdata", "proto")
+	goldenDir := filepath.Join(baseDir, "testdata", "golden")
+
+	if mkdirErr := os.MkdirAll(goldenDir, 0o755); mkdirErr != nil {
+		t.Fatalf("Failed to create golden directory: %v", mkdirErr)
+	}
+
+	pluginPath := filepath.Join(projectRoot, "bin", "protoc-gen-krakend")
+
+	if _, statErr := os.Stat(pluginPath); os.IsNotExist(statErr) {
+		buildCmd := exec.Command("make", "build")
+		buildCmd.Dir = projectRoot
+		if buildErr := buildCmd.Run(); buildErr != nil {
+			t.Fatalf("Failed to build plugin: %v", buildErr)
+		}
+	}
+
+	// Each test case maps a proto file to one or more services. Multi-service
+	// protos generate one .tmpl per service — each needs its own golden file.
+	type tmplCase struct {
+		goldenName  string // golden file: testdata/golden/{goldenName}.krakend.tmpl
+		serviceName string // proto service name → derives generated .tmpl filename
+	}
+
+	testCases := []struct {
+		protoFile string
+		services  []tmplCase
+	}{
+		{protoFile: "simple_service.proto", services: []tmplCase{
+			{goldenName: "simple_service", serviceName: "UserService"},
+		}},
+		{protoFile: "timeout_config.proto", services: []tmplCase{
+			{goldenName: "timeout_config", serviceName: "TimeoutService"},
+		}},
+		{protoFile: "host_config.proto", services: []tmplCase{
+			{goldenName: "host_config", serviceName: "HostService"},
+		}},
+		{protoFile: "headers_forwarding.proto", services: []tmplCase{
+			{goldenName: "headers_forwarding", serviceName: "HeaderForwardingService"},
+			{goldenName: "headers_no_headers", serviceName: "NoHeaderService"},
+		}},
+		{protoFile: "query_forwarding.proto", services: []tmplCase{
+			{goldenName: "query_forwarding", serviceName: "QueryForwardingService"},
+		}},
+		{protoFile: "combined_forwarding.proto", services: []tmplCase{
+			{goldenName: "combined_forwarding", serviceName: "CombinedForwardingService"},
+		}},
+		{protoFile: "rate_limit_service.proto", services: []tmplCase{
+			{goldenName: "rate_limit_service", serviceName: "RateLimitService"},
+		}},
+		{protoFile: "jwt_auth_service.proto", services: []tmplCase{
+			{goldenName: "jwt_auth_service", serviceName: "JWTAuthService"},
+		}},
+		{protoFile: "circuit_breaker_service.proto", services: []tmplCase{
+			{goldenName: "circuit_breaker_service", serviceName: "CircuitBreakerService"},
+		}},
+		{protoFile: "cache_concurrent_service.proto", services: []tmplCase{
+			{goldenName: "cache_concurrent_service", serviceName: "CacheConcurrentService"},
+		}},
+		{protoFile: "full_gateway_service.proto", services: []tmplCase{
+			{goldenName: "full_gateway_service", serviceName: "FullGatewayService"},
+		}},
+	}
+
+	for _, tc := range testCases {
+		for _, svc := range tc.services {
+			t.Run(svc.goldenName, func(t *testing.T) {
+				tempDir := t.TempDir()
+
+				cmd := exec.Command("protoc",
+					"--plugin=protoc-gen-krakend="+pluginPath,
+					"--krakend_out="+tempDir,
+					"--proto_path="+protoDir,
+					"--proto_path="+filepath.Join(projectRoot, "proto"),
+					tc.protoFile,
+				)
+
+				var stdout, stderr bytes.Buffer
+				cmd.Stdout = &stdout
+				cmd.Stderr = &stderr
+
+				if runErr := cmd.Run(); runErr != nil {
+					t.Fatalf("protoc failed for %s: %v\nStdout: %s\nStderr: %s",
+						svc.goldenName, runErr, stdout.String(), stderr.String())
+				}
+
+				tmplFileName := krakendgen.TemplateFileName(svc.serviceName)
+				generatedFile := filepath.Join(tempDir, tmplFileName)
+				goldenFile := filepath.Join(goldenDir, svc.goldenName+".krakend.tmpl")
+
+				generatedContent, readErr := os.ReadFile(generatedFile)
+				if readErr != nil {
+					t.Fatalf("Failed to read generated file %s: %v", generatedFile, readErr)
+				}
+
+				goldenContent, goldenReadErr := os.ReadFile(goldenFile)
+				if goldenReadErr != nil {
+					if created := tryCreateGoldenFile(t, goldenFile, generatedContent, goldenReadErr); created {
+						return
+					}
+					t.Fatalf(
+						"Failed to read golden file %s: %v\nRun with UPDATE_GOLDEN=1 to create it",
+						goldenFile,
+						goldenReadErr,
+					)
+				}
+
+				if !bytes.Equal(generatedContent, goldenContent) {
+					reportGoldenFileMismatch(t, svc.goldenName, goldenFile, generatedContent, goldenContent)
+				} else {
+					t.Logf("Match: %s (%d bytes)", svc.goldenName, len(generatedContent))
+				}
+			})
+		}
 	}
 }
 

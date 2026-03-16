@@ -44,6 +44,8 @@ func createPlugin(req *pluginpb.CodeGeneratorRequest) *protogen.Plugin {
 
 func generateFiles(plugin *protogen.Plugin) {
 	var allEndpoints []krakendgen.Endpoint
+	// Track endpoints grouped by service name for per-service .tmpl output.
+	serviceEndpoints := make(map[string][]krakendgen.Endpoint)
 
 	for _, file := range plugin.Files {
 		if !file.Generate {
@@ -56,6 +58,10 @@ func generateFiles(plugin *protogen.Plugin) {
 				return
 			}
 			allEndpoints = append(allEndpoints, endpoints...)
+			if len(endpoints) > 0 {
+				svcName := string(service.Desc.Name())
+				serviceEndpoints[svcName] = append(serviceEndpoints[svcName], endpoints...)
+			}
 		}
 	}
 
@@ -64,6 +70,8 @@ func generateFiles(plugin *protogen.Plugin) {
 		plugin.Error(err)
 		return
 	}
+
+	// --- JSON output (unchanged) ---
 
 	// Ensure nil slice marshals as [] not null.
 	if allEndpoints == nil {
@@ -86,6 +94,19 @@ func generateFiles(plugin *protogen.Plugin) {
 	generatedFile := plugin.NewGeneratedFile("krakend.json", "")
 	if _, writeErr := generatedFile.Write(append(jsonBytes, '\n')); writeErr != nil {
 		plugin.Error(fmt.Errorf("failed to write krakend.json: %w", writeErr))
+	}
+
+	// --- Template output (one .tmpl per service) ---
+
+	for svcName, eps := range serviceEndpoints {
+		tmplContent := krakendgen.GenerateTemplateFile(eps)
+		if tmplContent == "" {
+			continue
+		}
+		tmplFile := plugin.NewGeneratedFile(krakendgen.TemplateFileName(svcName), "")
+		if _, writeErr := tmplFile.Write([]byte(tmplContent + "\n")); writeErr != nil {
+			plugin.Error(fmt.Errorf("failed to write %s: %w", krakendgen.TemplateFileName(svcName), writeErr))
+		}
 	}
 }
 

@@ -1,0 +1,41 @@
+{
+    "endpoint": "/api/v1/search",
+    "method": "GET",
+    "output_encoding": "json",
+    "input_query_strings": ["filter","page","page_size"],
+    "backend": [
+        {
+            "url_pattern": "/api/v1/search",
+            "encoding": "json",
+            "sd": "static",
+            "method": "GET",
+            "host": ["{{ .vars.query_forwarding_service_host }}"],
+            "disable_host_sanitize": false,
+            "extra_config": {
+                "backend/http": {
+                    "return_error_code": true
+                }
+            }
+        }
+    ]
+},
+{
+    "endpoint": "/api/v1/create",
+    "method": "POST",
+    "output_encoding": "json",
+    "backend": [
+        {
+            "url_pattern": "/api/v1/create",
+            "encoding": "json",
+            "sd": "static",
+            "method": "POST",
+            "host": ["{{ .vars.query_forwarding_service_host }}"],
+            "disable_host_sanitize": false,
+            "extra_config": {
+                "backend/http": {
+                    "return_error_code": true
+                }
+            }
+        }
+    ]
+}

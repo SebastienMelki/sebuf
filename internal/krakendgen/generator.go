@@ -158,6 +158,13 @@ func buildEndpoint(
 	ep.ExtraConfig = buildEndpointExtraConfig(gwConfig, epConfig)
 	ep.Backend[0].ExtraConfig = buildBackendExtraConfig(gwConfig, epConfig)
 
+	// Template metadata (json:"-" fields, used only for .tmpl generation).
+	ep.ServiceName = string(service.Desc.Name())
+	ep.HasJWT = gwConfig.GetJwt() != nil
+	ep.HasRecaptcha = epConfig.GetRecaptcha()
+	ep.HeaderPartial = gwConfig.GetInputHeadersPartial()
+	ep.IsMethodTimeout = epConfig != nil && epConfig.GetTimeout() != ""
+
 	return ep
 }
 

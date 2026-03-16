@@ -1,0 +1,20 @@
+{
+    "endpoint": "/api/v1/no-headers",
+    "method": "GET",
+    "output_encoding": "json",
+    "backend": [
+        {
+            "url_pattern": "/api/v1/no-headers",
+            "encoding": "json",
+            "sd": "static",
+            "method": "GET",
+            "host": ["{{ .vars.no_header_service_host }}"],
+            "disable_host_sanitize": false,
+            "extra_config": {
+                "backend/http": {
+                    "return_error_code": true
+                }
+            }
+        }
+    ]
+}
