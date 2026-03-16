@@ -146,7 +146,7 @@ jobs:
         
       - name: Upload test results
         if: always()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: test-results-${{ matrix.os }}-go${{ matrix.go-version }}
           path: |
@@ -166,7 +166,7 @@ jobs:
         uses: actions/checkout@v6
           
       - name: Download coverage from test job
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           name: test-results-ubuntu-latest-go1.24
           path: ./coverage-download
@@ -254,7 +254,7 @@ jobs:
           coverage-file-name: coverage/coverage.out
           
       - name: Upload coverage reports
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: coverage-reports
           path: |
@@ -269,7 +269,7 @@ jobs:
     continue-on-error: true  # Don't fail the whole pipeline on coverage issues
     steps:
       - name: Download coverage reports
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           name: coverage-reports
           path: ./
@@ -354,7 +354,7 @@ jobs:
           ./bin/protoc-gen-openapiv3 --version || true
           
       - name: Upload binaries
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: plugin-binaries
           path: bin/
@@ -398,7 +398,7 @@ jobs:
           go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
           
       - name: Download binaries
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           name: plugin-binaries
           path: bin/

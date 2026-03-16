@@ -37,6 +37,17 @@ export interface GetWithFiltersRequest {
   limit: number;
 }
 
+export interface SearchAdvancedRequest {
+  region: Region;
+  countries: string[];
+  keyword: string;
+}
+
+export interface EmptyRequest {
+}
+
+export type Region = "unspecified" | "americas" | "europe" | "asia";
+
 export interface FieldViolation {
   field: string;
   description: string;
@@ -86,6 +97,8 @@ export interface QueryParamServiceHandler {
   searchRequired(ctx: ServerContext, req: SearchRequiredRequest): Promise<SearchResponse>;
   searchCustomNames(ctx: ServerContext, req: SearchCustomNamesRequest): Promise<SearchResponse>;
   getWithFilters(ctx: ServerContext, req: GetWithFiltersRequest): Promise<SearchResponse>;
+  searchAdvanced(ctx: ServerContext, req: SearchAdvancedRequest): Promise<SearchResponse>;
+  getDefaults(ctx: ServerContext, req: EmptyRequest): Promise<SearchResponse>;
 }
 
 export function createQueryParamServiceRoutes(
@@ -257,9 +270,9 @@ export function createQueryParamServiceRoutes(
           const pathSegments = url.pathname.split("/");
           pathParams["resource_id"] = decodeURIComponent(pathSegments[3] ?? "");
 
-          const url = new URL(req.url, "http://localhost");
           const params = url.searchParams;
           const body: GetWithFiltersRequest = {
+            resourceId: pathParams["resource_id"],
             filter: params.get("filter") ?? "",
             limit: Number(params.get("limit") ?? "0"),
           };
@@ -270,8 +283,6 @@ export function createQueryParamServiceRoutes(
             }
           }
 
-          body.resourceId = pathParams["resource_id"];
-
           const ctx: ServerContext = {
             request: req,
             pathParams,
@@ -279,6 +290,92 @@ export function createQueryParamServiceRoutes(
           };
 
           const result = await handler.getWithFilters(ctx, body);
+          return new Response(JSON.stringify(result as SearchResponse), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          });
+        } catch (err: unknown) {
+          if (err instanceof ValidationError) {
+            return new Response(JSON.stringify({ violations: err.violations }), {
+              status: 400,
+              headers: { "Content-Type": "application/json" },
+            });
+          }
+          if (options?.onError) {
+            return options.onError(err, req);
+          }
+          const message = err instanceof Error ? err.message : String(err);
+          return new Response(JSON.stringify({ message }), {
+            status: 500,
+            headers: { "Content-Type": "application/json" },
+          });
+        }
+      },
+    },
+    {
+      method: "GET",
+      path: "/api/search/advanced",
+      handler: async (req: Request): Promise<Response> => {
+        try {
+          const pathParams: Record<string, string> = {};
+          const url = new URL(req.url, "http://localhost");
+          const params = url.searchParams;
+          const body: SearchAdvancedRequest = {
+            region: (params.get("region") ?? "unspecified") as Region,
+            countries: params.getAll("countries"),
+            keyword: params.get("keyword") ?? "",
+          };
+          if (options?.validateRequest) {
+            const bodyViolations = options.validateRequest("searchAdvanced", body);
+            if (bodyViolations) {
+              throw new ValidationError(bodyViolations);
+            }
+          }
+
+          const ctx: ServerContext = {
+            request: req,
+            pathParams,
+            headers: Object.fromEntries(req.headers.entries()),
+          };
+
+          const result = await handler.searchAdvanced(ctx, body);
+          return new Response(JSON.stringify(result as SearchResponse), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          });
+        } catch (err: unknown) {
+          if (err instanceof ValidationError) {
+            return new Response(JSON.stringify({ violations: err.violations }), {
+              status: 400,
+              headers: { "Content-Type": "application/json" },
+            });
+          }
+          if (options?.onError) {
+            return options.onError(err, req);
+          }
+          const message = err instanceof Error ? err.message : String(err);
+          return new Response(JSON.stringify({ message }), {
+            status: 500,
+            headers: { "Content-Type": "application/json" },
+          });
+        }
+      },
+    },
+    {
+      method: "GET",
+      path: "/api/defaults",
+      handler: async (req: Request): Promise<Response> => {
+        try {
+          const pathParams: Record<string, string> = {};
+          const body = {} as EmptyRequest;
+
+          const ctx: ServerContext = {
+            request: req,
+            pathParams,
+            headers: Object.fromEntries(req.headers.entries()),
+          };
+
+          const result = await handler.getDefaults(ctx, body);
           return new Response(JSON.stringify(result as SearchResponse), {
             status: 200,
             headers: { "Content-Type": "application/json" },

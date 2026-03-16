@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"google.golang.org/protobuf/compiler/protogen"
+	"google.golang.org/protobuf/reflect/protoreflect"
 
 	"github.com/SebastienMelki/sebuf/internal/annotations"
 )
@@ -82,6 +83,57 @@ func collectInt64EncodingMessages(messages []*protogen.Message, contexts *[]*Int
 	}
 }
 
+// Int64WrapperContext holds information about messages that contain nested messages
+// with int64 NUMBER encoding — requiring transitive MarshalJSON/UnmarshalJSON.
+type Int64WrapperContext struct {
+	// Message is the wrapper message that needs transitive marshal/unmarshal
+	Message *protogen.Message
+	// NestedFields are message-type fields whose type has direct NUMBER encoding
+	NestedFields []*protogen.Field
+}
+
+// collectWrapperContexts finds messages that contain fields whose message type
+// has direct int64 NUMBER encoding (i.e., types already in directMsgNames).
+func collectWrapperContexts(file *protogen.File, directMsgNames map[string]bool) []*Int64WrapperContext {
+	var contexts []*Int64WrapperContext
+	collectWrapperMessages(file.Messages, directMsgNames, &contexts)
+	return contexts
+}
+
+// collectWrapperMessages recursively collects wrapper messages.
+func collectWrapperMessages(
+	messages []*protogen.Message,
+	directMsgNames map[string]bool,
+	contexts *[]*Int64WrapperContext,
+) {
+	for _, msg := range messages {
+		// Skip messages that already have direct NUMBER fields (handled by existing logic)
+		if directMsgNames[string(msg.Desc.FullName())] {
+			collectWrapperMessages(msg.Messages, directMsgNames, contexts)
+			continue
+		}
+
+		var nestedFields []*protogen.Field
+		for _, field := range msg.Fields {
+			if field.Desc.Kind() == protoreflect.MessageKind &&
+				!field.Desc.IsMap() &&
+				field.Message != nil &&
+				directMsgNames[string(field.Message.Desc.FullName())] {
+				nestedFields = append(nestedFields, field)
+			}
+		}
+
+		if len(nestedFields) > 0 {
+			*contexts = append(*contexts, &Int64WrapperContext{
+				Message:      msg,
+				NestedFields: nestedFields,
+			})
+		}
+
+		collectWrapperMessages(msg.Messages, directMsgNames, contexts)
+	}
+}
+
 // printInt64PrecisionWarning prints a generation-time warning for fields with NUMBER encoding.
 func printInt64PrecisionWarning(w io.Writer, field *protogen.Field, messageName string) {
 	_, _ = w.Write([]byte(
@@ -94,8 +146,17 @@ func printInt64PrecisionWarning(w io.Writer, field *protogen.Field, messageName 
 func (g *Generator) generateInt64EncodingFile(file *protogen.File) error {
 	contexts := collectInt64EncodingContext(file)
 
+	// Build set of message full names that have direct NUMBER fields
+	directMsgNames := make(map[string]bool, len(contexts))
+	for _, ctx := range contexts {
+		directMsgNames[string(ctx.Message.Desc.FullName())] = true
+	}
+
+	// Collect wrapper messages whose fields reference messages with NUMBER fields
+	wrapperContexts := collectWrapperContexts(file, directMsgNames)
+
 	// If no messages need int64 encoding, skip generation
-	if len(contexts) == 0 {
+	if len(contexts) == 0 && len(wrapperContexts) == 0 {
 		return nil
 	}
 
@@ -105,15 +166,20 @@ func (g *Generator) generateInt64EncodingFile(file *protogen.File) error {
 	g.writeEncodingHeader(gf, file)
 	g.writeInt64EncodingImports(gf)
 
-	// Generate marshal/unmarshal for each message
+	// Generate marshal/unmarshal for messages with direct NUMBER fields
 	for _, ctx := range contexts {
-		// Print warnings during generation
 		for _, field := range ctx.NumberFields {
 			printInt64PrecisionWarning(os.Stderr, field, ctx.Message.GoIdent.GoName)
 		}
 
 		g.generateInt64MarshalJSON(gf, ctx)
 		g.generateInt64UnmarshalJSON(gf, ctx)
+	}
+
+	// Generate transitive marshal/unmarshal for wrapper messages
+	for _, ctx := range wrapperContexts {
+		g.generateWrapperMarshalJSON(gf, ctx)
+		g.generateWrapperUnmarshalJSON(gf, ctx)
 	}
 
 	return nil
@@ -335,4 +401,103 @@ func (g *Generator) generateRepeatedInt64FieldUnmarshal(
 func isUint64Type(field *protogen.Field) bool {
 	kind := field.Desc.Kind().String()
 	return kind == kindUint64 || kind == kindFixed64
+}
+
+// generateWrapperMarshalJSON generates a MarshalJSON that re-marshals nested
+// messages via json.Marshal, so their custom MarshalJSON methods are called.
+func (g *Generator) generateWrapperMarshalJSON(gf *protogen.GeneratedFile, ctx *Int64WrapperContext) {
+	msgName := ctx.Message.GoIdent.GoName
+
+	var nestedFieldNames []string
+	for _, f := range ctx.NestedFields {
+		nestedFieldNames = append(nestedFieldNames, string(f.Desc.Name()))
+	}
+
+	gf.P("// MarshalJSON implements json.Marshaler for ", msgName, ".")
+	gf.P(
+		"// This method re-marshals nested messages that have int64_encoding=NUMBER fields: ",
+		strings.Join(nestedFieldNames, ", "),
+	)
+	gf.P("func (x *", msgName, ") MarshalJSON() ([]byte, error) {")
+	gf.P("if x == nil {")
+	gf.P("return []byte(\"null\"), nil")
+	gf.P("}")
+	gf.P()
+	gf.P("// Use protojson for base serialization (handles all other fields correctly)")
+	gf.P("data, err := protojson.Marshal(x)")
+	gf.P("if err != nil {")
+	gf.P("return nil, err")
+	gf.P("}")
+	gf.P()
+	gf.P("// Parse into a map to re-serialize nested messages with custom MarshalJSON")
+	gf.P("var raw map[string]json.RawMessage")
+	gf.P("if err := json.Unmarshal(data, &raw); err != nil {")
+	gf.P("return nil, err")
+	gf.P("}")
+	gf.P()
+
+	for _, field := range ctx.NestedFields {
+		jsonName := field.Desc.JSONName()
+		gf.P("// Re-serialize \"", jsonName, "\" using its custom MarshalJSON")
+		gf.P("if x.", field.GoName, " != nil {")
+		gf.P("raw[\"", jsonName, "\"], err = json.Marshal(x.", field.GoName, ")")
+		gf.P("if err != nil {")
+		gf.P("return nil, err")
+		gf.P("}")
+		gf.P("}")
+		gf.P()
+	}
+
+	gf.P("return json.Marshal(raw)")
+	gf.P("}")
+	gf.P()
+}
+
+// generateWrapperUnmarshalJSON generates an UnmarshalJSON that delegates nested
+// message parsing to their custom UnmarshalJSON, then converts back for protojson.
+func (g *Generator) generateWrapperUnmarshalJSON(gf *protogen.GeneratedFile, ctx *Int64WrapperContext) {
+	msgName := ctx.Message.GoIdent.GoName
+
+	var nestedFieldNames []string
+	for _, f := range ctx.NestedFields {
+		nestedFieldNames = append(nestedFieldNames, string(f.Desc.Name()))
+	}
+
+	gf.P("// UnmarshalJSON implements json.Unmarshaler for ", msgName, ".")
+	gf.P(
+		"// This method handles nested messages that have int64_encoding=NUMBER fields: ",
+		strings.Join(nestedFieldNames, ", "),
+	)
+	gf.P("func (x *", msgName, ") UnmarshalJSON(data []byte) error {")
+	gf.P("var raw map[string]json.RawMessage")
+	gf.P("if err := json.Unmarshal(data, &raw); err != nil {")
+	gf.P("return err")
+	gf.P("}")
+	gf.P()
+
+	for _, field := range ctx.NestedFields {
+		jsonName := field.Desc.JSONName()
+		gf.P("// Handle \"", jsonName, "\" using its custom UnmarshalJSON")
+		gf.P("if rawVal, ok := raw[\"", jsonName, "\"]; ok {")
+		gf.P("inner := &", gf.QualifiedGoIdent(field.Message.GoIdent), "{}")
+		gf.P("if err := json.Unmarshal(rawVal, inner); err != nil {")
+		gf.P("return err")
+		gf.P("}")
+		gf.P("innerJSON, err := protojson.Marshal(inner)")
+		gf.P("if err != nil {")
+		gf.P("return err")
+		gf.P("}")
+		gf.P("raw[\"", jsonName, "\"] = innerJSON")
+		gf.P("}")
+		gf.P()
+	}
+
+	gf.P("modified, err := json.Marshal(raw)")
+	gf.P("if err != nil {")
+	gf.P("return err")
+	gf.P("}")
+	gf.P()
+	gf.P("return protojson.Unmarshal(modified, x)")
+	gf.P("}")
+	gf.P()
 }

@@ -44,6 +44,22 @@ service QueryParamService {
       method: HTTP_METHOD_GET
     };
   }
+
+  // Advanced search with enum + repeated params
+  rpc SearchAdvanced(SearchAdvancedRequest) returns (SearchResponse) {
+    option (sebuf.http.config) = {
+      path: "/search/advanced"
+      method: HTTP_METHOD_GET
+    };
+  }
+
+  // RPC with empty request message
+  rpc GetDefaults(EmptyRequest) returns (SearchResponse) {
+    option (sebuf.http.config) = {
+      path: "/defaults"
+      method: HTTP_METHOD_GET
+    };
+  }
 }
 
 message SearchWithTypesRequest {
@@ -82,6 +98,25 @@ message GetWithFiltersRequest {
   string filter = 2 [(sebuf.http.query) = { name: "filter" }];
   int32 limit = 3 [(sebuf.http.query) = { name: "limit" }];
 }
+
+enum Region {
+  REGION_UNSPECIFIED = 0 [(sebuf.http.enum_value) = "unspecified"];
+  REGION_AMERICAS = 1 [(sebuf.http.enum_value) = "americas"];
+  REGION_EUROPE = 2 [(sebuf.http.enum_value) = "europe"];
+  REGION_ASIA = 3 [(sebuf.http.enum_value) = "asia"];
+}
+
+message SearchAdvancedRequest {
+  // Enum query param (bugs #1 and #2)
+  Region region = 1 [(sebuf.http.query) = { name: "region" }];
+  // Repeated string query param (bugs #3 and #4)
+  repeated string countries = 2 [(sebuf.http.query) = { name: "countries" }];
+  // Normal string for baseline
+  string keyword = 3 [(sebuf.http.query) = { name: "keyword" }];
+}
+
+// Empty request message (bug #6)
+message EmptyRequest {}
 
 message SearchResponse {
   repeated string results = 1;

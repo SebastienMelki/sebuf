@@ -87,9 +87,9 @@ export function createEmptyBehaviorServiceRoutes(
           const pathSegments = url.pathname.split("/");
           pathParams["id"] = decodeURIComponent(pathSegments[4] ?? "");
 
-          const body = {} as GetResponseRequest;
-
-          body.id = pathParams["id"];
+          const body: GetResponseRequest = {
+            id: pathParams["id"],
+          };
 
           const ctx: ServerContext = {
             request: req,

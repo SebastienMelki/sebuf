@@ -316,9 +316,9 @@ export function createRESTfulAPIServiceRoutes(
           const pathSegments = url.pathname.split("/");
           pathParams["resource_id"] = decodeURIComponent(pathSegments[4] ?? "");
 
-          const body = {} as GetResourceRequest;
-
-          body.resourceId = pathParams["resource_id"];
+          const body: GetResourceRequest = {
+            resourceId: pathParams["resource_id"],
+          };
 
           const ctx: ServerContext = {
             request: req,
@@ -369,11 +369,11 @@ export function createRESTfulAPIServiceRoutes(
           pathParams["team_id"] = decodeURIComponent(pathSegments[6] ?? "");
           pathParams["resource_id"] = decodeURIComponent(pathSegments[8] ?? "");
 
-          const body = {} as GetNestedResourceRequest;
-
-          body.orgId = pathParams["org_id"];
-          body.teamId = pathParams["team_id"];
-          body.resourceId = pathParams["resource_id"];
+          const body: GetNestedResourceRequest = {
+            orgId: pathParams["org_id"],
+            teamId: pathParams["team_id"],
+            resourceId: pathParams["resource_id"],
+          };
 
           const ctx: ServerContext = {
             request: req,
@@ -588,9 +588,9 @@ export function createRESTfulAPIServiceRoutes(
           const pathSegments = url.pathname.split("/");
           pathParams["resource_id"] = decodeURIComponent(pathSegments[4] ?? "");
 
-          const body = {} as DeleteResourceRequest;
-
-          body.resourceId = pathParams["resource_id"];
+          const body: DeleteResourceRequest = {
+            resourceId: pathParams["resource_id"],
+          };
 
           const ctx: ServerContext = {
             request: req,
@@ -689,7 +689,7 @@ export function createRESTfulAPIServiceRoutes(
           const url = new URL(req.url, "http://localhost");
           const params = url.searchParams;
           const body: SearchResourcesRequest = {
-            statusFilter: params.get("status") ?? "",
+            statusFilter: (params.get("status") ?? "RESOURCE_STATUS_UNSPECIFIED") as ResourceStatus,
             query: params.get("q") ?? "",
           };
           if (options?.validateRequest) {

@@ -82,9 +82,9 @@ export function createEnumEncodingServiceRoutes(
           const pathSegments = url.pathname.split("/");
           pathParams["id"] = decodeURIComponent(pathSegments[5] ?? "");
 
-          const body = {} as GetEnumTestRequest;
-
-          body.id = pathParams["id"];
+          const body: GetEnumTestRequest = {
+            id: pathParams["id"],
+          };
 
           const ctx: ServerContext = {
             request: req,

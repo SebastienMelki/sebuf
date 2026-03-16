@@ -1,0 +1,51 @@
+// Reproducer for issue #134: unwrap + int64_encoding=NUMBER collision
+syntax = "proto3";
+
+package testdata.unwrapint64encoding;
+
+option go_package = "github.com/SebastienMelki/sebuf/internal/httpgen/testdata/unwrapint64encoding;unwrapint64encoding";
+
+import "sebuf/http/annotations.proto";
+
+// Bar has a NUMBER-encoded int64 field.
+message Bar {
+  string symbol = 1;
+  int64 volume = 2 [(sebuf.http.int64_encoding) = INT64_ENCODING_NUMBER];
+}
+
+// UnwrapWrapper is a root-repeated-unwrap message whose element type has NUMBER encoding.
+// Bug 1 Case A: encoding generator also wants to emit MarshalJSON here → duplicate.
+// Bug 3: unwrap MarshalJSON uses protojson.Marshal(item) → NUMBER bypass.
+message UnwrapWrapper {
+  repeated Bar items = 1 [(sebuf.http.unwrap) = true];
+}
+
+// Meta has a NUMBER-encoded int64 field.
+message Meta {
+  int64 timestamp = 1 [(sebuf.http.int64_encoding) = INT64_ENCODING_NUMBER];
+}
+
+// CombinedResponse is both a map-containing-unwrap message AND a transitive int64 wrapper.
+// Bug 1 Case B: encoding generator also wants to emit MarshalJSON here → duplicate.
+// Bug 2: CombinedResponse.Messages includes synthetic CombinedResponse_DataEntry;
+//        encoding generator tries to emit MarshalJSON for it → undefined type.
+// Bug 3: unwrap MarshalJSON uses protojson.Marshal(x.Meta) → NUMBER bypass.
+message CombinedResponse {
+  map<string, UnwrapWrapper> data = 1;
+  Meta meta = 2;
+}
+
+message Request {
+  repeated string ids = 1;
+}
+
+service TestService {
+  option (sebuf.http.service_config) = { base_path: "/api/v1" };
+
+  rpc GetCombined(Request) returns (CombinedResponse) {
+    option (sebuf.http.config) = {
+      path: "/combined"
+      method: HTTP_METHOD_POST
+    };
+  }
+}

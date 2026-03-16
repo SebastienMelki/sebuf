@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"google.golang.org/protobuf/compiler/protogen"
+	"google.golang.org/protobuf/reflect/protoreflect"
 
 	sebufhttp "github.com/SebastienMelki/sebuf/http"
 	"github.com/SebastienMelki/sebuf/internal/annotations"
@@ -444,12 +445,12 @@ func (g *Generator) generateRouteEntry(p tscommon.Printer, service *protogen.Ser
 	// Parse request body or query params
 	if cfg.hasBody {
 		g.generateBodyParsing(p, method, tsMethodName)
+		// For body methods, path params must be merged after JSON parse
+		g.generatePathParamMerge(p, cfg, method)
 	} else {
+		// For non-body methods, path params are included in the body literal
 		g.generateQueryParamParsing(p, cfg, method, tsMethodName)
 	}
-
-	// Merge path params into body (same as Go generator: path params are fields on the request)
-	g.generatePathParamMerge(p, cfg, method)
 
 	// Build ServerContext
 	p("          const ctx: ServerContext = {")
@@ -587,14 +588,31 @@ func (g *Generator) generateQueryParamParsing(
 	inputType := string(method.Input.Desc.Name())
 
 	if len(cfg.queryParams) == 0 {
-		p("          const body = {} as %s;", inputType)
+		if len(cfg.pathParamFields) > 0 {
+			p("          const body: %s = {", inputType)
+			for _, ppf := range cfg.pathParamFields {
+				p("            %s: pathParams[\"%s\"],", ppf.jsonName, ppf.protoName)
+			}
+			p("          };")
+		} else {
+			p("          const body = {} as %s;", inputType)
+		}
 		p("")
 		return
 	}
 
-	p("          const url = new URL(req.url, \"http://localhost\");")
-	p("          const params = url.searchParams;")
+	if len(cfg.pathParams) > 0 {
+		// url already declared in path param extraction
+		p("          const params = url.searchParams;")
+	} else {
+		p("          const url = new URL(req.url, \"http://localhost\");")
+		p("          const params = url.searchParams;")
+	}
 	p("          const body: %s = {", inputType)
+	// Include path param fields in the literal so TS sees all required properties
+	for _, ppf := range cfg.pathParamFields {
+		p("            %s: pathParams[\"%s\"],", ppf.jsonName, ppf.protoName)
+	}
 	for _, qp := range cfg.queryParams {
 		g.generateQueryParamField(p, qp)
 	}
@@ -615,7 +633,26 @@ func (g *Generator) generateQueryParamField(p tscommon.Printer, qp annotations.Q
 	jsonName := qp.FieldJSONName
 	paramName := qp.ParamName
 
+	// Handle repeated fields: use getAll() for multi-value params
+	if qp.Field != nil && qp.Field.Desc.IsList() {
+		p(`            %s: params.getAll("%s"),`, jsonName, paramName)
+		return
+	}
+
 	if qp.Field != nil {
+		// Check if it's an enum field — cast to enum type with UNSPECIFIED default
+		if qp.Field.Desc.Kind() == protoreflect.EnumKind && qp.Field.Enum != nil {
+			unspecified := tscommon.TSEnumUnspecifiedValue(qp.Field)
+			p(
+				`            %s: (params.get("%s") ?? %s) as %s,`,
+				jsonName,
+				paramName,
+				unspecified,
+				string(qp.Field.Enum.Desc.Name()),
+			)
+			return
+		}
+
 		tsType := tscommon.TSScalarTypeForField(qp.Field)
 		switch tsType {
 		case tscommon.TSNumber:
@@ -634,6 +671,8 @@ func (g *Generator) generateQueryParamField(p tscommon.Printer, qp annotations.Q
 			p(`            %s: params.get("%s") ?? "0",`, jsonName, paramName)
 		case "bool":
 			p(`            %s: params.get("%s") === "true",`, jsonName, paramName)
+		case "enum":
+			p(`            %s: params.get("%s") ?? "",`, jsonName, paramName)
 		default:
 			p(`            %s: params.get("%s") ?? "",`, jsonName, paramName)
 		}

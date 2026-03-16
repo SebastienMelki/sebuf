@@ -269,8 +269,12 @@ func (g *Generator) generateRPCMethod(p printer, service *protogen.Service, meth
 
 	tsMethodName := annotations.LowerFirst(cfg.methodName)
 
-	p("  async %s(req: %s, options?: %sCallOptions): Promise<%s> {",
-		tsMethodName, inputType, cfg.serviceName, outputType)
+	reqParam := "req"
+	if len(method.Input.Fields) == 0 {
+		reqParam = "_req"
+	}
+	p("  async %s(%s: %s, options?: %sCallOptions): Promise<%s> {",
+		tsMethodName, reqParam, inputType, cfg.serviceName, outputType)
 
 	// Build URL with path params
 	g.generateURLBuilding(p, cfg)
@@ -312,6 +316,13 @@ func (g *Generator) generateURLBuilding(p printer, cfg *rpcMethodConfig) {
 	if (cfg.httpMethod == "GET" || cfg.httpMethod == "DELETE") && len(cfg.queryParams) > 0 {
 		p("    const params = new URLSearchParams();")
 		for _, qp := range cfg.queryParams {
+			// Handle repeated fields: use forEach + append for multi-value params
+			if qp.Field != nil && qp.Field.Desc.IsList() {
+				p("    if (req.%s && req.%s.length > 0) req.%s.forEach(v => params.append(\"%s\", v));",
+					qp.FieldJSONName, qp.FieldJSONName, qp.FieldJSONName, qp.ParamName)
+				continue
+			}
+
 			// Use field-aware zero check when field reference is available
 			var check string
 			if qp.Field != nil {

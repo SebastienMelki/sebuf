@@ -223,6 +223,77 @@ paths:
                         application/json:
                             schema:
                                 $ref: '#/components/schemas/Error'
+    /api/search/advanced:
+        get:
+            tags:
+                - QueryParamService
+            summary: SearchAdvanced
+            description: Advanced search with enum + repeated params
+            operationId: SearchAdvanced
+            parameters:
+                - name: region
+                  in: query
+                  description: 'Enum query param (bugs #1 and #2)'
+                  required: false
+                  schema:
+                    type: string
+                - name: countries
+                  in: query
+                  description: 'Repeated string query param (bugs #3 and #4)'
+                  required: false
+                  schema:
+                    type: string
+                - name: keyword
+                  in: query
+                  description: Normal string for baseline
+                  required: false
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    description: Successful response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/SearchResponse'
+                "400":
+                    description: Validation error
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ValidationError'
+                default:
+                    description: Error response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Error'
+    /api/defaults:
+        get:
+            tags:
+                - QueryParamService
+            summary: GetDefaults
+            description: RPC with empty request message
+            operationId: GetDefaults
+            responses:
+                "200":
+                    description: Successful response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/SearchResponse'
+                "400":
+                    description: Validation error
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ValidationError'
+                default:
+                    description: Error response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Error'
 components:
     schemas:
         Error:
@@ -334,3 +405,24 @@ components:
                 limit:
                     type: integer
                     format: int32
+        SearchAdvancedRequest:
+            type: object
+            properties:
+                region:
+                    type: string
+                    enum:
+                        - unspecified
+                        - americas
+                        - europe
+                        - asia
+                countries:
+                    type: array
+                    items:
+                        type: string
+                        description: 'Repeated string query param (bugs #3 and #4)'
+                keyword:
+                    type: string
+                    description: Normal string for baseline
+        EmptyRequest:
+            type: object
+            description: 'Empty request message (bug #6)'

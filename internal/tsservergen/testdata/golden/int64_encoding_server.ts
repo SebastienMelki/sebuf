@@ -83,9 +83,9 @@ export function createInt64EncodingServiceRoutes(
           const pathSegments = url.pathname.split("/");
           pathParams["id"] = decodeURIComponent(pathSegments[5] ?? "");
 
-          const body = {} as GetInt64TestRequest;
-
-          body.id = pathParams["id"];
+          const body: GetInt64TestRequest = {
+            id: pathParams["id"],
+          };
 
           const ctx: ServerContext = {
             request: req,

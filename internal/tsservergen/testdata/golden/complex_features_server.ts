@@ -319,9 +319,9 @@ export function createFeatureServiceRoutes(
           const pathSegments = url.pathname.split("/");
           pathParams["note_id"] = decodeURIComponent(pathSegments[4] ?? "");
 
-          const body = {} as GetNoteRequest;
-
-          body.noteId = pathParams["note_id"];
+          const body: GetNoteRequest = {
+            noteId: pathParams["note_id"],
+          };
 
           const ctx: ServerContext = {
             request: req,

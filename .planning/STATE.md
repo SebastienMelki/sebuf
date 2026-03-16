@@ -83,6 +83,14 @@ None.
 
 None.
 
+### Quick Tasks Completed
+
+| # | Description | Date | Commit | Directory |
+|---|-------------|------|--------|-----------|
+| 1 | Fix 6 TS generator bugs: enum query params, repeated fields, duplicate URL const, unused req param | 2026-02-27 | 9fef624 | [1-fix-6-ts-generator-bugs-enum-query-param](./quick/1-fix-6-ts-generator-bugs-enum-query-param/) |
+| 2 | Add unit tests for tscommon helpers and enum_value coverage | 2026-02-27 | 20957fd | [2-add-unit-tests-for-tscommon-helpers-and-](./quick/2-add-unit-tests-for-tscommon-helpers-and-/) |
+| 3 | Fix TS server path param fields missing from initial body literal | 2026-02-27 | ba48113 | [3-fix-ts-server-path-param-fields-missing-](./quick/3-fix-ts-server-path-param-fields-missing-/) |
+
 ## Session Continuity
 
 Last session: 2026-02-25

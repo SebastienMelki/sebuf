@@ -82,9 +82,9 @@ export function createNullableServiceRoutes(
           const pathSegments = url.pathname.split("/");
           pathParams["id"] = decodeURIComponent(pathSegments[4] ?? "");
 
-          const body = {} as GetUserRequest;
-
-          body.id = pathParams["id"];
+          const body: GetUserRequest = {
+            id: pathParams["id"],
+          };
 
           const ctx: ServerContext = {
             request: req,
