@@ -11,7 +11,7 @@ This is `sebuf`, a specialized Go protobuf toolkit for building HTTP APIs. It co
 - **`protoc-gen-ts-client`**: Generates TypeScript HTTP clients with full type safety, header helpers, and error handling
 - **`protoc-gen-ts-server`**: Generates TypeScript HTTP server handlers using the Web Fetch API (Request/Response), framework-agnostic
 - **`protoc-gen-openapiv3`**: Creates comprehensive OpenAPI v3.1 specifications
-- **`protoc-gen-krakend`**: Generates KrakenD API gateway configuration with rate limiting, JWT authentication, circuit breakers, caching, and automatic header/query forwarding
+- **`protoc-gen-krakend`**: Generates KrakenD API gateway configuration in two formats: static `.json` (for verification/schema validation) and per-service `.tmpl` Flexible Config fragments (for production use with Go template syntax for host variables, JWT partials, recaptcha, and header partial includes)
 
 The toolkit enables developers to build HTTP APIs directly from protobuf definitions without gRPC dependencies, targeting web and mobile API development with built-in request validation.
 
@@ -45,7 +45,8 @@ The project follows a clean Go protoc plugin architecture with separated concern
 4. **TypeScript HTTP Server Generator** (`internal/tsservergen/generator.go`): Generates framework-agnostic TypeScript HTTP server handlers using the Web Fetch API (`Request` → `Promise<Response>`), with route descriptors, header validation, query/body parsing, and error handling
 5. **OpenAPI Generator** (`internal/openapiv3/generator.go:53`): Creates comprehensive OpenAPI v3.1 specifications from protobuf definitions with full header parameter support, generating one file per service for better organization
 6. **Shared TypeScript Types** (`internal/tscommon/`): Shared TypeScript type mapping, interface generation, error types, and proto-defined error message collection (messages ending with "Error") used by both ts-client and ts-server generators
-7. **KrakenD Generator** (`internal/krakendgen/generator.go`): Generates per-service KrakenD JSON configuration from proto definitions. Reads sebuf.http annotations for routing and sebuf.krakend annotations for gateway features. Supports rate limiting (endpoint + backend), JWT authentication with claim propagation, circuit breaker, HTTP caching, concurrent calls, and automatic header/query string forwarding. Validates route conflicts (duplicate endpoints, static vs parameterized segment conflicts) at generation time.
+7. **KrakenD Generator** (`internal/krakendgen/generator.go`): Generates per-service KrakenD configuration from proto definitions in two formats: static `.json` (full config with `$schema`/`version` wrapper) and per-service `.tmpl` Flexible Config fragments. Reads sebuf.http annotations for routing and sebuf.krakend annotations for gateway features. Supports rate limiting (endpoint + backend), JWT authentication with claim propagation, circuit breaker, HTTP caching, concurrent calls, and automatic header/query string forwarding. Validates route conflicts (duplicate endpoints, static vs parameterized segment conflicts) at generation time.
+7a. **KrakenD Template Generator** (`internal/krakendgen/tmpl_generator.go`): Converts Endpoint structs to `.tmpl` fragments for KrakenD Flexible Config. Replaces hosts with `{{ .vars.xxx_host }}` variables, JWT with `{{ template "jwt_auth_validator.tmpl" . }}`, supports recaptcha `{{ include }}` directives and header partial includes. Omits QoS configs (rate limit, circuit breaker, cache) from template output — those are managed by the gateway team. Always includes `sd:static`, `disable_host_sanitize:false`, `backend/http return_error_code:true`.
 8. **HTTP Annotations** (`proto/sebuf/http/annotations.proto`): Custom protobuf extensions for HTTP configuration
 9. **KrakenD Annotations** (`proto/sebuf/krakend/krakend.proto`): Custom protobuf extensions for KrakenD gateway configuration including GatewayConfig (service-level) and EndpointConfig (method-level)
 10. **Header Validation** (`proto/sebuf/http/headers.proto`): Protobuf definitions for service and method-level header validation
@@ -162,7 +163,9 @@ paths:
               $ref: '#/components/schemas/CreateUserRequest'
 ```
 
-**KrakenD Gateway Config** - Per-service endpoint fragments:
+**KrakenD Gateway Config** - Two output formats per invocation:
+
+`.json` output (full static config for verification and `krakend check`):
 ```json
 {
   "$schema": "https://www.krakend.io/schema/krakend.json",
@@ -185,6 +188,34 @@ paths:
       "qos/ratelimit/router": { "max_rate": 100, "strategy": "ip" }
     }
   }]
+}
+```
+
+`{service}_endpoints.tmpl` output (per-service Flexible Config fragments for production):
+```
+{
+    "endpoint": "/api/v1/users/{id}",
+    "method": "GET",
+    "output_encoding": "json",
+    "input_headers": ["Authorization","X-API-Key","X-User"],
+    "backend": [
+        {
+            "url_pattern": "/api/v1/users/{id}",
+            "encoding": "json",
+            "sd": "static",
+            "method": "GET",
+            "host": ["{{ .vars.user_service_host }}"],
+            "disable_host_sanitize": false,
+            "extra_config": {
+                "backend/http": {
+                    "return_error_code": true
+                }
+            }
+        }
+    ],
+    "extra_config": {
+        {{ template "jwt_auth_validator.tmpl" . }}
+    }
 }
 ```
 
@@ -404,15 +435,34 @@ service UserService {
     circuit_breaker: { interval: 60, timeout: 10, max_errors: 3 }
     cache: { shared: true }
     concurrent_calls: 2
+    input_headers_partial: "trading_input_headers.tmpl"  // .tmpl: use partial instead of inline headers
   };
 
   rpc GetUser(GetUserRequest) returns (User) {
     option (sebuf.krakend.endpoint_config) = {
       timeout: "5s"
       cache: { max_items: 500, max_size: 5242880 }
+      recaptcha: true  // .tmpl: include recpatcha_validator.tmpl in extra_config
     };
   }
 }
+```
+
+**Flexible Config Template Conventions** - The `.tmpl` output follows these rules:
+
+The generator must NOT own: service URLs/hosts, feature flags, env-specific values, telemetry, logging, CORS, or router settings. These live in `settings/*/vars.json` and hand-maintained partials.
+
+The generator should emit:
+- **Header partials** — `{{ include "xxx_input_headers.tmpl" }}` when `input_headers_partial` is set, or explicit `"input_headers": [...]` arrays otherwise. Gateway team evolves header sets centrally via partials.
+- **JWT validator** — `{{ template "jwt_auth_validator.tmpl" . }}` in endpoint `extra_config` when service has JWT config. The partial is hand-maintained with env-specific `{{ .vars.jwk_url }}` etc.
+- **Recaptcha** — `{{ include "recpatcha_validator.tmpl" }}` in endpoint `extra_config` when `recaptcha: true`. Combined with JWT: recaptcha first, then JWT.
+- **Host variables** — `{{ .vars.SERVICE_NAME_host }}` derived from proto service name (PascalCase to snake_case: `UserService` -> `user_service_host`).
+- **Backend defaults** — Always: `"sd": "static"`, `"encoding": "json"`, `"disable_host_sanitize": false`, `"backend/http": { "return_error_code": true }`.
+- **Endpoint defaults** — Always: `"output_encoding": "json"`.
+- **Timeout** — Only emitted when explicitly overridden at method level via `endpoint_config.timeout`. Service-level timeout is managed in root settings.
+- **QoS** — Rate limiting, circuit breaker, cache, backend rate limit are NOT in `.tmpl` output (kept in `.json` for reference). Gateway team manages QoS separately.
+- **Fragment format** — Bare comma-separated endpoint objects (no `[]` wrapper, no `$schema`/`version`). Designed to be included via `{{ template "service_endpoints.tmpl" . }}` in the root `krakend.tmpl`.
+- **File naming** — One file per service: `{snake_case_service_name}_endpoints.tmpl`.
 ```
 
 ### Annotation Extension Number Registry
@@ -437,8 +487,8 @@ Custom annotations live in `proto/sebuf/http/annotations.proto` and `proto/sebuf
 | 50018 | oneof_value | FieldOptions | Custom discriminator value |
 | 50019 | flatten | FieldOptions | Nested message flattening |
 | 50020 | flatten_prefix | FieldOptions | Prefix for flattened fields |
-| 51001 | gateway_config | ServiceOptions | KrakenD gateway service config |
-| 51002 | endpoint_config | MethodOptions | KrakenD gateway endpoint overrides |
+| 51001 | gateway_config | ServiceOptions | KrakenD gateway service config (includes input_headers_partial for .tmpl header includes) |
+| 51002 | endpoint_config | MethodOptions | KrakenD gateway endpoint overrides (includes recaptcha for .tmpl bot protection) |
 
 ### Annotation Enum Types
 
