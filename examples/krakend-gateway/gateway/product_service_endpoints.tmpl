@@ -1,0 +1,88 @@
+{
+    "endpoint": "/api/v1/products",
+    "method": "GET",
+    "output_encoding": "json",
+    "concurrent_calls": 2,
+    "input_headers": ["X-API-Key"],
+    "backend": [
+        {
+            "url_pattern": "/api/v1/products",
+            "encoding": "json",
+            "sd": "static",
+            "method": "GET",
+            "host": ["{{ .vars.product_service_host }}"],
+            "disable_host_sanitize": false,
+            "extra_config": {
+                "backend/http": {
+                    "return_error_code": true
+                }
+            }
+        }
+    ]
+},
+{
+    "endpoint": "/api/v1/products/{id}",
+    "method": "GET",
+    "output_encoding": "json",
+    "concurrent_calls": 3,
+    "input_headers": ["X-API-Key"],
+    "backend": [
+        {
+            "url_pattern": "/api/v1/products/{id}",
+            "encoding": "json",
+            "sd": "static",
+            "method": "GET",
+            "host": ["{{ .vars.product_service_host }}"],
+            "disable_host_sanitize": false,
+            "extra_config": {
+                "backend/http": {
+                    "return_error_code": true
+                }
+            }
+        }
+    ]
+},
+{
+    "endpoint": "/api/v1/products",
+    "method": "POST",
+    "output_encoding": "json",
+    "concurrent_calls": 2,
+    "input_headers": ["X-API-Key"],
+    "backend": [
+        {
+            "url_pattern": "/api/v1/products",
+            "encoding": "json",
+            "sd": "static",
+            "method": "POST",
+            "host": ["{{ .vars.product_service_host }}"],
+            "disable_host_sanitize": false,
+            "extra_config": {
+                "backend/http": {
+                    "return_error_code": true
+                }
+            }
+        }
+    ]
+},
+{
+    "endpoint": "/api/v1/products/{id}",
+    "method": "DELETE",
+    "output_encoding": "json",
+    "concurrent_calls": 2,
+    "input_headers": ["X-API-Key"],
+    "backend": [
+        {
+            "url_pattern": "/api/v1/products/{id}",
+            "encoding": "json",
+            "sd": "static",
+            "method": "DELETE",
+            "host": ["{{ .vars.product_service_host }}"],
+            "disable_host_sanitize": false,
+            "extra_config": {
+                "backend/http": {
+                    "return_error_code": true
+                }
+            }
+        }
+    ]
+}

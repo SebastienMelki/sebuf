@@ -415,7 +415,7 @@ type EndpointConfig struct {
 	// Override concurrent calls for this endpoint.
 	ConcurrentCalls int32 `protobuf:"varint,7,opt,name=concurrent_calls,json=concurrentCalls,proto3" json:"concurrent_calls,omitempty"`
 	// Enable recaptcha/bot-protection for this endpoint.
-	// When true, the .tmpl output includes {{ include "recpatcha_validator.tmpl" }}
+	// When true, the .tmpl output includes {{ include "recaptcha_validator.tmpl" }}
 	// in the endpoint's extra_config. The partial itself is hand-maintained by the
 	// gateway team. Only applicable to .tmpl output (ignored in .json).
 	Recaptcha     bool `protobuf:"varint,8,opt,name=recaptcha,proto3" json:"recaptcha,omitempty"`

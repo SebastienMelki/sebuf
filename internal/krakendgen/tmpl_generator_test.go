@@ -101,7 +101,7 @@ func TestGenerateTemplateFile_SimpleEndpoint(t *testing.T) {
 	// No endpoint-level extra_config (no JWT, no recaptcha).
 	// Backend extra_config is always present (return_error_code).
 	assertNotContains(t, got, `{{ template "jwt_auth_validator.tmpl"`)
-	assertNotContains(t, got, `{{ include "recpatcha_validator.tmpl"`)
+	assertNotContains(t, got, `{{ include "recaptcha_validator.tmpl"`)
 }
 
 func TestGenerateTemplateFile_WithJWT(t *testing.T) {
@@ -142,7 +142,7 @@ func TestGenerateTemplateFile_WithRecaptcha(t *testing.T) {
 
 	got := GenerateTemplateFile(eps)
 
-	assertContains(t, got, `{{ include "recpatcha_validator.tmpl" }}`)
+	assertContains(t, got, `{{ include "recaptcha_validator.tmpl" }}`)
 }
 
 func TestGenerateTemplateFile_JWTAndRecaptcha(t *testing.T) {
@@ -163,11 +163,11 @@ func TestGenerateTemplateFile_JWTAndRecaptcha(t *testing.T) {
 
 	got := GenerateTemplateFile(eps)
 
-	assertContains(t, got, `{{ include "recpatcha_validator.tmpl" }}`)
+	assertContains(t, got, `{{ include "recaptcha_validator.tmpl" }}`)
 	assertContains(t, got, `{{ template "jwt_auth_validator.tmpl" . }}`)
 
 	// Recaptcha should come before JWT.
-	recIdx := strings.Index(got, "recpatcha_validator")
+	recIdx := strings.Index(got, "recaptcha_validator")
 	jwtIdx := strings.Index(got, "jwt_auth_validator")
 	if recIdx >= jwtIdx {
 		t.Error("recaptcha should appear before JWT in extra_config")

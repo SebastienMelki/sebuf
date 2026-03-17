@@ -227,7 +227,7 @@ message EndpointConfig {
   int32 concurrent_calls = 7;
 
   // Enable recaptcha/bot-protection for this endpoint.
-  // When true, the .tmpl output includes {{ include "recpatcha_validator.tmpl" }}
+  // When true, the .tmpl output includes {{ include "recaptcha_validator.tmpl" }}
   // in the endpoint's extra_config. The partial itself is hand-maintained by the
   // gateway team. Only applicable to .tmpl output (ignored in .json).
   bool recaptcha = 8;
@@ -487,3 +487,5 @@ extend google.protobuf.ServiceOptions {
 extend google.protobuf.MethodOptions {
   EndpointConfig endpoint_config = 51002;
 }
+
+

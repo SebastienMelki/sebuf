@@ -26,7 +26,7 @@ const (
 // Template output differs from JSON output:
 //   - Hosts are replaced with {{ .vars.SERVICE_host }} variables
 //   - JWT auth uses {{ template "jwt_auth_validator.tmpl" . }} directive
-//   - Recaptcha uses {{ include "recpatcha_validator.tmpl" }} directive
+//   - Recaptcha uses {{ include "recaptcha_validator.tmpl" }} directive
 //   - QoS configs (rate limit, circuit breaker, cache) are omitted
 //   - Backends always include sd:static, disable_host_sanitize, return_error_code
 //   - Timeout only appears when explicitly overridden at method level
@@ -174,12 +174,12 @@ func writeEndpointExtraConfigTemplate(sb *strings.Builder, ep Endpoint) {
 	switch {
 	case ep.HasRecaptcha && ep.HasJWT:
 		indent(sb, indentExtraInner)
-		sb.WriteString("{{ include \"recpatcha_validator.tmpl\" }},\n")
+		sb.WriteString("{{ include \"recaptcha_validator.tmpl\" }},\n")
 		indent(sb, indentExtraInner)
 		sb.WriteString("{{ template \"jwt_auth_validator.tmpl\" . }}\n")
 	case ep.HasRecaptcha:
 		indent(sb, indentExtraInner)
-		sb.WriteString("{{ include \"recpatcha_validator.tmpl\" }}\n")
+		sb.WriteString("{{ include \"recaptcha_validator.tmpl\" }}\n")
 	case ep.HasJWT:
 		indent(sb, indentExtraInner)
 		sb.WriteString("{{ template \"jwt_auth_validator.tmpl\" . }}\n")

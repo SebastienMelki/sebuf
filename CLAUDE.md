@@ -442,7 +442,7 @@ service UserService {
     option (sebuf.krakend.endpoint_config) = {
       timeout: "5s"
       cache: { max_items: 500, max_size: 5242880 }
-      recaptcha: true  // .tmpl: include recpatcha_validator.tmpl in extra_config
+      recaptcha: true  // .tmpl: include recaptcha_validator.tmpl in extra_config
     };
   }
 }
@@ -455,7 +455,7 @@ The generator must NOT own: service URLs/hosts, feature flags, env-specific valu
 The generator should emit:
 - **Header partials** — `{{ include "xxx_input_headers.tmpl" }}` when `input_headers_partial` is set, or explicit `"input_headers": [...]` arrays otherwise. Gateway team evolves header sets centrally via partials.
 - **JWT validator** — `{{ template "jwt_auth_validator.tmpl" . }}` in endpoint `extra_config` when service has JWT config. The partial is hand-maintained with env-specific `{{ .vars.jwk_url }}` etc.
-- **Recaptcha** — `{{ include "recpatcha_validator.tmpl" }}` in endpoint `extra_config` when `recaptcha: true`. Combined with JWT: recaptcha first, then JWT.
+- **Recaptcha** — `{{ include "recaptcha_validator.tmpl" }}` in endpoint `extra_config` when `recaptcha: true`. Combined with JWT: recaptcha first, then JWT.
 - **Host variables** — `{{ .vars.SERVICE_NAME_host }}` derived from proto service name (PascalCase to snake_case: `UserService` -> `user_service_host`).
 - **Backend defaults** — Always: `"sd": "static"`, `"encoding": "json"`, `"disable_host_sanitize": false`, `"backend/http": { "return_error_code": true }`.
 - **Endpoint defaults** — Always: `"output_encoding": "json"`.

@@ -23,7 +23,7 @@ type Endpoint struct {
 	// Template-only metadata (excluded from JSON output).
 	ServiceName     string `json:"-"` // proto service name for host variable derivation
 	HasJWT          bool   `json:"-"` // emit {{ template "jwt_auth_validator.tmpl" . }}
-	HasRecaptcha    bool   `json:"-"` // emit {{ include "recpatcha_validator.tmpl" }}
+	HasRecaptcha    bool   `json:"-"` // emit {{ include "recaptcha_validator.tmpl" }}
 	HeaderPartial   string `json:"-"` // if set, {{ include "xxx" }} instead of inline headers
 	IsMethodTimeout bool   `json:"-"` // true when timeout came from endpoint_config
 }
