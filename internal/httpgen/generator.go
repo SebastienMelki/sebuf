@@ -912,13 +912,9 @@ func camelToSnake(s string) string {
 			if i > 0 {
 				result = append(result, '_')
 			}
-			result = append(
-				result,
-				byte(r-'A'+'a'),
-			) //nolint:gosec // r is guaranteed to be in [A-Z], result fits in byte
-		} else {
-			result = append(result, byte(r)) //nolint:gosec // input is ASCII identifier characters
+			r = r - 'A' + 'a'
 		}
+		result = append(result, byte(r)) //nolint:gosec // input is ASCII identifier characters
 	}
 	return string(result)
 }
