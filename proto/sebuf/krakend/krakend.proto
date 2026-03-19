@@ -487,5 +487,3 @@ extend google.protobuf.ServiceOptions {
 extend google.protobuf.MethodOptions {
   EndpointConfig endpoint_config = 51002;
 }
-
-
