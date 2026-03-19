@@ -4,7 +4,7 @@ go 1.26.0
 
 require (
 	buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go v1.36.11-20260209202127-80ab13bee0bf.1
-	github.com/pb33f/libopenapi v0.34.1
+	github.com/pb33f/libopenapi v0.34.3
 	go.yaml.in/yaml/v4 v4.0.0-rc.4
 	google.golang.org/protobuf v1.36.11
 	sigs.k8s.io/yaml v1.6.0
@@ -16,5 +16,5 @@ require (
 	github.com/pb33f/jsonpath v0.8.1 // indirect
 	github.com/pb33f/ordered-map/v2 v2.3.0 // indirect
 	go.yaml.in/yaml/v2 v2.4.2 // indirect
-	golang.org/x/sync v0.19.0 // indirect
+	golang.org/x/sync v0.20.0 // indirect
 )
