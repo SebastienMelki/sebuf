@@ -1,0 +1,191 @@
+// UserService demonstrates KrakenD gateway annotations for a user management API.
+//
+// Features shown:
+//   - JWT authentication with RS256 and claim propagation
+//   - Endpoint rate limiting (IP-based) with backend rate limiting
+//   - Service-level headers (X-API-Key)
+//   - Method-level header and rate limit overrides
+//   - Query parameter forwarding for list endpoints
+syntax = "proto3";
+
+package krakendexample;
+
+import "sebuf/http/annotations.proto";
+import "sebuf/http/headers.proto";
+import "sebuf/krakend/krakend.proto";
+import "models/common.proto";
+
+option go_package = "github.com/SebastienMelki/sebuf/examples/krakend-gateway/api/userservice";
+
+// ---------------------------------------------------------------------------
+// Messages
+// ---------------------------------------------------------------------------
+
+message CreateUserRequest {
+  string name = 1;
+  string email = 2;
+}
+
+message User {
+  string id = 1;
+  string name = 2;
+  string email = 3;
+  string status = 4;
+}
+
+message GetUserRequest {
+  string id = 1;
+}
+
+message ListUsersRequest {
+  // Query parameters forwarded to the backend via KrakenD's input_query_strings.
+  int32 page = 1 [(sebuf.http.query) = { name: "page" }];
+  int32 per_page = 2 [(sebuf.http.query) = { name: "per_page" }];
+  string status = 3 [(sebuf.http.query) = { name: "status" }];
+}
+
+message ListUsersResponse {
+  repeated User users = 1;
+  Pagination pagination = 2;
+}
+
+message UpdateUserRequest {
+  string id = 1;
+  string name = 2;
+  string email = 3;
+}
+
+// ---------------------------------------------------------------------------
+// Service
+// ---------------------------------------------------------------------------
+
+service UserService {
+  // Base path for all endpoints in this service.
+  option (sebuf.http.service_config) = {
+    base_path: "/api/v1"
+  };
+
+  // KrakenD gateway defaults for every endpoint in this service.
+  // Method-level endpoint_config can override any of these per-RPC.
+  option (sebuf.krakend.gateway_config) = {
+    // Backend host(s) that KrakenD forwards requests to.
+    // Multiple entries enable KrakenD's built-in load balancing.
+    host: ["http://users-backend:8080"]
+
+    // Default request timeout. KrakenD returns 504 if the backend
+    // does not respond within this window.
+    timeout: "3s"
+
+    // Endpoint-level rate limiting (qos/ratelimit/router).
+    // Limits how many requests per second KrakenD accepts from clients.
+    rate_limit: {
+      max_rate: 100            // Global: 100 req/s across all clients
+      client_max_rate: 20      // Per-client: 20 req/s per unique IP
+      strategy: RATE_LIMIT_STRATEGY_IP  // Per-client rate limiting by IP address
+    }
+
+    // Backend-level rate limiting (qos/ratelimit/proxy).
+    // Limits how many requests per second KrakenD sends to the backend,
+    // protecting the backend from being overwhelmed.
+    backend_rate_limit: {
+      max_rate: 80             // Max 80 req/s to the backend
+      capacity: 100            // Allow bursts up to 100 before limiting
+    }
+
+    // JWT token validation (auth/validator).
+    // KrakenD validates tokens at the gateway level before forwarding.
+    // Service-level only -- all endpoints share the same auth config.
+    jwt: {
+      alg: JWT_ALGORITHM_RS256       // RSA PKCS#1 v1.5 with SHA-256 (most common)
+      jwk_url: "https://auth.example.com/.well-known/jwks.json"  // Public keys endpoint
+      audience: ["https://api.example.com"]    // Expected "aud" claim
+      issuer: "https://auth.example.com/"      // Expected "iss" claim
+      cache: true                              // Cache JWKS responses (recommended)
+
+      // Forward JWT claims as request headers to the backend.
+      // Each entry maps a claim name to a header name. The mapped headers
+      // are automatically added to input_headers for KrakenD's zero-trust model.
+      propagate_claims: [
+        {claim: "sub", header: "X-User"},       // User ID from "sub" claim
+        {claim: "org_id", header: "X-Org-ID"}   // Organization from custom claim
+      ]
+    }
+  };
+
+  // Service-level headers forwarded to the backend.
+  // These headers are required on every request to this service.
+  option (sebuf.http.service_headers) = {
+    required_headers: [
+      {
+        name: "X-API-Key"
+        description: "API authentication key"
+        type: "string"
+        required: true
+        format: "uuid"
+      }
+    ]
+  };
+
+  // CreateUser -- POST, inherits all service-level defaults.
+  // No endpoint_config needed: rate limit, JWT, timeout all come from gateway_config.
+  rpc CreateUser(CreateUserRequest) returns (User) {
+    option (sebuf.http.config) = {
+      path: "/users"
+      method: HTTP_METHOD_POST
+    };
+  }
+
+  // GetUser -- GET with path parameter.
+  // Adds a method-level X-Request-ID header for request tracing.
+  rpc GetUser(GetUserRequest) returns (User) {
+    option (sebuf.http.config) = {
+      path: "/users/{id}"
+      method: HTTP_METHOD_GET
+    };
+    // Method-level headers are merged with service-level headers.
+    // X-Request-ID is added to input_headers alongside X-API-Key.
+    option (sebuf.http.method_headers) = {
+      required_headers: [
+        {
+          name: "X-Request-ID"
+          description: "Unique request identifier for tracing"
+          type: "string"
+          required: true
+          format: "uuid"
+        }
+      ]
+    };
+  }
+
+  // ListUsers -- GET with query parameters.
+  // The query-annotated fields (page, per_page, status) are forwarded
+  // to the backend via KrakenD's input_query_strings.
+  rpc ListUsers(ListUsersRequest) returns (ListUsersResponse) {
+    option (sebuf.http.config) = {
+      path: "/users"
+      method: HTTP_METHOD_GET
+    };
+  }
+
+  // UpdateUser -- PUT with path parameter.
+  // Overrides the service-level rate limit with a header-based strategy,
+  // using the X-API-Key header to identify clients (useful for write endpoints
+  // where you want per-API-key throttling instead of per-IP).
+  rpc UpdateUser(UpdateUserRequest) returns (User) {
+    option (sebuf.http.config) = {
+      path: "/users/{id}"
+      method: HTTP_METHOD_PUT
+    };
+    // Method-level override: rate limit by X-API-Key header instead of IP.
+    // Only the rate_limit is overridden; timeout, JWT, backend_rate_limit
+    // all inherit from the service-level gateway_config.
+    option (sebuf.krakend.endpoint_config) = {
+      rate_limit: {
+        max_rate: 50             // Stricter global limit for writes
+        client_max_rate: 10      // 10 req/s per unique API key
+        strategy: RATE_LIMIT_STRATEGY_HEADER  // Identify clients by header value
+        key: "X-API-Key"                      // The header to use as client identifier
+      }
+    };
+  }
+}

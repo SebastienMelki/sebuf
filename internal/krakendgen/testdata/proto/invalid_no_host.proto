@@ -1,0 +1,30 @@
+syntax = "proto3";
+
+package krakendtest;
+
+import "sebuf/http/annotations.proto";
+import "sebuf/http/headers.proto";
+import "sebuf/krakend/krakend.proto";
+
+option go_package = "github.com/SebastienMelki/sebuf/internal/krakendgen/testdata";
+
+message GetItemRequest {
+  string id = 1;
+}
+message GetItemResponse {
+  string name = 1;
+}
+
+// Service has HTTP config but NO gateway_config.
+service NoHostService {
+  option (sebuf.http.service_config) = {
+    base_path: "/api/v1"
+  };
+
+  rpc GetItem(GetItemRequest) returns (GetItemResponse) {
+    option (sebuf.http.config) = {
+      path: "/items/{id}"
+      method: HTTP_METHOD_GET
+    };
+  }
+}

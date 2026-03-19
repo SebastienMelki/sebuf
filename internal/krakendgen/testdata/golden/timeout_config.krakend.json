@@ -1,0 +1,54 @@
+{
+  "$schema": "https://www.krakend.io/schema/krakend.json",
+  "version": 3,
+  "endpoints": [
+    {
+      "endpoint": "/api/v1/slow",
+      "method": "POST",
+      "output_encoding": "json",
+      "timeout": "3s",
+      "backend": [
+        {
+          "url_pattern": "/api/v1/slow",
+          "host": [
+            "http://backend:8080"
+          ],
+          "method": "POST",
+          "encoding": "json"
+        }
+      ]
+    },
+    {
+      "endpoint": "/api/v1/fast",
+      "method": "GET",
+      "output_encoding": "json",
+      "timeout": "500ms",
+      "backend": [
+        {
+          "url_pattern": "/api/v1/fast",
+          "host": [
+            "http://backend:8080"
+          ],
+          "method": "GET",
+          "encoding": "json"
+        }
+      ]
+    },
+    {
+      "endpoint": "/api/v1/default",
+      "method": "GET",
+      "output_encoding": "json",
+      "timeout": "3s",
+      "backend": [
+        {
+          "url_pattern": "/api/v1/default",
+          "host": [
+            "http://backend:8080"
+          ],
+          "method": "GET",
+          "encoding": "json"
+        }
+      ]
+    }
+  ]
+}

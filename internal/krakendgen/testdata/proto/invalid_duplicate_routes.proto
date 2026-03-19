@@ -1,0 +1,42 @@
+syntax = "proto3";
+
+package krakendtest;
+
+import "sebuf/http/annotations.proto";
+import "sebuf/http/headers.proto";
+import "sebuf/krakend/krakend.proto";
+
+option go_package = "github.com/SebastienMelki/sebuf/internal/krakendgen/testdata";
+
+message GetUserARequest {}
+message GetUserAResponse {
+  string name = 1;
+}
+
+message GetUserBRequest {}
+message GetUserBResponse {
+  string name = 1;
+}
+
+service DuplicateRouteService {
+  option (sebuf.http.service_config) = {
+    base_path: "/api/v1"
+  };
+  option (sebuf.krakend.gateway_config) = {
+    host: ["http://backend:8080"]
+  };
+
+  rpc GetUserA(GetUserARequest) returns (GetUserAResponse) {
+    option (sebuf.http.config) = {
+      path: "/users"
+      method: HTTP_METHOD_GET
+    };
+  }
+
+  rpc GetUserB(GetUserBRequest) returns (GetUserBResponse) {
+    option (sebuf.http.config) = {
+      path: "/users"
+      method: HTTP_METHOD_GET
+    };
+  }
+}

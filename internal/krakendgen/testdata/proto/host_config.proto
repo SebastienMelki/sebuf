@@ -1,0 +1,47 @@
+syntax = "proto3";
+
+package krakendtest;
+
+import "sebuf/http/annotations.proto";
+import "sebuf/http/headers.proto";
+import "sebuf/krakend/krakend.proto";
+
+option go_package = "github.com/SebastienMelki/sebuf/internal/krakendgen/testdata";
+
+message NormalRequest {}
+message NormalResponse {
+  string data = 1;
+}
+
+message OverrideRequest {}
+message OverrideResponse {
+  string data = 1;
+}
+
+service HostService {
+  option (sebuf.http.service_config) = {
+    base_path: "/api/v1"
+  };
+  option (sebuf.krakend.gateway_config) = {
+    host: ["http://primary:8080", "http://secondary:8080"]
+  };
+
+  // Inherits service hosts.
+  rpc NormalEndpoint(NormalRequest) returns (NormalResponse) {
+    option (sebuf.http.config) = {
+      path: "/normal"
+      method: HTTP_METHOD_GET
+    };
+  }
+
+  // Overrides service hosts with endpoint-specific host.
+  rpc OverriddenEndpoint(OverrideRequest) returns (OverrideResponse) {
+    option (sebuf.http.config) = {
+      path: "/override"
+      method: HTTP_METHOD_GET
+    };
+    option (sebuf.krakend.endpoint_config) = {
+      host: ["http://special:9090"]
+    };
+  }
+}

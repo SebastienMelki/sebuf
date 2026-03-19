@@ -1,0 +1,73 @@
+syntax = "proto3";
+
+package krakendtest;
+
+import "sebuf/http/annotations.proto";
+import "sebuf/http/headers.proto";
+import "sebuf/krakend/krakend.proto";
+
+option go_package = "github.com/SebastienMelki/sebuf/internal/krakendgen/testdata";
+
+message CreateUserRequest {
+  string name = 1;
+  string email = 2;
+}
+
+message User {
+  string id = 1;
+  string name = 2;
+  string email = 3;
+}
+
+message GetUserRequest {
+  string id = 1;
+}
+
+message ListUsersRequest {}
+
+message ListUsersResponse {
+  repeated User users = 1;
+}
+
+message DeleteUserRequest {
+  string id = 1;
+}
+
+message Empty {}
+
+service UserService {
+  option (sebuf.http.service_config) = {
+    base_path: "/api/v1"
+  };
+  option (sebuf.krakend.gateway_config) = {
+    host: ["http://backend:8080"]
+  };
+
+  rpc CreateUser(CreateUserRequest) returns (User) {
+    option (sebuf.http.config) = {
+      path: "/users"
+      method: HTTP_METHOD_POST
+    };
+  }
+
+  rpc GetUser(GetUserRequest) returns (User) {
+    option (sebuf.http.config) = {
+      path: "/users/{id}"
+      method: HTTP_METHOD_GET
+    };
+  }
+
+  rpc ListUsers(ListUsersRequest) returns (ListUsersResponse) {
+    option (sebuf.http.config) = {
+      path: "/users"
+      method: HTTP_METHOD_GET
+    };
+  }
+
+  rpc DeleteUser(DeleteUserRequest) returns (Empty) {
+    option (sebuf.http.config) = {
+      path: "/users/{id}"
+      method: HTTP_METHOD_DELETE
+    };
+  }
+}

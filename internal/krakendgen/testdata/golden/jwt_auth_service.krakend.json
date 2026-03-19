@@ -1,0 +1,89 @@
+{
+  "$schema": "https://www.krakend.io/schema/krakend.json",
+  "version": 3,
+  "endpoints": [
+    {
+      "endpoint": "/api/v1/resources",
+      "method": "POST",
+      "output_encoding": "json",
+      "input_headers": [
+        "X-API-Key",
+        "X-Org-ID",
+        "X-Request-ID",
+        "X-User"
+      ],
+      "backend": [
+        {
+          "url_pattern": "/api/v1/resources",
+          "host": [
+            "http://backend:8080"
+          ],
+          "method": "POST",
+          "encoding": "json"
+        }
+      ],
+      "extra_config": {
+        "auth/validator": {
+          "alg": "RS256",
+          "audience": [
+            "api.example.com"
+          ],
+          "cache": true,
+          "issuer": "https://auth.example.com",
+          "jwk_url": "https://auth.example.com/.well-known/jwks.json",
+          "propagate_claims": [
+            [
+              "sub",
+              "X-User"
+            ],
+            [
+              "org_id",
+              "X-Org-ID"
+            ]
+          ]
+        }
+      }
+    },
+    {
+      "endpoint": "/api/v1/resources/{id}",
+      "method": "GET",
+      "output_encoding": "json",
+      "input_headers": [
+        "X-API-Key",
+        "X-Org-ID",
+        "X-User"
+      ],
+      "backend": [
+        {
+          "url_pattern": "/api/v1/resources/{id}",
+          "host": [
+            "http://backend:8080"
+          ],
+          "method": "GET",
+          "encoding": "json"
+        }
+      ],
+      "extra_config": {
+        "auth/validator": {
+          "alg": "RS256",
+          "audience": [
+            "api.example.com"
+          ],
+          "cache": true,
+          "issuer": "https://auth.example.com",
+          "jwk_url": "https://auth.example.com/.well-known/jwks.json",
+          "propagate_claims": [
+            [
+              "sub",
+              "X-User"
+            ],
+            [
+              "org_id",
+              "X-Org-ID"
+            ]
+          ]
+        }
+      }
+    }
+  ]
+}

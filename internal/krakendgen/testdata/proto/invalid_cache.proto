@@ -1,0 +1,33 @@
+syntax = "proto3";
+
+package krakendtest;
+
+import "sebuf/http/annotations.proto";
+import "sebuf/krakend/krakend.proto";
+
+option go_package = "github.com/SebastienMelki/sebuf/internal/krakendgen/testdata";
+
+message HealthRequest {}
+message HealthResponse {
+  string status = 1;
+}
+
+// InvalidCacheService has cache with max_items set but max_size unset.
+service InvalidCacheService {
+  option (sebuf.http.service_config) = {
+    base_path: "/api/v1"
+  };
+  option (sebuf.krakend.gateway_config) = {
+    host: ["http://backend:8080"]
+    cache: {
+      max_items: 1000
+    }
+  };
+
+  rpc Health(HealthRequest) returns (HealthResponse) {
+    option (sebuf.http.config) = {
+      path: "/health"
+      method: HTTP_METHOD_GET
+    };
+  }
+}

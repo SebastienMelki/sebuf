@@ -1,77 +1,108 @@
-# Requirements: sebuf v1.0
+# Requirements: protoc-gen-krakend (v1.1)
 
-**Defined:** 2026-02-05
-**Core Value:** Proto definitions are the single source of truth -- every generator must produce consistent, correct output that interoperates seamlessly.
+**Defined:** 2026-02-25
+**Core Value:** Proto definitions are the single source of truth -- KrakenD gateway config stays in sync with service definitions automatically.
 
-## v1 Requirements
+## v1.1 Requirements
 
-Requirements for v1.0 release. Each must work across all generators (go-http, go-client, ts-client, swift-client, kt-client, py-client, openapiv3) unless noted.
+Requirements for the KrakenD config generator milestone. Each maps to roadmap phases.
 
-### Foundation
+### Proto Annotations
 
-- [x] **FOUND-01**: Extract shared annotation parsing into `internal/annotations/` package (eliminate 1,289 lines of duplication across 4 generators)
-- [x] **FOUND-02**: Fix #105 -- conditional net/url import in go-client (only when query params used)
-- [x] **FOUND-03**: Land PR #98 -- cross-file unwrap resolution in same Go package
-- [x] **FOUND-04**: Audit serialization path -- ensure protojson vs encoding/json consistency in HTTP handler generation
-- [x] **FOUND-05**: Verify #91 (root-level arrays) is fully covered by existing unwrap annotation, close GitHub issue
-- [x] **FOUND-06**: Close #94 (field name casing) on GitHub -- document proto3 `json_name` as the existing solution
-- [x] **FOUND-07**: Review and polish existing Go HTTP client (protoc-gen-go-client) -- audit serialization consistency with server, error handling, header handling, and edge cases; fix any inconsistencies found
-- [x] **FOUND-08**: Review and polish existing TypeScript HTTP client (protoc-gen-ts-client) -- audit cross-language consistency with Go client and server, error handling, header handling, and edge cases; fix any inconsistencies found
+- [x] **ANNO-01**: New proto package `proto/sebuf/krakend/` with gateway-specific annotations (extension numbers 51000+)
+- [x] **ANNO-02**: Service-level `gateway_config` annotation for service-wide defaults (host, timeout, rate limit, auth, circuit breaker)
+- [x] **ANNO-03**: Method-level `endpoint_config` annotation for per-RPC overrides (timeout, rate limit, circuit breaker)
+- [x] **ANNO-04**: Method-level config always overrides service-level config for the same setting
 
-### JSON Mapping
+### Core Generation
 
-- [x] **JSON-01**: #87 Nullable primitives -- per-field `nullable` annotation; generates pointer types in Go, `| null` union in TS, `nullable: true` in OpenAPI
-- [x] **JSON-02**: #88 int64/uint64 as string encoding -- per-field `int64_encoding` annotation with NUMBER/STRING options
-- [x] **JSON-03**: #89 Enum string encoding with custom values -- per-enum `enum_encoding` and per-value `enum_value` annotations
-- [x] **JSON-04**: #90 Oneof as discriminated union -- per-oneof `oneof_config` annotation (with `discriminator` and `flatten` fields) and per-field `oneof_value` annotation, with field collision detection at generation time
-- [x] **JSON-05**: #92 Multiple timestamp formats -- per-field `timestamp_format` annotation (RFC3339, UNIX_SECONDS, UNIX_MILLIS, DATE)
-- [x] **JSON-06**: #93 Empty object handling -- per-field `omit_empty` and `empty_behavior` annotations (PRESERVE, NULL, OMIT)
-- [x] **JSON-07**: #95 Bytes encoding options -- per-field `bytes_encoding` annotation (BASE64, BASE64_RAW, BASE64URL, BASE64URL_RAW, HEX)
-- [x] **JSON-08**: #96 Nested message flattening -- per-field `flatten` and `flatten_prefix` annotations with collision detection at generation time
+- [x] **CORE-01**: Plugin reads `sebuf.http.config` annotations to extract HTTP path and method for each RPC
+- [x] **CORE-02**: Plugin generates one JSON file per proto service (`{ServiceName}.krakend.json`) containing an array of KrakenD endpoint objects
+- [x] **CORE-03**: Backend host is required via `gateway_config` annotation (no plugin parameter -- host lives in proto annotations per user decision)
+- [x] **CORE-04**: Backend host is configurable via service-level annotation (overrides plugin parameter)
+- [x] **CORE-05**: Per-endpoint timeout is configurable via service-level default and method-level override
+- [x] **CORE-06**: Output encoding defaults to JSON for all endpoints
 
-### Language Clients
+### Auto-Derived Forwarding
 
-- [ ] **LANG-01**: Swift HTTP client generator (protoc-gen-swift-client) -- idiomatic Swift using URLSession, Codable structs
-- [ ] **LANG-02**: Kotlin HTTP client generator (protoc-gen-kt-client) -- idiomatic Kotlin using OkHttp/Ktor, data classes
-- [ ] **LANG-03**: Python HTTP client generator (protoc-gen-py-client) -- idiomatic Python using httpx, dataclasses/Pydantic
+- [x] **FWD-01**: `input_headers` auto-populated from `sebuf.http.service_headers` and `sebuf.http.method_headers` annotations
+- [x] **FWD-02**: `input_query_strings` auto-populated from `sebuf.http.query` annotations on request message fields
+- [x] **FWD-03**: Auto-derived headers and query strings are never empty arrays (KrakenD zero-trust model)
 
-### Polish
+### Rate Limiting
 
-- [ ] **POL-01**: Comprehensive README review and improvement
-- [ ] **POL-02**: Add examples for all JSON mapping features (proto definitions + expected JSON output)
-- [ ] **POL-03**: Add multi-auth patterns example (#50)
-- [ ] **POL-04**: Expand test coverage -- golden file tests for every annotation across all generators
-- [ ] **POL-05**: Review and improve inline documentation across all generators
-- [ ] **POL-06**: End-to-end consistency validation -- verify proto definitions produce matching output across all generators (go-http, go-client, ts-client, swift-client, kt-client, py-client, openapiv3)
+- [x] **RLIM-01**: Endpoint-level rate limiting configurable via annotation (`qos/ratelimit/router` namespace)
+- [x] **RLIM-02**: Rate limit settings include max_rate, capacity, and strategy (configurable per service and per method)
+- [x] **RLIM-03**: Backend-level rate limiting configurable via annotation (`qos/ratelimit/proxy` namespace)
 
-## v2 Requirements
+### Authentication
 
-Deferred to v2.0 milestone. Tracked but not in current roadmap.
+- [x] **AUTH-01**: JWT validation configurable via service-level annotation (`auth/validator` namespace)
+- [x] **AUTH-02**: JWT config includes JWK URL, algorithm, issuer, and audience fields
+- [x] **AUTH-03**: JWT claim propagation configurable (forward claims as backend headers)
 
-### Multi-Language Clients
+### Resilience
 
-- **LANG-04**: Rust HTTP client generator (protoc-gen-rs-client)
-- **LANG-05**: Java HTTP client generator (protoc-gen-java-client)
-- **LANG-06**: C# HTTP client generator (protoc-gen-csharp-client)
-- **LANG-07**: Ruby HTTP client generator (protoc-gen-rb-client)
-- **LANG-08**: Dart HTTP client generator (protoc-gen-dart-client)
+- [x] **RESL-01**: Circuit breaker configurable via annotation (`qos/circuit-breaker` namespace) at service and method level
+- [x] **RESL-02**: Circuit breaker settings include interval, timeout, and max_errors
+- [x] **RESL-03**: Concurrent calls configurable per endpoint (backend `concurrent_calls` field)
+- [x] **RESL-04**: Backend caching configurable via annotation (`qos/http-cache` namespace)
 
-### Additional Features
+### Validation
 
-- **FEAT-01**: #101 Support deprecated option in protoc-gen-go-client
-- **FEAT-02**: #102 Support binary response types in protoc-gen-go-http
+- [x] **VALD-01**: Generation fails with clear error if two RPCs produce identical (path, method) tuples
+- [x] **VALD-02**: Generation fails with clear error if static and parameterized routes conflict at the same path level
+- [x] **VALD-03**: All extra_config namespace strings are Go constants validated against known KrakenD namespaces
+
+### Testing
+
+- [x] **TEST-01**: Golden file tests cover all core generation scenarios (endpoint routing, backend mapping, timeouts)
+- [x] **TEST-02**: Golden file tests cover gateway features (rate limiting, JWT, circuit breaker, caching, concurrent calls)
+- [x] **TEST-03**: Golden file tests cover auto-derived header and query string forwarding
+- [x] **TEST-04**: Golden file tests cover generation-time validation errors (duplicate endpoints, path conflicts)
+
+### Documentation
+
+- [x] **DOCS-01**: Example proto file demonstrating all KrakenD annotations with a working Flexible Config setup
+- [x] **DOCS-02**: Flexible Config integration guide showing how to compose per-service fragments into a full krakend.json
+
+## Future Requirements
+
+Deferred to future milestone. Tracked but not in current roadmap.
+
+### Response Shaping
+
+- **RESP-01**: Response field filtering via allow/deny lists
+- **RESP-02**: Response field mapping (rename fields at gateway level)
+- **RESP-03**: Response grouping (nest response under key)
+- **RESP-04**: Response target extraction (unwrap nested field)
+- **RESP-05**: Collection handling (auto-derive from unwrap annotations)
+
+### Advanced Features
+
+- **ADV-01**: raw_extra_config escape hatch for arbitrary KrakenD JSON injection
+- **ADV-02**: CORS configuration from proto annotations
+- **ADV-03**: Security headers (HSTS, X-Frame-Options, etc.)
+- **ADV-04**: No-op passthrough mode (proxy without transformation)
+- **ADV-05**: Cross-service path variable collision detection
+
+### Distribution
+
+- **DIST-01**: GoReleaser integration for protoc-gen-krakend binary
+- **DIST-02**: BSR publishing for proto/sebuf/krakend/ package
+- **DIST-03**: CLAUDE.md updates with krakendgen architecture
 
 ## Out of Scope
 
 | Feature | Reason |
 |---------|--------|
-| gRPC support | sebuf targets HTTP APIs specifically, not gRPC |
-| GraphQL generation | Different API paradigm, out of scope |
-| Database/ORM integration | sebuf generates HTTP layer only |
-| Runtime framework (router, middleware) | Generates code for standard library |
-| Streaming/WebSocket support | Different transport paradigm, defer to future |
-| #94 Field name casing annotations | Proto3's built-in `json_name` already handles per-field override; adding sebuf-specific option creates confusion |
-| Multi-language HTTP servers (v3.0) | Clients are higher value; servers only needed in Go currently |
+| Full krakend.json generation | Infrastructure concern -- global config (port, TLS, telemetry) is deployment-specific |
+| API key authentication | KrakenD Enterprise-only feature |
+| gRPC backend integration | Enterprise-only, contradicts sebuf's HTTP focus |
+| Telemetry/logging config | Operational concern, not API shape |
+| CEL request validation | Niche, backend already validates via protovalidate |
+| JSON Schema validation | Redundant with protovalidate |
+| Sequential proxy | Anti-pattern per KrakenD docs |
 
 ## Traceability
 
@@ -79,37 +110,44 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| FOUND-01 | Phase 2 | Complete |
-| FOUND-02 | Phase 1 | Complete |
-| FOUND-03 | Phase 1 | Complete |
-| FOUND-04 | Phase 2 | Complete |
-| FOUND-05 | Phase 1 | Complete |
-| FOUND-06 | Phase 1 | Complete |
-| FOUND-07 | Phase 3 | Complete |
-| FOUND-08 | Phase 3 | Complete |
-| JSON-01 | Phase 5 | Complete |
-| JSON-02 | Phase 4 | Complete |
-| JSON-03 | Phase 4 | Complete |
-| JSON-04 | Phase 7 | Complete |
-| JSON-05 | Phase 6 | Complete |
-| JSON-06 | Phase 5 | Complete |
-| JSON-07 | Phase 6 | Complete |
-| JSON-08 | Phase 7 | Complete |
-| LANG-01 | Phase 8 | Pending |
-| LANG-02 | Phase 9 | Pending |
-| LANG-03 | Phase 10 | Pending |
-| POL-01 | Phase 11 | Pending |
-| POL-02 | Phase 11 | Pending |
-| POL-03 | Phase 11 | Pending |
-| POL-04 | Phase 11 | Pending |
-| POL-05 | Phase 11 | Pending |
-| POL-06 | Phase 11 | Pending |
+| ANNO-01 | Phase 12 | Complete |
+| ANNO-02 | Phase 12 | Complete |
+| ANNO-03 | Phase 12 | Complete |
+| ANNO-04 | Phase 12 | Complete |
+| CORE-01 | Phase 12 | Complete |
+| CORE-02 | Phase 12 | Complete |
+| CORE-03 | Phase 12 | Complete |
+| CORE-04 | Phase 12 | Complete |
+| CORE-05 | Phase 12 | Complete |
+| CORE-06 | Phase 12 | Complete |
+| FWD-01 | Phase 12 | Complete |
+| FWD-02 | Phase 12 | Complete |
+| FWD-03 | Phase 12 | Complete |
+| RLIM-01 | Phase 13 | Complete |
+| RLIM-02 | Phase 13 | Complete |
+| RLIM-03 | Phase 13 | Complete |
+| AUTH-01 | Phase 13 | Complete |
+| AUTH-02 | Phase 13 | Complete |
+| AUTH-03 | Phase 13 | Complete |
+| RESL-01 | Phase 13 | Complete |
+| RESL-02 | Phase 13 | Complete |
+| RESL-03 | Phase 13 | Complete |
+| RESL-04 | Phase 13 | Complete |
+| VALD-01 | Phase 12 | Complete |
+| VALD-02 | Phase 12 | Complete |
+| VALD-03 | Phase 13 | Complete |
+| TEST-01 | Phase 12 | Complete |
+| TEST-02 | Phase 13 | Complete |
+| TEST-03 | Phase 12 | Complete |
+| TEST-04 | Phase 12 | Complete |
+| DOCS-01 | Phase 14 | Complete |
+| DOCS-02 | Phase 14 | Complete |
 
 **Coverage:**
-- v1 requirements: 25 total
-- Mapped to phases: 25
+- v1.1 requirements: 32 total
+- Mapped to phases: 32
 - Unmapped: 0
 
 ---
-*Requirements defined: 2026-02-05*
-*Last updated: 2026-02-07 after Phase 7 completion (JSON-04, JSON-08 marked Complete)*
+*Requirements defined: 2026-02-25*
+*Last updated: 2026-02-25 after roadmap creation*

@@ -1,428 +1,231 @@
-# JSON Mapping Features Research
+# Feature Landscape: protoc-gen-krakend
 
-Research date: 2026-02-05
-Scope: Issues #87--#96 (10 proposed JSON mapping features for sebuf 1.0)
-Competing tools analyzed: grpc-gateway, connect-go/connectrpc, twirp, envoy gRPC-JSON transcoder, protojson (Go canonical library), ts-proto, protobuf-es
-
----
-
-## Executive Summary
-
-Of the 10 proposed features, **3 are table stakes** (competing tools already provide them), **3 are strong differentiators** (nobody does this at the annotation level), **2 are moderate differentiators** (partial solutions exist elsewhere), and **2 are anti-features** (overlap with existing mechanisms or low practical value). All competing tools rely on global runtime options (e.g., `protojson.MarshalOptions`) rather than per-field proto annotations, which is sebuf's core differentiator: **declarative, schema-level JSON mapping that works consistently across all 4 generators**.
-
-### Classification at a Glance
-
-| # | Feature | Category | Complexity | Priority |
-|---|---------|----------|------------|----------|
-| #87 | Nullable primitives | Table stakes | Medium | High |
-| #88 | int64 as string | Table stakes | Low | High |
-| #89 | Enum string encoding | Table stakes | Low-Medium | High |
-| #90 | Oneof discriminated union | Strong differentiator | High | Medium |
-| #91 | Root-level arrays | Already solved | N/A | N/A |
-| #92 | Timestamp formats | Moderate differentiator | Medium | Medium |
-| #93 | Empty object handling | Moderate differentiator | Medium | Medium |
-| #94 | Field name casing | Anti-feature (overlap) | Low | Low |
-| #95 | Bytes encoding | Strong differentiator | Low | Low |
-| #96 | Nested message flattening | Strong differentiator | High | Low |
+**Domain:** KrakenD API gateway configuration generation from protobuf service definitions
+**Researched:** 2026-02-25
+**Prior art:** No existing `protoc-gen-krakend` tool exists. This would be novel.
 
 ---
 
-## Feature-by-Feature Analysis
+## Table Stakes
 
-### #87 -- Nullable Primitives (null vs absent vs default)
+Features users expect. Missing = the tool is not useful enough to adopt over hand-writing KrakenD JSON.
 
-**Category: TABLE STAKES**
-
-**How competing tools handle it:**
-
-- **Proto3 built-in**: The `optional` keyword (added in proto 3.15) generates `has_` presence methods and pointer types in Go. However, `protojson` does NOT emit `null` for unset optional fields -- it omits them entirely.
-- **protojson**: `EmitUnpopulated` emits all fields including unset ones (as zero values, not null). `EmitDefaultValues` emits only set-to-default fields. Neither produces JSON `null` for scalar fields.
-- **grpc-gateway**: Uses `google.protobuf.StringValue`/`Int32Value` wrapper types as the standard workaround. These are verbose and poor DX. The gateway itself uses protojson under the hood.
-- **connect-go**: Delegates entirely to protojson. No custom nullable support.
-- **twirp**: Uses protojson. No nullable customization.
-- **ts-proto**: Wrapper types (`google.protobuf.StringValue`) map to `string | undefined`. The `useOptionals` flag controls whether fields are `field?: T` vs `field: T | undefined`.
-
-**Why table stakes**: Every REST API framework (Rails, Django, Express, FastAPI) supports null vs absent vs default distinction. PATCH semantics require it. The protobuf ecosystem forces verbose wrapper types or `optional` + custom code. Any HTTP API toolkit must solve this cleanly.
-
-**Sebuf's angle**: Per-field `(sebuf.http.nullable) = true` annotation is cleaner than wrapper types and goes beyond what `optional` provides (actual JSON `null` emission).
-
-**Complexity: MEDIUM**
-- Proto annotation definition: trivial
-- Go server/client codegen: Must generate pointer types, custom MarshalJSON/UnmarshalJSON with null handling
-- TS client codegen: Map to `T | null` type union
-- OpenAPI codegen: Emit `nullable: true` (OAS 3.0) or `type: ["string", "null"]` (OAS 3.1)
-- Interaction with proto3 `optional` must be clarified
-
-**Dependencies**: None. Foundational feature that other features (#93) depend on.
-
-**Implementation risk**: Must decide semantics clearly: `nullable` annotation + `optional` keyword = what behavior? Recommend: `nullable` controls JSON null emission, `optional` controls field presence tracking. They compose: a nullable optional field can be null, absent, or set.
+| # | Feature | Why Expected | KrakenD Config Keys | Complexity | Notes |
+|---|---------|--------------|---------------------|------------|-------|
+| T1 | Endpoint routing from proto | The entire point of the tool -- reuse `sebuf.http.config` (path, method) and `sebuf.http.service_config` (base_path) to generate KrakenD `endpoint` + `method` | `endpoint`, `method` | Low | Reuses existing annotations. No new proto needed. |
+| T2 | Backend host/URL mapping | Each service needs at least one backend target. Without this, generated config is incomplete. | `backend[].host`, `backend[].url_pattern` | Low | New annotation: `sebuf.krakend.backend_host` at service level. URL pattern derived from `sebuf.http.config.path`. |
+| T3 | Per-endpoint timeout | Timeouts are the most basic QoS control. KrakenD defaults to 2s which is often wrong. | `timeout` (endpoint level) | Low | New annotation: `sebuf.krakend.timeout` at method or service level. String duration format ("3s", "500ms"). |
+| T4 | Input header forwarding | KrakenD's zero-trust model blocks ALL headers by default. Without explicit `input_headers`, the backend receives nothing -- auth tokens, content types, custom headers all get dropped. | `input_headers` (endpoint + backend level) | Low | Auto-derive from `sebuf.http.service_headers` and `sebuf.http.method_headers`. Headers declared in proto annotations automatically appear in `input_headers`. |
+| T5 | Input query string forwarding | Same zero-trust issue as headers. Query params declared via `sebuf.http.query` must be forwarded. | `input_query_strings` (endpoint + backend level) | Low | Auto-derive from fields with `sebuf.http.query` annotation on request messages. |
+| T6 | Output encoding | Users must control response format. JSON is default but `no-op` is needed for passthrough. | `output_encoding` (endpoint), `encoding` (backend) | Low | New annotation: `sebuf.krakend.output_encoding` at method level. Default: "json". |
+| T7 | Per-service file output | Consistent with sebuf's existing per-service file pattern (OpenAPI does this). One KrakenD fragment per service. | N/A (file organization) | Low | Generate `ServiceName.krakend.json` per service. Users merge fragments into main `krakend.json` via Flexible Configuration partials. |
+| T8 | Endpoint rate limiting (router level) | Rate limiting is the #1 reason teams adopt API gateways. Users explicitly requested this. | `extra_config["qos/ratelimit/router"]`: `max_rate`, `capacity`, `every`, `client_max_rate`, `client_capacity`, `strategy`, `key` | Medium | New annotation: `sebuf.krakend.rate_limit` at method or service level. |
+| T9 | JWT validation | Auth is core gateway functionality. JWT is KrakenD's primary open-source auth mechanism. Users explicitly requested this. | `extra_config["auth/validator"]`: `alg`, `jwk_url`, `audience`, `issuer`, `roles`, `roles_key`, `scopes`, `scopes_key`, `cache` | Medium | New annotation: `sebuf.krakend.jwt` at method or service level. Service-level sets defaults, method-level overrides. |
+| T10 | Circuit breaker | Essential resilience pattern. Users explicitly requested this. KrakenD CE includes it. | `extra_config["qos/circuit-breaker"]` (backend): `interval`, `timeout`, `max_errors`, `log_status_change` | Low | New annotation: `sebuf.krakend.circuit_breaker` at service level (applies to all backends). |
 
 ---
 
-### #88 -- int64 as String Encoding
+## Differentiators
 
-**Category: TABLE STAKES**
+Features that set protoc-gen-krakend apart from manual KrakenD config. Not expected, but valued.
 
-**How competing tools handle it:**
-
-- **Proto3 canonical JSON spec**: int64, uint64, fixed64, sfixed64 are **always** encoded as strings in canonical protojson. This is the official specification. The rationale: JavaScript Number.MAX_SAFE_INTEGER is 2^53, so 64-bit integers lose precision.
-- **protojson (Go)**: Always encodes int64/uint64 as JSON strings. There is an open issue (#1414 on golang/protobuf) requesting `Write64KindsAsInteger` to emit them as numbers, but it has not been implemented.
-- **grpc-gateway**: Inherits protojson behavior. int64 always serialized as string. Open issue #438 requesting number format.
-- **connect-go**: Uses protojson. int64 is always string.
-- **protobuf-es/connect-es**: Uses BigInt in JavaScript runtime; JSON wire format uses strings per spec. Connect clients automatically convert.
-- **ts-proto**: int64 fields map to `number` by default (with precision warning) or `string` with `forceLong=string`. BigInt support available with `forceLong=bigint`.
-- **envoy transcoder**: Follows protobuf spec (strings for 64-bit).
-
-**Why table stakes**: The protobuf spec mandates string encoding for int64. But many existing REST APIs (especially non-protobuf ones) use numeric int64 in JSON. If sebuf targets teams building new APIs, string is correct default. If targeting interop with existing APIs, number encoding must be an option.
-
-**Sebuf's angle**: Per-field control (`STRING` vs `NUMBER`) and file-level default. More granular than protojson's all-or-nothing behavior.
-
-**Complexity: LOW**
-- Proto annotation: Simple enum option
-- Go codegen: `strconv.FormatInt`/`strconv.ParseInt` for string mode; direct numeric for number mode
-- TS codegen: `string` type for string mode; `number` for number mode (with BigInt consideration)
-- OpenAPI: `type: string, format: int64` vs `type: integer, format: int64`
-
-**Dependencies**: None. Self-contained.
-
-**Implementation risk**: Low. Well-understood problem. Main decision is default behavior (sebuf should default to `NUMBER` for HTTP API friendliness, unlike protojson which defaults to `STRING`).
+| # | Feature | Value Proposition | KrakenD Config Keys | Complexity | Notes |
+|---|---------|-------------------|---------------------|------------|-------|
+| D1 | Auto-derived input_headers from proto | Zero manual header config. Headers declared in `sebuf.http.service_headers` / `sebuf.http.method_headers` automatically become KrakenD `input_headers`. No other tool does this. | `input_headers` | Low | Pure derivation from existing annotations. The generator reads header names from the proto and emits them in `input_headers`. This is the "magic" moment -- define headers once in proto, get gateway forwarding for free. |
+| D2 | Auto-derived input_query_strings from proto | Query params from `sebuf.http.query` annotations automatically forwarded. | `input_query_strings` | Low | Same pattern as D1 but for query strings. |
+| D3 | Backend rate limiting (proxy level) | Controls how fast KrakenD calls your backend, protecting it from overload. Different from router rate limit which controls client access. | `extra_config["qos/ratelimit/proxy"]` (backend): `max_rate`, `capacity`, `every` | Low | New annotation: `sebuf.krakend.backend_rate_limit` at service level. |
+| D4 | Concurrent calls | KrakenD's performance optimization: send N parallel requests to backend, return first success. Reduces latency and error rates. | `concurrent_calls` (endpoint level) | Low | New annotation: `sebuf.krakend.concurrent_calls` at method level. Integer value. |
+| D5 | Backend response filtering (allow/deny) | Control which fields from backend response reach the client. Useful for removing internal fields. | `backend[].allow`, `backend[].deny` | Medium | New annotation: `sebuf.krakend.response_allow` / `sebuf.krakend.response_deny` at method level. Array of field names. Supports dot notation for nested fields. |
+| D6 | Backend response mapping (field rename) | Rename fields in backend response before returning to client. | `backend[].mapping` | Low | New annotation: `sebuf.krakend.response_mapping` at method level. Map of old_name -> new_name. |
+| D7 | Backend response grouping | Wrap backend response under a named key. Essential when aggregating multiple backends. | `backend[].group` | Low | New annotation: `sebuf.krakend.response_group` at method level (per-backend). String value. |
+| D8 | Backend response target extraction | Extract nested field as root (e.g., unwrap `{"data": {...}}` to just `{...}`). | `backend[].target` | Low | New annotation: `sebuf.krakend.response_target` at method level. String field name. |
+| D9 | CORS configuration | Generate service-level CORS config. While CORS is global in KrakenD (root extra_config), generating the default from service definitions saves boilerplate. | `extra_config["security/cors"]`: `allow_origins`, `allow_methods`, `allow_headers`, `expose_headers`, `allow_credentials`, `max_age` | Medium | New annotation: `sebuf.krakend.cors` at file or service level. Generates root-level CORS config. |
+| D10 | Backend caching | Enable in-memory response caching at the backend level. Reduces load on upstream services. | `extra_config["qos/http-cache"]` (backend): `shared`, `max_items`, `max_size` | Low | New annotation: `sebuf.krakend.cache` at method or service level. |
+| D11 | CEL request validation expressions | Add request-time validation expressions (beyond what proto validation does). Gateway-level validation before hitting backend. | `extra_config["validation/cel"]` (endpoint): array of `{check_expr}` | Medium | New annotation: `sebuf.krakend.cel_validation` at method level. Array of CEL expression strings. |
+| D12 | JWT claim propagation | Forward specific JWT claims as backend request headers. Enables backend to receive user identity without parsing JWT itself. | `propagate_claims` within `auth/validator` config | Low | Extension of T9 (JWT). Add `propagate_claims` field to the JWT annotation message. |
+| D13 | Sequential proxy | Enable backend call chaining where output of one call feeds the next. | `extra_config["proxy"]["sequential"]`: `true` | Medium | New annotation: `sebuf.krakend.sequential` at method level. Boolean. Only meaningful for endpoints with multiple backends. |
+| D14 | Backend error handling | Control whether backend errors pass through to client (return_error_code, return_error_details, return_error_msg). | `extra_config["backend/http"]`: `return_error_code`, `return_error_details`, `return_error_msg` (router) | Low | New annotation: `sebuf.krakend.error_handling` at method or service level. |
+| D15 | Collection handling (is_collection) | Declare when backend returns an array instead of an object. | `backend[].is_collection` | Low | Auto-derive from response message type: if the response has `sebuf.http.unwrap` on a repeated field, set `is_collection: true` or use `output_encoding: "json-collection"`. |
+| D16 | Security HTTP headers | Generate service-level security headers (HSTS, XSS protection, clickjacking prevention). | `extra_config["security/http"]`: `sts_seconds`, `frame_deny`, `content_type_nosniff`, etc. | Low | New annotation: `sebuf.krakend.security_headers` at file level. One-time global config. |
+| D17 | No-op passthrough mode | Mark specific endpoints as pure proxy passthrough (no request/response inspection). | `output_encoding: "no-op"` | Low | New annotation: `sebuf.krakend.passthrough` at method level. Boolean. Overrides output_encoding to "no-op". |
 
 ---
 
-### #89 -- Enum String Encoding with Custom Values
+## Anti-Features
 
-**Category: TABLE STAKES**
+Features to explicitly NOT build. These would hurt the tool or create maintenance burden disproportionate to value.
 
-**How competing tools handle it:**
-
-- **Proto3 canonical JSON**: Enums are serialized as their proto name strings (e.g., `"STATUS_ACTIVE"`). Parsers must also accept numeric values.
-- **protojson**: `UseEnumNumbers` option switches globally to integer encoding. No per-enum or per-value customization.
-- **grpc-gateway**: `enums_as_ints` option in OpenAPI generation. Global toggle via `MarshalOptions.UseEnumNumbers`.
-- **connect-go**: Delegates to protojson options. Global enum number toggle.
-- **ts-proto**: `stringEnums=true` generates string-based TypeScript enums. `useNumericEnumForJson=true` for JSON encoding as integers.
-- **envoy**: `preserve_proto_field_names` preserves original field names (related but not enum-specific).
-
-**What nobody does**: Custom enum value strings (e.g., `STATUS_ACTIVE` -> `"active"`). All tools use either the raw proto name or the integer. The `json_name` option exists for fields but NOT for enum values.
-
-**Why table stakes** (with differentiating element): String vs number encoding for enums is table stakes. Custom value strings are a differentiator, but a commonly requested one -- REST APIs universally use lowercase strings like `"active"`, `"pending"`, not `"STATUS_ACTIVE"`.
-
-**Sebuf's angle**: Both the encoding mode (string/number) and custom value mapping are per-enum proto annotations. This is unique.
-
-**Complexity: LOW-MEDIUM**
-- Proto annotation: Enum-level encoding mode + per-value custom string
-- Go codegen: Bidirectional lookup maps, custom MarshalJSON/UnmarshalJSON on enum type
-- TS codegen: String literal union type with custom values
-- OpenAPI: `enum: ["active", "inactive"]` with custom values
-
-**Dependencies**: None. Self-contained.
-
-**Implementation risk**: Low. Must handle unknown enum values gracefully (fail? use numeric fallback?).
+| # | Anti-Feature | Why Avoid | What to Do Instead |
+|---|--------------|-----------|-------------------|
+| A1 | Full krakend.json generation | KrakenD's root config includes service-level settings (port, TLS, telemetry, logging, plugin loading) that are infrastructure concerns, not API design concerns. Generating the full file couples proto definitions to deployment config. | Generate per-service endpoint fragment JSON files. Users compose these into their krakend.json using KrakenD Flexible Configuration (`FC_PARTIALS`). Document the merge pattern. |
+| A2 | API key authentication config | API keys are KrakenD Enterprise-only (`auth/api-keys`). Generating Enterprise-only config from open-source proto annotations creates confusion and lock-in. | Support JWT validation (open-source `auth/validator`). Document that API keys require Enterprise and can be added to the generated fragments manually. |
+| A3 | gRPC backend integration | KrakenD's gRPC client is Enterprise-only. Generating gRPC backend config targets a paid feature. Also, sebuf is an HTTP toolkit -- gRPC backends contradict the core use case. | Generate HTTP backend config only. Users wanting gRPC backends can add `backend/grpc` extra_config manually. |
+| A4 | Service Discovery configuration | KrakenD SD (`sd: "dns"`) is deployment-infrastructure config that varies by environment (Docker, K8s, bare metal). Proto definitions should not encode deployment topology. | Generate `sd: "static"` (default). Document how to override `host` arrays and `sd` mode per environment using Flexible Configuration settings files. |
+| A5 | Telemetry/metrics/logging config | These are operational concerns (OpenTelemetry, Prometheus, Datadog, etc.) that vary per deployment. Proto definitions have no business encoding observability stack choices. | Do not generate any `telemetry/*` config. Document recommended telemetry setup separately. |
+| A6 | Plugin/middleware registration | KrakenD plugins (`plugin/http-server`, `plugin/http-client`, `plugin/middleware`) are custom Go code deployed alongside KrakenD. Referencing them from proto annotations is nonsensical. | Do not generate any `plugin/*` config. |
+| A7 | Response Go templates (Enterprise) | Enterprise-only response transformation via Go templates. Same issue as A2. | Use backend `allow`/`deny`/`mapping`/`target` for response shaping (open-source features). |
+| A8 | Workflows (Enterprise) | Enterprise-only multi-step request orchestration. | Support basic `sequential` proxy (open-source) instead. |
+| A9 | JSON Schema request validation | KrakenD's `validation/json-schema` duplicates what sebuf's backend already does via `buf.validate` / protovalidate. Generating gateway-level JSON Schema from proto is redundant -- the backend already validates. | Let backend handle request validation via protovalidate. If users want gateway-level validation, use CEL expressions (D11) for lightweight checks. |
+| A10 | Flatmap array manipulation | KrakenD's `proxy/flatmap_filter` is a complex response transformation engine for arrays. It is rarely needed when the backend already shapes its response correctly (which sebuf ensures). | Backend response shaping is handled by the generated HTTP server code. Use `allow`/`deny`/`target` for simple filtering. |
 
 ---
 
-### #90 -- Oneof as Discriminated Union (Flattened with Type Field)
-
-**Category: STRONG DIFFERENTIATOR**
-
-**How competing tools handle it:**
-
-- **Proto3 canonical JSON**: Oneof fields serialize as the set field's name with its value. `{"click": {"x": 100, "y": 200}}`. No flattening. No discriminator field.
-- **protojson**: No support for discriminated unions or flattening.
-- **grpc-gateway**: GitHub issue #82 (2016) requested oneof support in query parameters. Issue #585 requested discriminator support in OpenAPI. Neither fully addressed. Standard oneof JSON output only.
-- **connect-go**: Standard protojson oneof handling. No flattening.
-- **ts-proto**: `oneof=unions` generates ADT types: `{ $case: 'click'; click: ClickEvent } | { $case: 'purchase'; purchase: PurchaseEvent }`. This is a TypeScript type-level discriminated union but the JSON wire format is still standard protobuf (`{"click": {...}}`). The discriminator field `$case` exists only in the TypeScript type system, not in serialized JSON.
-- **OpenAPI**: The `discriminator` keyword with `oneOf` is a standard OAS pattern, but no protobuf tool generates this from oneof today.
-
-**Why this is a strong differentiator**: Discriminated unions with flattened fields are the standard REST API pattern (Stripe, AWS, GitHub webhooks all use `"type"` discriminator fields). No protobuf tool generates this. ts-proto's `$case` is the closest but is TypeScript-only and not a wire format feature.
-
-**Complexity: HIGH**
-- Proto annotations: Oneof-level discriminator name + flatten flag, per-field discriminator value
-- Go codegen: Complex MarshalJSON merging parent fields with child fields, UnmarshalJSON with type-switch on raw JSON. Field collision detection at generation time.
-- TS codegen: TypeScript discriminated union types with shared interface
-- OpenAPI: `discriminator` with `oneOf` schemas, flattened property definitions
-- Edge cases: Field name collisions between parent and child, nested oneofs, optional fields in variants
-
-**Dependencies**: Benefits from #87 (nullable) for optional discriminator fields, but not strictly required.
-
-**Implementation risk**: HIGH. Field collision detection, deeply nested messages, interaction with validation. Recommend phased approach: Phase 1 = discriminator only (no flatten), Phase 2 = flatten.
-
----
-
-### #91 -- Root-Level Arrays in Responses
-
-**Category: ALREADY SOLVED**
-
-**Current state**: The existing `(sebuf.http.unwrap) = true` annotation on a repeated field inside a response message already handles this case. The codebase has comprehensive unwrap support:
-- Root repeated unwrap: `repeated Item items = 1 [(sebuf.http.unwrap) = true]` -> `[{...}, {...}]`
-- Root map unwrap: `map<string, Item> items = 1 [(sebuf.http.unwrap) = true]` -> `{"key": {...}}`
-- Combined root + value unwrap: nested unwrapping
-
-This is confirmed by test files at:
-- `internal/httpgen/testdata/proto/unwrap.proto` (lines 91-94 for `RootRepeatedResponse`)
-- `internal/tsclientgen/testdata/proto/complex_features.proto` (lines 211-235)
-- `internal/openapiv3/testdata/proto/unwrap.proto` (lines 87-96)
-
-**Action**: Close issue #91. Document existing unwrap functionality as the solution. Consider adding a prominent example in documentation.
-
-**Dependencies**: None (already implemented).
-
----
-
-### #92 -- Multiple Timestamp Formats
-
-**Category: MODERATE DIFFERENTIATOR**
-
-**How competing tools handle it:**
-
-- **Proto3 canonical JSON**: `google.protobuf.Timestamp` always serializes as RFC 3339 string (`"2024-01-15T09:30:00Z"`). This is the specification. No options.
-- **protojson**: Hardcoded RFC 3339 for Timestamp well-known type. No customization.
-- **grpc-gateway**: Inherits protojson behavior. RFC 3339 only.
-- **connect-go**: RFC 3339 only.
-- **twirp**: RFC 3339 only.
-- **protobuf-es**: RFC 3339 only. Timestamp maps to `{ seconds: bigint, nanos: number }` internally.
-- **ts-proto**: Timestamp can map to `Date` object or `Timestamp` message type, but JSON format is always RFC 3339.
-- **envoy**: RFC 3339 only.
-
-**Why moderate differentiator**: The entire protobuf ecosystem is locked to RFC 3339 for Timestamps. Many REST APIs use Unix timestamps (Stripe uses Unix seconds, JavaScript APIs often use Unix milliseconds). Supporting multiple formats is genuinely useful for interop, but it's not a widely expected feature because protobuf users accept RFC 3339.
-
-**Complexity: MEDIUM**
-- Proto annotation: Per-field enum (RFC3339, UNIX_SECONDS, UNIX_MILLIS, DATE)
-- Go codegen: Format-specific marshal/unmarshal in custom JSON methods
-- TS codegen: Type changes from `string` to `number` for unix formats; `Date` handling per format
-- OpenAPI: `format: date-time` vs `format: date` vs custom `format: unix-timestamp`
-- Precision: Unix millis requires nanosecond-to-millisecond conversion
-
-**Dependencies**: None. Self-contained.
-
-**Implementation risk**: Medium. DATE format lossy (drops time). Must document timezone semantics for non-RFC3339 formats. Only applies to `google.protobuf.Timestamp` fields.
-
----
-
-### #93 -- Empty Object Handling (Preserve vs Omit vs Null)
-
-**Category: MODERATE DIFFERENTIATOR**
-
-**How competing tools handle it:**
-
-- **Proto3 default**: Zero-valued message fields are omitted from JSON output. An empty message `{}` is the zero value, so it's omitted.
-- **protojson**: `EmitUnpopulated` emits all fields (empty messages as `{}`). `EmitDefaultValues` emits set-to-default primitives but not unset message fields. Neither provides null for empty messages.
-- **grpc-gateway**: Configurable via `MarshalOptions.EmitUnpopulated`. Global toggle only.
-- **connect-go**: Global toggle via protojson options.
-- **ts-proto**: `useOptionals` controls whether unset fields are `undefined` or omitted.
-
-**What nobody does**: Per-field control over empty object behavior. All tools use a single global toggle.
-
-**Why moderate differentiator**: PATCH semantics (RFC 7396 JSON Merge Patch) give different meaning to `{}`, `null`, and absent. Per-field control is useful for APIs that mix PATCH and non-PATCH endpoints. But the use case is narrow -- most APIs use a consistent approach.
-
-**Complexity: MEDIUM**
-- Proto annotation: Per-field enum (PRESERVE, NULL, OMIT) + `omit_empty` boolean
-- Go codegen: Conditional emission logic in MarshalJSON with `proto.Size()` zero-check
-- TS codegen: Optional chaining and null type handling
-- OpenAPI: Required array manipulation, nullable annotation
-- Interaction with #87 (nullable): A nullable field with empty_behavior=NULL means two sources of null. Must define precedence.
-
-**Dependencies**: Partially overlaps with #87 (nullable primitives). Should be designed together.
-
-**Implementation risk**: Medium. Complex interaction with nullable. The `omit_empty` option overlaps with Go's `omitempty` and protojson's `EmitUnpopulated`. Must clearly differentiate sebuf's behavior.
-
-**Recommendation**: Simplify to just `omit_empty = true` for 1.0. Defer `empty_behavior` enum to post-1.0. The simpler version covers 90% of use cases.
-
----
-
-### #94 -- Field Name Casing Options
-
-**Category: ANTI-FEATURE (significant overlap with existing mechanisms)**
-
-**How competing tools handle it:**
-
-- **Proto3 built-in**: `json_name` field option allows explicit override per field. Default behavior: proto compiler auto-generates camelCase `json_name` from snake_case field names. JSON parsers MUST accept both the camelCase json_name and the original proto field name.
-- **protojson**: `UseProtoNames` option uses original proto field names (snake_case) instead of json_name. Global toggle.
-- **grpc-gateway**: Supports `UseProtoNames` via MarshalOptions.
-- **envoy**: `preserve_proto_field_names` option to keep original names.
-- **ts-proto**: `snakeToCamel` option with granular control (`keys`, `json`, `keys_json`).
-- **protobuf-es**: Uses json_name by default (camelCase).
-
-**Why anti-feature**: Proto3's built-in `json_name` field option already provides per-field override. The `UseProtoNames` pattern is global and handles the most common case (snake_case preservation). Adding a sebuf-specific `json_naming` file option duplicates built-in functionality. Users who want specific field names can already use `json_name`.
-
-**Complexity: LOW**
-- If implemented: snake-to-camel conversion function, file-level option, field-level override
-- But the existing `json_name` proto option already does this
-
-**Dependencies**: None.
-
-**Implementation risk**: Low technically, but high in terms of confusion. Users will wonder why they have both `json_name` and `json_name_override`.
-
-**Recommendation**: Do NOT implement. Document proto3's built-in `json_name` option instead. If file-level default is essential, implement only the file-level `json_naming` option (SNAKE_CASE vs CAMEL_CASE) and explicitly state it controls the default, with proto3 `json_name` taking precedence.
-
----
-
-### #95 -- Bytes Encoding Options (base64, hex)
-
-**Category: STRONG DIFFERENTIATOR**
-
-**How competing tools handle it:**
-
-- **Proto3 canonical JSON**: bytes fields always encode as standard base64 (RFC 4648). No options.
-- **protojson**: Hardcoded base64. Open issue (#1030 on golang/protobuf) requesting hex support -- not implemented.
-- **grpc-gateway**: Base64 only.
-- **connect-go**: Base64 only.
-- **All other tools**: Base64 only.
-- **Cosmos SDK**: Issue #12994 requested hex display for bytes in JSON. Workaround: change field type to string and convert manually.
-
-**Why strong differentiator**: No protobuf tool supports alternative bytes encoding. Crypto/blockchain APIs universally use hex encoding. JWT/URL contexts use base64url. The standard workaround (use string field type + manual conversion) loses type safety and proto semantics.
-
-**Complexity: LOW**
-- Proto annotation: Per-field enum (BASE64, BASE64_RAW, BASE64URL, BASE64URL_RAW, HEX)
-- Go codegen: Swap encoding function in MarshalJSON/UnmarshalJSON (`base64.StdEncoding` vs `base64.RawURLEncoding` vs `hex.EncodeToString`)
-- TS codegen: Corresponding encode/decode functions
-- OpenAPI: `format: byte` vs `pattern: "^[0-9a-fA-F]+$"` for hex
-
-**Dependencies**: None. Self-contained.
-
-**Implementation risk**: Very low. Well-understood encoding. Each variant is a simple function swap.
-
----
-
-### #96 -- Nested Message Flattening
-
-**Category: STRONG DIFFERENTIATOR (but niche)**
-
-**How competing tools handle it:**
-
-- **No protobuf tool supports this.** Nested messages always serialize as nested JSON objects. There is no flatten or embed option in any competing tool.
-- **JSON Schema**: No flatten concept.
-- **OpenAPI**: `allOf` can compose schemas but doesn't flatten at the wire level.
-- **Go encoding/json**: Supports anonymous struct embedding (which flattens), but protobuf messages are never anonymous.
-
-**Why strong differentiator (but niche)**: This is genuinely novel -- no protobuf tool does it. However, the use cases are narrow: legacy API compatibility, HTML form interop, CSV representations. Most modern APIs use nested objects and this is the expected JSON pattern.
-
-**Complexity: HIGH**
-- Proto annotations: Per-field `flatten = true` + `flatten_prefix` string
-- Go codegen: Complex MarshalJSON that walks nested fields and emits them at parent level with prefix. UnmarshalJSON must reverse. Recursive flattening (flatten inside flatten) multiplies complexity.
-- TS codegen: Flattened interface types, mapping logic
-- OpenAPI: Inlined properties with prefix in schema
-- Collision detection at generation time (flattened field name matches parent field name)
-- Deeply nested messages: how many levels of flatten are supported?
-
-**Dependencies**: Interacts with #90 (oneof flattening uses similar machinery). Shared implementation possible.
-
-**Implementation risk**: HIGH. Recursive flattening, collision detection, interaction with validation (which field validates?), interaction with oneof. The prefix mechanism is fragile with proto field renaming.
-
-**Recommendation**: Defer to post-1.0. The use case is primarily legacy interop, and those teams can use custom MarshalJSON overrides. If implemented, limit to 1 level of flattening initially.
-
----
-
-## Dependency Graph
+## Feature Dependencies
 
 ```
-#87 (Nullable) <-------- #93 (Empty objects) [nullable semantics overlap]
-       |
-       v
-#90 (Oneof discriminated) ---> #96 (Flattening) [shared flatten machinery]
-       |
-       v
-  (OpenAPI discriminator support)
+T1 (Endpoint routing) --> T2 (Backend host) --> ALL OTHER FEATURES
+   The endpoint + backend skeleton is the foundation everything else attaches to.
 
-#88 (int64 string) ---- independent
-#89 (Enum encoding) ---- independent
-#91 (Root arrays) ------ DONE (existing unwrap)
-#92 (Timestamps) ------- independent
-#94 (Field casing) ----- anti-feature, skip
-#95 (Bytes encoding) --- independent
+T4 (Input headers) <-- D1 (Auto-derive headers)
+   D1 is the automatic version of T4. T4 provides manual override capability.
+
+T5 (Input query strings) <-- D2 (Auto-derive query strings)
+   D2 is the automatic version of T5.
+
+T9 (JWT validation) --> D12 (Claim propagation)
+   Claim propagation is a sub-feature of JWT config.
+
+T8 (Rate limiting) --> D3 (Backend rate limiting)
+   Router rate limit should come before proxy rate limit (different scopes, same conceptual area).
+
+D5 (Allow/deny) + D6 (Mapping) + D7 (Group) + D8 (Target) form a cohesive "response shaping" group.
+   All are backend-level response manipulation. Implement together.
+
+T10 (Circuit breaker) + D3 (Backend rate limiting) + D10 (Caching) form "backend resilience" group.
+   All are backend extra_config. Implement together.
 ```
 
-Key dependency chains:
-1. **#87 must precede #93**: Empty object behavior depends on nullable semantics being defined
-2. **#90 informs #96**: Oneof flattening and message flattening share flatten+merge machinery
-3. **All others are independent** and can be implemented in any order
+---
+
+## MVP Recommendation
+
+### Phase 1: Skeleton (must ship first)
+
+Prioritize:
+1. **T1 - Endpoint routing** -- The core translation of proto HTTP annotations to KrakenD endpoints
+2. **T2 - Backend host mapping** -- Without backends, endpoints are empty shells
+3. **T7 - Per-service file output** -- Consistent with OpenAPI generator pattern
+4. **T4 + D1 - Input header forwarding (auto-derived)** -- KrakenD blocks all headers by default; without this, nothing works. Auto-derivation from existing `sebuf.http.service_headers`/`sebuf.http.method_headers` is the key value proposition.
+5. **T5 + D2 - Input query string forwarding (auto-derived)** -- Same rationale as headers.
+6. **T3 - Timeouts** -- Trivial to add, critical for correctness.
+7. **T6 - Output encoding** -- Simple, necessary for non-JSON backends.
+
+**Rationale:** This phase produces a minimal but functional KrakenD config that actually works when loaded. The auto-derived header/query forwarding is the "wow" moment that justifies using the tool over manual config.
+
+### Phase 2: Gateway Features (rate limiting, auth, resilience)
+
+Prioritize:
+1. **T8 - Endpoint rate limiting** -- #1 requested feature
+2. **T9 - JWT validation** -- #2 requested feature
+3. **T10 - Circuit breaker** -- Simple, high value
+4. **D3 - Backend rate limiting** -- Completes the rate limiting story
+5. **D4 - Concurrent calls** -- Trivial, high value
+6. **D10 - Backend caching** -- Simple, high value
+7. **D12 - JWT claim propagation** -- Extension of JWT, low incremental cost
+8. **D14 - Backend error handling** -- Simple config, important for debugging
+
+**Rationale:** This phase adds the gateway-specific value that KrakenD provides beyond simple reverse proxying. Rate limiting and JWT are the two features users explicitly requested.
+
+### Phase 3: Response Shaping and Advanced Features
+
+Prioritize:
+1. **D5-D8 - Response filtering/mapping/grouping/target** -- Cohesive response shaping group
+2. **D15 - Collection handling** -- Auto-derived from existing unwrap annotations
+3. **D9 - CORS configuration** -- Common need, medium complexity
+4. **D16 - Security headers** -- Low effort, good defaults
+5. **D17 - No-op passthrough** -- Niche but simple
+
+Defer:
+- **D11 - CEL validation**: Medium complexity, niche use case (backend already validates)
+- **D13 - Sequential proxy**: Anti-pattern per KrakenD docs, rarely needed
 
 ---
 
-## Recommended Implementation Order
+## KrakenD Open Source vs Enterprise Feature Matrix
 
-### Phase 1: Table Stakes (required for 1.0 credibility)
-1. **#88 int64 as string** -- Low complexity, high value, independent
-2. **#89 Enum encoding** -- Low-medium complexity, high value, independent
-3. **#87 Nullable primitives** -- Medium complexity, high value, foundational
+Critical for protoc-gen-krakend: only generate config for open-source features by default.
 
-### Phase 2: High-Value Differentiators
-4. **#95 Bytes encoding** -- Low complexity, strong differentiator
-5. **#92 Timestamp formats** -- Medium complexity, useful for interop
-6. **#93 Empty object handling** -- Medium complexity, depends on #87
-
-### Phase 3: Complex Differentiators (post-1.0 candidates)
-7. **#90 Oneof discriminated union** -- High complexity, strong differentiator, phased delivery
-8. **#96 Nested message flattening** -- High complexity, niche use case
-
-### Skip
-- **#91**: Already solved by existing unwrap annotation
-- **#94**: Overlaps with proto3's built-in `json_name`; document existing mechanism instead
-
----
-
-## How Competing Tools Compare (Summary Matrix)
-
-| Feature | protojson | grpc-gateway | connect-go | twirp | envoy | ts-proto | sebuf (proposed) |
-|---------|-----------|--------------|------------|-------|-------|----------|------------------|
-| Nullable primitives | Wrappers only | Wrappers only | Wrappers only | Wrappers only | Wrappers only | Wrappers | Per-field annotation |
-| int64 encoding | Always string | Always string | Always string | Always string | Always string | Configurable global | Per-field annotation |
-| Enum custom values | No | No | No | No | No | No | Per-value annotation |
-| Enum string/number | Global toggle | Global toggle | Global toggle | String only | String only | Global toggle | Per-enum annotation |
-| Oneof discriminated | No | No | No | No | No | TS types only | Proto annotation |
-| Root-level arrays | No | No | No | No | No | No | Already solved (unwrap) |
-| Timestamp formats | RFC3339 only | RFC3339 only | RFC3339 only | RFC3339 only | RFC3339 only | RFC3339 only | Per-field annotation |
-| Empty object control | Global toggle | Global toggle | Global toggle | No | No | Partial | Per-field annotation |
-| Field name casing | Global toggle | Global toggle | Global toggle | No | Global toggle | Global toggle | Skip (use json_name) |
-| Bytes encoding | Base64 only | Base64 only | Base64 only | Base64 only | Base64 only | Base64 only | Per-field annotation |
-| Nested flattening | No | No | No | No | No | No | Per-field annotation |
-
-**Sebuf's consistent differentiator**: Every feature is a per-field/per-enum/per-message proto annotation, not a global runtime option. This means:
-1. The schema is self-documenting (the proto file describes the JSON format)
-2. Different fields in the same message can have different behaviors
-3. All 4 generators (go-http, go-client, ts-client, openapiv3) read the same annotations and produce consistent output
+| Feature | Community (Free) | Enterprise (Paid) | protoc-gen-krakend Support |
+|---------|-----------------|-------------------|---------------------------|
+| Endpoint rate limit | Yes | Yes | T8 - Generate |
+| Backend rate limit | Yes | Yes | D3 - Generate |
+| JWT validation | Yes | Yes | T9 - Generate |
+| API keys | No | Yes | A2 - Do NOT generate |
+| CORS | Yes | Yes | D9 - Generate |
+| Circuit breaker | Yes | Yes | T10 - Generate |
+| Concurrent calls | Yes | Yes | D4 - Generate |
+| Caching | Yes | Yes | D10 - Generate |
+| CEL validation | Yes | Yes | D11 - Generate (Phase 3) |
+| JSON Schema validation | Yes | Yes | A9 - Do NOT generate (redundant) |
+| Security headers | Yes | Yes | D16 - Generate |
+| Sequential proxy | Yes | Yes | D13 - Defer |
+| Response manipulation (allow/deny/mapping/target/group) | Yes | Yes | D5-D8 - Generate |
+| Response Go templates | No | Yes | A7 - Do NOT generate |
+| Workflows | No | Yes | A8 - Do NOT generate |
+| gRPC backend | No | Yes | A3 - Do NOT generate |
+| Security Policies | No | Yes | Do NOT generate |
+| Tiered rate limit | No | Yes | Do NOT generate |
+| Stateful rate limit (Redis) | No | Yes | Do NOT generate |
 
 ---
 
-## Cross-Cutting Concerns
+## Annotation Extension Number Planning
 
-### Custom MarshalJSON/UnmarshalJSON Generation
-Features #87, #88, #89, #90, #92, #93, #95, #96 all require generating custom `MarshalJSON`/`UnmarshalJSON` methods on proto messages. The existing unwrap implementation already does this (`internal/httpgen/unwrap.go`). Key consideration: **only one MarshalJSON per message type is allowed**. Multiple features on the same message must be composed into a single method.
+Existing sebuf annotations use extension numbers 50003-50020. KrakenD annotations should use a separate range to avoid collisions and keep concerns separated.
 
-**Recommendation**: Build a `MessageJSONOverride` abstraction that collects all field-level customizations for a message and generates a single composite MarshalJSON/UnmarshalJSON.
+**Recommendation:** Use range 51000-51099 for `sebuf.krakend.*` extensions in a new `proto/sebuf/krakend/` package.
 
-### Interaction with protojson
-sebuf currently uses `protojson.Marshal`/`protojson.Unmarshal` for messages without custom annotations. Messages WITH custom JSON mapping annotations need custom marshal/unmarshal code. The generator must detect which messages need custom code and which can use protojson defaults.
+| Ext # | Name | Target | Purpose |
+|-------|------|--------|---------|
+| 51000 | krakend_endpoint | MethodOptions | Per-method KrakenD endpoint config (timeout, concurrent_calls, output_encoding, passthrough) |
+| 51001 | krakend_service | ServiceOptions | Per-service KrakenD config (backend_host, default timeout, circuit_breaker, backend_rate_limit, cache, error_handling) |
+| 51002 | krakend_rate_limit | MethodOptions | Per-method router rate limit config |
+| 51003 | krakend_jwt | MethodOptions | Per-method JWT validation config |
+| 51004 | krakend_jwt_service | ServiceOptions | Service-level JWT defaults |
+| 51005 | krakend_response | MethodOptions | Per-method response shaping (allow, deny, mapping, group, target) |
+| 51006 | krakend_cors | FileOptions | File-level CORS config |
+| 51007 | krakend_security | FileOptions | File-level security headers config |
+| 51008 | krakend_cel | MethodOptions | Per-method CEL validation expressions |
 
-### TypeScript Client Impact
-For the TS client generator, each JSON mapping feature changes the TypeScript type definitions AND the runtime serialization logic. The TS client must embed or reference encode/decode helpers for each feature used.
+---
 
-### OpenAPI Impact
-Each JSON mapping feature changes the OpenAPI schema output. Features like nullable, int64-as-string, enum custom values, and timestamp formats all affect `type`, `format`, `enum`, and `nullable` properties in the generated OpenAPI spec.
+## Confidence Assessment
+
+| Feature Area | Confidence | Reason |
+|--------------|------------|--------|
+| Endpoint routing (T1-T2) | HIGH | KrakenD endpoint/backend config is well-documented and stable |
+| Header/query forwarding (T4-T5, D1-D2) | HIGH | KrakenD zero-trust model is well-documented; derivation from existing annotations is straightforward |
+| Rate limiting (T8, D3) | HIGH | `qos/ratelimit/router` and `qos/ratelimit/proxy` namespaces verified from official docs |
+| JWT validation (T9, D12) | HIGH | `auth/validator` namespace fully documented with all config keys |
+| Circuit breaker (T10) | HIGH | `qos/circuit-breaker` namespace verified from official docs |
+| Response shaping (D5-D8) | HIGH | `allow`/`deny`/`mapping`/`group`/`target` are core KrakenD backend features, well-documented |
+| CORS (D9) | MEDIUM | `security/cors` is root-level only -- need to verify how per-service fragments merge into root config |
+| Caching (D10) | MEDIUM | `qos/http-cache` works but TTL is controlled by backend Cache-Control headers, not KrakenD config. Annotation semantics need clarification. |
+| CEL validation (D11) | MEDIUM | `validation/cel` verified but CEL expression syntax needs validation against actual KrakenD behavior |
+| Enterprise feature boundaries | HIGH | Feature comparison matrix from official KrakenD features page |
 
 ---
 
 ## Sources
 
-- [ProtoJSON Format specification](https://protobuf.dev/programming-guides/json/)
-- [protojson Go package documentation](https://pkg.go.dev/google.golang.org/protobuf/encoding/protojson)
-- [gRPC-Gateway customization docs](https://grpc-ecosystem.github.io/grpc-gateway/docs/mapping/customizing_your_gateway/)
-- [gRPC-Gateway int64 string issue #438](https://github.com/grpc-ecosystem/grpc-gateway/issues/438)
-- [gRPC-Gateway oneof support issue #82](https://github.com/grpc-ecosystem/grpc-gateway/issues/82)
-- [gRPC-Gateway discriminator issue #585](https://github.com/grpc-ecosystem/grpc-gateway/issues/585)
-- [gRPC-Gateway null handling issue #1681](https://github.com/grpc-ecosystem/grpc-gateway/issues/1681)
-- [gRPC-Gateway PATCH feature docs](https://grpc-ecosystem.github.io/grpc-gateway/docs/mapping/patch_feature/)
-- [Connect-go serialization docs](https://connectrpc.com/docs/go/serialization-and-compression/)
-- [Connect-ES 2.0 announcement](https://buf.build/blog/connect-es-v2)
-- [protobuf-es GitHub](https://github.com/bufbuild/protobuf-es)
-- [ts-proto GitHub and README](https://github.com/stephenh/ts-proto)
-- [ts-proto oneof unions issue #314](https://github.com/stephenh/ts-proto/issues/314)
-- [Twirp serialization docs](https://twitchtv.github.io/twirp/docs/proto_and_json.html)
-- [Envoy gRPC-JSON transcoder filter docs](https://www.envoyproxy.io/docs/envoy/latest/configuration/http/http_filters/grpc_json_transcoder_filter)
-- [golang/protobuf int64 number option issue #1414](https://github.com/golang/protobuf/issues/1414)
-- [golang/protobuf hex bytes issue #1030](https://github.com/golang/protobuf/issues/1030)
-- [protobuf int64 as string issue #2679](https://github.com/protocolbuffers/protobuf/issues/2679)
-- [protoc-gen-go-json by mfridman](https://github.com/mfridman/protoc-gen-go-json)
-- [OpenAPI discriminator guide](https://redocly.com/learn/openapi/discriminator)
-- [Google AIP-203 Field Behavior](https://google.aip.dev/203)
-- [Stainless: null values in REST APIs](https://www.stainless.com/sdk-api-best-practices/how-to-pass-null-value-in-rest-api-post-put-and-patch)
-- [Speakeasy: null in OpenAPI](https://www.speakeasy.com/openapi/schemas/null)
+- [KrakenD Endpoint Configuration](https://www.krakend.io/docs/endpoints/) -- Endpoint config keys, verified 2026-02-25
+- [KrakenD Backend Configuration](https://www.krakend.io/docs/backends/) -- Backend config keys, verified 2026-02-25
+- [KrakenD Rate Limiting (Router)](https://www.krakend.io/docs/endpoints/rate-limit/) -- `qos/ratelimit/router` namespace, verified 2026-02-25
+- [KrakenD Rate Limiting (Proxy)](https://www.krakend.io/docs/backends/rate-limit/) -- `qos/ratelimit/proxy` namespace, verified 2026-02-25
+- [KrakenD JWT Validation](https://www.krakend.io/docs/authorization/jwt-validation/) -- `auth/validator` namespace, verified 2026-02-25
+- [KrakenD Circuit Breaker](https://www.krakend.io/docs/backends/circuit-breaker/) -- `qos/circuit-breaker` namespace, verified 2026-02-25
+- [KrakenD CORS](https://www.krakend.io/docs/service-settings/cors/) -- `security/cors` namespace, verified 2026-02-25
+- [KrakenD Parameter Forwarding](https://www.krakend.io/docs/endpoints/parameter-forwarding/) -- input_headers, input_query_strings, verified 2026-02-25
+- [KrakenD Data Manipulation](https://www.krakend.io/docs/backends/data-manipulation/) -- allow/deny/mapping/group/target, verified 2026-02-25
+- [KrakenD Caching](https://www.krakend.io/docs/backends/caching/) -- `qos/http-cache` namespace, verified 2026-02-25
+- [KrakenD CEL Validation](https://www.krakend.io/docs/endpoints/common-expression-language-cel/) -- `validation/cel` namespace, verified 2026-02-25
+- [KrakenD Timeouts](https://www.krakend.io/docs/throttling/timeouts/) -- Timeout configuration, verified 2026-02-25
+- [KrakenD Configuration Structure](https://www.krakend.io/docs/configuration/structure/) -- extra_config scoping, verified 2026-02-25
+- [KrakenD Features Comparison](https://www.krakend.io/features/) -- Open Source vs Enterprise matrix, verified 2026-02-25
+- [KrakenD Flexible Configuration](https://www.krakend.io/docs/configuration/flexible-config/) -- Template/partial system for composing config, verified 2026-02-25
+- [KrakenD No-Op Encoding](https://www.krakend.io/docs/endpoints/no-op/) -- Passthrough proxy mode, verified 2026-02-25
+- [KrakenD Sequential Proxy](https://www.krakend.io/docs/endpoints/sequential-proxy/) -- Backend call chaining, verified 2026-02-25
+- [KrakenD Error Handling](https://www.krakend.io/docs/backends/detailed-errors/) -- return_error_code, return_error_details, verified 2026-02-25
+- [KrakenD Security Headers](https://www.krakend.io/docs/service-settings/security/) -- HTTP security config, verified 2026-02-25
+- [KrakenD API Keys (Enterprise)](https://www.krakend.io/docs/enterprise/authentication/api-keys/) -- Enterprise-only feature, verified 2026-02-25
+- [KrakenD JSON Schema Validation](https://www.krakend.io/docs/endpoints/json-schema/) -- validation/json-schema namespace, verified 2026-02-25

@@ -1,0 +1,53 @@
+syntax = "proto3";
+
+package krakendtest;
+
+import "sebuf/http/annotations.proto";
+import "sebuf/http/headers.proto";
+import "sebuf/krakend/krakend.proto";
+
+option go_package = "github.com/SebastienMelki/sebuf/internal/krakendgen/testdata";
+
+message CombinedRequest {
+  string search = 1 [(sebuf.http.query) = { name: "q" }];
+  int32 limit = 2 [(sebuf.http.query) = { name: "limit" }];
+}
+
+message CombinedResponse {
+  repeated string items = 1;
+}
+
+service CombinedForwardingService {
+  option (sebuf.http.service_config) = {
+    base_path: "/api/v1"
+  };
+  option (sebuf.krakend.gateway_config) = {
+    host: ["http://backend:8080"]
+  };
+  option (sebuf.http.service_headers) = {
+    required_headers: [
+      {
+        name: "X-API-Key"
+        type: "string"
+        required: true
+      }
+    ]
+  };
+
+  // Both headers and query params.
+  rpc CombinedEndpoint(CombinedRequest) returns (CombinedResponse) {
+    option (sebuf.http.config) = {
+      path: "/combined"
+      method: HTTP_METHOD_GET
+    };
+    option (sebuf.http.method_headers) = {
+      required_headers: [
+        {
+          name: "X-Correlation-ID"
+          type: "string"
+          required: true
+        }
+      ]
+    };
+  }
+}
