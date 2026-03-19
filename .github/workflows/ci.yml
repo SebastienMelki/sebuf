@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
 
 env:
-  GO_VERSION: '1.24'
+  GO_VERSION: '1.26'
   BUF_VERSION: 'latest'
   PROTOC_VERSION: '25.1'
 
@@ -105,7 +105,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        go-version: ['1.24']
+        go-version: ['1.26']
         os: [ubuntu-latest, macos-latest]
     steps:
       - name: Checkout code
@@ -168,7 +168,7 @@ jobs:
       - name: Download coverage from test job
         uses: actions/download-artifact@v8
         with:
-          name: test-results-ubuntu-latest-go1.24
+          name: test-results-ubuntu-latest-go1.26
           path: ./coverage-download
           
       - name: Verify and locate coverage file
@@ -250,7 +250,7 @@ jobs:
         uses: fgrosse/go-coverage-report@v1.3.0
         continue-on-error: true  # Don't fail on coverage reporting issues
         with:
-          coverage-artifact-name: test-results-ubuntu-latest-go1.24
+          coverage-artifact-name: test-results-ubuntu-latest-go1.26
           coverage-file-name: coverage/coverage.out
           
       - name: Upload coverage reports
