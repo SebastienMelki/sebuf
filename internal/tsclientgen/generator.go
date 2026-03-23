@@ -10,15 +10,23 @@ import (
 	"github.com/SebastienMelki/sebuf/internal/tscommon"
 )
 
-// Generator handles TypeScript HTTP client code generation for protobuf services.
+const protoFieldNames = "proto"
+
+// Options configures TypeScript HTTP client generation.
+type Options struct {
+	FieldNames string
+}
+
 type Generator struct {
 	plugin *protogen.Plugin
+	opts   Options
 }
 
 // New creates a new TypeScript client generator.
-func New(plugin *protogen.Plugin) *Generator {
+func New(plugin *protogen.Plugin, opts Options) *Generator {
 	return &Generator{
 		plugin: plugin,
+		opts:   opts,
 	}
 }
 
@@ -36,9 +44,6 @@ func (g *Generator) Generate() error {
 }
 
 func (g *Generator) generateFile(file *protogen.File) error {
-	if len(file.Services) == 0 {
-		return nil
-	}
 	return g.generateClientFile(file)
 }
 
@@ -47,8 +52,11 @@ func (g *Generator) generateClientFile(file *protogen.File) error {
 	filename := file.GeneratedFilenamePrefix + "_client.ts"
 	gf := g.plugin.NewGeneratedFile(filename, "")
 
-	// Collect all referenced messages and enums
+	// Collect messages and enums for service-based or message-only files.
 	ms := collectServiceMessages(file)
+	if len(file.Services) == 0 {
+		ms = collectFileMessages(file)
+	}
 
 	// Helper to print to generated file
 	p := func(format string, args ...interface{}) {
@@ -64,7 +72,7 @@ func (g *Generator) generateClientFile(file *protogen.File) error {
 
 	// 2. Message interfaces
 	for _, msg := range ms.OrderedMessages() {
-		generateInterface(p, msg)
+		generateInterface(p, msg, g.useProtoFieldNames())
 	}
 
 	// 3. Enum types
@@ -74,6 +82,9 @@ func (g *Generator) generateClientFile(file *protogen.File) error {
 
 	// 4. Error types
 	g.writeErrorTypes(p)
+	if len(file.Services) > 0 {
+		p("")
+	}
 
 	// 5. Per service: options + client class
 	for _, service := range file.Services {
@@ -93,6 +104,10 @@ func (g *Generator) writeHeader(p printer, file *protogen.File) {
 
 func (g *Generator) writeErrorTypes(p printer) {
 	tscommon.WriteErrorTypes(tscommon.Printer(p))
+}
+
+func (g *Generator) useProtoFieldNames() bool {
+	return g.opts.FieldNames == protoFieldNames
 }
 
 func (g *Generator) generateServiceClient(p printer, service *protogen.Service) error {
@@ -276,6 +291,10 @@ func (g *Generator) generateRPCMethod(p printer, service *protogen.Service, meth
 	p("  async %s(%s: %s, options?: %sCallOptions): Promise<%s> {",
 		tsMethodName, reqParam, inputType, cfg.serviceName, outputType)
 
+	if reqParam == "_req" {
+		p("    const req = _req;")
+	}
+
 	// Build URL with path params
 	g.generateURLBuilding(p, cfg)
 
@@ -302,12 +321,17 @@ func (g *Generator) resolveOutputType(method *protogen.Method) string {
 }
 
 // generateURLBuilding generates URL construction with path and query params.
+//
+//nolint:gocognit // URL generation combines path, query, and encoding concerns in one place for readability.
 func (g *Generator) generateURLBuilding(p printer, cfg *rpcMethodConfig) {
 	p(`    let path = "%s";`, cfg.fullPath)
 
 	// Path parameter substitution
 	for _, param := range cfg.pathParams {
 		jsonName := snakeToLowerCamel(param)
+		if g.useProtoFieldNames() {
+			jsonName = param
+		}
 		p(`    path = path.replace("{%s}", encodeURIComponent(String(req.%s)));`, param, jsonName)
 	}
 
@@ -316,10 +340,15 @@ func (g *Generator) generateURLBuilding(p printer, cfg *rpcMethodConfig) {
 	if (cfg.httpMethod == "GET" || cfg.httpMethod == "DELETE") && len(cfg.queryParams) > 0 {
 		p("    const params = new URLSearchParams();")
 		for _, qp := range cfg.queryParams {
+			fieldName := qp.FieldJSONName
+			if qp.Field != nil && g.useProtoFieldNames() {
+				fieldName = string(qp.Field.Desc.Name())
+			}
+
 			// Handle repeated fields: use forEach + append for multi-value params
 			if qp.Field != nil && qp.Field.Desc.IsList() {
 				p("    if (req.%s && req.%s.length > 0) req.%s.forEach(v => params.append(\"%s\", v));",
-					qp.FieldJSONName, qp.FieldJSONName, qp.FieldJSONName, qp.ParamName)
+					fieldName, fieldName, fieldName, qp.ParamName)
 				continue
 			}
 
@@ -333,11 +362,11 @@ func (g *Generator) generateURLBuilding(p printer, cfg *rpcMethodConfig) {
 			if check == "" {
 				// bool: only add if true (undefined is already falsy)
 				p("    if (req.%s) params.set(\"%s\", String(req.%s));",
-					qp.FieldJSONName, qp.ParamName, qp.FieldJSONName)
+					fieldName, qp.ParamName, fieldName)
 			} else {
 				// Guard against undefined/null before zero-value check
 				p("    if (req.%s != null && req.%s%s) params.set(\"%s\", String(req.%s));",
-					qp.FieldJSONName, qp.FieldJSONName, check, qp.ParamName, qp.FieldJSONName)
+					fieldName, fieldName, check, qp.ParamName, fieldName)
 			}
 		}
 		p(`    const url = this.baseURL + path + (params.toString() ? "?" + params.toString() : "");`)

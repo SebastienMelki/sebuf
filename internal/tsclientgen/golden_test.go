@@ -116,6 +116,13 @@ func TestTSClientGenGoldenFiles(t *testing.T) {
 				"oneof_discriminator_client.ts",
 			},
 		},
+		{
+			name:      "message only proto",
+			protoFile: "message_only.proto",
+			expectedFiles: []string{
+				"message_only_client.ts",
+			},
+		},
 	}
 
 	baseDir, err := os.Getwd()
