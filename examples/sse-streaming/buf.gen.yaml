@@ -1,0 +1,35 @@
+version: v2
+
+managed:
+  enabled: true
+  override:
+    - file_option: go_package_prefix
+      value: github.com/SebastienMelki/sebuf/examples/sse-streaming/api
+    - file_option: go_package_prefix
+      module: buf.build/googleapis/googleapis
+      value: ""
+    - file_option: go_package_prefix
+      module: buf.build/bufbuild/protovalidate
+      value: ""
+    - file_option: go_package_prefix
+      module: buf.build/sebmelki/sebuf
+      value: ""
+
+plugins:
+  # Standard Go protobuf code generation
+  - local: protoc-gen-go
+    out: ./api
+    opt: module=github.com/SebastienMelki/sebuf/examples/sse-streaming/api
+
+  # HTTP service generation
+  - local: ../../bin/protoc-gen-go-http
+    out: api
+    opt:
+      - module=github.com/SebastienMelki/sebuf/examples/sse-streaming/api
+      - generate_mock=false
+
+  # Go HTTP client generation
+  - local: ../../bin/protoc-gen-go-client
+    out: api
+    opt:
+      - module=github.com/SebastienMelki/sebuf/examples/sse-streaming/api

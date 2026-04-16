@@ -1,0 +1,68 @@
+syntax = "proto3";
+
+package services;
+
+import "sebuf/http/annotations.proto";
+
+// MarketDataService provides real-time and snapshot market data.
+// Demonstrates SSE streaming alongside standard unary RPCs.
+service MarketDataService {
+  option (sebuf.http.service_config) = {base_path: "/api/v1"};
+
+  // Standard unary RPC -- get a single quote snapshot
+  rpc GetQuote(GetQuoteRequest) returns (Quote) {
+    option (sebuf.http.config) = {
+      path: "/quotes/{symbol}"
+      method: HTTP_METHOD_GET
+    };
+  }
+
+  // SSE streaming -- real-time price updates for a symbol
+  rpc StreamQuotes(StreamQuotesRequest) returns (Quote) {
+    option (sebuf.http.config) = {
+      path: "/quotes/{symbol}/stream"
+      method: HTTP_METHOD_GET
+      stream: true
+    };
+  }
+
+  // SSE streaming -- real-time trade feed with optional filters
+  rpc StreamTrades(StreamTradesRequest) returns (Trade) {
+    option (sebuf.http.config) = {
+      path: "/trades/stream"
+      method: HTTP_METHOD_GET
+      stream: true
+    };
+  }
+}
+
+message GetQuoteRequest {
+  string symbol = 1;
+}
+
+message StreamQuotesRequest {
+  string symbol = 1;
+}
+
+message StreamTradesRequest {
+  string symbol = 1 [(sebuf.http.query) = {name: "symbol"}];
+  int32 limit = 2 [(sebuf.http.query) = {name: "limit"}];
+}
+
+message Quote {
+  string symbol = 1;
+  double bid = 2;
+  double ask = 3;
+  double last = 4;
+  int64 volume = 5;
+  int64 timestamp = 6;
+}
+
+message Trade {
+  string id = 1;
+  string symbol = 2;
+  double price = 3;
+  double size = 4;
+  string side = 5;
+  int64 timestamp = 6;
+}
