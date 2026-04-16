@@ -11,7 +11,6 @@ demo:
 	@echo ""
 	@echo "Starting server..."
 	@$(MAKE) start-bg
-	@sleep 1
 	@echo ""
 	@$(MAKE) test
 	@echo ""
@@ -39,8 +38,12 @@ run: generate
 
 # Start server in background
 start-bg:
-	@go run main.go & echo $$! > $(SERVER_PID_FILE)
+	@go run main.go > /tmp/sse-demo-server.log 2>&1 & echo $$! > $(SERVER_PID_FILE)
 	@echo "Server started (PID $$(cat $(SERVER_PID_FILE)))"
+	@for i in 1 2 3 4 5 6 7 8 9 10; do \
+		curl -s -o /dev/null http://localhost:8080/api/v1/quotes/AAPL 2>/dev/null && break; \
+		sleep 0.5; \
+	done
 
 # Stop background server
 stop:
