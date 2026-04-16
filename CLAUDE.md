@@ -138,6 +138,100 @@ Bun.serve({
 });
 ```
 
+**SSE Streaming (Go Server)** - SSE methods receive `SSESender` instead of returning a response:
+```go
+type SSEServiceServer interface {
+    // Standard unary RPC
+    GetStatus(context.Context, *GetStatusRequest) (*StatusResponse, error)
+    // SSE streaming RPC - receives SSESender instead of returning response
+    StreamEvents(context.Context, *StreamEventsRequest, SSESender) error
+}
+
+// SSESender interface for sending events
+type SSESender interface {
+    Send(event proto.Message) error
+    SendWithEvent(eventType string, event proto.Message) error
+    Flush()
+}
+```
+Note: Smart error handling -- errors before first `Send()` return HTTP error responses; errors after `Send()` emit an SSE error event (since HTTP 200 is already committed). Uses `SSEHandler` instead of `BindingMiddleware`+`genericHandler` for streaming RPCs.
+
+**SSE Streaming (Go Client)** - SSE methods return `EventStream` instead of response:
+```go
+// SSE methods return a generic EventStream
+stream, err := client.StreamEvents(ctx, req)
+if err != nil {
+    log.Fatal(err)
+}
+defer stream.Close()
+
+// Iterate events -- follows bufio.Scanner / sql.Rows pattern
+event := &Event{}
+for stream.Next(event) {
+    fmt.Printf("Event: %s\n", event.Id)
+}
+if err := stream.Err(); err != nil {
+    log.Fatal(err)
+}
+```
+Note: `SSEServiceEventStream[T proto.Message]` is a generic type using `bufio.Reader` (not Scanner) to avoid 64KiB token limit on large events. Sets `Accept: text/event-stream` header automatically.
+
+**SSE Streaming (TypeScript Client)** - SSE methods are `async *` generators returning `AsyncGenerator`:
+```typescript
+// SSE methods are async generators
+for await (const event of client.streamEvents({})) {
+  console.log(event.id, event.type, event.payload);
+}
+
+// With abort signal for cancellation
+const controller = new AbortController();
+for await (const event of client.streamEvents({}, { signal: controller.signal })) {
+  if (shouldStop) controller.abort();
+}
+```
+Note: Uses Fetch API `ReadableStream` with proper line buffering. Sets `Accept: text/event-stream` header. Parses `data:` lines and yields `JSON.parse(data) as Event`.
+
+**SSE Streaming (TypeScript Server)** - SSE handler methods return `ReadableStream` instead of `Promise`:
+```typescript
+export interface SSEServiceHandler {
+  // Standard unary RPC
+  getStatus(ctx: ServerContext, req: GetStatusRequest): Promise<StatusResponse>;
+  // SSE streaming RPC - returns ReadableStream instead of Promise
+  streamEvents(ctx: ServerContext, req: StreamEventsRequest): ReadableStream<Event>;
+}
+
+// Implementation example
+const handler: SSEServiceHandler = {
+  streamEvents(ctx, req) {
+    return new ReadableStream({
+      start(controller) {
+        controller.enqueue({ id: "1", type: "update", payload: "...", timestamp: "..." });
+        controller.close();
+      },
+    });
+  },
+};
+```
+Note: Generated route handler converts the `ReadableStream` into SSE format (`data: JSON\n\n`), sets `Content-Type: text/event-stream`, `Cache-Control: no-cache`, `Connection: keep-alive`. Errors during streaming emit `event: error` SSE events.
+
+**SSE Streaming (OpenAPI)** - Uses `text/event-stream` content type with vendor extension:
+```yaml
+/api/v1/events:
+  get:
+    summary: StreamEvents
+    responses:
+      "200":
+        description: Server-Sent Events stream
+        content:
+          text/event-stream:
+            schema:
+              type: string
+              description: SSE stream. Each event contains a JSON-encoded Event in the data field.
+        x-sse-event-schema:
+          $ref: '#/components/schemas/Event'
+```
+Note: Uses `text/event-stream` content type with `x-sse-event-schema` vendor extension pointing to the actual event schema for tooling that supports it. Path params and query params work normally alongside streaming.
+
 **OpenAPI Specifications** - Comprehensive API documentation (one file per service):
 ```yaml
 # UserService.openapi.yaml
@@ -219,6 +313,40 @@ service UserService {
   }
 }
 ```
+
+**SSE Streaming Annotation** - Mark RPCs as Server-Sent Events streams with `stream: true`:
+```protobuf
+service SSEService {
+  // SSE streaming RPC
+  rpc StreamEvents(StreamEventsRequest) returns (Event) {
+    option (sebuf.http.config) = {
+      path: "/events"
+      method: HTTP_METHOD_GET
+      stream: true
+    };
+  };
+
+  // SSE with path params
+  rpc StreamResourceEvents(StreamResourceEventsRequest) returns (ResourceEvent) {
+    option (sebuf.http.config) = {
+      path: "/resources/{resource_id}/events"
+      method: HTTP_METHOD_GET
+      stream: true
+    };
+  };
+
+  // SSE with query params
+  rpc StreamFilteredEvents(StreamFilteredEventsRequest) returns (Event) {
+    option (sebuf.http.config) = {
+      path: "/events/filtered"
+      method: HTTP_METHOD_GET
+      stream: true
+    };
+  };
+}
+```
+
+`stream: true` on the `HttpConfig` annotation changes how all 5 generators handle the RPC. The response message becomes the type of each SSE event, not a single response. Works with path params, query params, and headers -- the same annotation features available to unary RPCs.
 
 **Unwrap Annotation** - For map values that should serialize as arrays in JSON, or for root-level unwrapping:
 
@@ -367,7 +495,7 @@ All custom annotations live in `proto/sebuf/http/annotations.proto`:
 
 | Ext # | Name | Target | Purpose |
 |-------|------|--------|---------|
-| 50003 | config | MethodOptions | HTTP path and method |
+| 50003 | config | MethodOptions | HTTP path, method, and SSE streaming flag |
 | 50004 | service_config | ServiceOptions | Service base path |
 | 50007 | field_examples | FieldOptions | Example values for docs |
 | 50008 | query | FieldOptions | Query parameter config |
