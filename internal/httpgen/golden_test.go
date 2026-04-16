@@ -193,6 +193,15 @@ func TestHTTPGenGoldenFiles(t *testing.T) {
 				"cross_int64_bar_encoding.pb.go",
 			},
 		},
+		{
+			name:      "SSE streaming",
+			protoFile: "sse.proto",
+			expectedFiles: []string{
+				"sse_http.pb.go",
+				"sse_http_binding.pb.go",
+				"sse_http_config.pb.go",
+			},
+		},
 	}
 
 	// Get paths

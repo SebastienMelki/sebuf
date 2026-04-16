@@ -134,6 +134,13 @@ func TestClientGenGoldenFiles(t *testing.T) {
 				"oneof_discriminator_oneof_discriminator.pb.go",
 			},
 		},
+		{
+			name:      "SSE streaming",
+			protoFile: "sse.proto",
+			expectedFiles: []string{
+				"sse_client.pb.go",
+			},
+		},
 	}
 
 	// Get paths

@@ -13,7 +13,8 @@ import (
 
 // Generator handles HTTP client code generation for protobuf services.
 type Generator struct {
-	plugin *protogen.Plugin
+	plugin       *protogen.Plugin
+	fileNeedsSSE *bool // set per-file before writeImports
 }
 
 // New creates a new HTTP client generator.
@@ -102,6 +103,9 @@ func (g *Generator) generateClientFile(file *protogen.File) error {
 	needsBytes := g.fileNeedsRequestBody(file)
 	// Check if any method needs the net/url import (path params or query params)
 	needsURL := g.fileNeedsURLImport(file)
+	// Check if any method uses SSE streaming
+	hasSSE := g.fileHasSSEMethods(file)
+	g.fileNeedsSSE = &hasSSE
 
 	g.writeHeader(gf, file)
 	g.writeImports(gf, needsBytes, needsURL)
@@ -171,7 +175,11 @@ func (g *Generator) writeHeader(gf *protogen.GeneratedFile, file *protogen.File)
 }
 
 func (g *Generator) writeImports(gf *protogen.GeneratedFile, needsBytes, needsURL bool) {
+	needsSSE := g.fileNeedsSSE != nil && *g.fileNeedsSSE
 	gf.P("import (")
+	if needsSSE {
+		gf.P(`"bufio"`)
+	}
 	if needsBytes {
 		gf.P(`"bytes"`)
 	}
@@ -218,6 +226,11 @@ func (g *Generator) generateServiceClient(
 	// Generate constructor
 	g.generateConstructor(gf, serviceName)
 
+	// Generate EventStream type if any SSE methods
+	if g.serviceHasSSEMethods(service) {
+		g.generateEventStreamType(gf, serviceName)
+	}
+
 	// Generate RPC methods
 	for _, method := range service.Methods {
 		if err := g.generateRPCMethod(gf, file, service, method); err != nil {
@@ -237,16 +250,33 @@ func (g *Generator) generateClientInterface(gf *protogen.GeneratedFile, service 
 	gf.P("// ", serviceName, "Client is the client API for ", serviceName, " service.")
 	gf.P("type ", serviceName, "Client interface {")
 	for _, method := range service.Methods {
-		gf.P(
-			method.GoName,
-			"(ctx context.Context, req *",
-			method.Input.GoIdent,
-			", opts ...",
-			serviceName,
-			"CallOption) (*",
-			method.Output.GoIdent,
-			", error)",
-		)
+		httpConfig := annotations.GetMethodHTTPConfig(method)
+		isSSE := httpConfig != nil && httpConfig.Stream
+		if isSSE {
+			gf.P(
+				method.GoName,
+				"(ctx context.Context, req *",
+				method.Input.GoIdent,
+				", opts ...",
+				serviceName,
+				"CallOption) (*",
+				serviceName,
+				"EventStream[*",
+				method.Output.GoIdent,
+				"], error)",
+			)
+		} else {
+			gf.P(
+				method.GoName,
+				"(ctx context.Context, req *",
+				method.Input.GoIdent,
+				", opts ...",
+				serviceName,
+				"CallOption) (*",
+				method.Output.GoIdent,
+				", error)",
+			)
+		}
 	}
 	gf.P("}")
 	gf.P()
@@ -443,6 +473,7 @@ type rpcMethodConfig struct {
 	pathParams  []string
 	queryParams []annotations.QueryParam
 	hasBody     bool
+	isSSE       bool
 }
 
 func (g *Generator) buildRPCMethodConfig(service *protogen.Service, method *protogen.Method) *rpcMethodConfig {
@@ -471,6 +502,8 @@ func (g *Generator) buildRPCMethodConfig(service *protogen.Service, method *prot
 	// Combine base path and method path
 	fullPath := annotations.BuildHTTPPath(basePath, httpPath)
 
+	isSSE := httpConfig != nil && httpConfig.Stream
+
 	return &rpcMethodConfig{
 		serviceName: serviceName,
 		lowerName:   annotations.LowerFirst(serviceName),
@@ -480,6 +513,7 @@ func (g *Generator) buildRPCMethodConfig(service *protogen.Service, method *prot
 		pathParams:  pathParams,
 		queryParams: annotations.GetQueryParams(method.Input),
 		hasBody:     httpMethod == "POST" || httpMethod == "PUT" || httpMethod == "PATCH",
+		isSSE:       isSSE,
 	}
 }
 
@@ -491,6 +525,10 @@ func (g *Generator) generateRPCMethod(
 ) error {
 	cfg := g.buildRPCMethodConfig(service, method)
 
+	if cfg.isSSE {
+		return g.generateSSERPCMethod(gf, cfg, method)
+	}
+
 	g.generateRPCMethodSignature(gf, cfg, method)
 	g.generateRPCMethodCallOptions(gf, cfg)
 	g.generateRPCMethodURLBuilding(gf, cfg)
@@ -498,6 +536,99 @@ func (g *Generator) generateRPCMethod(
 	g.generateRPCMethodHeaders(gf, cfg)
 	g.generateRPCMethodExecution(gf)
 	g.generateRPCMethodResponse(gf, method)
+
+	return nil
+}
+
+// generateSSERPCMethod generates a client method for SSE streaming endpoints.
+//
+//nolint:funlen // SSE method generation requires many sequential code blocks
+func (g *Generator) generateSSERPCMethod(
+	gf *protogen.GeneratedFile,
+	cfg *rpcMethodConfig,
+	method *protogen.Method,
+) error {
+	// Method signature
+	gf.P("// ", cfg.methodName, " calls the ", cfg.methodName, " SSE streaming RPC.")
+	gf.P(
+		"func (c *", cfg.lowerName, "Client) ", cfg.methodName,
+		"(ctx context.Context, req *", method.Input.GoIdent,
+		", opts ...", cfg.serviceName, "CallOption) (*",
+		cfg.serviceName, "EventStream[*", method.Output.GoIdent, "], error) {",
+	)
+
+	// Call options
+	g.generateRPCMethodCallOptions(gf, cfg)
+
+	// URL building
+	g.generateRPCMethodURLBuilding(gf, cfg)
+
+	// Content type
+	gf.P()
+	gf.P("contentType := c.contentType")
+	gf.P("if callOpts.contentType != \"\" {")
+	gf.P("contentType = callOpts.contentType")
+	gf.P("}")
+	gf.P()
+
+	// Create request
+	if cfg.hasBody {
+		gf.P("// Marshal request body")
+		gf.P("body, err := c.marshalRequest(req, contentType)")
+		gf.P("if err != nil {")
+		gf.P("return nil, fmt.Errorf(\"failed to marshal request: %w\", err)")
+		gf.P("}")
+		gf.P()
+		gf.P("// Create HTTP request")
+		gf.P("httpReq, err := http.NewRequestWithContext(ctx, \"", cfg.httpMethod, "\", reqURL, bytes.NewReader(body))")
+	} else {
+		gf.P("// Create HTTP request")
+		gf.P("httpReq, err := http.NewRequestWithContext(ctx, \"", cfg.httpMethod, "\", reqURL, nil)")
+	}
+	gf.P("if err != nil {")
+	gf.P("return nil, fmt.Errorf(\"failed to create request: %w\", err)")
+	gf.P("}")
+
+	// Headers
+	gf.P()
+	gf.P("// Set headers")
+	gf.P("httpReq.Header.Set(\"Content-Type\", contentType)")
+	gf.P("httpReq.Header.Set(\"Accept\", \"text/event-stream\")")
+	gf.P("for k, v := range c.defaultHeaders {")
+	gf.P("httpReq.Header.Set(k, v)")
+	gf.P("}")
+	gf.P("for k, v := range callOpts.headers {")
+	gf.P("httpReq.Header.Set(k, v)")
+	gf.P("}")
+
+	// Execute - do NOT defer resp.Body.Close() since caller owns the stream
+	gf.P()
+	gf.P("// Execute request")
+	gf.P("resp, err := c.httpClient.Do(httpReq)")
+	gf.P("if err != nil {")
+	gf.P("return nil, fmt.Errorf(\"failed to execute request: %w\", err)")
+	gf.P("}")
+	gf.P()
+
+	// Error handling (close body on error)
+	gf.P("// Check for error status codes")
+	gf.P("if resp.StatusCode >= 400 {")
+	gf.P("defer resp.Body.Close()")
+	gf.P("respBody, readErr := io.ReadAll(resp.Body)")
+	gf.P("if readErr != nil {")
+	gf.P("return nil, fmt.Errorf(\"failed to read error response: %w\", readErr)")
+	gf.P("}")
+	gf.P("return nil, c.handleErrorResponse(resp.StatusCode, respBody, contentType)")
+	gf.P("}")
+	gf.P()
+
+	// Return EventStream
+	gf.P("return &", cfg.serviceName, "EventStream[*", method.Output.GoIdent, "]{")
+	gf.P("resp:    resp,")
+	gf.P("scanner: bufio.NewScanner(resp.Body),")
+	gf.P("}, nil")
+	gf.P("}")
+	gf.P()
 
 	return nil
 }
@@ -742,6 +873,75 @@ func headerNameToFuncName(headerName string) string {
 	name := strings.TrimPrefix(headerName, "X-")
 	name = strings.ReplaceAll(name, "-", "")
 	return name
+}
+
+// fileHasSSEMethods checks if any method in the file uses SSE streaming.
+func (g *Generator) fileHasSSEMethods(file *protogen.File) bool {
+	for _, service := range file.Services {
+		for _, method := range service.Methods {
+			httpConfig := annotations.GetMethodHTTPConfig(method)
+			if httpConfig != nil && httpConfig.Stream {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// serviceHasSSEMethods checks if any method in the service uses SSE streaming.
+func (g *Generator) serviceHasSSEMethods(service *protogen.Service) bool {
+	for _, method := range service.Methods {
+		httpConfig := annotations.GetMethodHTTPConfig(method)
+		if httpConfig != nil && httpConfig.Stream {
+			return true
+		}
+	}
+	return false
+}
+
+// generateEventStreamType generates the EventStream generic type for SSE streaming.
+func (g *Generator) generateEventStreamType(gf *protogen.GeneratedFile, serviceName string) {
+	gf.P("// ", serviceName, "EventStream reads Server-Sent Events from a streaming endpoint.")
+	gf.P("type ", serviceName, "EventStream[T proto.Message] struct {")
+	gf.P("resp    *http.Response")
+	gf.P("scanner *bufio.Scanner")
+	gf.P("err     error")
+	gf.P("}")
+	gf.P()
+
+	gf.P("// Next reads the next event from the stream.")
+	gf.P("// Returns false when the stream ends or an error occurs.")
+	gf.P("func (s *", serviceName, "EventStream[T]) Next(event T) bool {")
+	gf.P("for s.scanner.Scan() {")
+	gf.P("line := s.scanner.Text()")
+	gf.P(`if !strings.HasPrefix(line, "data: ") {`)
+	gf.P("continue")
+	gf.P("}")
+	gf.P(`data := strings.TrimPrefix(line, "data: ")`)
+	gf.P("if err := protojson.Unmarshal([]byte(data), event); err != nil {")
+	gf.P(`s.err = fmt.Errorf("failed to unmarshal SSE event: %w", err)`)
+	gf.P("return false")
+	gf.P("}")
+	gf.P("return true")
+	gf.P("}")
+	gf.P("if err := s.scanner.Err(); err != nil {")
+	gf.P("s.err = err")
+	gf.P("}")
+	gf.P("return false")
+	gf.P("}")
+	gf.P()
+
+	gf.P("// Err returns any error encountered during streaming.")
+	gf.P("func (s *", serviceName, "EventStream[T]) Err() error {")
+	gf.P("return s.err")
+	gf.P("}")
+	gf.P()
+
+	gf.P("// Close closes the underlying HTTP response body.")
+	gf.P("func (s *", serviceName, "EventStream[T]) Close() error {")
+	gf.P("return s.resp.Body.Close()")
+	gf.P("}")
+	gf.P()
 }
 
 func getZeroValue(qp annotations.QueryParam) string {
