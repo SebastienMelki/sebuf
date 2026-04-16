@@ -850,9 +850,11 @@ type SSESender interface {
 }
 
 // sseSender implements SSESender using http.ResponseWriter and http.Flusher.
+// It tracks whether any data has been sent to support proper error handling.
 type sseSender struct {
 	w       http.ResponseWriter
 	flusher http.Flusher
+	sent    bool
 }
 
 func (s *sseSender) Send(event proto.Message) error {
@@ -864,6 +866,7 @@ func (s *sseSender) Send(event proto.Message) error {
 	if writeErr != nil {
 		return writeErr
 	}
+	s.sent = true
 	s.flusher.Flush()
 	return nil
 }
@@ -877,6 +880,7 @@ func (s *sseSender) SendWithEvent(eventType string, event proto.Message) error {
 	if writeErr != nil {
 		return writeErr
 	}
+	s.sent = true
 	s.flusher.Flush()
 	return nil
 }
@@ -953,10 +957,16 @@ func SSEHandler[Req any](
 
 		// Call handler -- blocks until stream completes or context cancels
 		if err := handler(r.Context(), req, sender); err != nil {
-			// If headers already sent, we cannot change status code.
-			// Send an SSE error event instead.
-			fmt.Fprintf(w, "event: error\ndata: %q\n\n", err.Error())
-			flusher.Flush()
+			if !sender.sent {
+				// No events sent yet -- headers not flushed to client, so we can
+				// still send a proper HTTP error response.
+				writeErrorWithHandler(w, r, err, errorHandler)
+			} else {
+				// Events already sent -- HTTP 200 and SSE headers are committed.
+				// Send an SSE error event instead.
+				fmt.Fprintf(w, "event: error\ndata: %q\n\n", err.Error())
+				flusher.Flush()
+			}
 		}
 	})
 }
