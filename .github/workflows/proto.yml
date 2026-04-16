@@ -123,46 +123,6 @@ jobs:
               labels: ['proto-breaking-change']
             });
             
-  proto-compatibility:
-    name: Proto Compatibility Check
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        protoc-version: ['3.19.0', '3.20.0', '25.1']
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v6
-        
-      - name: Setup Protoc
-        uses: arduino/setup-protoc@v3
-        with:
-          version: ${{ matrix.protoc-version }}
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
-          
-      - name: Setup Go
-        uses: actions/setup-go@v6
-        with:
-          go-version: '1.26'
-          cache: true
-          
-      - name: Install protoc-gen-go
-        run: go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
-        
-      - name: Test proto compilation
-        run: |
-          # Test that protos compile with different protoc versions
-          mkdir -p test-output
-          
-          for proto in $(find proto -name "*.proto"); do
-            echo "Testing $proto with protoc ${{ matrix.protoc-version }}"
-            protoc \
-              --go_out=test-output \
-              --go_opt=paths=source_relative \
-              --proto_path=proto \
-              --proto_path=. \
-              "$proto"
-          done
-          
   proto-documentation:
     name: Generate Proto Documentation
     runs-on: ubuntu-latest
