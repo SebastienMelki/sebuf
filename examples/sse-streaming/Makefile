@@ -1,10 +1,10 @@
-.PHONY: demo generate run clean test test-stream test-trades
+.PHONY: demo generate run clean test test-stream test-trades demo-go-client demo-ts-client
 
 SERVER_PID_FILE := /tmp/sse-demo-server.pid
 
-# Complete demo: generate code, start server, run tests, stop server
+# Complete demo: generate code, start server, run all clients, stop server
 demo:
-	@rm -rf api
+	@rm -rf api ts-client/generated
 	@echo "=== SSE Streaming Demo ==="
 	@echo ""
 	@$(MAKE) generate
@@ -18,6 +18,10 @@ demo:
 	@echo ""
 	@$(MAKE) test-trades
 	@echo ""
+	@$(MAKE) demo-go-client
+	@echo ""
+	@$(MAKE) demo-ts-client
+	@echo ""
 	@$(MAKE) stop
 	@echo ""
 	@echo "=== Demo complete ==="
@@ -30,6 +34,8 @@ generate:
 	@buf generate
 	@echo "Updating Go modules..."
 	@go mod tidy
+	@echo "Installing TS dependencies..."
+	@cd ts-client && npm install --silent 2>/dev/null
 	@echo "Code generated"
 
 # Run the server (foreground)
@@ -53,26 +59,36 @@ stop:
 		echo "Server stopped"; \
 	fi
 
-# Test unary quote endpoint
+# Test unary quote endpoint (curl)
 test:
-	@echo "--- GET /api/v1/quotes/AAPL (unary) ---"
+	@echo "--- GET /api/v1/quotes/AAPL (curl, unary) ---"
 	@curl -s http://localhost:8080/api/v1/quotes/AAPL | python3 -m json.tool
 	@echo ""
-	@echo "--- GET /api/v1/quotes/GOOG (unary) ---"
+	@echo "--- GET /api/v1/quotes/GOOG (curl, unary) ---"
 	@curl -s http://localhost:8080/api/v1/quotes/GOOG | python3 -m json.tool
 
 # Test SSE quote stream (read 5 events then stop)
 test-stream:
-	@echo "--- GET /api/v1/quotes/TSLA/stream (SSE, 5 events) ---"
+	@echo "--- GET /api/v1/quotes/TSLA/stream (curl, SSE, 5 events) ---"
 	@curl -s -N http://localhost:8080/api/v1/quotes/TSLA/stream 2>/dev/null | head -15
 
 # Test SSE trade feed with query params
 test-trades:
-	@echo "--- GET /api/v1/trades/stream?symbol=AAPL&limit=5 (SSE trades) ---"
+	@echo "--- GET /api/v1/trades/stream?symbol=AAPL&limit=5 (curl, SSE trades) ---"
 	@curl -s -N 'http://localhost:8080/api/v1/trades/stream?symbol=AAPL&limit=5'
+
+# Run Go client demo
+demo-go-client:
+	@echo "--- Go Client Demo ---"
+	@go run ./go-client
+
+# Run TypeScript client demo
+demo-ts-client:
+	@echo "--- TypeScript Client Demo ---"
+	@cd ts-client && npx tsx main.ts
 
 # Clean generated files
 clean:
-	@rm -rf api
+	@rm -rf api ts-client/generated ts-client/node_modules ts-client/package-lock.json
 	@rm -f $(SERVER_PID_FILE)
 	@echo "Cleaned"
