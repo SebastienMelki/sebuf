@@ -33,3 +33,13 @@ plugins:
     out: api
     opt:
       - module=github.com/SebastienMelki/sebuf/examples/sse-streaming/api
+
+  # TypeScript HTTP client generation
+  - local: ../../bin/protoc-gen-ts-client
+    out: ./ts-client/generated
+    opt: paths=source_relative
+
+  # OpenAPI v3.1 specification generation
+  - local: ../../bin/protoc-gen-openapiv3
+    out: ./docs
+    opt: paths=source_relative

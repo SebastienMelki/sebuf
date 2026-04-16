@@ -1,0 +1,202 @@
+openapi: 3.1.0
+info:
+    title: MarketDataService API
+    version: 1.0.0
+paths:
+    /api/v1/quotes/{symbol}:
+        get:
+            tags:
+                - MarketDataService
+            summary: GetQuote
+            description: Standard unary RPC -- get a single quote snapshot
+            operationId: GetQuote
+            parameters:
+                - name: symbol
+                  in: path
+                  required: true
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    description: Successful response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Quote'
+                "400":
+                    description: Validation error
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ValidationError'
+                default:
+                    description: Error response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Error'
+    /api/v1/quotes/{symbol}/stream:
+        get:
+            tags:
+                - MarketDataService
+            summary: StreamQuotes
+            description: SSE streaming -- real-time price updates for a symbol
+            operationId: StreamQuotes
+            parameters:
+                - name: symbol
+                  in: path
+                  required: true
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    description: Server-Sent Events stream
+                    content:
+                        text/event-stream:
+                            schema:
+                                type: string
+                                description: SSE stream. Each event contains a JSON-encoded Quote in the data field.
+                    x-sse-event-schema:
+                        $ref: '#/components/schemas/Quote'
+                "400":
+                    description: Validation error
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ValidationError'
+                default:
+                    description: Error response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Error'
+    /api/v1/trades/stream:
+        get:
+            tags:
+                - MarketDataService
+            summary: StreamTrades
+            description: SSE streaming -- real-time trade feed with optional filters
+            operationId: StreamTrades
+            parameters:
+                - name: symbol
+                  in: query
+                  required: false
+                  schema:
+                    type: string
+                - name: limit
+                  in: query
+                  required: false
+                  schema:
+                    type: integer
+                    format: int32
+            responses:
+                "200":
+                    description: Server-Sent Events stream
+                    content:
+                        text/event-stream:
+                            schema:
+                                type: string
+                                description: SSE stream. Each event contains a JSON-encoded Trade in the data field.
+                    x-sse-event-schema:
+                        $ref: '#/components/schemas/Trade'
+                "400":
+                    description: Validation error
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ValidationError'
+                default:
+                    description: Error response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Error'
+components:
+    schemas:
+        Error:
+            type: object
+            properties:
+                message:
+                    type: string
+                    description: Error message (e.g., 'user not found', 'database connection failed')
+            description: Error is returned when a handler encounters an error. It contains a simple error message that the developer can customize.
+        FieldViolation:
+            type: object
+            properties:
+                field:
+                    type: string
+                    description: The field path that failed validation (e.g., 'user.email' for nested fields). For header validation, this will be the header name (e.g., 'X-API-Key')
+                description:
+                    type: string
+                    description: Human-readable description of the validation violation (e.g., 'must be a valid email address', 'required field missing')
+            required:
+                - field
+                - description
+            description: FieldViolation describes a single validation error for a specific field.
+        ValidationError:
+            type: object
+            properties:
+                violations:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/FieldViolation'
+                    description: List of validation violations
+            required:
+                - violations
+            description: ValidationError is returned when request validation fails. It contains a list of field violations describing what went wrong.
+        GetQuoteRequest:
+            type: object
+            properties:
+                symbol:
+                    type: string
+        Quote:
+            type: object
+            properties:
+                symbol:
+                    type: string
+                bid:
+                    type: number
+                    format: double
+                ask:
+                    type: number
+                    format: double
+                last:
+                    type: number
+                    format: double
+                volume:
+                    type: string
+                    format: int64
+                timestamp:
+                    type: string
+                    format: int64
+        StreamQuotesRequest:
+            type: object
+            properties:
+                symbol:
+                    type: string
+        StreamTradesRequest:
+            type: object
+            properties:
+                symbol:
+                    type: string
+                limit:
+                    type: integer
+                    format: int32
+        Trade:
+            type: object
+            properties:
+                id:
+                    type: string
+                symbol:
+                    type: string
+                price:
+                    type: number
+                    format: double
+                size:
+                    type: number
+                    format: double
+                side:
+                    type: string
+                timestamp:
+                    type: string
+                    format: int64
