@@ -201,7 +201,11 @@ func (g *Generator) generateService(gf *protogen.GeneratedFile, file *protogen.F
 	gf.P("// ", serviceName, "Server is the server API for ", serviceName, " service.")
 	gf.P("type ", serviceName, "Server interface {")
 	for _, method := range service.Methods {
-		gf.P(method.GoName, "(context.Context, *", method.Input.GoIdent, ") (*", method.Output.GoIdent, ", error)")
+		if g.isSSEMethod(method) {
+			gf.P(method.GoName, "(context.Context, *", method.Input.GoIdent, ", SSESender) error")
+		} else {
+			gf.P(method.GoName, "(context.Context, *", method.Input.GoIdent, ") (*", method.Output.GoIdent, ", error)")
+		}
 	}
 	gf.P("}")
 	gf.P()
@@ -235,16 +239,32 @@ func (g *Generator) generateService(gf *protogen.GeneratedFile, file *protogen.F
 		} else {
 			gf.P("methodHeaders = get", method.GoName, "Headers()")
 		}
-		gf.P(handlerName, " := BindingMiddleware[", method.Input.GoIdent, "](")
-		gf.P("genericHandler(server.", method.GoName, ", config.errorHandler), serviceHeaders, methodHeaders,")
-		gf.P(
-			annotations.LowerFirst(method.GoName),
-			"PathParams, ",
-			annotations.LowerFirst(method.GoName),
-			"QueryParams,",
-		)
-		gf.P(`"`, httpMethod, `", config.errorHandler,`)
-		gf.P(")")
+
+		if g.isSSEMethod(method) {
+			// SSE handler registration
+			gf.P(handlerName, " := SSEHandler[", method.Input.GoIdent, "](")
+			gf.P("server.", method.GoName, ", config.errorHandler, serviceHeaders, methodHeaders,")
+			gf.P(
+				annotations.LowerFirst(method.GoName),
+				"PathParams, ",
+				annotations.LowerFirst(method.GoName),
+				"QueryParams,",
+			)
+			gf.P(`"`, httpMethod, `",`)
+			gf.P(")")
+		} else {
+			// Standard handler registration
+			gf.P(handlerName, " := BindingMiddleware[", method.Input.GoIdent, "](")
+			gf.P("genericHandler(server.", method.GoName, ", config.errorHandler), serviceHeaders, methodHeaders,")
+			gf.P(
+				annotations.LowerFirst(method.GoName),
+				"PathParams, ",
+				annotations.LowerFirst(method.GoName),
+				"QueryParams,",
+			)
+			gf.P(`"`, httpMethod, `", config.errorHandler,`)
+			gf.P(")")
+		}
 		gf.P()
 		gf.P(`config.mux.Handle("`, httpMethod, ` `, httpPath, `", `, handlerName, `)`)
 		gf.P()
@@ -739,6 +759,14 @@ func (g *Generator) generateBindingFile(file *protogen.File) error {
 	// Generate header validation support
 	g.generateHeaderValidationFunctions(gf)
 
+	// Generate SSE support if any service has SSE methods
+	for _, service := range file.Services {
+		if g.serviceHasSSEMethods(service) {
+			g.generateSSETypes(gf)
+			break
+		}
+	}
+
 	return nil
 }
 
@@ -903,6 +931,22 @@ func (g *Generator) getPathParams(method *protogen.Method) []string {
 		return config.PathParams
 	}
 	return nil
+}
+
+// isSSEMethod checks if a method is annotated as SSE streaming.
+func (g *Generator) isSSEMethod(method *protogen.Method) bool {
+	config := annotations.GetMethodHTTPConfig(method)
+	return config != nil && config.Stream
+}
+
+// serviceHasSSEMethods checks if any method in the service uses SSE streaming.
+func (g *Generator) serviceHasSSEMethods(service *protogen.Service) bool {
+	for _, method := range service.Methods {
+		if g.isSSEMethod(method) {
+			return true
+		}
+	}
+	return false
 }
 
 func camelToSnake(s string) string {
@@ -1581,6 +1625,162 @@ func (g *Generator) generateParamConfigs(gf *protogen.GeneratedFile, service *pr
 	}
 
 	return nil
+}
+
+// generateSSETypes generates SSE sender interface, implementation, and handler function.
+//
+//nolint:funlen // SSE support requires generating many types and functions together
+func (g *Generator) generateSSETypes(gf *protogen.GeneratedFile) {
+	// SSESender interface
+	gf.P("// SSESender allows sending Server-Sent Events to the client.")
+	gf.P("type SSESender interface {")
+	gf.P("// Send sends a single SSE event with the given data.")
+	gf.P("// The data will be serialized as JSON in the SSE \"data:\" field.")
+	gf.P("Send(event proto.Message) error")
+	gf.P("// SendWithEvent sends an SSE event with a named event type.")
+	gf.P("SendWithEvent(eventType string, event proto.Message) error")
+	gf.P("// Flush ensures all buffered data is sent to the client.")
+	gf.P("// Called automatically after each Send/SendWithEvent.")
+	gf.P("Flush()")
+	gf.P("}")
+	gf.P()
+
+	// sseSender struct
+	gf.P("// sseSender implements SSESender using http.ResponseWriter and http.Flusher.")
+	gf.P("type sseSender struct {")
+	gf.P("w       http.ResponseWriter")
+	gf.P("flusher http.Flusher")
+	gf.P("}")
+	gf.P()
+
+	// Send method
+	gf.P("func (s *sseSender) Send(event proto.Message) error {")
+	gf.P("data, err := protojson.Marshal(event)")
+	gf.P("if err != nil {")
+	gf.P(`return fmt.Errorf("failed to marshal SSE event: %w", err)`)
+	gf.P("}")
+	gf.P(`_, writeErr := fmt.Fprintf(s.w, "data: %s\n\n", data)`)
+	gf.P("if writeErr != nil {")
+	gf.P("return writeErr")
+	gf.P("}")
+	gf.P("s.flusher.Flush()")
+	gf.P("return nil")
+	gf.P("}")
+	gf.P()
+
+	// SendWithEvent method
+	gf.P("func (s *sseSender) SendWithEvent(eventType string, event proto.Message) error {")
+	gf.P("data, err := protojson.Marshal(event)")
+	gf.P("if err != nil {")
+	gf.P(`return fmt.Errorf("failed to marshal SSE event: %w", err)`)
+	gf.P("}")
+	gf.P(`_, writeErr := fmt.Fprintf(s.w, "event: %s\ndata: %s\n\n", eventType, data)`)
+	gf.P("if writeErr != nil {")
+	gf.P("return writeErr")
+	gf.P("}")
+	gf.P("s.flusher.Flush()")
+	gf.P("return nil")
+	gf.P("}")
+	gf.P()
+
+	// Flush method
+	gf.P("func (s *sseSender) Flush() {")
+	gf.P("s.flusher.Flush()")
+	gf.P("}")
+	gf.P()
+
+	// SSEHandler function
+	gf.P("// SSEHandler creates an HTTP handler for SSE streaming methods.")
+	gf.P("func SSEHandler[Req any](")
+	gf.P("handler func(context.Context, *Req, SSESender) error,")
+	gf.P("errorHandler ErrorHandler,")
+	gf.P("serviceHeaders, methodHeaders []*sebufhttp.Header,")
+	gf.P("pathParams []PathParamConfig,")
+	gf.P("queryParams []QueryParamConfig,")
+	gf.P("httpMethod string,")
+	gf.P(") http.Handler {")
+	gf.P("return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {")
+
+	// Header validation
+	gf.P("// Validate headers")
+	gf.P("if validationErr := validateHeaders(r, serviceHeaders, methodHeaders); validationErr != nil {")
+	gf.P("writeErrorWithHandler(w, r, validationErr, errorHandler)")
+	gf.P("return")
+	gf.P("}")
+	gf.P()
+
+	// Bind request
+	gf.P("req := new(Req)")
+	gf.P("if msg, ok := any(req).(proto.Message); ok {")
+	gf.P("if err := bindPathParams(r, msg, pathParams); err != nil {")
+	gf.P("writeErrorWithHandler(w, r, err, errorHandler)")
+	gf.P("return")
+	gf.P("}")
+	gf.P("if err := bindQueryParams(r, msg, queryParams); err != nil {")
+	gf.P("writeErrorWithHandler(w, r, err, errorHandler)")
+	gf.P("return")
+	gf.P("}")
+	gf.P("}")
+	gf.P()
+
+	// Body binding for POST/PUT/PATCH
+	gf.P("// Bind body for POST/PUT/PATCH")
+	gf.P(`if httpMethod == "POST" || httpMethod == "PUT" || httpMethod == "PATCH" {`)
+	gf.P("if err := bindDataBasedOnContentType(r, req); err != nil {")
+	gf.P("validationErr := &sebufhttp.ValidationError{")
+	gf.P("Violations: []*sebufhttp.FieldViolation{")
+	gf.P("{")
+	gf.P(`Field: "body",`)
+	gf.P(`Description: fmt.Sprintf("failed to parse request body: %v", err),`)
+	gf.P("},")
+	gf.P("},")
+	gf.P("}")
+	gf.P("writeErrorWithHandler(w, r, validationErr, errorHandler)")
+	gf.P("return")
+	gf.P("}")
+	gf.P("}")
+	gf.P()
+
+	// Validate request body
+	gf.P("// Validate request body")
+	gf.P("if msg, ok := any(req).(proto.Message); ok {")
+	gf.P("if err := ValidateMessage(msg); err != nil {")
+	gf.P("writeErrorWithHandler(w, r, convertProtovalidateError(err), errorHandler)")
+	gf.P("return")
+	gf.P("}")
+	gf.P("}")
+	gf.P()
+
+	// Check Flusher support
+	gf.P("// Check Flusher support")
+	gf.P("flusher, ok := w.(http.Flusher)")
+	gf.P("if !ok {")
+	gf.P(`http.Error(w, "streaming not supported", http.StatusInternalServerError)`)
+	gf.P("return")
+	gf.P("}")
+	gf.P()
+
+	// Set SSE headers
+	gf.P("// Set SSE headers")
+	gf.P(`w.Header().Set("Content-Type", "text/event-stream")`)
+	gf.P(`w.Header().Set("Cache-Control", "no-cache")`)
+	gf.P(`w.Header().Set("Connection", "keep-alive")`)
+	gf.P()
+
+	gf.P("sender := &sseSender{w: w, flusher: flusher}")
+	gf.P()
+
+	// Call handler
+	gf.P("// Call handler -- blocks until stream completes or context cancels")
+	gf.P("if err := handler(r.Context(), req, sender); err != nil {")
+	gf.P("// If headers already sent, we cannot change status code.")
+	gf.P("// Send an SSE error event instead.")
+	gf.P(`fmt.Fprintf(w, "event: error\ndata: %q\n\n", err.Error())`)
+	gf.P("flusher.Flush()")
+	gf.P("}")
+	gf.P("})")
+	gf.P("}")
+	gf.P()
 }
 
 func (g *Generator) generateErrorImplFile(file *protogen.File) error {

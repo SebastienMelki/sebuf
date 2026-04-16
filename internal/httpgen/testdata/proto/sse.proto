@@ -1,0 +1,79 @@
+syntax = "proto3";
+
+package test.sse;
+
+option go_package = "github.com/SebastienMelki/sebuf/internal/httpgen/testdata/generated;generated";
+
+import "sebuf/http/annotations.proto";
+
+service SSEService {
+  option (sebuf.http.service_config) = {
+    base_path: "/api/v1"
+  };
+
+  // Standard unary RPC (should be unaffected)
+  rpc GetStatus(GetStatusRequest) returns (StatusResponse) {
+    option (sebuf.http.config) = {
+      path: "/status"
+      method: HTTP_METHOD_GET
+    };
+  }
+
+  // SSE streaming RPC
+  rpc StreamEvents(StreamEventsRequest) returns (Event) {
+    option (sebuf.http.config) = {
+      path: "/events"
+      method: HTTP_METHOD_GET
+      stream: true
+    };
+  }
+
+  // SSE with path params
+  rpc StreamResourceEvents(StreamResourceEventsRequest) returns (ResourceEvent) {
+    option (sebuf.http.config) = {
+      path: "/resources/{resource_id}/events"
+      method: HTTP_METHOD_GET
+      stream: true
+    };
+  }
+
+  // SSE with query params
+  rpc StreamFilteredEvents(StreamFilteredEventsRequest) returns (Event) {
+    option (sebuf.http.config) = {
+      path: "/events/filtered"
+      method: HTTP_METHOD_GET
+      stream: true
+    };
+  }
+}
+
+message GetStatusRequest {}
+
+message StatusResponse {
+  string status = 1;
+  int64 uptime_seconds = 2;
+}
+
+message StreamEventsRequest {}
+
+message Event {
+  string id = 1;
+  string type = 2;
+  string payload = 3;
+  int64 timestamp = 4;
+}
+
+message StreamResourceEventsRequest {
+  string resource_id = 1;
+}
+
+message ResourceEvent {
+  string resource_id = 1;
+  string event_type = 2;
+  string data = 3;
+}
+
+message StreamFilteredEventsRequest {
+  string event_type = 1 [(sebuf.http.query) = { name: "type" }];
+  int32 limit = 2 [(sebuf.http.query) = { name: "limit" }];
+}

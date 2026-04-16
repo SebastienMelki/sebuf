@@ -247,6 +247,12 @@ func (g *Generator) generateService(p tscommon.Printer, service *protogen.Servic
 	return g.generateCreateRoutes(p, service)
 }
 
+// isSSEMethod checks if a method is annotated as SSE streaming.
+func (g *Generator) isSSEMethod(method *protogen.Method) bool {
+	config := annotations.GetMethodHTTPConfig(method)
+	return config != nil && config.Stream
+}
+
 // generateHandlerInterface generates the XxxServiceHandler interface.
 func (g *Generator) generateHandlerInterface(p tscommon.Printer, service *protogen.Service) {
 	serviceName := service.GoName
@@ -256,7 +262,11 @@ func (g *Generator) generateHandlerInterface(p tscommon.Printer, service *protog
 		methodName := annotations.LowerFirst(method.GoName)
 		inputType := string(method.Input.Desc.Name())
 		outputType := g.resolveOutputType(method)
-		p("  %s(ctx: ServerContext, req: %s): Promise<%s>;", methodName, inputType, outputType)
+		if g.isSSEMethod(method) {
+			p("  %s(ctx: ServerContext, req: %s): ReadableStream<%s>;", methodName, inputType, outputType)
+		} else {
+			p("  %s(ctx: ServerContext, req: %s): Promise<%s>;", methodName, inputType, outputType)
+		}
 	}
 	p("}")
 	p("")
@@ -415,6 +425,8 @@ func (g *Generator) generateCreateRoutes(p tscommon.Printer, service *protogen.S
 }
 
 // generateRouteEntry generates a single route descriptor entry.
+//
+//nolint:funlen // Route entry generation requires many sequential code generation blocks
 func (g *Generator) generateRouteEntry(p tscommon.Printer, service *protogen.Service, method *protogen.Method) error {
 	cfg, err := g.buildRPCRouteConfig(service, method)
 	if err != nil {
@@ -423,6 +435,11 @@ func (g *Generator) generateRouteEntry(p tscommon.Printer, service *protogen.Ser
 	if coverageErr := validateFieldCoverage(cfg, method); coverageErr != nil {
 		return fmt.Errorf("service %s, method %s: %w", service.GoName, method.GoName, coverageErr)
 	}
+
+	if g.isSSEMethod(method) {
+		return g.generateSSERouteEntry(p, service, method, cfg)
+	}
+
 	tsMethodName := annotations.LowerFirst(cfg.methodName)
 	outputType := g.resolveOutputType(method)
 
@@ -467,6 +484,107 @@ func (g *Generator) generateRouteEntry(p tscommon.Printer, service *protogen.Ser
 	p("          return new Response(JSON.stringify(result as %s), {", outputType)
 	p("            status: 200,")
 	p(`            headers: { "Content-Type": "application/json" },`)
+	p("          });")
+
+	// Catch block
+	p("        } catch (err: unknown) {")
+	p("          if (err instanceof ValidationError) {")
+	p("            return new Response(JSON.stringify({ violations: err.violations }), {")
+	p("              status: 400,")
+	p(`              headers: { "Content-Type": "application/json" },`)
+	p("            });")
+	p("          }")
+	p("          if (options?.onError) {")
+	p("            return options.onError(err, req);")
+	p("          }")
+	p("          const message = err instanceof Error ? err.message : String(err);")
+	p("          return new Response(JSON.stringify({ message }), {")
+	p("            status: 500,")
+	p(`            headers: { "Content-Type": "application/json" },`)
+	p("          });")
+	p("        }")
+
+	p("      },")
+	p("    },")
+	return nil
+}
+
+// generateSSERouteEntry generates a route descriptor for an SSE streaming endpoint.
+//
+//nolint:funlen // SSE route entry generation requires many sequential code generation blocks
+func (g *Generator) generateSSERouteEntry(
+	p tscommon.Printer,
+	service *protogen.Service,
+	method *protogen.Method,
+	cfg *rpcRouteConfig,
+) error {
+	tsMethodName := annotations.LowerFirst(cfg.methodName)
+
+	p("    {")
+	p(`      method: "%s",`, cfg.httpMethod)
+	p(`      path: "%s",`, cfg.fullPath)
+	p("      handler: async (req: Request): Promise<Response> => {")
+
+	// Try-catch wraps the handler body
+	p("        try {")
+
+	// Header validation
+	serviceHeaders := annotations.GetServiceHeaders(service)
+	methodHeaders := annotations.GetMethodHeaders(method)
+	g.generateHeaderValidation(p, serviceHeaders, methodHeaders)
+
+	// Extract path params
+	g.generatePathParamExtraction(p, cfg)
+
+	// Parse request body or query params
+	if cfg.hasBody {
+		g.generateBodyParsing(p, method, tsMethodName)
+		g.generatePathParamMerge(p, cfg, method)
+	} else {
+		g.generateQueryParamParsing(p, cfg, method, tsMethodName)
+	}
+
+	// Build ServerContext
+	p("          const ctx: ServerContext = {")
+	p("            request: req,")
+	p("            pathParams,")
+	p("            headers: Object.fromEntries(req.headers.entries()),")
+	p("          };")
+	p("")
+
+	// Get the ReadableStream from handler
+	p("          const stream = handler.%s(ctx, body);", tsMethodName)
+	p("")
+
+	// Convert ReadableStream<T> to SSE text stream
+	p("          const sseStream = new ReadableStream({")
+	p("            async start(controller) {")
+	p("              const reader = stream.getReader();")
+	p("              const encoder = new TextEncoder();")
+	p("              try {")
+	p("                while (true) {")
+	p("                  const { done, value } = await reader.read();")
+	p("                  if (done) break;")
+	p("                  controller.enqueue(encoder.encode(`data: ${JSON.stringify(value)}\\n\\n`));")
+	p("                }")
+	p("                controller.close();")
+	p("              } catch (err) {")
+	p("                controller.enqueue(")
+	p("                  encoder.encode(`event: error\\ndata: ${JSON.stringify({ message: String(err) })}\\n\\n`),")
+	p("                );")
+	p("                controller.close();")
+	p("              }")
+	p("            },")
+	p("          });")
+	p("")
+
+	// Return SSE response
+	p("          return new Response(sseStream, {")
+	p("            headers: {")
+	p(`              "Content-Type": "text/event-stream",`)
+	p(`              "Cache-Control": "no-cache",`)
+	p(`              "Connection": "keep-alive",`)
+	p("            },")
 	p("          });")
 
 	// Catch block

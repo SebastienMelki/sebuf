@@ -565,6 +565,21 @@ func TestExhaustiveGoldenFiles(t *testing.T) {
 			goldenFile:  "testdata/golden/json/OneofDiscriminatorService.openapi.json",
 			format:      "json",
 		},
+		// sse.proto -> SSEService (Server-Sent Events streaming)
+		{
+			name:        "sse_service_yaml",
+			protoFile:   "testdata/proto/sse.proto",
+			serviceName: "SSEService",
+			goldenFile:  "testdata/golden/yaml/SSEService.openapi.yaml",
+			format:      "yaml",
+		},
+		{
+			name:        "sse_service_json",
+			protoFile:   "testdata/proto/sse.proto",
+			serviceName: "SSEService",
+			goldenFile:  "testdata/golden/json/SSEService.openapi.json",
+			format:      "json",
+		},
 	}
 
 	for _, tc := range testCases {
@@ -670,6 +685,7 @@ func TestExhaustiveRegression(t *testing.T) {
 		"testdata/proto/bytes_encoding.proto":           {"BytesEncodingService"},
 		"testdata/proto/flatten.proto":                  {"FlattenService"},
 		"testdata/proto/oneof_discriminator.proto":      {"OneofDiscriminatorService"},
+		"testdata/proto/sse.proto":                      {"SSEService"},
 	}
 
 	formats := []string{"yaml", "json"}
