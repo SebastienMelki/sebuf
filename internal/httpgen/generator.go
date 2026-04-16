@@ -1647,11 +1647,11 @@ func (g *Generator) generateSSETypes(gf *protogen.GeneratedFile) {
 
 	// sseSender struct
 	gf.P("// sseSender implements SSESender using http.ResponseWriter and http.Flusher.")
-	gf.P("// It tracks whether any data has been sent to support proper error handling.")
+	gf.P("// It tracks whether the response has been committed (any flush) to support proper error handling.")
 	gf.P("type sseSender struct {")
-	gf.P("w       http.ResponseWriter")
-	gf.P("flusher http.Flusher")
-	gf.P("sent    bool")
+	gf.P("w         http.ResponseWriter")
+	gf.P("flusher   http.Flusher")
+	gf.P("committed bool")
 	gf.P("}")
 	gf.P()
 
@@ -1665,7 +1665,7 @@ func (g *Generator) generateSSETypes(gf *protogen.GeneratedFile) {
 	gf.P("if writeErr != nil {")
 	gf.P("return writeErr")
 	gf.P("}")
-	gf.P("s.sent = true")
+	gf.P("s.committed = true")
 	gf.P("s.flusher.Flush()")
 	gf.P("return nil")
 	gf.P("}")
@@ -1681,7 +1681,7 @@ func (g *Generator) generateSSETypes(gf *protogen.GeneratedFile) {
 	gf.P("if writeErr != nil {")
 	gf.P("return writeErr")
 	gf.P("}")
-	gf.P("s.sent = true")
+	gf.P("s.committed = true")
 	gf.P("s.flusher.Flush()")
 	gf.P("return nil")
 	gf.P("}")
@@ -1689,6 +1689,7 @@ func (g *Generator) generateSSETypes(gf *protogen.GeneratedFile) {
 
 	// Flush method
 	gf.P("func (s *sseSender) Flush() {")
+	gf.P("s.committed = true")
 	gf.P("s.flusher.Flush()")
 	gf.P("}")
 	gf.P()
@@ -1777,7 +1778,7 @@ func (g *Generator) generateSSETypes(gf *protogen.GeneratedFile) {
 	// Call handler
 	gf.P("// Call handler -- blocks until stream completes or context cancels")
 	gf.P("if err := handler(r.Context(), req, sender); err != nil {")
-	gf.P("if !sender.sent {")
+	gf.P("if !sender.committed {")
 	gf.P("// No events sent yet -- headers not flushed to client, so we can")
 	gf.P("// still send a proper HTTP error response.")
 	gf.P("writeErrorWithHandler(w, r, err, errorHandler)")
