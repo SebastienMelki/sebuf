@@ -116,16 +116,23 @@ func NewSSEServiceClient(baseURL string, opts ...SSEServiceClientOption) SSEServ
 
 // SSEServiceEventStream reads Server-Sent Events from a streaming endpoint.
 type SSEServiceEventStream[T proto.Message] struct {
-	resp    *http.Response
-	scanner *bufio.Scanner
-	err     error
+	resp   *http.Response
+	reader *bufio.Reader
+	err    error
 }
 
 // Next reads the next event from the stream.
 // Returns false when the stream ends or an error occurs.
 func (s *SSEServiceEventStream[T]) Next(event T) bool {
-	for s.scanner.Scan() {
-		line := s.scanner.Text()
+	for {
+		line, err := s.reader.ReadString('\n')
+		if err != nil {
+			if err != io.EOF {
+				s.err = err
+			}
+			return false
+		}
+		line = strings.TrimRight(line, "\r\n")
 		if !strings.HasPrefix(line, "data: ") {
 			continue
 		}
@@ -136,10 +143,6 @@ func (s *SSEServiceEventStream[T]) Next(event T) bool {
 		}
 		return true
 	}
-	if err := s.scanner.Err(); err != nil {
-		s.err = err
-	}
-	return false
 }
 
 // Err returns any error encountered during streaming.
@@ -259,8 +262,8 @@ func (c *sSEServiceClient) StreamEvents(ctx context.Context, req *StreamEventsRe
 	}
 
 	return &SSEServiceEventStream[*Event]{
-		resp:    resp,
-		scanner: bufio.NewScanner(resp.Body),
+		resp:   resp,
+		reader: bufio.NewReader(resp.Body),
 	}, nil
 }
 
@@ -314,8 +317,8 @@ func (c *sSEServiceClient) StreamResourceEvents(ctx context.Context, req *Stream
 	}
 
 	return &SSEServiceEventStream[*ResourceEvent]{
-		resp:    resp,
-		scanner: bufio.NewScanner(resp.Body),
+		resp:   resp,
+		reader: bufio.NewReader(resp.Body),
 	}, nil
 }
 
@@ -380,8 +383,8 @@ func (c *sSEServiceClient) StreamFilteredEvents(ctx context.Context, req *Stream
 	}
 
 	return &SSEServiceEventStream[*Event]{
-		resp:    resp,
-		scanner: bufio.NewScanner(resp.Body),
+		resp:   resp,
+		reader: bufio.NewReader(resp.Body),
 	}, nil
 }
 
