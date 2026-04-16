@@ -3,27 +3,26 @@
 SERVER_PID_FILE := /tmp/sse-demo-server.pid
 
 # Complete demo: generate code, start server, run all clients, stop server
+# Uses a single shell with trap to guarantee cleanup even on failure.
 demo:
 	@rm -rf api ts-client/generated
 	@echo "=== SSE Streaming Demo ==="
 	@echo ""
 	@$(MAKE) generate
 	@echo ""
-	@echo "Starting server..."
 	@$(MAKE) start-bg
-	@echo ""
-	@$(MAKE) test
-	@echo ""
-	@$(MAKE) test-stream
-	@echo ""
-	@$(MAKE) test-trades
-	@echo ""
-	@$(MAKE) demo-go-client
-	@echo ""
-	@$(MAKE) demo-ts-client
-	@echo ""
-	@$(MAKE) stop
-	@echo ""
+	@trap '$(MAKE) stop' EXIT; \
+	echo ""; \
+	$(MAKE) test; \
+	echo ""; \
+	$(MAKE) test-stream; \
+	echo ""; \
+	$(MAKE) test-trades; \
+	echo ""; \
+	$(MAKE) demo-go-client; \
+	echo ""; \
+	$(MAKE) demo-ts-client; \
+	echo ""
 	@echo "=== Demo complete ==="
 
 # Generate code from proto files
@@ -42,9 +41,10 @@ generate:
 run: generate
 	@go run main.go
 
-# Start server in background
+# Start server in background (build first so we get the real PID, not go run's)
 start-bg:
-	@go run main.go > /tmp/sse-demo-server.log 2>&1 & echo $$! > $(SERVER_PID_FILE)
+	@go build -o /tmp/sse-demo-server main.go
+	@/tmp/sse-demo-server > /tmp/sse-demo-server.log 2>&1 & echo $$! > $(SERVER_PID_FILE)
 	@echo "Server started (PID $$(cat $(SERVER_PID_FILE)))"
 	@for i in 1 2 3 4 5 6 7 8 9 10; do \
 		curl -s -o /dev/null http://localhost:8080/api/v1/quotes/AAPL 2>/dev/null && break; \
@@ -55,7 +55,7 @@ start-bg:
 stop:
 	@if [ -f $(SERVER_PID_FILE) ]; then \
 		kill $$(cat $(SERVER_PID_FILE)) 2>/dev/null || true; \
-		rm -f $(SERVER_PID_FILE); \
+		rm -f $(SERVER_PID_FILE) /tmp/sse-demo-server; \
 		echo "Server stopped"; \
 	fi
 
