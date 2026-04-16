@@ -50,4 +50,6 @@ async function main() {
   console.log("\n=== TypeScript client demo complete ===");
 }
 
-main().catch(console.error);
+main()
+  .catch(console.error)
+  .finally(() => process.exit(0));
