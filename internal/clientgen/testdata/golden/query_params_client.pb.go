@@ -38,6 +38,7 @@ type QueryParamServiceClient interface {
 	SearchCustomNames(ctx context.Context, req *SearchCustomNamesRequest, opts ...QueryParamServiceCallOption) (*SearchResponse, error)
 	GetWithFilters(ctx context.Context, req *GetWithFiltersRequest, opts ...QueryParamServiceCallOption) (*SearchResponse, error)
 	SearchAdvanced(ctx context.Context, req *SearchAdvancedRequest, opts ...QueryParamServiceCallOption) (*SearchResponse, error)
+	GetByRegion(ctx context.Context, req *GetByRegionRequest, opts ...QueryParamServiceCallOption) (*SearchResponse, error)
 	GetDefaults(ctx context.Context, req *EmptyRequest, opts ...QueryParamServiceCallOption) (*SearchResponse, error)
 }
 
@@ -502,9 +503,77 @@ func (c *queryParamServiceClient) SearchAdvanced(ctx context.Context, req *Searc
 	if req.Flags != false {
 		queryParams.Set("flags", fmt.Sprint(req.Flags))
 	}
+	if req.Regions != "" {
+		queryParams.Set("regions", fmt.Sprint(req.Regions))
+	}
 	if len(queryParams) > 0 {
 		reqURL += "?" + queryParams.Encode()
 	}
+
+	contentType := c.contentType
+	if callOpts.contentType != "" {
+		contentType = callOpts.contentType
+	}
+
+	// Create HTTP request
+	httpReq, err := http.NewRequestWithContext(ctx, "GET", reqURL, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	// Set headers
+	httpReq.Header.Set("Content-Type", contentType)
+	for k, v := range c.defaultHeaders {
+		httpReq.Header.Set(k, v)
+	}
+	for k, v := range callOpts.headers {
+		httpReq.Header.Set(k, v)
+	}
+
+	// Execute request
+	resp, err := c.httpClient.Do(httpReq)
+	if err != nil {
+		return nil, fmt.Errorf("failed to execute request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	// Read response body
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response body: %w", err)
+	}
+
+	// Check for error status codes
+	if resp.StatusCode >= 400 {
+		return nil, c.handleErrorResponse(resp.StatusCode, respBody, contentType)
+	}
+
+	// Resolve discardUnknownFields: per-call option overrides client default
+	discardUnknown := c.discardUnknownFields
+	if callOpts.discardUnknownFields != nil {
+		discardUnknown = *callOpts.discardUnknownFields
+	}
+
+	// Unmarshal response
+	result := &SearchResponse{}
+	if err := c.unmarshalResponse(respBody, result, contentType, discardUnknown); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal response: %w", err)
+	}
+
+	return result, nil
+}
+
+// GetByRegion calls the GetByRegion RPC.
+func (c *queryParamServiceClient) GetByRegion(ctx context.Context, req *GetByRegionRequest, opts ...QueryParamServiceCallOption) (*SearchResponse, error) {
+	callOpts := &queryParamServiceCallOptions{}
+	for _, opt := range opts {
+		opt(callOpts)
+	}
+
+	// Build URL
+	path := "/api/regions/{region}"
+	path = strings.Replace(path, "{region}", url.PathEscape(fmt.Sprint(req.Region)), 1)
+	reqURL := c.baseURL + path
 
 	contentType := c.contentType
 	if callOpts.contentType != "" {

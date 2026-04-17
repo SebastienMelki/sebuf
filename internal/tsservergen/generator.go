@@ -283,8 +283,9 @@ func (g *Generator) resolveOutputType(method *protogen.Method) string {
 
 // pathParamField maps a URL path parameter to its corresponding request message field.
 type pathParamField struct {
-	protoName string // proto field name, e.g. "resource_id"
-	jsonName  string // JSON/TS field name, e.g. "resourceId"
+	protoName string              // proto field name, e.g. "resource_id"
+	jsonName  string              // JSON/TS field name, e.g. "resourceId"
+	field     *protogen.Field     // the protogen field, needed for type-aware code generation (e.g. enum casts)
 }
 
 // rpcRouteConfig holds config for generating a route handler.
@@ -346,15 +347,15 @@ func resolvePathParamFields(pathParams []string, method *protogen.Method) ([]pat
 		return nil, nil
 	}
 
-	// Build lookup: proto field name → JSON name
-	fieldMap := make(map[string]string, len(method.Input.Fields))
+	// Build lookup: proto field name → protogen.Field
+	fieldMap := make(map[string]*protogen.Field, len(method.Input.Fields))
 	for _, f := range method.Input.Fields {
-		fieldMap[string(f.Desc.Name())] = f.Desc.JSONName()
+		fieldMap[string(f.Desc.Name())] = f
 	}
 
 	fields := make([]pathParamField, 0, len(pathParams))
 	for _, param := range pathParams {
-		jsonName, ok := fieldMap[param]
+		f, ok := fieldMap[param]
 		if !ok {
 			return nil, fmt.Errorf(
 				"path parameter {%s} has no matching field on request message %s — "+
@@ -362,7 +363,7 @@ func resolvePathParamFields(pathParams []string, method *protogen.Method) ([]pat
 				param, method.Input.Desc.Name(), param,
 			)
 		}
-		fields = append(fields, pathParamField{protoName: param, jsonName: jsonName})
+		fields = append(fields, pathParamField{protoName: param, jsonName: f.Desc.JSONName(), field: f})
 	}
 	return fields, nil
 }
@@ -617,7 +618,11 @@ func (g *Generator) generatePathParamMerge(p tscommon.Printer, cfg *rpcRouteConf
 		return
 	}
 	for _, ppf := range cfg.pathParamFields {
-		p("          body.%s = pathParams[\"%s\"];", ppf.jsonName, ppf.protoName)
+		if ppf.field.Desc.Kind() == protoreflect.EnumKind && ppf.field.Enum != nil {
+			p("          body.%s = pathParams[\"%s\"] as %s;", ppf.jsonName, ppf.protoName, string(ppf.field.Enum.Desc.Name()))
+		} else {
+			p("          body.%s = pathParams[\"%s\"];", ppf.jsonName, ppf.protoName)
+		}
 	}
 	p("")
 }
@@ -709,7 +714,7 @@ func (g *Generator) generateQueryParamParsing(
 		if len(cfg.pathParamFields) > 0 {
 			p("          const body: %s = {", inputType)
 			for _, ppf := range cfg.pathParamFields {
-				p("            %s: pathParams[\"%s\"],", ppf.jsonName, ppf.protoName)
+				g.emitPathParamAssignment(p, ppf)
 			}
 			p("          };")
 		} else {
@@ -729,7 +734,7 @@ func (g *Generator) generateQueryParamParsing(
 	p("          const body: %s = {", inputType)
 	// Include path param fields in the literal so TS sees all required properties
 	for _, ppf := range cfg.pathParamFields {
-		p("            %s: pathParams[\"%s\"],", ppf.jsonName, ppf.protoName)
+		g.emitPathParamAssignment(p, ppf)
 	}
 	for _, qp := range cfg.queryParams {
 		g.generateQueryParamField(p, qp)
@@ -746,6 +751,16 @@ func (g *Generator) generateQueryParamParsing(
 	p("")
 }
 
+// emitPathParamAssignment emits a single path parameter assignment in the body literal,
+// casting to the enum type when needed for TypeScript type safety.
+func (g *Generator) emitPathParamAssignment(p tscommon.Printer, ppf pathParamField) {
+	if ppf.field.Desc.Kind() == protoreflect.EnumKind && ppf.field.Enum != nil {
+		p("            %s: pathParams[\"%s\"] as %s,", ppf.jsonName, ppf.protoName, string(ppf.field.Enum.Desc.Name()))
+	} else {
+		p("            %s: pathParams[\"%s\"],", ppf.jsonName, ppf.protoName)
+	}
+}
+
 // generateQueryParamField generates a single query parameter field extraction.
 func (g *Generator) generateQueryParamField(p tscommon.Printer, qp annotations.QueryParam) {
 	jsonName := qp.FieldJSONName
@@ -753,7 +768,11 @@ func (g *Generator) generateQueryParamField(p tscommon.Printer, qp annotations.Q
 
 	// Handle repeated fields: use getAll() for multi-value params
 	if qp.Field != nil && qp.Field.Desc.IsList() {
-		p(`            %s: params.getAll("%s"),`, jsonName, paramName)
+		if qp.Field.Desc.Kind() == protoreflect.EnumKind && qp.Field.Enum != nil {
+			p(`            %s: params.getAll("%s") as %s[],`, jsonName, paramName, string(qp.Field.Enum.Desc.Name()))
+		} else {
+			p(`            %s: params.getAll("%s"),`, jsonName, paramName)
+		}
 		return
 	}
 

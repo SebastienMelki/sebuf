@@ -128,9 +128,10 @@ func isPathParamCompatible(field *protogen.Field) bool {
 		protoreflect.Uint32Kind, protoreflect.Fixed32Kind,
 		protoreflect.Uint64Kind, protoreflect.Fixed64Kind,
 		protoreflect.BoolKind,
-		protoreflect.FloatKind, protoreflect.DoubleKind:
+		protoreflect.FloatKind, protoreflect.DoubleKind,
+		protoreflect.EnumKind:
 		return true
-	case protoreflect.EnumKind, protoreflect.BytesKind, protoreflect.MessageKind, protoreflect.GroupKind:
+	case protoreflect.BytesKind, protoreflect.MessageKind, protoreflect.GroupKind:
 		return false
 	}
 	return false

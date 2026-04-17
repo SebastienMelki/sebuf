@@ -1,0 +1,36 @@
+syntax = "proto3";
+
+package api.services;
+
+import "sebuf/http/annotations.proto";
+import "proto/models/portfolio.proto";
+
+// PortfolioService demonstrates enum fields as query and path parameters.
+service PortfolioService {
+  option (sebuf.http.service_config) = {
+    base_path: "/api/v1"
+  };
+
+  // GetPortfolio uses enum query parameters for filtering.
+  // Examples:
+  //   GET /api/v1/portfolio?timeframe=TIMEFRAME_MONTH
+  //   GET /api/v1/portfolio?timeframe=3&asset_class=ASSET_CLASS_EQUITY
+  //   GET /api/v1/portfolio?timeframe=1
+  rpc GetPortfolio(api.models.GetPortfolioRequest) returns (api.models.GetPortfolioResponse) {
+    option (sebuf.http.config) = {
+      path: "/portfolio"
+      method: HTTP_METHOD_GET
+    };
+  }
+
+  // GetAssetClass uses an enum as a path parameter.
+  // Examples:
+  //   GET /api/v1/asset-classes/ASSET_CLASS_EQUITY
+  //   GET /api/v1/asset-classes/1
+  rpc GetAssetClass(api.models.GetAssetClassRequest) returns (api.models.GetAssetClassResponse) {
+    option (sebuf.http.config) = {
+      path: "/asset-classes/{asset_class}"
+      method: HTTP_METHOD_GET
+    };
+  }
+}
