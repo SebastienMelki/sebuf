@@ -32,10 +32,11 @@ type EmptyBehaviorServiceClient interface {
 
 // emptyBehaviorServiceClient is the implementation of EmptyBehaviorServiceClient.
 type emptyBehaviorServiceClient struct {
-	baseURL        string
-	httpClient     *http.Client
-	contentType    string
-	defaultHeaders map[string]string
+	baseURL              string
+	httpClient           *http.Client
+	contentType          string
+	defaultHeaders       map[string]string
+	discardUnknownFields bool
 }
 
 var _ EmptyBehaviorServiceClient = (*emptyBehaviorServiceClient)(nil)
@@ -68,13 +69,22 @@ func WithEmptyBehaviorServiceDefaultHeader(key, value string) EmptyBehaviorServi
 	}
 }
 
+// WithEmptyBehaviorServiceDiscardUnknownFields sets whether to discard unknown fields in JSON responses.
+// When true, unknown fields are silently ignored instead of causing unmarshal errors.
+func WithEmptyBehaviorServiceDiscardUnknownFields(discard bool) EmptyBehaviorServiceClientOption {
+	return func(c *emptyBehaviorServiceClient) {
+		c.discardUnknownFields = discard
+	}
+}
+
 // EmptyBehaviorServiceCallOption configures a single RPC call.
 type EmptyBehaviorServiceCallOption func(*emptyBehaviorServiceCallOptions)
 
 // emptyBehaviorServiceCallOptions holds options for a single RPC call.
 type emptyBehaviorServiceCallOptions struct {
-	headers     map[string]string
-	contentType string
+	headers              map[string]string
+	contentType          string
+	discardUnknownFields *bool
 }
 
 // WithEmptyBehaviorServiceHeader adds a header to a single request.
@@ -91,6 +101,14 @@ func WithEmptyBehaviorServiceHeader(key, value string) EmptyBehaviorServiceCallO
 func WithEmptyBehaviorServiceCallContentType(contentType string) EmptyBehaviorServiceCallOption {
 	return func(o *emptyBehaviorServiceCallOptions) {
 		o.contentType = contentType
+	}
+}
+
+// WithEmptyBehaviorServiceCallDiscardUnknownFields sets whether to discard unknown fields for a single request.
+// Overrides the client-level setting from WithEmptyBehaviorServiceDiscardUnknownFields.
+func WithEmptyBehaviorServiceCallDiscardUnknownFields(discard bool) EmptyBehaviorServiceCallOption {
+	return func(o *emptyBehaviorServiceCallOptions) {
+		o.discardUnknownFields = &discard
 	}
 }
 
@@ -160,9 +178,15 @@ func (c *emptyBehaviorServiceClient) GetResponse(ctx context.Context, req *GetRe
 		return nil, c.handleErrorResponse(resp.StatusCode, respBody, contentType)
 	}
 
+	// Resolve discardUnknownFields: per-call option overrides client default
+	discardUnknown := c.discardUnknownFields
+	if callOpts.discardUnknownFields != nil {
+		discardUnknown = *callOpts.discardUnknownFields
+	}
+
 	// Unmarshal response
 	result := &Response{}
-	if err := c.unmarshalResponse(respBody, result, contentType); err != nil {
+	if err := c.unmarshalResponse(respBody, result, contentType, discardUnknown); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal response: %w", err)
 	}
 
@@ -188,14 +212,14 @@ func (c *emptyBehaviorServiceClient) handleErrorResponse(statusCode int, body []
 	// Try to parse as ValidationError first (for 400 errors)
 	if statusCode == http.StatusBadRequest {
 		validationErr := &sebufhttp.ValidationError{}
-		if unmarshalErr := c.unmarshalResponse(body, validationErr, contentType); unmarshalErr == nil {
+		if unmarshalErr := c.unmarshalResponse(body, validationErr, contentType, false); unmarshalErr == nil {
 			return validationErr
 		}
 	}
 
 	// Try to parse as generic Error
 	genericErr := &sebufhttp.Error{}
-	if unmarshalErr := c.unmarshalResponse(body, genericErr, contentType); unmarshalErr == nil {
+	if unmarshalErr := c.unmarshalResponse(body, genericErr, contentType, false); unmarshalErr == nil {
 		return genericErr
 	}
 
@@ -203,7 +227,7 @@ func (c *emptyBehaviorServiceClient) handleErrorResponse(statusCode int, body []
 	return fmt.Errorf("request failed with status %d: %s", statusCode, string(body))
 }
 
-func (c *emptyBehaviorServiceClient) unmarshalResponse(body []byte, msg proto.Message, contentType string) error {
+func (c *emptyBehaviorServiceClient) unmarshalResponse(body []byte, msg proto.Message, contentType string, discardUnknown bool) error {
 	if len(body) == 0 {
 		return nil
 	}
@@ -214,10 +238,18 @@ func (c *emptyBehaviorServiceClient) unmarshalResponse(body []byte, msg proto.Me
 		if unmarshaler, ok := msg.(json.Unmarshaler); ok {
 			return unmarshaler.UnmarshalJSON(body)
 		}
+		if discardUnknown {
+			opts := protojson.UnmarshalOptions{DiscardUnknown: true}
+			return opts.Unmarshal(body, msg)
+		}
 		return protojson.Unmarshal(body, msg)
 	case ContentTypeProto:
 		return proto.Unmarshal(body, msg)
 	default:
+		if discardUnknown {
+			opts := protojson.UnmarshalOptions{DiscardUnknown: true}
+			return opts.Unmarshal(body, msg)
+		}
 		return protojson.Unmarshal(body, msg)
 	}
 }

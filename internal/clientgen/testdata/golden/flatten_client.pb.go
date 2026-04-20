@@ -35,10 +35,11 @@ type FlattenServiceClient interface {
 
 // flattenServiceClient is the implementation of FlattenServiceClient.
 type flattenServiceClient struct {
-	baseURL        string
-	httpClient     *http.Client
-	contentType    string
-	defaultHeaders map[string]string
+	baseURL              string
+	httpClient           *http.Client
+	contentType          string
+	defaultHeaders       map[string]string
+	discardUnknownFields bool
 }
 
 var _ FlattenServiceClient = (*flattenServiceClient)(nil)
@@ -71,13 +72,22 @@ func WithFlattenServiceDefaultHeader(key, value string) FlattenServiceClientOpti
 	}
 }
 
+// WithFlattenServiceDiscardUnknownFields sets whether to discard unknown fields in JSON responses.
+// When true, unknown fields are silently ignored instead of causing unmarshal errors.
+func WithFlattenServiceDiscardUnknownFields(discard bool) FlattenServiceClientOption {
+	return func(c *flattenServiceClient) {
+		c.discardUnknownFields = discard
+	}
+}
+
 // FlattenServiceCallOption configures a single RPC call.
 type FlattenServiceCallOption func(*flattenServiceCallOptions)
 
 // flattenServiceCallOptions holds options for a single RPC call.
 type flattenServiceCallOptions struct {
-	headers     map[string]string
-	contentType string
+	headers              map[string]string
+	contentType          string
+	discardUnknownFields *bool
 }
 
 // WithFlattenServiceHeader adds a header to a single request.
@@ -94,6 +104,14 @@ func WithFlattenServiceHeader(key, value string) FlattenServiceCallOption {
 func WithFlattenServiceCallContentType(contentType string) FlattenServiceCallOption {
 	return func(o *flattenServiceCallOptions) {
 		o.contentType = contentType
+	}
+}
+
+// WithFlattenServiceCallDiscardUnknownFields sets whether to discard unknown fields for a single request.
+// Overrides the client-level setting from WithFlattenServiceDiscardUnknownFields.
+func WithFlattenServiceCallDiscardUnknownFields(discard bool) FlattenServiceCallOption {
+	return func(o *flattenServiceCallOptions) {
+		o.discardUnknownFields = &discard
 	}
 }
 
@@ -168,9 +186,15 @@ func (c *flattenServiceClient) TestSimpleFlatten(ctx context.Context, req *Simpl
 		return nil, c.handleErrorResponse(resp.StatusCode, respBody, contentType)
 	}
 
+	// Resolve discardUnknownFields: per-call option overrides client default
+	discardUnknown := c.discardUnknownFields
+	if callOpts.discardUnknownFields != nil {
+		discardUnknown = *callOpts.discardUnknownFields
+	}
+
 	// Unmarshal response
 	result := &SimpleFlatten{}
-	if err := c.unmarshalResponse(respBody, result, contentType); err != nil {
+	if err := c.unmarshalResponse(respBody, result, contentType, discardUnknown); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal response: %w", err)
 	}
 
@@ -232,9 +256,15 @@ func (c *flattenServiceClient) TestDualFlatten(ctx context.Context, req *DualFla
 		return nil, c.handleErrorResponse(resp.StatusCode, respBody, contentType)
 	}
 
+	// Resolve discardUnknownFields: per-call option overrides client default
+	discardUnknown := c.discardUnknownFields
+	if callOpts.discardUnknownFields != nil {
+		discardUnknown = *callOpts.discardUnknownFields
+	}
+
 	// Unmarshal response
 	result := &DualFlatten{}
-	if err := c.unmarshalResponse(respBody, result, contentType); err != nil {
+	if err := c.unmarshalResponse(respBody, result, contentType, discardUnknown); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal response: %w", err)
 	}
 
@@ -296,9 +326,15 @@ func (c *flattenServiceClient) TestMixedFlatten(ctx context.Context, req *MixedF
 		return nil, c.handleErrorResponse(resp.StatusCode, respBody, contentType)
 	}
 
+	// Resolve discardUnknownFields: per-call option overrides client default
+	discardUnknown := c.discardUnknownFields
+	if callOpts.discardUnknownFields != nil {
+		discardUnknown = *callOpts.discardUnknownFields
+	}
+
 	// Unmarshal response
 	result := &MixedFlatten{}
-	if err := c.unmarshalResponse(respBody, result, contentType); err != nil {
+	if err := c.unmarshalResponse(respBody, result, contentType, discardUnknown); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal response: %w", err)
 	}
 
@@ -360,9 +396,15 @@ func (c *flattenServiceClient) TestPlainNested(ctx context.Context, req *PlainNe
 		return nil, c.handleErrorResponse(resp.StatusCode, respBody, contentType)
 	}
 
+	// Resolve discardUnknownFields: per-call option overrides client default
+	discardUnknown := c.discardUnknownFields
+	if callOpts.discardUnknownFields != nil {
+		discardUnknown = *callOpts.discardUnknownFields
+	}
+
 	// Unmarshal response
 	result := &PlainNested{}
-	if err := c.unmarshalResponse(respBody, result, contentType); err != nil {
+	if err := c.unmarshalResponse(respBody, result, contentType, discardUnknown); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal response: %w", err)
 	}
 
@@ -388,14 +430,14 @@ func (c *flattenServiceClient) handleErrorResponse(statusCode int, body []byte, 
 	// Try to parse as ValidationError first (for 400 errors)
 	if statusCode == http.StatusBadRequest {
 		validationErr := &sebufhttp.ValidationError{}
-		if unmarshalErr := c.unmarshalResponse(body, validationErr, contentType); unmarshalErr == nil {
+		if unmarshalErr := c.unmarshalResponse(body, validationErr, contentType, false); unmarshalErr == nil {
 			return validationErr
 		}
 	}
 
 	// Try to parse as generic Error
 	genericErr := &sebufhttp.Error{}
-	if unmarshalErr := c.unmarshalResponse(body, genericErr, contentType); unmarshalErr == nil {
+	if unmarshalErr := c.unmarshalResponse(body, genericErr, contentType, false); unmarshalErr == nil {
 		return genericErr
 	}
 
@@ -403,7 +445,7 @@ func (c *flattenServiceClient) handleErrorResponse(statusCode int, body []byte, 
 	return fmt.Errorf("request failed with status %d: %s", statusCode, string(body))
 }
 
-func (c *flattenServiceClient) unmarshalResponse(body []byte, msg proto.Message, contentType string) error {
+func (c *flattenServiceClient) unmarshalResponse(body []byte, msg proto.Message, contentType string, discardUnknown bool) error {
 	if len(body) == 0 {
 		return nil
 	}
@@ -414,10 +456,18 @@ func (c *flattenServiceClient) unmarshalResponse(body []byte, msg proto.Message,
 		if unmarshaler, ok := msg.(json.Unmarshaler); ok {
 			return unmarshaler.UnmarshalJSON(body)
 		}
+		if discardUnknown {
+			opts := protojson.UnmarshalOptions{DiscardUnknown: true}
+			return opts.Unmarshal(body, msg)
+		}
 		return protojson.Unmarshal(body, msg)
 	case ContentTypeProto:
 		return proto.Unmarshal(body, msg)
 	default:
+		if discardUnknown {
+			opts := protojson.UnmarshalOptions{DiscardUnknown: true}
+			return opts.Unmarshal(body, msg)
+		}
 		return protojson.Unmarshal(body, msg)
 	}
 }

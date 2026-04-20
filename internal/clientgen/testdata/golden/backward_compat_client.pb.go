@@ -33,10 +33,11 @@ type NoAnnotationsServiceClient interface {
 
 // noAnnotationsServiceClient is the implementation of NoAnnotationsServiceClient.
 type noAnnotationsServiceClient struct {
-	baseURL        string
-	httpClient     *http.Client
-	contentType    string
-	defaultHeaders map[string]string
+	baseURL              string
+	httpClient           *http.Client
+	contentType          string
+	defaultHeaders       map[string]string
+	discardUnknownFields bool
 }
 
 var _ NoAnnotationsServiceClient = (*noAnnotationsServiceClient)(nil)
@@ -69,13 +70,22 @@ func WithNoAnnotationsServiceDefaultHeader(key, value string) NoAnnotationsServi
 	}
 }
 
+// WithNoAnnotationsServiceDiscardUnknownFields sets whether to discard unknown fields in JSON responses.
+// When true, unknown fields are silently ignored instead of causing unmarshal errors.
+func WithNoAnnotationsServiceDiscardUnknownFields(discard bool) NoAnnotationsServiceClientOption {
+	return func(c *noAnnotationsServiceClient) {
+		c.discardUnknownFields = discard
+	}
+}
+
 // NoAnnotationsServiceCallOption configures a single RPC call.
 type NoAnnotationsServiceCallOption func(*noAnnotationsServiceCallOptions)
 
 // noAnnotationsServiceCallOptions holds options for a single RPC call.
 type noAnnotationsServiceCallOptions struct {
-	headers     map[string]string
-	contentType string
+	headers              map[string]string
+	contentType          string
+	discardUnknownFields *bool
 }
 
 // WithNoAnnotationsServiceHeader adds a header to a single request.
@@ -92,6 +102,14 @@ func WithNoAnnotationsServiceHeader(key, value string) NoAnnotationsServiceCallO
 func WithNoAnnotationsServiceCallContentType(contentType string) NoAnnotationsServiceCallOption {
 	return func(o *noAnnotationsServiceCallOptions) {
 		o.contentType = contentType
+	}
+}
+
+// WithNoAnnotationsServiceCallDiscardUnknownFields sets whether to discard unknown fields for a single request.
+// Overrides the client-level setting from WithNoAnnotationsServiceDiscardUnknownFields.
+func WithNoAnnotationsServiceCallDiscardUnknownFields(discard bool) NoAnnotationsServiceCallOption {
+	return func(o *noAnnotationsServiceCallOptions) {
+		o.discardUnknownFields = &discard
 	}
 }
 
@@ -166,9 +184,15 @@ func (c *noAnnotationsServiceClient) SimpleAction(ctx context.Context, req *Simp
 		return nil, c.handleErrorResponse(resp.StatusCode, respBody, contentType)
 	}
 
+	// Resolve discardUnknownFields: per-call option overrides client default
+	discardUnknown := c.discardUnknownFields
+	if callOpts.discardUnknownFields != nil {
+		discardUnknown = *callOpts.discardUnknownFields
+	}
+
 	// Unmarshal response
 	result := &SimpleResponse{}
-	if err := c.unmarshalResponse(respBody, result, contentType); err != nil {
+	if err := c.unmarshalResponse(respBody, result, contentType, discardUnknown); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal response: %w", err)
 	}
 
@@ -230,9 +254,15 @@ func (c *noAnnotationsServiceClient) AnotherAction(ctx context.Context, req *Ano
 		return nil, c.handleErrorResponse(resp.StatusCode, respBody, contentType)
 	}
 
+	// Resolve discardUnknownFields: per-call option overrides client default
+	discardUnknown := c.discardUnknownFields
+	if callOpts.discardUnknownFields != nil {
+		discardUnknown = *callOpts.discardUnknownFields
+	}
+
 	// Unmarshal response
 	result := &AnotherResponse{}
-	if err := c.unmarshalResponse(respBody, result, contentType); err != nil {
+	if err := c.unmarshalResponse(respBody, result, contentType, discardUnknown); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal response: %w", err)
 	}
 
@@ -258,14 +288,14 @@ func (c *noAnnotationsServiceClient) handleErrorResponse(statusCode int, body []
 	// Try to parse as ValidationError first (for 400 errors)
 	if statusCode == http.StatusBadRequest {
 		validationErr := &sebufhttp.ValidationError{}
-		if unmarshalErr := c.unmarshalResponse(body, validationErr, contentType); unmarshalErr == nil {
+		if unmarshalErr := c.unmarshalResponse(body, validationErr, contentType, false); unmarshalErr == nil {
 			return validationErr
 		}
 	}
 
 	// Try to parse as generic Error
 	genericErr := &sebufhttp.Error{}
-	if unmarshalErr := c.unmarshalResponse(body, genericErr, contentType); unmarshalErr == nil {
+	if unmarshalErr := c.unmarshalResponse(body, genericErr, contentType, false); unmarshalErr == nil {
 		return genericErr
 	}
 
@@ -273,7 +303,7 @@ func (c *noAnnotationsServiceClient) handleErrorResponse(statusCode int, body []
 	return fmt.Errorf("request failed with status %d: %s", statusCode, string(body))
 }
 
-func (c *noAnnotationsServiceClient) unmarshalResponse(body []byte, msg proto.Message, contentType string) error {
+func (c *noAnnotationsServiceClient) unmarshalResponse(body []byte, msg proto.Message, contentType string, discardUnknown bool) error {
 	if len(body) == 0 {
 		return nil
 	}
@@ -284,10 +314,18 @@ func (c *noAnnotationsServiceClient) unmarshalResponse(body []byte, msg proto.Me
 		if unmarshaler, ok := msg.(json.Unmarshaler); ok {
 			return unmarshaler.UnmarshalJSON(body)
 		}
+		if discardUnknown {
+			opts := protojson.UnmarshalOptions{DiscardUnknown: true}
+			return opts.Unmarshal(body, msg)
+		}
 		return protojson.Unmarshal(body, msg)
 	case ContentTypeProto:
 		return proto.Unmarshal(body, msg)
 	default:
+		if discardUnknown {
+			opts := protojson.UnmarshalOptions{DiscardUnknown: true}
+			return opts.Unmarshal(body, msg)
+		}
 		return protojson.Unmarshal(body, msg)
 	}
 }
@@ -300,10 +338,11 @@ type BasePathOnlyServiceClient interface {
 
 // basePathOnlyServiceClient is the implementation of BasePathOnlyServiceClient.
 type basePathOnlyServiceClient struct {
-	baseURL        string
-	httpClient     *http.Client
-	contentType    string
-	defaultHeaders map[string]string
+	baseURL              string
+	httpClient           *http.Client
+	contentType          string
+	defaultHeaders       map[string]string
+	discardUnknownFields bool
 }
 
 var _ BasePathOnlyServiceClient = (*basePathOnlyServiceClient)(nil)
@@ -336,13 +375,22 @@ func WithBasePathOnlyServiceDefaultHeader(key, value string) BasePathOnlyService
 	}
 }
 
+// WithBasePathOnlyServiceDiscardUnknownFields sets whether to discard unknown fields in JSON responses.
+// When true, unknown fields are silently ignored instead of causing unmarshal errors.
+func WithBasePathOnlyServiceDiscardUnknownFields(discard bool) BasePathOnlyServiceClientOption {
+	return func(c *basePathOnlyServiceClient) {
+		c.discardUnknownFields = discard
+	}
+}
+
 // BasePathOnlyServiceCallOption configures a single RPC call.
 type BasePathOnlyServiceCallOption func(*basePathOnlyServiceCallOptions)
 
 // basePathOnlyServiceCallOptions holds options for a single RPC call.
 type basePathOnlyServiceCallOptions struct {
-	headers     map[string]string
-	contentType string
+	headers              map[string]string
+	contentType          string
+	discardUnknownFields *bool
 }
 
 // WithBasePathOnlyServiceHeader adds a header to a single request.
@@ -359,6 +407,14 @@ func WithBasePathOnlyServiceHeader(key, value string) BasePathOnlyServiceCallOpt
 func WithBasePathOnlyServiceCallContentType(contentType string) BasePathOnlyServiceCallOption {
 	return func(o *basePathOnlyServiceCallOptions) {
 		o.contentType = contentType
+	}
+}
+
+// WithBasePathOnlyServiceCallDiscardUnknownFields sets whether to discard unknown fields for a single request.
+// Overrides the client-level setting from WithBasePathOnlyServiceDiscardUnknownFields.
+func WithBasePathOnlyServiceCallDiscardUnknownFields(discard bool) BasePathOnlyServiceCallOption {
+	return func(o *basePathOnlyServiceCallOptions) {
+		o.discardUnknownFields = &discard
 	}
 }
 
@@ -433,9 +489,15 @@ func (c *basePathOnlyServiceClient) ActionOne(ctx context.Context, req *ActionRe
 		return nil, c.handleErrorResponse(resp.StatusCode, respBody, contentType)
 	}
 
+	// Resolve discardUnknownFields: per-call option overrides client default
+	discardUnknown := c.discardUnknownFields
+	if callOpts.discardUnknownFields != nil {
+		discardUnknown = *callOpts.discardUnknownFields
+	}
+
 	// Unmarshal response
 	result := &ActionResponse{}
-	if err := c.unmarshalResponse(respBody, result, contentType); err != nil {
+	if err := c.unmarshalResponse(respBody, result, contentType, discardUnknown); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal response: %w", err)
 	}
 
@@ -497,9 +559,15 @@ func (c *basePathOnlyServiceClient) ActionTwo(ctx context.Context, req *ActionRe
 		return nil, c.handleErrorResponse(resp.StatusCode, respBody, contentType)
 	}
 
+	// Resolve discardUnknownFields: per-call option overrides client default
+	discardUnknown := c.discardUnknownFields
+	if callOpts.discardUnknownFields != nil {
+		discardUnknown = *callOpts.discardUnknownFields
+	}
+
 	// Unmarshal response
 	result := &ActionResponse{}
-	if err := c.unmarshalResponse(respBody, result, contentType); err != nil {
+	if err := c.unmarshalResponse(respBody, result, contentType, discardUnknown); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal response: %w", err)
 	}
 
@@ -525,14 +593,14 @@ func (c *basePathOnlyServiceClient) handleErrorResponse(statusCode int, body []b
 	// Try to parse as ValidationError first (for 400 errors)
 	if statusCode == http.StatusBadRequest {
 		validationErr := &sebufhttp.ValidationError{}
-		if unmarshalErr := c.unmarshalResponse(body, validationErr, contentType); unmarshalErr == nil {
+		if unmarshalErr := c.unmarshalResponse(body, validationErr, contentType, false); unmarshalErr == nil {
 			return validationErr
 		}
 	}
 
 	// Try to parse as generic Error
 	genericErr := &sebufhttp.Error{}
-	if unmarshalErr := c.unmarshalResponse(body, genericErr, contentType); unmarshalErr == nil {
+	if unmarshalErr := c.unmarshalResponse(body, genericErr, contentType, false); unmarshalErr == nil {
 		return genericErr
 	}
 
@@ -540,7 +608,7 @@ func (c *basePathOnlyServiceClient) handleErrorResponse(statusCode int, body []b
 	return fmt.Errorf("request failed with status %d: %s", statusCode, string(body))
 }
 
-func (c *basePathOnlyServiceClient) unmarshalResponse(body []byte, msg proto.Message, contentType string) error {
+func (c *basePathOnlyServiceClient) unmarshalResponse(body []byte, msg proto.Message, contentType string, discardUnknown bool) error {
 	if len(body) == 0 {
 		return nil
 	}
@@ -551,10 +619,18 @@ func (c *basePathOnlyServiceClient) unmarshalResponse(body []byte, msg proto.Mes
 		if unmarshaler, ok := msg.(json.Unmarshaler); ok {
 			return unmarshaler.UnmarshalJSON(body)
 		}
+		if discardUnknown {
+			opts := protojson.UnmarshalOptions{DiscardUnknown: true}
+			return opts.Unmarshal(body, msg)
+		}
 		return protojson.Unmarshal(body, msg)
 	case ContentTypeProto:
 		return proto.Unmarshal(body, msg)
 	default:
+		if discardUnknown {
+			opts := protojson.UnmarshalOptions{DiscardUnknown: true}
+			return opts.Unmarshal(body, msg)
+		}
 		return protojson.Unmarshal(body, msg)
 	}
 }

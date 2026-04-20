@@ -32,10 +32,11 @@ type Int64EncodingServiceClient interface {
 
 // int64EncodingServiceClient is the implementation of Int64EncodingServiceClient.
 type int64EncodingServiceClient struct {
-	baseURL        string
-	httpClient     *http.Client
-	contentType    string
-	defaultHeaders map[string]string
+	baseURL              string
+	httpClient           *http.Client
+	contentType          string
+	defaultHeaders       map[string]string
+	discardUnknownFields bool
 }
 
 var _ Int64EncodingServiceClient = (*int64EncodingServiceClient)(nil)
@@ -68,13 +69,22 @@ func WithInt64EncodingServiceDefaultHeader(key, value string) Int64EncodingServi
 	}
 }
 
+// WithInt64EncodingServiceDiscardUnknownFields sets whether to discard unknown fields in JSON responses.
+// When true, unknown fields are silently ignored instead of causing unmarshal errors.
+func WithInt64EncodingServiceDiscardUnknownFields(discard bool) Int64EncodingServiceClientOption {
+	return func(c *int64EncodingServiceClient) {
+		c.discardUnknownFields = discard
+	}
+}
+
 // Int64EncodingServiceCallOption configures a single RPC call.
 type Int64EncodingServiceCallOption func(*int64EncodingServiceCallOptions)
 
 // int64EncodingServiceCallOptions holds options for a single RPC call.
 type int64EncodingServiceCallOptions struct {
-	headers     map[string]string
-	contentType string
+	headers              map[string]string
+	contentType          string
+	discardUnknownFields *bool
 }
 
 // WithInt64EncodingServiceHeader adds a header to a single request.
@@ -91,6 +101,14 @@ func WithInt64EncodingServiceHeader(key, value string) Int64EncodingServiceCallO
 func WithInt64EncodingServiceCallContentType(contentType string) Int64EncodingServiceCallOption {
 	return func(o *int64EncodingServiceCallOptions) {
 		o.contentType = contentType
+	}
+}
+
+// WithInt64EncodingServiceCallDiscardUnknownFields sets whether to discard unknown fields for a single request.
+// Overrides the client-level setting from WithInt64EncodingServiceDiscardUnknownFields.
+func WithInt64EncodingServiceCallDiscardUnknownFields(discard bool) Int64EncodingServiceCallOption {
+	return func(o *int64EncodingServiceCallOptions) {
+		o.discardUnknownFields = &discard
 	}
 }
 
@@ -160,9 +178,15 @@ func (c *int64EncodingServiceClient) GetInt64Test(ctx context.Context, req *GetI
 		return nil, c.handleErrorResponse(resp.StatusCode, respBody, contentType)
 	}
 
+	// Resolve discardUnknownFields: per-call option overrides client default
+	discardUnknown := c.discardUnknownFields
+	if callOpts.discardUnknownFields != nil {
+		discardUnknown = *callOpts.discardUnknownFields
+	}
+
 	// Unmarshal response
 	result := &Int64EncodingTest{}
-	if err := c.unmarshalResponse(respBody, result, contentType); err != nil {
+	if err := c.unmarshalResponse(respBody, result, contentType, discardUnknown); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal response: %w", err)
 	}
 
@@ -188,14 +212,14 @@ func (c *int64EncodingServiceClient) handleErrorResponse(statusCode int, body []
 	// Try to parse as ValidationError first (for 400 errors)
 	if statusCode == http.StatusBadRequest {
 		validationErr := &sebufhttp.ValidationError{}
-		if unmarshalErr := c.unmarshalResponse(body, validationErr, contentType); unmarshalErr == nil {
+		if unmarshalErr := c.unmarshalResponse(body, validationErr, contentType, false); unmarshalErr == nil {
 			return validationErr
 		}
 	}
 
 	// Try to parse as generic Error
 	genericErr := &sebufhttp.Error{}
-	if unmarshalErr := c.unmarshalResponse(body, genericErr, contentType); unmarshalErr == nil {
+	if unmarshalErr := c.unmarshalResponse(body, genericErr, contentType, false); unmarshalErr == nil {
 		return genericErr
 	}
 
@@ -203,7 +227,7 @@ func (c *int64EncodingServiceClient) handleErrorResponse(statusCode int, body []
 	return fmt.Errorf("request failed with status %d: %s", statusCode, string(body))
 }
 
-func (c *int64EncodingServiceClient) unmarshalResponse(body []byte, msg proto.Message, contentType string) error {
+func (c *int64EncodingServiceClient) unmarshalResponse(body []byte, msg proto.Message, contentType string, discardUnknown bool) error {
 	if len(body) == 0 {
 		return nil
 	}
@@ -214,10 +238,18 @@ func (c *int64EncodingServiceClient) unmarshalResponse(body []byte, msg proto.Me
 		if unmarshaler, ok := msg.(json.Unmarshaler); ok {
 			return unmarshaler.UnmarshalJSON(body)
 		}
+		if discardUnknown {
+			opts := protojson.UnmarshalOptions{DiscardUnknown: true}
+			return opts.Unmarshal(body, msg)
+		}
 		return protojson.Unmarshal(body, msg)
 	case ContentTypeProto:
 		return proto.Unmarshal(body, msg)
 	default:
+		if discardUnknown {
+			opts := protojson.UnmarshalOptions{DiscardUnknown: true}
+			return opts.Unmarshal(body, msg)
+		}
 		return protojson.Unmarshal(body, msg)
 	}
 }

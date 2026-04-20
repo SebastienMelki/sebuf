@@ -32,10 +32,11 @@ type EnumEncodingServiceClient interface {
 
 // enumEncodingServiceClient is the implementation of EnumEncodingServiceClient.
 type enumEncodingServiceClient struct {
-	baseURL        string
-	httpClient     *http.Client
-	contentType    string
-	defaultHeaders map[string]string
+	baseURL              string
+	httpClient           *http.Client
+	contentType          string
+	defaultHeaders       map[string]string
+	discardUnknownFields bool
 }
 
 var _ EnumEncodingServiceClient = (*enumEncodingServiceClient)(nil)
@@ -68,13 +69,22 @@ func WithEnumEncodingServiceDefaultHeader(key, value string) EnumEncodingService
 	}
 }
 
+// WithEnumEncodingServiceDiscardUnknownFields sets whether to discard unknown fields in JSON responses.
+// When true, unknown fields are silently ignored instead of causing unmarshal errors.
+func WithEnumEncodingServiceDiscardUnknownFields(discard bool) EnumEncodingServiceClientOption {
+	return func(c *enumEncodingServiceClient) {
+		c.discardUnknownFields = discard
+	}
+}
+
 // EnumEncodingServiceCallOption configures a single RPC call.
 type EnumEncodingServiceCallOption func(*enumEncodingServiceCallOptions)
 
 // enumEncodingServiceCallOptions holds options for a single RPC call.
 type enumEncodingServiceCallOptions struct {
-	headers     map[string]string
-	contentType string
+	headers              map[string]string
+	contentType          string
+	discardUnknownFields *bool
 }
 
 // WithEnumEncodingServiceHeader adds a header to a single request.
@@ -91,6 +101,14 @@ func WithEnumEncodingServiceHeader(key, value string) EnumEncodingServiceCallOpt
 func WithEnumEncodingServiceCallContentType(contentType string) EnumEncodingServiceCallOption {
 	return func(o *enumEncodingServiceCallOptions) {
 		o.contentType = contentType
+	}
+}
+
+// WithEnumEncodingServiceCallDiscardUnknownFields sets whether to discard unknown fields for a single request.
+// Overrides the client-level setting from WithEnumEncodingServiceDiscardUnknownFields.
+func WithEnumEncodingServiceCallDiscardUnknownFields(discard bool) EnumEncodingServiceCallOption {
+	return func(o *enumEncodingServiceCallOptions) {
+		o.discardUnknownFields = &discard
 	}
 }
 
@@ -160,9 +178,15 @@ func (c *enumEncodingServiceClient) GetEnumTest(ctx context.Context, req *GetEnu
 		return nil, c.handleErrorResponse(resp.StatusCode, respBody, contentType)
 	}
 
+	// Resolve discardUnknownFields: per-call option overrides client default
+	discardUnknown := c.discardUnknownFields
+	if callOpts.discardUnknownFields != nil {
+		discardUnknown = *callOpts.discardUnknownFields
+	}
+
 	// Unmarshal response
 	result := &EnumEncodingTest{}
-	if err := c.unmarshalResponse(respBody, result, contentType); err != nil {
+	if err := c.unmarshalResponse(respBody, result, contentType, discardUnknown); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal response: %w", err)
 	}
 
@@ -188,14 +212,14 @@ func (c *enumEncodingServiceClient) handleErrorResponse(statusCode int, body []b
 	// Try to parse as ValidationError first (for 400 errors)
 	if statusCode == http.StatusBadRequest {
 		validationErr := &sebufhttp.ValidationError{}
-		if unmarshalErr := c.unmarshalResponse(body, validationErr, contentType); unmarshalErr == nil {
+		if unmarshalErr := c.unmarshalResponse(body, validationErr, contentType, false); unmarshalErr == nil {
 			return validationErr
 		}
 	}
 
 	// Try to parse as generic Error
 	genericErr := &sebufhttp.Error{}
-	if unmarshalErr := c.unmarshalResponse(body, genericErr, contentType); unmarshalErr == nil {
+	if unmarshalErr := c.unmarshalResponse(body, genericErr, contentType, false); unmarshalErr == nil {
 		return genericErr
 	}
 
@@ -203,7 +227,7 @@ func (c *enumEncodingServiceClient) handleErrorResponse(statusCode int, body []b
 	return fmt.Errorf("request failed with status %d: %s", statusCode, string(body))
 }
 
-func (c *enumEncodingServiceClient) unmarshalResponse(body []byte, msg proto.Message, contentType string) error {
+func (c *enumEncodingServiceClient) unmarshalResponse(body []byte, msg proto.Message, contentType string, discardUnknown bool) error {
 	if len(body) == 0 {
 		return nil
 	}
@@ -214,10 +238,18 @@ func (c *enumEncodingServiceClient) unmarshalResponse(body []byte, msg proto.Mes
 		if unmarshaler, ok := msg.(json.Unmarshaler); ok {
 			return unmarshaler.UnmarshalJSON(body)
 		}
+		if discardUnknown {
+			opts := protojson.UnmarshalOptions{DiscardUnknown: true}
+			return opts.Unmarshal(body, msg)
+		}
 		return protojson.Unmarshal(body, msg)
 	case ContentTypeProto:
 		return proto.Unmarshal(body, msg)
 	default:
+		if discardUnknown {
+			opts := protojson.UnmarshalOptions{DiscardUnknown: true}
+			return opts.Unmarshal(body, msg)
+		}
 		return protojson.Unmarshal(body, msg)
 	}
 }

@@ -261,6 +261,7 @@ func (g *Generator) generateClientStruct(gf *protogen.GeneratedFile, serviceName
 	gf.P("httpClient *http.Client")
 	gf.P("contentType string")
 	gf.P("defaultHeaders map[string]string")
+	gf.P("discardUnknownFields bool")
 	gf.P("}")
 	gf.P()
 
@@ -316,6 +317,16 @@ func (g *Generator) generateClientOptions(gf *protogen.GeneratedFile, serviceNam
 	gf.P("}")
 	gf.P("}")
 	gf.P()
+
+	// With{Service}DiscardUnknownFields
+	gf.P("// With", serviceName, "DiscardUnknownFields sets whether to discard unknown fields in JSON responses.")
+	gf.P("// When true, unknown fields are silently ignored instead of causing unmarshal errors.")
+	gf.P("func With", serviceName, "DiscardUnknownFields(discard bool) ", serviceName, "ClientOption {")
+	gf.P("return func(c *", lowerName, "Client) {")
+	gf.P("c.discardUnknownFields = discard")
+	gf.P("}")
+	gf.P("}")
+	gf.P()
 }
 
 func (g *Generator) generateCallOptions(gf *protogen.GeneratedFile, serviceName string) {
@@ -331,6 +342,7 @@ func (g *Generator) generateCallOptions(gf *protogen.GeneratedFile, serviceName 
 	gf.P("type ", lowerName, "CallOptions struct {")
 	gf.P("headers map[string]string")
 	gf.P("contentType string")
+	gf.P("discardUnknownFields *bool")
 	gf.P("}")
 	gf.P()
 
@@ -351,6 +363,16 @@ func (g *Generator) generateCallOptions(gf *protogen.GeneratedFile, serviceName 
 	gf.P("func With", serviceName, "CallContentType(contentType string) ", serviceName, "CallOption {")
 	gf.P("return func(o *", lowerName, "CallOptions) {")
 	gf.P("o.contentType = contentType")
+	gf.P("}")
+	gf.P("}")
+	gf.P()
+
+	// With{Service}CallDiscardUnknownFields
+	gf.P("// With", serviceName, "CallDiscardUnknownFields sets whether to discard unknown fields for a single request.")
+	gf.P("// Overrides the client-level setting from With", serviceName, "DiscardUnknownFields.")
+	gf.P("func With", serviceName, "CallDiscardUnknownFields(discard bool) ", serviceName, "CallOption {")
+	gf.P("return func(o *", lowerName, "CallOptions) {")
+	gf.P("o.discardUnknownFields = &discard")
 	gf.P("}")
 	gf.P("}")
 	gf.P()
@@ -590,9 +612,15 @@ func (g *Generator) generateRPCMethodResponse(gf *protogen.GeneratedFile, method
 	gf.P("return nil, c.handleErrorResponse(resp.StatusCode, respBody, contentType)")
 	gf.P("}")
 	gf.P()
+	gf.P("// Resolve discardUnknownFields: per-call option overrides client default")
+	gf.P("discardUnknown := c.discardUnknownFields")
+	gf.P("if callOpts.discardUnknownFields != nil {")
+	gf.P("discardUnknown = *callOpts.discardUnknownFields")
+	gf.P("}")
+	gf.P()
 	gf.P("// Unmarshal response")
 	gf.P("result := &", method.Output.GoIdent, "{}")
-	gf.P("if err := c.unmarshalResponse(respBody, result, contentType); err != nil {")
+	gf.P("if err := c.unmarshalResponse(respBody, result, contentType, discardUnknown); err != nil {")
 	gf.P("return nil, fmt.Errorf(\"failed to unmarshal response: %w\", err)")
 	gf.P("}")
 	gf.P()
@@ -682,14 +710,14 @@ func (g *Generator) generateHandleErrorResponseMethod(gf *protogen.GeneratedFile
 	gf.P("// Try to parse as ValidationError first (for 400 errors)")
 	gf.P("if statusCode == http.StatusBadRequest {")
 	gf.P("validationErr := &sebufhttp.ValidationError{}")
-	gf.P("if unmarshalErr := c.unmarshalResponse(body, validationErr, contentType); unmarshalErr == nil {")
+	gf.P("if unmarshalErr := c.unmarshalResponse(body, validationErr, contentType, false); unmarshalErr == nil {")
 	gf.P("return validationErr")
 	gf.P("}")
 	gf.P("}")
 	gf.P()
 	gf.P("// Try to parse as generic Error")
 	gf.P("genericErr := &sebufhttp.Error{}")
-	gf.P("if unmarshalErr := c.unmarshalResponse(body, genericErr, contentType); unmarshalErr == nil {")
+	gf.P("if unmarshalErr := c.unmarshalResponse(body, genericErr, contentType, false); unmarshalErr == nil {")
 	gf.P("return genericErr")
 	gf.P("}")
 	gf.P()
@@ -703,7 +731,7 @@ func (g *Generator) generateUnmarshalResponseMethod(gf *protogen.GeneratedFile, 
 	gf.P(
 		"func (c *",
 		lowerName,
-		"Client) unmarshalResponse(body []byte, msg proto.Message, contentType string) error {",
+		"Client) unmarshalResponse(body []byte, msg proto.Message, contentType string, discardUnknown bool) error {",
 	)
 	gf.P("if len(body) == 0 {")
 	gf.P("return nil")
@@ -715,10 +743,18 @@ func (g *Generator) generateUnmarshalResponseMethod(gf *protogen.GeneratedFile, 
 	gf.P("if unmarshaler, ok := msg.(json.Unmarshaler); ok {")
 	gf.P("return unmarshaler.UnmarshalJSON(body)")
 	gf.P("}")
+	gf.P("if discardUnknown {")
+	gf.P("opts := protojson.UnmarshalOptions{DiscardUnknown: true}")
+	gf.P("return opts.Unmarshal(body, msg)")
+	gf.P("}")
 	gf.P("return protojson.Unmarshal(body, msg)")
 	gf.P("case ContentTypeProto:")
 	gf.P("return proto.Unmarshal(body, msg)")
 	gf.P("default:")
+	gf.P("if discardUnknown {")
+	gf.P("opts := protojson.UnmarshalOptions{DiscardUnknown: true}")
+	gf.P("return opts.Unmarshal(body, msg)")
+	gf.P("}")
 	gf.P("return protojson.Unmarshal(body, msg)")
 	gf.P("}")
 	gf.P("}")

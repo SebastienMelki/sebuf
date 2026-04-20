@@ -34,10 +34,11 @@ type OneofDiscriminatorServiceClient interface {
 
 // oneofDiscriminatorServiceClient is the implementation of OneofDiscriminatorServiceClient.
 type oneofDiscriminatorServiceClient struct {
-	baseURL        string
-	httpClient     *http.Client
-	contentType    string
-	defaultHeaders map[string]string
+	baseURL              string
+	httpClient           *http.Client
+	contentType          string
+	defaultHeaders       map[string]string
+	discardUnknownFields bool
 }
 
 var _ OneofDiscriminatorServiceClient = (*oneofDiscriminatorServiceClient)(nil)
@@ -70,13 +71,22 @@ func WithOneofDiscriminatorServiceDefaultHeader(key, value string) OneofDiscrimi
 	}
 }
 
+// WithOneofDiscriminatorServiceDiscardUnknownFields sets whether to discard unknown fields in JSON responses.
+// When true, unknown fields are silently ignored instead of causing unmarshal errors.
+func WithOneofDiscriminatorServiceDiscardUnknownFields(discard bool) OneofDiscriminatorServiceClientOption {
+	return func(c *oneofDiscriminatorServiceClient) {
+		c.discardUnknownFields = discard
+	}
+}
+
 // OneofDiscriminatorServiceCallOption configures a single RPC call.
 type OneofDiscriminatorServiceCallOption func(*oneofDiscriminatorServiceCallOptions)
 
 // oneofDiscriminatorServiceCallOptions holds options for a single RPC call.
 type oneofDiscriminatorServiceCallOptions struct {
-	headers     map[string]string
-	contentType string
+	headers              map[string]string
+	contentType          string
+	discardUnknownFields *bool
 }
 
 // WithOneofDiscriminatorServiceHeader adds a header to a single request.
@@ -93,6 +103,14 @@ func WithOneofDiscriminatorServiceHeader(key, value string) OneofDiscriminatorSe
 func WithOneofDiscriminatorServiceCallContentType(contentType string) OneofDiscriminatorServiceCallOption {
 	return func(o *oneofDiscriminatorServiceCallOptions) {
 		o.contentType = contentType
+	}
+}
+
+// WithOneofDiscriminatorServiceCallDiscardUnknownFields sets whether to discard unknown fields for a single request.
+// Overrides the client-level setting from WithOneofDiscriminatorServiceDiscardUnknownFields.
+func WithOneofDiscriminatorServiceCallDiscardUnknownFields(discard bool) OneofDiscriminatorServiceCallOption {
+	return func(o *oneofDiscriminatorServiceCallOptions) {
+		o.discardUnknownFields = &discard
 	}
 }
 
@@ -167,9 +185,15 @@ func (c *oneofDiscriminatorServiceClient) TestFlattenedEvent(ctx context.Context
 		return nil, c.handleErrorResponse(resp.StatusCode, respBody, contentType)
 	}
 
+	// Resolve discardUnknownFields: per-call option overrides client default
+	discardUnknown := c.discardUnknownFields
+	if callOpts.discardUnknownFields != nil {
+		discardUnknown = *callOpts.discardUnknownFields
+	}
+
 	// Unmarshal response
 	result := &FlattenedEvent{}
-	if err := c.unmarshalResponse(respBody, result, contentType); err != nil {
+	if err := c.unmarshalResponse(respBody, result, contentType, discardUnknown); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal response: %w", err)
 	}
 
@@ -231,9 +255,15 @@ func (c *oneofDiscriminatorServiceClient) TestNestedEvent(ctx context.Context, r
 		return nil, c.handleErrorResponse(resp.StatusCode, respBody, contentType)
 	}
 
+	// Resolve discardUnknownFields: per-call option overrides client default
+	discardUnknown := c.discardUnknownFields
+	if callOpts.discardUnknownFields != nil {
+		discardUnknown = *callOpts.discardUnknownFields
+	}
+
 	// Unmarshal response
 	result := &NestedEvent{}
-	if err := c.unmarshalResponse(respBody, result, contentType); err != nil {
+	if err := c.unmarshalResponse(respBody, result, contentType, discardUnknown); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal response: %w", err)
 	}
 
@@ -295,9 +325,15 @@ func (c *oneofDiscriminatorServiceClient) TestPlainEvent(ctx context.Context, re
 		return nil, c.handleErrorResponse(resp.StatusCode, respBody, contentType)
 	}
 
+	// Resolve discardUnknownFields: per-call option overrides client default
+	discardUnknown := c.discardUnknownFields
+	if callOpts.discardUnknownFields != nil {
+		discardUnknown = *callOpts.discardUnknownFields
+	}
+
 	// Unmarshal response
 	result := &PlainEvent{}
-	if err := c.unmarshalResponse(respBody, result, contentType); err != nil {
+	if err := c.unmarshalResponse(respBody, result, contentType, discardUnknown); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal response: %w", err)
 	}
 
@@ -323,14 +359,14 @@ func (c *oneofDiscriminatorServiceClient) handleErrorResponse(statusCode int, bo
 	// Try to parse as ValidationError first (for 400 errors)
 	if statusCode == http.StatusBadRequest {
 		validationErr := &sebufhttp.ValidationError{}
-		if unmarshalErr := c.unmarshalResponse(body, validationErr, contentType); unmarshalErr == nil {
+		if unmarshalErr := c.unmarshalResponse(body, validationErr, contentType, false); unmarshalErr == nil {
 			return validationErr
 		}
 	}
 
 	// Try to parse as generic Error
 	genericErr := &sebufhttp.Error{}
-	if unmarshalErr := c.unmarshalResponse(body, genericErr, contentType); unmarshalErr == nil {
+	if unmarshalErr := c.unmarshalResponse(body, genericErr, contentType, false); unmarshalErr == nil {
 		return genericErr
 	}
 
@@ -338,7 +374,7 @@ func (c *oneofDiscriminatorServiceClient) handleErrorResponse(statusCode int, bo
 	return fmt.Errorf("request failed with status %d: %s", statusCode, string(body))
 }
 
-func (c *oneofDiscriminatorServiceClient) unmarshalResponse(body []byte, msg proto.Message, contentType string) error {
+func (c *oneofDiscriminatorServiceClient) unmarshalResponse(body []byte, msg proto.Message, contentType string, discardUnknown bool) error {
 	if len(body) == 0 {
 		return nil
 	}
@@ -349,10 +385,18 @@ func (c *oneofDiscriminatorServiceClient) unmarshalResponse(body []byte, msg pro
 		if unmarshaler, ok := msg.(json.Unmarshaler); ok {
 			return unmarshaler.UnmarshalJSON(body)
 		}
+		if discardUnknown {
+			opts := protojson.UnmarshalOptions{DiscardUnknown: true}
+			return opts.Unmarshal(body, msg)
+		}
 		return protojson.Unmarshal(body, msg)
 	case ContentTypeProto:
 		return proto.Unmarshal(body, msg)
 	default:
+		if discardUnknown {
+			opts := protojson.UnmarshalOptions{DiscardUnknown: true}
+			return opts.Unmarshal(body, msg)
+		}
 		return protojson.Unmarshal(body, msg)
 	}
 }
