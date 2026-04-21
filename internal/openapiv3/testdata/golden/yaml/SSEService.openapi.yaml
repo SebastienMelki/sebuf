@@ -1,0 +1,215 @@
+openapi: 3.1.0
+info:
+    title: SSEService API
+    version: 1.0.0
+paths:
+    /api/v1/status:
+        get:
+            tags:
+                - SSEService
+            summary: GetStatus
+            description: Standard unary RPC (should be unaffected)
+            operationId: GetStatus
+            responses:
+                "200":
+                    description: Successful response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/StatusResponse'
+                "400":
+                    description: Validation error
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ValidationError'
+                default:
+                    description: Error response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Error'
+    /api/v1/events:
+        get:
+            tags:
+                - SSEService
+            summary: StreamEvents
+            description: SSE streaming RPC
+            operationId: StreamEvents
+            responses:
+                "200":
+                    description: Server-Sent Events stream
+                    content:
+                        text/event-stream:
+                            schema:
+                                type: string
+                                description: SSE stream. Each event contains a JSON-encoded Event in the data field.
+                    x-sse-event-schema:
+                        $ref: '#/components/schemas/Event'
+                "400":
+                    description: Validation error
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ValidationError'
+                default:
+                    description: Error response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Error'
+    /api/v1/resources/{resource_id}/events:
+        get:
+            tags:
+                - SSEService
+            summary: StreamResourceEvents
+            description: SSE with path params
+            operationId: StreamResourceEvents
+            parameters:
+                - name: resource_id
+                  in: path
+                  required: true
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    description: Server-Sent Events stream
+                    content:
+                        text/event-stream:
+                            schema:
+                                type: string
+                                description: SSE stream. Each event contains a JSON-encoded ResourceEvent in the data field.
+                    x-sse-event-schema:
+                        $ref: '#/components/schemas/ResourceEvent'
+                "400":
+                    description: Validation error
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ValidationError'
+                default:
+                    description: Error response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Error'
+    /api/v1/events/filtered:
+        get:
+            tags:
+                - SSEService
+            summary: StreamFilteredEvents
+            description: SSE with query params
+            operationId: StreamFilteredEvents
+            parameters:
+                - name: type
+                  in: query
+                  required: false
+                  schema:
+                    type: string
+                - name: limit
+                  in: query
+                  required: false
+                  schema:
+                    type: integer
+                    format: int32
+            responses:
+                "200":
+                    description: Server-Sent Events stream
+                    content:
+                        text/event-stream:
+                            schema:
+                                type: string
+                                description: SSE stream. Each event contains a JSON-encoded Event in the data field.
+                    x-sse-event-schema:
+                        $ref: '#/components/schemas/Event'
+                "400":
+                    description: Validation error
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ValidationError'
+                default:
+                    description: Error response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Error'
+components:
+    schemas:
+        Error:
+            type: object
+            properties:
+                message:
+                    type: string
+                    description: Error message (e.g., 'user not found', 'database connection failed')
+            description: Error is returned when a handler encounters an error. It contains a simple error message that the developer can customize.
+        FieldViolation:
+            type: object
+            properties:
+                field:
+                    type: string
+                    description: The field path that failed validation (e.g., 'user.email' for nested fields). For header validation, this will be the header name (e.g., 'X-API-Key')
+                description:
+                    type: string
+                    description: Human-readable description of the validation violation (e.g., 'must be a valid email address', 'required field missing')
+            required:
+                - field
+                - description
+            description: FieldViolation describes a single validation error for a specific field.
+        ValidationError:
+            type: object
+            properties:
+                violations:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/FieldViolation'
+                    description: List of validation violations
+            required:
+                - violations
+            description: ValidationError is returned when request validation fails. It contains a list of field violations describing what went wrong.
+        GetStatusRequest:
+            type: object
+        StatusResponse:
+            type: object
+            properties:
+                status:
+                    type: string
+                uptimeSeconds:
+                    type: string
+                    format: int64
+        StreamEventsRequest:
+            type: object
+        Event:
+            type: object
+            properties:
+                id:
+                    type: string
+                type:
+                    type: string
+                payload:
+                    type: string
+                timestamp:
+                    type: string
+                    format: int64
+        StreamResourceEventsRequest:
+            type: object
+            properties:
+                resourceId:
+                    type: string
+        ResourceEvent:
+            type: object
+            properties:
+                resourceId:
+                    type: string
+                eventType:
+                    type: string
+                data:
+                    type: string
+        StreamFilteredEventsRequest:
+            type: object
+            properties:
+                eventType:
+                    type: string
+                limit:
+                    type: integer
+                    format: int32

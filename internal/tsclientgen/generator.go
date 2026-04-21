@@ -222,6 +222,7 @@ type rpcMethodConfig struct {
 	pathParams  []string
 	queryParams []annotations.QueryParam
 	hasBody     bool
+	isSSE       bool
 }
 
 func (g *Generator) buildRPCMethodConfig(service *protogen.Service, method *protogen.Method) *rpcMethodConfig {
@@ -249,6 +250,8 @@ func (g *Generator) buildRPCMethodConfig(service *protogen.Service, method *prot
 	// Combine base path and method path
 	fullPath := annotations.BuildHTTPPath(basePath, httpPath)
 
+	isSSE := httpConfig != nil && httpConfig.Stream
+
 	return &rpcMethodConfig{
 		serviceName: serviceName,
 		methodName:  methodName,
@@ -257,12 +260,18 @@ func (g *Generator) buildRPCMethodConfig(service *protogen.Service, method *prot
 		pathParams:  pathParams,
 		queryParams: annotations.GetQueryParams(method.Input),
 		hasBody:     httpMethod == "POST" || httpMethod == "PUT" || httpMethod == "PATCH",
+		isSSE:       isSSE,
 	}
 }
 
 // generateRPCMethod generates a single async RPC method.
 func (g *Generator) generateRPCMethod(p printer, service *protogen.Service, method *protogen.Method) {
 	cfg := g.buildRPCMethodConfig(service, method)
+
+	if cfg.isSSE {
+		g.generateSSERPCMethod(p, service, method, cfg)
+		return
+	}
 
 	inputType := string(method.Input.Desc.Name())
 	outputType := g.resolveOutputType(method)
@@ -290,6 +299,116 @@ func (g *Generator) generateRPCMethod(p printer, service *protogen.Service, meth
 
 	p("  }")
 	p("")
+}
+
+// generateSSERPCMethod generates an async generator method for SSE streaming.
+func (g *Generator) generateSSERPCMethod(
+	p printer,
+	service *protogen.Service,
+	method *protogen.Method,
+	cfg *rpcMethodConfig,
+) {
+	inputType := string(method.Input.Desc.Name())
+	outputType := g.resolveOutputType(method)
+	tsMethodName := annotations.LowerFirst(cfg.methodName)
+
+	reqParam := "req"
+	if len(method.Input.Fields) == 0 {
+		reqParam = "_req"
+	}
+	p("  async *%s(%s: %s, options?: %sCallOptions): AsyncGenerator<%s> {",
+		tsMethodName, reqParam, inputType, cfg.serviceName, outputType)
+
+	// Build URL with path params
+	g.generateURLBuilding(p, cfg)
+
+	// Build headers (use Accept instead of Content-Type for SSE)
+	g.generateSSEHeaderMerging(p, service, method)
+
+	// Fetch call
+	g.generateSSEFetchCall(p, cfg)
+
+	// SSE stream parsing
+	g.generateSSEStreamParsing(p, outputType)
+
+	p("  }")
+	p("")
+}
+
+// generateSSEHeaderMerging generates header construction for SSE requests.
+func (g *Generator) generateSSEHeaderMerging(p printer, service *protogen.Service, method *protogen.Method) {
+	p("    const headers: Record<string, string> = {")
+	p(`      "Accept": "text/event-stream",`)
+	p("      ...this.defaultHeaders,")
+	p("      ...options?.headers,")
+	p("    };")
+
+	// Apply service-level headers from call options
+	serviceHeaders := annotations.GetServiceHeaders(service)
+	for _, header := range serviceHeaders {
+		propName := headerNameToPropertyName(header.GetName())
+		headerName := header.GetName()
+		p("    if (options?.%s) headers[\"%s\"] = options.%s;", propName, headerName, propName)
+	}
+
+	// Apply method-level headers from call options
+	methodHeaders := annotations.GetMethodHeaders(method)
+	for _, header := range methodHeaders {
+		propName := headerNameToPropertyName(header.GetName())
+		headerName := header.GetName()
+		p("    if (options?.%s) headers[\"%s\"] = options.%s;", propName, headerName, propName)
+	}
+
+	p("")
+}
+
+// generateSSEFetchCall generates the fetch invocation for SSE.
+func (g *Generator) generateSSEFetchCall(p printer, cfg *rpcMethodConfig) {
+	if cfg.hasBody {
+		p("    const resp = await this.fetchFn(url, {")
+		p(`      method: "%s",`, cfg.httpMethod)
+		p("      headers,")
+		p("      body: JSON.stringify(req),")
+		p("      signal: options?.signal,")
+		p("    });")
+	} else {
+		p("    const resp = await this.fetchFn(url, {")
+		p(`      method: "%s",`, cfg.httpMethod)
+		p("      headers,")
+		p("      signal: options?.signal,")
+		p("    });")
+	}
+	p("")
+
+	p("    if (!resp.ok) {")
+	p("      return this.handleError(resp);")
+	p("    }")
+	p("")
+}
+
+// generateSSEStreamParsing generates the ReadableStream SSE parsing logic.
+func (g *Generator) generateSSEStreamParsing(p printer, outputType string) {
+	p("    const reader = resp.body!.getReader();")
+	p("    const decoder = new TextDecoder();")
+	p(`    let buffer = "";`)
+	p("")
+	p("    try {")
+	p("      while (true) {")
+	p("        const { done, value } = await reader.read();")
+	p("        if (done) break;")
+	p("        buffer += decoder.decode(value, { stream: true });")
+	p(`        const lines = buffer.split("\n");`)
+	p(`        buffer = lines.pop() || "";`)
+	p("        for (const line of lines) {")
+	p(`          if (line.startsWith("data: ")) {`)
+	p("            const data = line.slice(6);")
+	p("            yield JSON.parse(data) as %s;", outputType)
+	p("          }")
+	p("        }")
+	p("      }")
+	p("    } finally {")
+	p("      reader.releaseLock();")
+	p("    }")
 }
 
 // resolveOutputType returns the TypeScript return type, handling root unwrap.

@@ -13,6 +13,7 @@ type HTTPConfig struct {
 	Path       string
 	Method     string   // "GET", "POST", "PUT", "DELETE", "PATCH"
 	PathParams []string // Path variable names extracted from path
+	Stream     bool     // When true, this method uses SSE streaming
 }
 
 // ServiceConfig represents the HTTP configuration for a service.
@@ -49,6 +50,7 @@ func GetMethodHTTPConfig(method *protogen.Method) *HTTPConfig {
 		Path:       path,
 		Method:     HTTPMethodToString(httpConfig.GetMethod()),
 		PathParams: ExtractPathParams(path),
+		Stream:     httpConfig.GetStream(),
 	}
 }
 

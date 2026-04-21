@@ -378,7 +378,11 @@ type HttpConfig struct {
 	// The HTTP path for this method (supports path variables like /users/{id})
 	Path string `protobuf:"bytes,1,opt,name=path,proto3" json:"path,omitempty"`
 	// The HTTP method (GET, POST, PUT, DELETE, PATCH). Defaults to POST if unspecified.
-	Method        HttpMethod `protobuf:"varint,2,opt,name=method,proto3,enum=sebuf.http.HttpMethod" json:"method,omitempty"`
+	Method HttpMethod `protobuf:"varint,2,opt,name=method,proto3,enum=sebuf.http.HttpMethod" json:"method,omitempty"`
+	// When true, this method uses Server-Sent Events (SSE) for streaming responses.
+	// The server sends events with Content-Type: text/event-stream.
+	// Each event is the response message serialized as JSON in the SSE data field.
+	Stream        bool `protobuf:"varint,3,opt,name=stream,proto3" json:"stream,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -425,6 +429,13 @@ func (x *HttpConfig) GetMethod() HttpMethod {
 		return x.Method
 	}
 	return HttpMethod_HTTP_METHOD_UNSPECIFIED
+}
+
+func (x *HttpConfig) GetStream() bool {
+	if x != nil {
+		return x.Stream
+	}
+	return false
 }
 
 // ServiceConfig defines HTTP-specific configuration for an entire service
@@ -876,11 +887,12 @@ var File_sebuf_http_annotations_proto protoreflect.FileDescriptor
 const file_sebuf_http_annotations_proto_rawDesc = "" +
 	"\n" +
 	"\x1csebuf/http/annotations.proto\x12\n" +
-	"sebuf.http\x1a google/protobuf/descriptor.proto\"P\n" +
+	"sebuf.http\x1a google/protobuf/descriptor.proto\"h\n" +
 	"\n" +
 	"HttpConfig\x12\x12\n" +
 	"\x04path\x18\x01 \x01(\tR\x04path\x12.\n" +
-	"\x06method\x18\x02 \x01(\x0e2\x16.sebuf.http.HttpMethodR\x06method\",\n" +
+	"\x06method\x18\x02 \x01(\x0e2\x16.sebuf.http.HttpMethodR\x06method\x12\x16\n" +
+	"\x06stream\x18\x03 \x01(\bR\x06stream\",\n" +
 	"\rServiceConfig\x12\x1b\n" +
 	"\tbase_path\x18\x01 \x01(\tR\bbasePath\"'\n" +
 	"\rFieldExamples\x12\x16\n" +

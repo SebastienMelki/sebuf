@@ -809,6 +809,10 @@ func assignOperationToPathItem(pathItem *v3.PathItem, httpMethod string, operati
 func (g *Generator) processMethod(service *protogen.Service, method *protogen.Method) {
 	info := extractMethodHTTPInfo(service, method)
 
+	// Check if this is an SSE streaming method
+	methodConfig := annotations.GetMethodHTTPConfig(method)
+	isSSE := methodConfig != nil && methodConfig.Stream
+
 	operation := &v3.Operation{
 		OperationId: string(method.Desc.Name()),
 		Summary:     string(method.Desc.Name()),
@@ -847,7 +851,11 @@ func (g *Generator) processMethod(service *protogen.Service, method *protogen.Me
 		})
 	}
 
-	operation.Responses = &v3.Responses{Codes: g.buildResponses(method)}
+	if isSSE {
+		operation.Responses = &v3.Responses{Codes: g.buildSSEResponses(method)}
+	} else {
+		operation.Responses = &v3.Responses{Codes: g.buildResponses(method)}
+	}
 
 	// Add to path items
 	existingPathItem, exists := g.doc.Paths.PathItems.Get(info.path)
@@ -856,6 +864,59 @@ func (g *Generator) processMethod(service *protogen.Service, method *protogen.Me
 	}
 	assignOperationToPathItem(existingPathItem, info.httpMethod, operation)
 	g.doc.Paths.PathItems.Set(info.path, existingPathItem)
+}
+
+// buildSSEResponses creates the SSE-specific response map for a streaming operation.
+func (g *Generator) buildSSEResponses(method *protogen.Method) *orderedmap.Map[string, *v3.Response] {
+	responses := orderedmap.New[string, *v3.Response]()
+
+	// SSE success response
+	outputSchemaRef := fmt.Sprintf("#/components/schemas/%s", g.getSchemaName(method.Output))
+	successResponse := &v3.Response{
+		Description: "Server-Sent Events stream",
+		Content:     orderedmap.New[string, *v3.MediaType](),
+		Extensions:  orderedmap.New[string, *yaml.Node](),
+	}
+	successResponse.Content.Set("text/event-stream", &v3.MediaType{
+		Schema: base.CreateSchemaProxy(&base.Schema{
+			Type: []string{"string"},
+			Description: "SSE stream. Each event contains a JSON-encoded " + g.getSchemaName(
+				method.Output,
+			) + " in the data field.",
+		}),
+	})
+	// Add vendor extension pointing to the event schema
+	successResponse.Extensions.Set("x-sse-event-schema", &yaml.Node{
+		Kind: yaml.MappingNode,
+		Tag:  "!!map",
+		Content: []*yaml.Node{
+			{Kind: yaml.ScalarNode, Value: "$ref"},
+			{Kind: yaml.ScalarNode, Value: outputSchemaRef},
+		},
+	})
+	responses.Set("200", successResponse)
+
+	// Validation error response
+	validationErrorResponse := &v3.Response{
+		Description: "Validation error",
+		Content:     orderedmap.New[string, *v3.MediaType](),
+	}
+	validationErrorResponse.Content.Set("application/json", &v3.MediaType{
+		Schema: base.CreateSchemaProxyRef("#/components/schemas/ValidationError"),
+	})
+	responses.Set("400", validationErrorResponse)
+
+	// Default error response
+	errorResponse := &v3.Response{
+		Description: "Error response",
+		Content:     orderedmap.New[string, *v3.MediaType](),
+	}
+	errorResponse.Content.Set("application/json", &v3.MediaType{
+		Schema: base.CreateSchemaProxyRef("#/components/schemas/Error"),
+	})
+	responses.Set("default", errorResponse)
+
+	return responses
 }
 
 // findFieldByName finds a field in a message by its proto name.

@@ -116,6 +116,13 @@ func TestTSServerGenGoldenFiles(t *testing.T) {
 				"oneof_discriminator_server.ts",
 			},
 		},
+		{
+			name:      "SSE streaming",
+			protoFile: "sse.proto",
+			expectedFiles: []string{
+				"sse_server.ts",
+			},
+		},
 	}
 
 	baseDir, err := os.Getwd()

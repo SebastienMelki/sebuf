@@ -23,7 +23,7 @@ message FieldViolation {
   // The field path that failed validation (e.g., "user.email" for nested fields)
   // For header validation, this will be the header name (e.g., "X-API-Key")
   string field = 1;
-  
+
   // Human-readable description of the validation violation
   // (e.g., "must be a valid email address", "required field missing")
   string description = 2;

@@ -24,6 +24,11 @@ message HttpConfig {
 
   // The HTTP method (GET, POST, PUT, DELETE, PATCH). Defaults to POST if unspecified.
   HttpMethod method = 2;
+
+  // When true, this method uses Server-Sent Events (SSE) for streaming responses.
+  // The server sends events with Content-Type: text/event-stream.
+  // Each event is the response message serialized as JSON in the SSE data field.
+  bool stream = 3;
 }
 
 // Extension for method options

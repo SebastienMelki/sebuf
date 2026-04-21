@@ -1,0 +1,5 @@
+api/
+ts-client/generated/
+ts-client/node_modules/
+ts-client/package-lock.json
+ts-client/dist/
