@@ -55,6 +55,12 @@ message ListUsersRequest {
     (sebuf.http.query) = { name: "include_inactive" },
     (sebuf.http.field_examples) = { values: ["false"] }
   ];
+  // Repeated string query param - demonstrates issue #161 fix
+  // (rendered as ?role_in=admin&role_in=editor, schema: type: array).
+  repeated string role_in = 5 [
+    (sebuf.http.query) = { name: "role_in" },
+    (sebuf.http.field_examples) = { values: ["admin", "editor"] }
+  ];
 }
 
 // ListUsersResponse contains paginated users.

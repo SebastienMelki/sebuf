@@ -448,6 +448,12 @@ func (c *queryParamServiceClient) SearchAdvanced(ctx context.Context, req *Searc
 	if req.Keyword != "" {
 		queryParams.Set("keyword", fmt.Sprint(req.Keyword))
 	}
+	if req.Years != 0 {
+		queryParams.Set("years", fmt.Sprint(req.Years))
+	}
+	if req.Flags != false {
+		queryParams.Set("flags", fmt.Sprint(req.Flags))
+	}
 	if len(queryParams) > 0 {
 		reqURL += "?" + queryParams.Encode()
 	}

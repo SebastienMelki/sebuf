@@ -109,10 +109,14 @@ enum Region {
 message SearchAdvancedRequest {
   // Enum query param (bugs #1 and #2)
   Region region = 1 [(sebuf.http.query) = { name: "region" }];
-  // Repeated string query param (bugs #3 and #4)
+  // Repeated string query param (issue #161)
   repeated string countries = 2 [(sebuf.http.query) = { name: "countries" }];
   // Normal string for baseline
   string keyword = 3 [(sebuf.http.query) = { name: "keyword" }];
+  // Repeated int32 query param (issue #161 scope audit)
+  repeated int32 years = 4 [(sebuf.http.query) = { name: "years" }];
+  // Repeated bool query param (issue #161 scope audit)
+  repeated bool flags = 5 [(sebuf.http.query) = { name: "flags" }];
 }
 
 // Empty request message (bug #6)

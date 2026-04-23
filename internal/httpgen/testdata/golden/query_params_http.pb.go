@@ -173,6 +173,8 @@ var searchAdvancedQueryParams = []QueryParamConfig{
 	{QueryName: "region", FieldName: "region", Required: false},
 	{QueryName: "countries", FieldName: "countries", Required: false},
 	{QueryName: "keyword", FieldName: "keyword", Required: false},
+	{QueryName: "years", FieldName: "years", Required: false},
+	{QueryName: "flags", FieldName: "flags", Required: false},
 }
 
 // getDefaultsPathParams contains path parameter configuration for GetDefaults
