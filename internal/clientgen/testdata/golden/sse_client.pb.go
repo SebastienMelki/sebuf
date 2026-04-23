@@ -134,9 +134,10 @@ func NewSSEServiceClient(baseURL string, opts ...SSEServiceClientOption) SSEServ
 
 // SSEServiceEventStream reads Server-Sent Events from a streaming endpoint.
 type SSEServiceEventStream[T proto.Message] struct {
-	resp   *http.Response
-	reader *bufio.Reader
-	err    error
+	resp                 *http.Response
+	reader               *bufio.Reader
+	err                  error
+	discardUnknownFields bool
 }
 
 // Next reads the next event from the stream.
@@ -155,8 +156,15 @@ func (s *SSEServiceEventStream[T]) Next(event T) bool {
 			continue
 		}
 		data := strings.TrimPrefix(line, "data: ")
-		if err := protojson.Unmarshal([]byte(data), event); err != nil {
-			s.err = fmt.Errorf("failed to unmarshal SSE event: %w", err)
+		var unmarshalErr error
+		if s.discardUnknownFields {
+			opts := protojson.UnmarshalOptions{DiscardUnknown: true}
+			unmarshalErr = opts.Unmarshal([]byte(data), event)
+		} else {
+			unmarshalErr = protojson.Unmarshal([]byte(data), event)
+		}
+		if unmarshalErr != nil {
+			s.err = fmt.Errorf("failed to unmarshal SSE event: %w", unmarshalErr)
 			return false
 		}
 		return true
@@ -285,9 +293,15 @@ func (c *sSEServiceClient) StreamEvents(ctx context.Context, req *StreamEventsRe
 		return nil, c.handleErrorResponse(resp.StatusCode, respBody, contentType)
 	}
 
+	discardUnknown := c.discardUnknownFields
+	if callOpts.discardUnknownFields != nil {
+		discardUnknown = *callOpts.discardUnknownFields
+	}
+
 	return &SSEServiceEventStream[*Event]{
-		resp:   resp,
-		reader: bufio.NewReader(resp.Body),
+		resp:                 resp,
+		reader:               bufio.NewReader(resp.Body),
+		discardUnknownFields: discardUnknown,
 	}, nil
 }
 
@@ -340,9 +354,15 @@ func (c *sSEServiceClient) StreamResourceEvents(ctx context.Context, req *Stream
 		return nil, c.handleErrorResponse(resp.StatusCode, respBody, contentType)
 	}
 
+	discardUnknown := c.discardUnknownFields
+	if callOpts.discardUnknownFields != nil {
+		discardUnknown = *callOpts.discardUnknownFields
+	}
+
 	return &SSEServiceEventStream[*ResourceEvent]{
-		resp:   resp,
-		reader: bufio.NewReader(resp.Body),
+		resp:                 resp,
+		reader:               bufio.NewReader(resp.Body),
+		discardUnknownFields: discardUnknown,
 	}, nil
 }
 
@@ -406,9 +426,15 @@ func (c *sSEServiceClient) StreamFilteredEvents(ctx context.Context, req *Stream
 		return nil, c.handleErrorResponse(resp.StatusCode, respBody, contentType)
 	}
 
+	discardUnknown := c.discardUnknownFields
+	if callOpts.discardUnknownFields != nil {
+		discardUnknown = *callOpts.discardUnknownFields
+	}
+
 	return &SSEServiceEventStream[*Event]{
-		resp:   resp,
-		reader: bufio.NewReader(resp.Body),
+		resp:                 resp,
+		reader:               bufio.NewReader(resp.Body),
+		discardUnknownFields: discardUnknown,
 	}, nil
 }
 
@@ -429,6 +455,8 @@ func (c *sSEServiceClient) marshalRequest(req proto.Message, contentType string)
 
 func (c *sSEServiceClient) handleErrorResponse(statusCode int, body []byte, contentType string) error {
 	// Try to parse as ValidationError first (for 400 errors)
+	// Always use strict mode (false) for error parsing to avoid loose JSON
+	// falsely matching ValidationError or Error types.
 	if statusCode == http.StatusBadRequest {
 		validationErr := &sebufhttp.ValidationError{}
 		if unmarshalErr := c.unmarshalResponse(body, validationErr, contentType, false); unmarshalErr == nil {

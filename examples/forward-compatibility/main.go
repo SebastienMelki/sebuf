@@ -1,113 +1,105 @@
-// This program demonstrates sebuf's forward compatibility options.
+// This example demonstrates sebuf's forward compatibility feature.
 //
-// sebuf-generated clients provide WithXxxDiscardUnknownFields(true) as a
-// client option and WithXxxCallDiscardUnknownFields(true) as a per-call
-// option to silently discard unknown fields in JSON responses.
+// A mock API server returns JSON with extra fields not in the proto schema.
+// The generated QuoteServiceClient is tested in three modes:
+//  1. Default (strict) — unknown fields cause an error
+//  2. WithQuoteServiceDiscardUnknownFields(true) — client-level, all RPCs tolerate unknown fields
+//  3. WithQuoteServiceCallDiscardUnknownFields(false) — per-call override back to strict
 //
-// Run: go run ./examples/forward-compatibility/
+// Run from the example directory:
 //
-// Usage in generated clients:
-//
-//	// Service-level: all RPCs discard unknown fields
-//	client := services.NewMarketDataServiceClient(baseURL,
-//	    services.WithMarketDataServiceDiscardUnknownFields(true),
-//	)
-//
-//	// Per-call: override for a single RPC
-//	resp, err := client.GetQuote(ctx, req,
-//	    services.WithMarketDataServiceCallDiscardUnknownFields(true),
-//	)
+//	cd examples/forward-compatibility && go run .
 package main
 
 import (
+	"context"
 	"encoding/json"
-	"fmt"
-	"io"
+	"log"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"strings"
 
-	"google.golang.org/protobuf/encoding/protojson"
-	"google.golang.org/protobuf/proto"
-	"google.golang.org/protobuf/types/descriptorpb"
+	"github.com/SebastienMelki/sebuf/examples/forward-compatibility/api/proto/services"
 )
 
 func main() {
-	// Start a mock API server that returns extra fields not in our proto schema.
+	log.SetFlags(0)
+
+	// Mock API server that returns known fields plus unknown fields.
+	// This simulates an API that evolved and added "swap_rate" and "region"
+	// which are not in our QuoteResponse proto definition.
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		response := map[string]any{
-			"name":      "user.proto",
-			"package":   "api.v1",
-			"swap_rate": 0.015,                       // new field — not in proto
-			"region":    "us-east-1",                  // new field — not in proto
-			"metadata":  map[string]any{"version": 3}, // new field — not in proto
+		resp := map[string]any{
+			"symbol":    "AAPL",
+			"price":     185.50,
+			"currency":  "USD",
+			"swap_rate": 0.015,      // not in proto
+			"region":    "us-east",  // not in proto
 		}
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(response)
+		if err := json.NewEncoder(w).Encode(resp); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		}
 	}))
 	defer server.Close()
 
-	body := fetchBody(server.URL)
+	ctx := context.Background()
+	req := &services.GetQuoteRequest{Symbol: "AAPL"}
+	failed := false
 
-	fmt.Println("=== sebuf Forward Compatibility Example ===")
-	fmt.Println()
-	fmt.Printf("API response (contains unknown fields 'swap_rate', 'region', 'metadata'):\n  %s\n", body)
-
-	// --- Default (strict) ---
-	fmt.Println("1) Default (strict) — no DiscardUnknownFields option:")
-	msg1 := &descriptorpb.FileDescriptorProto{}
-	err := unmarshal(body, msg1, false)
+	// --- 1. Default (strict mode) ---
+	log.Println("=== 1. Default client (strict mode) ===")
+	strictClient := services.NewQuoteServiceClient(server.URL)
+	_, err := strictClient.GetQuote(ctx, req)
 	if err != nil {
-		fmt.Printf("   FAIL: %v\n", err)
-		fmt.Println("   This is correct — strict mode rejects unknown fields.")
+		log.Println("  Error:", shortenErr(err))
+		log.Println("  Expected: strict mode rejects unknown fields like 'swap_rate'")
 	} else {
-		fmt.Printf("   OK: name=%q\n", msg1.GetName())
+		log.Println("  UNEXPECTED: should have failed on unknown fields")
+		failed = true
 	}
-	fmt.Println()
 
-	// --- With DiscardUnknownFields(true) ---
-	fmt.Println("2) WithXxxDiscardUnknownFields(true) — forward compatible:")
-	msg2 := &descriptorpb.FileDescriptorProto{}
-	err = unmarshal(body, msg2, true)
+	// --- 2. Client-level: discard unknown fields ---
+	log.Println()
+	log.Println("=== 2. WithQuoteServiceDiscardUnknownFields(true) ===")
+	discardClient := services.NewQuoteServiceClient(server.URL,
+		services.WithQuoteServiceDiscardUnknownFields(true),
+	)
+	quote, err := discardClient.GetQuote(ctx, req)
 	if err != nil {
-		fmt.Printf("   FAIL: %v\n", err)
+		log.Println("  UNEXPECTED error:", err)
+		failed = true
 	} else {
-		fmt.Printf("   OK: name=%q package=%q\n", msg2.GetName(), msg2.GetPackage())
-		fmt.Println("   Unknown fields silently discarded — client keeps working.")
+		log.Printf("  OK: symbol=%s price=%.2f currency=%s", quote.Symbol, quote.Price, quote.Currency)
+		log.Println("  Unknown fields 'swap_rate' and 'region' silently discarded")
 	}
-	fmt.Println()
 
-	fmt.Println("=== Usage ===")
-	fmt.Println()
-	fmt.Println("  // Service-level default (all RPCs)")
-	fmt.Println("  client := services.NewMarketDataServiceClient(baseURL,")
-	fmt.Println("      services.WithMarketDataServiceDiscardUnknownFields(true),")
-	fmt.Println("  )")
-	fmt.Println()
-	fmt.Println("  // Per-call override (single RPC)")
-	fmt.Println("  resp, err := client.GetQuote(ctx, req,")
-	fmt.Println("      services.WithMarketDataServiceCallDiscardUnknownFields(true),")
-	fmt.Println("  )")
+	// --- 3. Per-call override back to strict ---
+	log.Println()
+	log.Println("=== 3. Per-call override: WithQuoteServiceCallDiscardUnknownFields(false) ===")
+	// Client has discard=true, but this specific call overrides to strict
+	_, err = discardClient.GetQuote(ctx, req,
+		services.WithQuoteServiceCallDiscardUnknownFields(false),
+	)
+	if err != nil {
+		log.Println("  Error:", shortenErr(err))
+		log.Println("  Expected: per-call override to strict rejects unknown fields")
+	} else {
+		log.Println("  UNEXPECTED: should have failed with per-call strict override")
+		failed = true
+	}
+
+	if failed {
+		os.Exit(1)
+	}
 }
 
-// unmarshal mirrors the generated unmarshalResponse method.
-// discardUnknown is resolved from client default + per-call override.
-func unmarshal(body []byte, msg proto.Message, discardUnknown bool) error {
-	if discardUnknown {
-		opts := protojson.UnmarshalOptions{DiscardUnknown: true}
-		return opts.Unmarshal(body, msg)
+// shortenErr trims the verbose protojson error for cleaner output.
+func shortenErr(err error) string {
+	s := err.Error()
+	if idx := strings.Index(s, "unknown field"); idx >= 0 {
+		return s[idx:]
 	}
-	return protojson.Unmarshal(body, msg)
-}
-
-func fetchBody(url string) []byte {
-	resp, err := http.Get(url)
-	if err != nil {
-		panic(err)
-	}
-	defer resp.Body.Close()
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		panic(err)
-	}
-	return body
+	return s
 }

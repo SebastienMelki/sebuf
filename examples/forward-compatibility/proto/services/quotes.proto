@@ -1,0 +1,30 @@
+syntax = "proto3";
+
+package services;
+
+import "sebuf/http/annotations.proto";
+
+// QuoteService provides market quote data.
+// Used to demonstrate forward compatibility with WithDiscardUnknownFields.
+service QuoteService {
+  option (sebuf.http.service_config) = {base_path: "/api/v1"};
+
+  rpc GetQuote(GetQuoteRequest) returns (QuoteResponse) {
+    option (sebuf.http.config) = {
+      path: "/quotes/{symbol}"
+      method: HTTP_METHOD_GET
+    };
+  }
+}
+
+message GetQuoteRequest {
+  string symbol = 1;
+}
+
+// QuoteResponse has known fields. The server may return additional fields
+// (e.g. swap_rate, region) that are not in this schema.
+message QuoteResponse {
+  string symbol = 1;
+  double price = 2;
+  string currency = 3;
+}

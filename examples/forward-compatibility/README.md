@@ -4,29 +4,52 @@
 
 ## The Problem
 
-By default, `protojson.Unmarshal` rejects unknown fields. When an API provider adds a new response field, the client fails:
+APIs evolve — providers add new response fields. By default, sebuf clients reject unknown fields:
 
 ```
-failed to unmarshal response: proto: (line 1:45): unknown field "swap_rate"
+failed to unmarshal response: unknown field "swap_rate"
 ```
 
-## The Solution: `WithXxxDiscardUnknownFields`
+## The Solution
 
-sebuf generates client and call options to opt into forward compatibility at runtime:
+sebuf generates `WithXxxDiscardUnknownFields` options at the client and per-call level:
 
 ```go
-// Service-level: all RPCs discard unknown fields
-client := services.NewMarketDataServiceClient(baseURL,
-    services.WithMarketDataServiceDiscardUnknownFields(true),
+// Client-level: all RPCs discard unknown fields
+client := services.NewQuoteServiceClient(baseURL,
+    services.WithQuoteServiceDiscardUnknownFields(true),
 )
 
 // Per-call: override for a single RPC
-resp, err := client.GetQuote(ctx, req,
-    services.WithMarketDataServiceCallDiscardUnknownFields(true),
+quote, err := client.GetQuote(ctx, req,
+    services.WithQuoteServiceCallDiscardUnknownFields(true),
 )
 ```
 
-### Precedence
+## Run the Example
+
+```bash
+cd examples/forward-compatibility
+go run .
+```
+
+Output:
+
+```
+=== 1. Default client (strict mode) ===
+  Error: unknown field "region"
+  Expected: strict mode rejects unknown fields like 'swap_rate'
+
+=== 2. WithQuoteServiceDiscardUnknownFields(true) ===
+  OK: symbol=AAPL price=185.50 currency=USD
+  Unknown fields 'swap_rate' and 'region' silently discarded
+
+=== 3. Per-call override: WithQuoteServiceCallDiscardUnknownFields(false) ===
+  Error: unknown field "region"
+  Expected: per-call override to strict rejects unknown fields
+```
+
+## Precedence
 
 | Client-level | Per-call | Result |
 |---|---|---|
@@ -34,20 +57,12 @@ resp, err := client.GetQuote(ctx, req,
 | `true` | not set | discard unknown |
 | not set | `true` | discard unknown |
 | `true` | `false` | strict (per-call wins) |
-| `false` | `true` | discard unknown (per-call wins) |
 
-## Run the Example
+## Regenerate
 
 ```bash
-go run ./examples/forward-compatibility/
+# From the example directory
+buf dep update
+buf generate
+go mod tidy
 ```
-
-## When to Use
-
-Use `WithXxxDiscardUnknownFields(true)` when:
-- You're consuming a third-party API that may add new fields
-- You want forward compatibility without regenerating your SDK
-
-Keep the default (strict mode) when:
-- You control both client and server
-- You want to catch schema drift early
