@@ -250,6 +250,37 @@ paths:
               $ref: '#/components/schemas/CreateUserRequest'
 ```
 
+**OpenAPI Bundle Mode** — Origin-level single-document output for agent SDKs, Postman, RFC 9727 catalogs, and any consumer that expects one OpenAPI URL per origin. Enabled via plugin options in `buf.gen.yaml`:
+
+```yaml
+version: v2
+plugins:
+  - local: protoc-gen-openapiv3
+    out: ./docs
+    strategy: all                                   # REQUIRED — default "directory" breaks bundle merging
+    opt:
+      - bundle=true                                 # emit bundle; per-service files still emitted unless bundle_only=true
+      - bundle_only=true                            # optional — suppress per-service files
+      - bundle_output=openapi.yaml                  # default: openapi.{yaml|json} depending on format
+      - bundle_title=My API
+      - bundle_version=1.0.0
+      - bundle_description=One API\, many services. # escape commas with \,
+      - bundle_server=https://api.example.com       # repeatable
+      - bundle_server=https://staging.example.com
+      - bundle_contact_name=API Team
+      - bundle_contact_email=api@example.com
+      - bundle_contact_url=https://example.com/contact
+      - bundle_license_name=Apache-2.0
+      - bundle_license_url=https://www.apache.org/licenses/LICENSE-2.0
+```
+
+Key behaviour:
+- Bundle merges paths + schemas + tags across **every service** in the protoc invocation.
+- Schema names are proto-package-qualified (e.g. `sebuf.test.User` → `sebuf_test_User`) in bundle mode for collision safety. Per-service files keep short names.
+- `servers[]` comes only from `bundle_server` opts — a service doesn't know its origin hostname. Omit to emit no `servers` block (OpenAPI defaults to `/`).
+- Values containing commas MUST escape them as `\,` because plugin params use `,` as delimiter.
+- Working example: [examples/multi-service-api](examples/multi-service-api/buf.gen.yaml).
+
 **Automatic Validation** - Built-in request and header validation:
 ```go
 // Generated validation code automatically validates requests
@@ -721,6 +752,7 @@ The plugin handles comprehensive protobuf-to-Go type mapping in `getFieldType()`
 - Creates comprehensive OpenAPI v3.1 specifications
 - Supports header parameter generation and validation rules
 - Generates one file per service for better organization
+- Optional bundle mode (`bundle=true`) emits a single origin-level document merging every service — see "OpenAPI Bundle Mode" above for full option reference
 
 ### Import Management
 - Uses protogen.GeneratedFile's automatic import handling

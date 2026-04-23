@@ -28,15 +28,44 @@ plugins:
     out: ./api
     opt: module=github.com/SebastienMelki/sebuf/examples/multi-service-api/api
 
-  # OpenAPI v3 documentation generation in YAML format
+  # OpenAPI v3 documentation generation in YAML format.
+  # Per-service files (UserService.openapi.yaml, AdminService.openapi.yaml, ...)
+  # PLUS a single origin-level bundle (openapi.yaml) configured via bundle_* opts.
+  # The bundle is what you point agent SDKs, Postman, and RFC 9727 catalogs at.
+  #
+  # strategy: all is REQUIRED for bundle mode — buf's default "directory" strategy
+  # invokes the plugin once per proto directory, which would produce one partial
+  # bundle per directory and emit duplicate-filename warnings.
   - local: ../../bin/protoc-gen-openapiv3
     out: ./docs
+    strategy: all
+    opt:
+      - bundle=true
+      - bundle_title=Multi-Service API
+      - bundle_version=1.0.0
+      - bundle_description=Example origin-level bundle spanning User\, Admin\, and Public services.
+      - bundle_server=https://api.example.com
+      - bundle_contact_name=API Team
+      - bundle_contact_email=api@example.com
+      - bundle_license_name=Apache-2.0
+      - bundle_license_url=https://www.apache.org/licenses/LICENSE-2.0
 
-  # OpenAPI v3 documentation generation in JSON format
+  # OpenAPI v3 documentation generation in JSON format (same bundle config)
   - local: ../../bin/protoc-gen-openapiv3
     out: ./docs
+    strategy: all
     opt:
       - format=json
+      - bundle=true
+      - bundle_output=openapi.json
+      - bundle_title=Multi-Service API
+      - bundle_version=1.0.0
+      - bundle_description=Example origin-level bundle spanning User\, Admin\, and Public services.
+      - bundle_server=https://api.example.com
+      - bundle_contact_name=API Team
+      - bundle_contact_email=api@example.com
+      - bundle_license_name=Apache-2.0
+      - bundle_license_url=https://www.apache.org/licenses/LICENSE-2.0
 
   # HTTP service generation (custom)
   - local: ../../bin/protoc-gen-go-http

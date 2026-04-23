@@ -7,6 +7,7 @@ This example demonstrates how to organize multiple services with different authe
 | Feature | Description |
 |---------|-------------|
 | Multiple services | 3 services with different base paths and auth levels |
+| Origin-level OpenAPI bundle | Single `openapi.yaml` / `openapi.json` merging every service — point agent SDKs, Postman, and RFC 9727 catalogs at one URL |
 | No authentication | Public service with no headers required |
 | User authentication | User service requiring Authorization + X-Tenant-ID |
 | Admin authentication | Admin service requiring Authorization + X-Admin-Role |
@@ -46,6 +47,27 @@ make test-public   # No auth required
 make test-user     # User auth required
 make test-admin    # Admin auth required
 ```
+
+## Origin-Level OpenAPI Bundle
+
+`buf generate` emits both per-service docs and a single origin-level bundle:
+
+```
+docs/
+├── openapi.yaml                    ← bundle (one URL per origin)
+├── openapi.json
+├── UserService.openapi.yaml        ← per-service (for language-client codegen)
+├── AdminService.openapi.yaml
+└── PublicService.openapi.yaml
+```
+
+The bundle is configured in [buf.gen.yaml](./buf.gen.yaml) via `bundle_*` opts on the `protoc-gen-openapiv3` plugin — title, version, description, servers, contact, and license all come from there since they describe the origin, not any individual service.
+
+Key requirements:
+- `strategy: all` on the plugin block — buf's default `directory` strategy invokes the plugin once per proto directory, which breaks bundle merging.
+- Escape commas inside values with `\,` — protoc plugin params use `,` as delimiter.
+
+Bundle schemas are proto-package-qualified (e.g. `multi_User`) to stay collision-safe across services; per-service files keep short names unchanged.
 
 ## API Endpoints
 
