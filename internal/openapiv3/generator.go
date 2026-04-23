@@ -794,6 +794,10 @@ func (g *Generator) buildQueryParameters(method *protogen.Method) []*v3.Paramete
 		if qp.Field != nil {
 			queryParam.Schema = g.createFieldSchema(qp.Field)
 			queryParam.Description = strings.TrimSpace(string(qp.Field.Comments.Leading))
+			if qp.Field.Desc.IsList() {
+				queryParam.Style = "form"
+				queryParam.Explode = proto.Bool(true)
+			}
 		} else {
 			queryParam.Schema = base.CreateSchemaProxy(&base.Schema{Type: []string{"string"}})
 		}
@@ -985,6 +989,19 @@ func findFieldByName(message *protogen.Message, fieldName string) *protogen.Fiel
 
 // createFieldSchema creates an OpenAPI schema for a protobuf field.
 func (g *Generator) createFieldSchema(field *protogen.Field) *base.SchemaProxy {
+	schema := g.createScalarFieldSchema(field)
+	if field.Desc.IsList() {
+		return base.CreateSchemaProxy(&base.Schema{
+			Type:  []string{"array"},
+			Items: &base.DynamicValue[*base.SchemaProxy, bool]{A: schema},
+		})
+	}
+	return schema
+}
+
+// createScalarFieldSchema creates the OpenAPI schema for the scalar kind of a field,
+// ignoring repeated/map modifiers. Used as the item schema for repeated fields.
+func (g *Generator) createScalarFieldSchema(field *protogen.Field) *base.SchemaProxy {
 	schema := &base.Schema{}
 
 	switch field.Desc.Kind().String() {

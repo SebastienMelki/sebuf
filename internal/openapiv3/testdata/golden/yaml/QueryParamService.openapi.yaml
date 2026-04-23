@@ -239,16 +239,41 @@ paths:
                     type: string
                 - name: countries
                   in: query
-                  description: 'Repeated string query param (bugs #3 and #4)'
+                  description: 'Repeated string query param (issue #161)'
                   required: false
+                  style: form
+                  explode: true
                   schema:
-                    type: string
+                    type: array
+                    items:
+                        type: string
                 - name: keyword
                   in: query
                   description: Normal string for baseline
                   required: false
                   schema:
                     type: string
+                - name: years
+                  in: query
+                  description: 'Repeated int32 query param (issue #161 scope audit)'
+                  required: false
+                  style: form
+                  explode: true
+                  schema:
+                    type: array
+                    items:
+                        type: integer
+                        format: int32
+                - name: flags
+                  in: query
+                  description: 'Repeated bool query param (issue #161 scope audit)'
+                  required: false
+                  style: form
+                  explode: true
+                  schema:
+                    type: array
+                    items:
+                        type: boolean
             responses:
                 "200":
                     description: Successful response
@@ -419,10 +444,21 @@ components:
                     type: array
                     items:
                         type: string
-                        description: 'Repeated string query param (bugs #3 and #4)'
+                        description: 'Repeated string query param (issue #161)'
                 keyword:
                     type: string
                     description: Normal string for baseline
+                years:
+                    type: array
+                    items:
+                        type: integer
+                        format: int32
+                        description: 'Repeated int32 query param (issue #161 scope audit)'
+                flags:
+                    type: array
+                    items:
+                        type: boolean
+                        description: 'Repeated bool query param (issue #161 scope audit)'
         EmptyRequest:
             type: object
             description: 'Empty request message (bug #6)'

@@ -41,6 +41,8 @@ export interface SearchAdvancedRequest {
   region: Region;
   countries: string[];
   keyword: string;
+  years: number[];
+  flags: boolean[];
 }
 
 export interface EmptyRequest {
@@ -324,6 +326,8 @@ export function createQueryParamServiceRoutes(
             region: (params.get("region") ?? "unspecified") as Region,
             countries: params.getAll("countries"),
             keyword: params.get("keyword") ?? "",
+            years: params.getAll("years"),
+            flags: params.getAll("flags"),
           };
           if (options?.validateRequest) {
             const bodyViolations = options.validateRequest("searchAdvanced", body);
