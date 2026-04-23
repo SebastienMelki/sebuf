@@ -398,7 +398,10 @@ func (g *Generator) generateCallOptions(gf *protogen.GeneratedFile, serviceName 
 	gf.P()
 
 	// With{Service}CallDiscardUnknownFields
-	gf.P("// With", serviceName, "CallDiscardUnknownFields sets whether to discard unknown fields for a single request.")
+	gf.P(
+		"// With", serviceName,
+		"CallDiscardUnknownFields sets whether to discard unknown fields for a single request.",
+	)
 	gf.P("// Overrides the client-level setting from With", serviceName, "DiscardUnknownFields.")
 	gf.P("func With", serviceName, "CallDiscardUnknownFields(discard bool) ", serviceName, "CallOption {")
 	gf.P("return func(o *", lowerName, "CallOptions) {")
