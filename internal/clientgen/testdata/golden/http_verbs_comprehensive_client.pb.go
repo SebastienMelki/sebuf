@@ -844,7 +844,11 @@ func (c *rESTfulAPIServiceClient) unmarshalResponse(body []byte, msg proto.Messa
 
 	switch contentType {
 	case ContentTypeJSON:
-		// Check for custom JSON unmarshaler (unwrap support)
+		// Check for discard-aware custom unmarshaler first (supports DiscardUnknownFields)
+		if unmarshaler, ok := msg.(interface{ UnmarshalJSONWithDiscard([]byte, bool) error }); ok {
+			return unmarshaler.UnmarshalJSONWithDiscard(body, discardUnknown)
+		}
+		// Fall back to standard json.Unmarshaler (e.g. unwrap types)
 		if unmarshaler, ok := msg.(json.Unmarshaler); ok {
 			return unmarshaler.UnmarshalJSON(body)
 		}
@@ -1080,7 +1084,11 @@ func (c *backwardCompatServiceClient) unmarshalResponse(body []byte, msg proto.M
 
 	switch contentType {
 	case ContentTypeJSON:
-		// Check for custom JSON unmarshaler (unwrap support)
+		// Check for discard-aware custom unmarshaler first (supports DiscardUnknownFields)
+		if unmarshaler, ok := msg.(interface{ UnmarshalJSONWithDiscard([]byte, bool) error }); ok {
+			return unmarshaler.UnmarshalJSONWithDiscard(body, discardUnknown)
+		}
+		// Fall back to standard json.Unmarshaler (e.g. unwrap types)
 		if unmarshaler, ok := msg.(json.Unmarshaler); ok {
 			return unmarshaler.UnmarshalJSON(body)
 		}

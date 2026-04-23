@@ -59,6 +59,11 @@ func (x *Response) MarshalJSON() ([]byte, error) {
 // UnmarshalJSON implements json.Unmarshaler for Response.
 // This method handles empty_behavior fields: metadata_preserve, metadata_null, metadata_omit, settings
 func (x *Response) UnmarshalJSON(data []byte) error {
+	return x.UnmarshalJSONWithDiscard(data, false)
+}
+
+// UnmarshalJSONWithDiscard is like UnmarshalJSON but supports discarding unknown fields.
+func (x *Response) UnmarshalJSONWithDiscard(data []byte, discardUnknown bool) error {
 	// Parse to check for explicit null values on empty_behavior=NULL fields
 	var raw map[string]json.RawMessage
 	if err := json.Unmarshal(data, &raw); err != nil {
@@ -81,5 +86,9 @@ func (x *Response) UnmarshalJSON(data []byte) error {
 		return err
 	}
 
+	if discardUnknown {
+		opts := protojson.UnmarshalOptions{DiscardUnknown: true}
+		return opts.Unmarshal(modified, x)
+	}
 	return protojson.Unmarshal(modified, x)
 }

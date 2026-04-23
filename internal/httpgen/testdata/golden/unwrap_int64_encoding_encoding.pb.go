@@ -44,6 +44,11 @@ func (x *Bar) MarshalJSON() ([]byte, error) {
 // UnmarshalJSON implements json.Unmarshaler for Bar.
 // This method handles int64_encoding=NUMBER fields: volume
 func (x *Bar) UnmarshalJSON(data []byte) error {
+	return x.UnmarshalJSONWithDiscard(data, false)
+}
+
+// UnmarshalJSONWithDiscard is like UnmarshalJSON but supports discarding unknown fields.
+func (x *Bar) UnmarshalJSONWithDiscard(data []byte, discardUnknown bool) error {
 	// First, parse the raw JSON to extract NUMBER-encoded fields
 	var raw map[string]json.RawMessage
 	if err := json.Unmarshal(data, &raw); err != nil {
@@ -65,6 +70,10 @@ func (x *Bar) UnmarshalJSON(data []byte) error {
 	}
 
 	// Use protojson to unmarshal the rest
+	if discardUnknown {
+		opts := protojson.UnmarshalOptions{DiscardUnknown: true}
+		return opts.Unmarshal(modified, x)
+	}
 	return protojson.Unmarshal(modified, x)
 }
 
@@ -102,6 +111,11 @@ func (x *Meta) MarshalJSON() ([]byte, error) {
 // UnmarshalJSON implements json.Unmarshaler for Meta.
 // This method handles int64_encoding=NUMBER fields: timestamp
 func (x *Meta) UnmarshalJSON(data []byte) error {
+	return x.UnmarshalJSONWithDiscard(data, false)
+}
+
+// UnmarshalJSONWithDiscard is like UnmarshalJSON but supports discarding unknown fields.
+func (x *Meta) UnmarshalJSONWithDiscard(data []byte, discardUnknown bool) error {
 	// First, parse the raw JSON to extract NUMBER-encoded fields
 	var raw map[string]json.RawMessage
 	if err := json.Unmarshal(data, &raw); err != nil {
@@ -123,5 +137,9 @@ func (x *Meta) UnmarshalJSON(data []byte) error {
 	}
 
 	// Use protojson to unmarshal the rest
+	if discardUnknown {
+		opts := protojson.UnmarshalOptions{DiscardUnknown: true}
+		return opts.Unmarshal(modified, x)
+	}
 	return protojson.Unmarshal(modified, x)
 }

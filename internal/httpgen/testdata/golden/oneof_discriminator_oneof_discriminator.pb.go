@@ -73,6 +73,11 @@ func (x *FlattenedEvent) MarshalJSON() ([]byte, error) {
 // UnmarshalJSON implements json.Unmarshaler for FlattenedEvent.
 // This method handles oneof discriminator fields: content
 func (x *FlattenedEvent) UnmarshalJSON(data []byte) error {
+	return x.UnmarshalJSONWithDiscard(data, false)
+}
+
+// UnmarshalJSONWithDiscard is like UnmarshalJSON but supports discarding unknown fields.
+func (x *FlattenedEvent) UnmarshalJSONWithDiscard(data []byte, discardUnknown bool) error {
 	// Parse into a map to read discriminator fields
 	var raw map[string]json.RawMessage
 	if err := json.Unmarshal(data, &raw); err != nil {
@@ -135,6 +140,10 @@ func (x *FlattenedEvent) UnmarshalJSON(data []byte) error {
 		return err
 	}
 
+	if discardUnknown {
+		opts := protojson.UnmarshalOptions{DiscardUnknown: true}
+		return opts.Unmarshal(modified, x)
+	}
 	return protojson.Unmarshal(modified, x)
 }
 
@@ -175,6 +184,11 @@ func (x *NestedEvent) MarshalJSON() ([]byte, error) {
 // UnmarshalJSON implements json.Unmarshaler for NestedEvent.
 // This method handles oneof discriminator fields: content
 func (x *NestedEvent) UnmarshalJSON(data []byte) error {
+	return x.UnmarshalJSONWithDiscard(data, false)
+}
+
+// UnmarshalJSONWithDiscard is like UnmarshalJSON but supports discarding unknown fields.
+func (x *NestedEvent) UnmarshalJSONWithDiscard(data []byte, discardUnknown bool) error {
 	// Parse into a map to read discriminator fields
 	var raw map[string]json.RawMessage
 	if err := json.Unmarshal(data, &raw); err != nil {
@@ -228,5 +242,9 @@ func (x *NestedEvent) UnmarshalJSON(data []byte) error {
 		return err
 	}
 
+	if discardUnknown {
+		opts := protojson.UnmarshalOptions{DiscardUnknown: true}
+		return opts.Unmarshal(modified, x)
+	}
 	return protojson.Unmarshal(modified, x)
 }

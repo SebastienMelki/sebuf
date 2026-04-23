@@ -49,6 +49,11 @@ func (x *SensorReading) MarshalJSON() ([]byte, error) {
 // UnmarshalJSON implements json.Unmarshaler for SensorReading.
 // This method handles int64_encoding=NUMBER fields: timestamp_ms, values
 func (x *SensorReading) UnmarshalJSON(data []byte) error {
+	return x.UnmarshalJSONWithDiscard(data, false)
+}
+
+// UnmarshalJSONWithDiscard is like UnmarshalJSON but supports discarding unknown fields.
+func (x *SensorReading) UnmarshalJSONWithDiscard(data []byte, discardUnknown bool) error {
 	// First, parse the raw JSON to extract NUMBER-encoded fields
 	var raw map[string]json.RawMessage
 	if err := json.Unmarshal(data, &raw); err != nil {
@@ -82,6 +87,10 @@ func (x *SensorReading) UnmarshalJSON(data []byte) error {
 	}
 
 	// Use protojson to unmarshal the rest
+	if discardUnknown {
+		opts := protojson.UnmarshalOptions{DiscardUnknown: true}
+		return opts.Unmarshal(modified, x)
+	}
 	return protojson.Unmarshal(modified, x)
 }
 
@@ -118,6 +127,11 @@ func (x *GetSensorReadingResponse) MarshalJSON() ([]byte, error) {
 // UnmarshalJSON implements json.Unmarshaler for GetSensorReadingResponse.
 // This method handles nested messages that have int64_encoding=NUMBER fields: reading
 func (x *GetSensorReadingResponse) UnmarshalJSON(data []byte) error {
+	return x.UnmarshalJSONWithDiscard(data, false)
+}
+
+// UnmarshalJSONWithDiscard is like UnmarshalJSON but supports discarding unknown fields.
+func (x *GetSensorReadingResponse) UnmarshalJSONWithDiscard(data []byte, discardUnknown bool) error {
 	var raw map[string]json.RawMessage
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return err
@@ -141,6 +155,10 @@ func (x *GetSensorReadingResponse) UnmarshalJSON(data []byte) error {
 		return err
 	}
 
+	if discardUnknown {
+		opts := protojson.UnmarshalOptions{DiscardUnknown: true}
+		return opts.Unmarshal(modified, x)
+	}
 	return protojson.Unmarshal(modified, x)
 }
 
@@ -185,6 +203,11 @@ func (x *GetMultiSensorResponse) MarshalJSON() ([]byte, error) {
 // UnmarshalJSON implements json.Unmarshaler for GetMultiSensorResponse.
 // This method handles nested messages that have int64_encoding=NUMBER fields: primary, secondary
 func (x *GetMultiSensorResponse) UnmarshalJSON(data []byte) error {
+	return x.UnmarshalJSONWithDiscard(data, false)
+}
+
+// UnmarshalJSONWithDiscard is like UnmarshalJSON but supports discarding unknown fields.
+func (x *GetMultiSensorResponse) UnmarshalJSONWithDiscard(data []byte, discardUnknown bool) error {
 	var raw map[string]json.RawMessage
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return err
@@ -221,5 +244,9 @@ func (x *GetMultiSensorResponse) UnmarshalJSON(data []byte) error {
 		return err
 	}
 
+	if discardUnknown {
+		opts := protojson.UnmarshalOptions{DiscardUnknown: true}
+		return opts.Unmarshal(modified, x)
+	}
 	return protojson.Unmarshal(modified, x)
 }

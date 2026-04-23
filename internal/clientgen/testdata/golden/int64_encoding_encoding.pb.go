@@ -97,6 +97,11 @@ func (x *Int64EncodingTest) MarshalJSON() ([]byte, error) {
 // UnmarshalJSON implements json.Unmarshaler for Int64EncodingTest.
 // This method handles int64_encoding=NUMBER fields: number_int64, number_uint64, number_sint64, number_sfixed64, number_fixed64, repeated_number_int64, optional_number_int64, commented_number_int64
 func (x *Int64EncodingTest) UnmarshalJSON(data []byte) error {
+	return x.UnmarshalJSONWithDiscard(data, false)
+}
+
+// UnmarshalJSONWithDiscard is like UnmarshalJSON but supports discarding unknown fields.
+func (x *Int64EncodingTest) UnmarshalJSONWithDiscard(data []byte, discardUnknown bool) error {
 	// First, parse the raw JSON to extract NUMBER-encoded fields
 	var raw map[string]json.RawMessage
 	if err := json.Unmarshal(data, &raw); err != nil {
@@ -178,5 +183,9 @@ func (x *Int64EncodingTest) UnmarshalJSON(data []byte) error {
 	}
 
 	// Use protojson to unmarshal the rest
+	if discardUnknown {
+		opts := protojson.UnmarshalOptions{DiscardUnknown: true}
+		return opts.Unmarshal(modified, x)
+	}
 	return protojson.Unmarshal(modified, x)
 }

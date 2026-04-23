@@ -317,6 +317,12 @@ func (g *Generator) generateInt64UnmarshalJSON(gf *protogen.GeneratedFile, ctx *
 	gf.P("// UnmarshalJSON implements json.Unmarshaler for ", msgName, ".")
 	gf.P("// This method handles int64_encoding=NUMBER fields: ", strings.Join(numberFieldNames, ", "))
 	gf.P("func (x *", msgName, ") UnmarshalJSON(data []byte) error {")
+	gf.P("return x.UnmarshalJSONWithDiscard(data, false)")
+	gf.P("}")
+	gf.P()
+
+	gf.P("// UnmarshalJSONWithDiscard is like UnmarshalJSON but supports discarding unknown fields.")
+	gf.P("func (x *", msgName, ") UnmarshalJSONWithDiscard(data []byte, discardUnknown bool) error {")
 	gf.P("// First, parse the raw JSON to extract NUMBER-encoded fields")
 	gf.P("var raw map[string]json.RawMessage")
 	gf.P("if err := json.Unmarshal(data, &raw); err != nil {")
@@ -336,6 +342,10 @@ func (g *Generator) generateInt64UnmarshalJSON(gf *protogen.GeneratedFile, ctx *
 	gf.P("}")
 	gf.P()
 	gf.P("// Use protojson to unmarshal the rest")
+	gf.P("if discardUnknown {")
+	gf.P("opts := protojson.UnmarshalOptions{DiscardUnknown: true}")
+	gf.P("return opts.Unmarshal(modified, x)")
+	gf.P("}")
 	gf.P("return protojson.Unmarshal(modified, x)")
 	gf.P("}")
 	gf.P()
@@ -481,6 +491,8 @@ func (g *Generator) generateWrapperMarshalJSON(gf *protogen.GeneratedFile, ctx *
 
 // generateWrapperUnmarshalJSON generates an UnmarshalJSON that delegates nested
 // message parsing to their custom UnmarshalJSON, then converts back for protojson.
+//
+//nolint:funlen // Code generation function requires sequential gf.P() calls for both UnmarshalJSON and UnmarshalJSONWithDiscard
 func (g *Generator) generateWrapperUnmarshalJSON(gf *protogen.GeneratedFile, ctx *Int64WrapperContext) {
 	msgName := ctx.Message.GoIdent.GoName
 
@@ -495,6 +507,12 @@ func (g *Generator) generateWrapperUnmarshalJSON(gf *protogen.GeneratedFile, ctx
 		strings.Join(nestedFieldNames, ", "),
 	)
 	gf.P("func (x *", msgName, ") UnmarshalJSON(data []byte) error {")
+	gf.P("return x.UnmarshalJSONWithDiscard(data, false)")
+	gf.P("}")
+	gf.P()
+
+	gf.P("// UnmarshalJSONWithDiscard is like UnmarshalJSON but supports discarding unknown fields.")
+	gf.P("func (x *", msgName, ") UnmarshalJSONWithDiscard(data []byte, discardUnknown bool) error {")
 	gf.P("var raw map[string]json.RawMessage")
 	gf.P("if err := json.Unmarshal(data, &raw); err != nil {")
 	gf.P("return err")
@@ -555,6 +573,10 @@ func (g *Generator) generateWrapperUnmarshalJSON(gf *protogen.GeneratedFile, ctx
 	gf.P("return err")
 	gf.P("}")
 	gf.P()
+	gf.P("if discardUnknown {")
+	gf.P("opts := protojson.UnmarshalOptions{DiscardUnknown: true}")
+	gf.P("return opts.Unmarshal(modified, x)")
+	gf.P("}")
 	gf.P("return protojson.Unmarshal(modified, x)")
 	gf.P("}")
 	gf.P()

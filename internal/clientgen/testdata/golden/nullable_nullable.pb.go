@@ -52,6 +52,11 @@ func (x *User) MarshalJSON() ([]byte, error) {
 // UnmarshalJSON implements json.Unmarshaler for User.
 // This method handles nullable fields: middle_name, age, is_verified
 func (x *User) UnmarshalJSON(data []byte) error {
+	return x.UnmarshalJSONWithDiscard(data, false)
+}
+
+// UnmarshalJSONWithDiscard is like UnmarshalJSON but supports discarding unknown fields.
+func (x *User) UnmarshalJSONWithDiscard(data []byte, discardUnknown bool) error {
 	// Parse to check for explicit null values on nullable fields
 	var raw map[string]json.RawMessage
 	if err := json.Unmarshal(data, &raw); err != nil {
@@ -82,5 +87,9 @@ func (x *User) UnmarshalJSON(data []byte) error {
 		return err
 	}
 
+	if discardUnknown {
+		opts := protojson.UnmarshalOptions{DiscardUnknown: true}
+		return opts.Unmarshal(modified, x)
+	}
 	return protojson.Unmarshal(modified, x)
 }

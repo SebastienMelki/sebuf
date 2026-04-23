@@ -44,6 +44,11 @@ func (x *Stock) MarshalJSON() ([]byte, error) {
 // UnmarshalJSON implements json.Unmarshaler for Stock.
 // This method handles int64_encoding=NUMBER fields: volume
 func (x *Stock) UnmarshalJSON(data []byte) error {
+	return x.UnmarshalJSONWithDiscard(data, false)
+}
+
+// UnmarshalJSONWithDiscard is like UnmarshalJSON but supports discarding unknown fields.
+func (x *Stock) UnmarshalJSONWithDiscard(data []byte, discardUnknown bool) error {
 	// First, parse the raw JSON to extract NUMBER-encoded fields
 	var raw map[string]json.RawMessage
 	if err := json.Unmarshal(data, &raw); err != nil {
@@ -65,6 +70,10 @@ func (x *Stock) UnmarshalJSON(data []byte) error {
 	}
 
 	// Use protojson to unmarshal the rest
+	if discardUnknown {
+		opts := protojson.UnmarshalOptions{DiscardUnknown: true}
+		return opts.Unmarshal(modified, x)
+	}
 	return protojson.Unmarshal(modified, x)
 }
 
@@ -101,6 +110,11 @@ func (x *GetStocksResponse) MarshalJSON() ([]byte, error) {
 // UnmarshalJSON implements json.Unmarshaler for GetStocksResponse.
 // This method handles nested messages that have int64_encoding=NUMBER fields: stocks
 func (x *GetStocksResponse) UnmarshalJSON(data []byte) error {
+	return x.UnmarshalJSONWithDiscard(data, false)
+}
+
+// UnmarshalJSONWithDiscard is like UnmarshalJSON but supports discarding unknown fields.
+func (x *GetStocksResponse) UnmarshalJSONWithDiscard(data []byte, discardUnknown bool) error {
 	var raw map[string]json.RawMessage
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return err
@@ -136,5 +150,9 @@ func (x *GetStocksResponse) UnmarshalJSON(data []byte) error {
 		return err
 	}
 
+	if discardUnknown {
+		opts := protojson.UnmarshalOptions{DiscardUnknown: true}
+		return opts.Unmarshal(modified, x)
+	}
 	return protojson.Unmarshal(modified, x)
 }

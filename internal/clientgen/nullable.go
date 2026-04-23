@@ -174,6 +174,12 @@ func (g *Generator) generateNullableUnmarshalJSON(gf *protogen.GeneratedFile, ct
 	gf.P("// UnmarshalJSON implements json.Unmarshaler for ", msgName, ".")
 	gf.P("// This method handles nullable fields: ", strings.Join(fieldNames, ", "))
 	gf.P("func (x *", msgName, ") UnmarshalJSON(data []byte) error {")
+	gf.P("return x.UnmarshalJSONWithDiscard(data, false)")
+	gf.P("}")
+	gf.P()
+
+	gf.P("// UnmarshalJSONWithDiscard is like UnmarshalJSON but supports discarding unknown fields.")
+	gf.P("func (x *", msgName, ") UnmarshalJSONWithDiscard(data []byte, discardUnknown bool) error {")
 	gf.P("// Parse to check for explicit null values on nullable fields")
 	gf.P("var raw map[string]json.RawMessage")
 	gf.P("if err := json.Unmarshal(data, &raw); err != nil {")
@@ -181,8 +187,6 @@ func (g *Generator) generateNullableUnmarshalJSON(gf *protogen.GeneratedFile, ct
 	gf.P("}")
 	gf.P()
 
-	// For nullable fields, remove explicit nulls before protojson unmarshal
-	// protojson doesn't handle null for scalar optionals, so we remove them
 	for _, field := range ctx.NullableFields {
 		jsonName := field.Desc.JSONName()
 
@@ -200,6 +204,10 @@ func (g *Generator) generateNullableUnmarshalJSON(gf *protogen.GeneratedFile, ct
 	gf.P("return err")
 	gf.P("}")
 	gf.P()
+	gf.P("if discardUnknown {")
+	gf.P("opts := protojson.UnmarshalOptions{DiscardUnknown: true}")
+	gf.P("return opts.Unmarshal(modified, x)")
+	gf.P("}")
 	gf.P("return protojson.Unmarshal(modified, x)")
 	gf.P("}")
 	gf.P()

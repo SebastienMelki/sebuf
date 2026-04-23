@@ -51,6 +51,11 @@ func (x *SimpleFlatten) MarshalJSON() ([]byte, error) {
 // UnmarshalJSON implements json.Unmarshaler for SimpleFlatten.
 // This method handles flatten fields: address
 func (x *SimpleFlatten) UnmarshalJSON(data []byte) error {
+	return x.UnmarshalJSONWithDiscard(data, false)
+}
+
+// UnmarshalJSONWithDiscard is like UnmarshalJSON but supports discarding unknown fields.
+func (x *SimpleFlatten) UnmarshalJSONWithDiscard(data []byte, discardUnknown bool) error {
 	var raw map[string]json.RawMessage
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return err
@@ -90,6 +95,10 @@ func (x *SimpleFlatten) UnmarshalJSON(data []byte) error {
 		return err
 	}
 
+	if discardUnknown {
+		opts := protojson.UnmarshalOptions{DiscardUnknown: true}
+		return opts.Unmarshal(remaining, x)
+	}
 	return protojson.Unmarshal(remaining, x)
 }
 
@@ -152,6 +161,11 @@ func (x *DualFlatten) MarshalJSON() ([]byte, error) {
 // UnmarshalJSON implements json.Unmarshaler for DualFlatten.
 // This method handles flatten fields: billing, shipping
 func (x *DualFlatten) UnmarshalJSON(data []byte) error {
+	return x.UnmarshalJSONWithDiscard(data, false)
+}
+
+// UnmarshalJSONWithDiscard is like UnmarshalJSON but supports discarding unknown fields.
+func (x *DualFlatten) UnmarshalJSONWithDiscard(data []byte, discardUnknown bool) error {
 	var raw map[string]json.RawMessage
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return err
@@ -219,6 +233,10 @@ func (x *DualFlatten) UnmarshalJSON(data []byte) error {
 		return err
 	}
 
+	if discardUnknown {
+		opts := protojson.UnmarshalOptions{DiscardUnknown: true}
+		return opts.Unmarshal(remaining, x)
+	}
 	return protojson.Unmarshal(remaining, x)
 }
 
@@ -264,6 +282,11 @@ func (x *MixedFlatten) MarshalJSON() ([]byte, error) {
 // UnmarshalJSON implements json.Unmarshaler for MixedFlatten.
 // This method handles flatten fields: address
 func (x *MixedFlatten) UnmarshalJSON(data []byte) error {
+	return x.UnmarshalJSONWithDiscard(data, false)
+}
+
+// UnmarshalJSONWithDiscard is like UnmarshalJSON but supports discarding unknown fields.
+func (x *MixedFlatten) UnmarshalJSONWithDiscard(data []byte, discardUnknown bool) error {
 	var raw map[string]json.RawMessage
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return err
@@ -303,5 +326,9 @@ func (x *MixedFlatten) UnmarshalJSON(data []byte) error {
 		return err
 	}
 
+	if discardUnknown {
+		opts := protojson.UnmarshalOptions{DiscardUnknown: true}
+		return opts.Unmarshal(remaining, x)
+	}
 	return protojson.Unmarshal(remaining, x)
 }
