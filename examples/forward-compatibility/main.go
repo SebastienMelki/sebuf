@@ -34,8 +34,8 @@ func main() {
 			"symbol":    "AAPL",
 			"price":     185.50,
 			"currency":  "USD",
-			"swap_rate": 0.015,      // not in proto
-			"region":    "us-east",  // not in proto
+			"swap_rate": 0.015,     // not in proto
+			"region":    "us-east", // not in proto
 		}
 		w.Header().Set("Content-Type", "application/json")
 		if err := json.NewEncoder(w).Encode(resp); err != nil {
