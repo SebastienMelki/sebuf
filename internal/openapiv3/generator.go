@@ -35,9 +35,10 @@ const (
 
 // Generator generates OpenAPI v3.1 documents from Protocol Buffer definitions.
 type Generator struct {
-	doc     *v3.Document
-	schemas *orderedmap.Map[string, *base.SchemaProxy]
-	format  OutputFormat
+	doc        *v3.Document
+	schemas    *orderedmap.Map[string, *base.SchemaProxy]
+	format     OutputFormat
+	bundleMode bool
 }
 
 // NewGenerator creates a new OpenAPI generator with the specified output format.
@@ -66,6 +67,51 @@ func NewGenerator(format OutputFormat) *Generator {
 	}
 }
 
+// NewBundleGenerator creates a generator for origin-level bundled output that merges
+// paths and schemas from every service in the protoc invocation. Schema names are
+// proto-package-qualified to avoid collisions across services. Info fields are not
+// auto-populated from service names; callers must set them via SetInfo / SetServers.
+func NewBundleGenerator(format OutputFormat) *Generator {
+	g := NewGenerator(format)
+	g.bundleMode = true
+	return g
+}
+
+// SetInfo populates the OpenAPI info block. Empty strings are ignored so callers can
+// opt in to individual fields. Contact/license are set only when at least one of their
+// sub-fields is non-empty.
+func (g *Generator) SetInfo(title, version, description string, contact *base.Contact, license *base.License) {
+	if title != "" {
+		g.doc.Info.Title = title
+	}
+	if version != "" {
+		g.doc.Info.Version = version
+	}
+	if description != "" {
+		g.doc.Info.Description = description
+	}
+	if contact != nil {
+		g.doc.Info.Contact = contact
+	}
+	if license != nil {
+		g.doc.Info.License = license
+	}
+}
+
+// SetServers replaces the document's servers block. An empty slice clears it (OpenAPI
+// permits omitting servers; consumers default to "/").
+func (g *Generator) SetServers(urls []string) {
+	if len(urls) == 0 {
+		g.doc.Servers = nil
+		return
+	}
+	servers := make([]*v3.Server, 0, len(urls))
+	for _, url := range urls {
+		servers = append(servers, &v3.Server{URL: url})
+	}
+	g.doc.Servers = servers
+}
+
 // ProcessMessage processes a single message and adds it to the OpenAPI schemas.
 // This is now exported to be called from main.go.
 func (g *Generator) ProcessMessage(message *protogen.Message) {
@@ -90,10 +136,12 @@ func (g *Generator) Schemas() *orderedmap.Map[string, *base.SchemaProxy] {
 // ProcessService processes a single service and adds its paths to the OpenAPI document.
 // This is now exported to be called from main.go.
 func (g *Generator) ProcessService(service *protogen.Service) {
-	// Update document info with service name
-	g.doc.Info.Title = fmt.Sprintf("%s API", service.Desc.Name())
+	// In bundle mode the Info block is supplied by the caller and spans all services.
+	// In per-service mode we derive the title from the service name.
+	if !g.bundleMode {
+		g.doc.Info.Title = fmt.Sprintf("%s API", service.Desc.Name())
+	}
 
-	// Process the service
 	g.processService(service)
 }
 
@@ -154,6 +202,12 @@ func (g *Generator) collectMessageRecursive(message *protogen.Message, processed
 // Since each service generates its own OpenAPI file, we can use simple message names
 // without package prefixes to avoid collisions.
 func (g *Generator) getSchemaName(message *protogen.Message) string {
+	if g.bundleMode {
+		// Proto-package-qualified name keeps schema slots unique across services.
+		// e.g. sebuf.test.User -> sebuf_test_User. Built-in error schemas are added
+		// by name directly (they are not protogen.Messages) and are not affected.
+		return strings.ReplaceAll(string(message.Desc.FullName()), ".", "_")
+	}
 	return string(message.Desc.Name())
 }
 
@@ -444,7 +498,7 @@ func (g *Generator) buildNestedOneofVariants(
 			variantProps := orderedmap.New[string, *base.SchemaProxy]()
 			fieldJSONName := variant.Field.Desc.JSONName()
 			if variant.IsMessage {
-				ref := fmt.Sprintf("#/components/schemas/%s", string(variant.Field.Message.Desc.Name()))
+				ref := fmt.Sprintf("#/components/schemas/%s", g.getSchemaName(variant.Field.Message))
 				variantProps.Set(fieldJSONName, base.CreateSchemaProxyRef(ref))
 			} else {
 				variantProps.Set(fieldJSONName, g.convertScalarField(variant.Field))
@@ -466,7 +520,7 @@ func (g *Generator) buildNestedDiscriminator(info *annotations.OneofDiscriminato
 		if variant.IsMessage {
 			mapping.Set(
 				variant.DiscriminatorVal,
-				fmt.Sprintf("#/components/schemas/%s", string(variant.Field.Message.Desc.Name())),
+				fmt.Sprintf("#/components/schemas/%s", g.getSchemaName(variant.Field.Message)),
 			)
 		}
 	}
