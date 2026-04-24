@@ -70,9 +70,9 @@ func (x *FlattenedEvent) MarshalJSON() ([]byte, error) {
 	return json.Marshal(raw)
 }
 
-// UnmarshalJSON implements json.Unmarshaler for FlattenedEvent.
+// UnmarshalJSONSebuf implements sebufUnmarshaler for FlattenedEvent.
 // This method handles oneof discriminator fields: content
-func (x *FlattenedEvent) UnmarshalJSON(data []byte) error {
+func (x *FlattenedEvent) UnmarshalJSONSebuf(data []byte, opts protojson.UnmarshalOptions) error {
 	// Parse into a map to read discriminator fields
 	var raw map[string]json.RawMessage
 	if err := json.Unmarshal(data, &raw); err != nil {
@@ -96,7 +96,13 @@ func (x *FlattenedEvent) UnmarshalJSON(data []byte) error {
 			}
 			variantData, _ := json.Marshal(variantMap)
 			variant := &TextContent{}
-			if err := json.Unmarshal(variantData, variant); err != nil {
+			if u, ok := any(variant).(interface {
+				UnmarshalJSONSebuf([]byte, protojson.UnmarshalOptions) error
+			}); ok {
+				if err := u.UnmarshalJSONSebuf(variantData, opts); err != nil {
+					return fmt.Errorf("failed to unmarshal variant %s: %%w", "Text", err)
+				}
+			} else if err := json.Unmarshal(variantData, variant); err != nil {
 				return fmt.Errorf("failed to unmarshal variant %s: %%w", "Text", err)
 			}
 			x.Content = &FlattenedEvent_Text{Text: variant}
@@ -118,7 +124,13 @@ func (x *FlattenedEvent) UnmarshalJSON(data []byte) error {
 			}
 			variantData, _ := json.Marshal(variantMap)
 			variant := &ImageContent{}
-			if err := json.Unmarshal(variantData, variant); err != nil {
+			if u, ok := any(variant).(interface {
+				UnmarshalJSONSebuf([]byte, protojson.UnmarshalOptions) error
+			}); ok {
+				if err := u.UnmarshalJSONSebuf(variantData, opts); err != nil {
+					return fmt.Errorf("failed to unmarshal variant %s: %%w", "Image", err)
+				}
+			} else if err := json.Unmarshal(variantData, variant); err != nil {
 				return fmt.Errorf("failed to unmarshal variant %s: %%w", "Image", err)
 			}
 			x.Content = &FlattenedEvent_Image{Image: variant}
@@ -135,7 +147,12 @@ func (x *FlattenedEvent) UnmarshalJSON(data []byte) error {
 		return err
 	}
 
-	return protojson.Unmarshal(modified, x)
+	return opts.Unmarshal(modified, x)
+}
+
+// UnmarshalJSON implements json.Unmarshaler for FlattenedEvent.
+func (x *FlattenedEvent) UnmarshalJSON(data []byte) error {
+	return x.UnmarshalJSONSebuf(data, protojson.UnmarshalOptions{})
 }
 
 // MarshalJSON implements json.Marshaler for NestedEvent.
@@ -172,9 +189,9 @@ func (x *NestedEvent) MarshalJSON() ([]byte, error) {
 	return json.Marshal(raw)
 }
 
-// UnmarshalJSON implements json.Unmarshaler for NestedEvent.
+// UnmarshalJSONSebuf implements sebufUnmarshaler for NestedEvent.
 // This method handles oneof discriminator fields: content
-func (x *NestedEvent) UnmarshalJSON(data []byte) error {
+func (x *NestedEvent) UnmarshalJSONSebuf(data []byte, opts protojson.UnmarshalOptions) error {
 	// Parse into a map to read discriminator fields
 	var raw map[string]json.RawMessage
 	if err := json.Unmarshal(data, &raw); err != nil {
@@ -190,28 +207,46 @@ func (x *NestedEvent) UnmarshalJSON(data []byte) error {
 
 		switch disc {
 		case "text":
-			// Non-flattened unmarshal: use json.Unmarshal for child UnmarshalJSON support
+			// Non-flattened unmarshal: forward opts to child's UnmarshalJSONSebuf if available
 			if variantRaw, exists := raw["text"]; exists {
 				variant := &TextContent{}
-				if err := json.Unmarshal(variantRaw, variant); err != nil {
+				if u, ok := any(variant).(interface {
+					UnmarshalJSONSebuf([]byte, protojson.UnmarshalOptions) error
+				}); ok {
+					if err := u.UnmarshalJSONSebuf(variantRaw, opts); err != nil {
+						return fmt.Errorf("failed to unmarshal variant %s: %%w", "Text", err)
+					}
+				} else if err := json.Unmarshal(variantRaw, variant); err != nil {
 					return fmt.Errorf("failed to unmarshal variant %s: %%w", "Text", err)
 				}
 				x.Content = &NestedEvent_Text{Text: variant}
 			}
 		case "image":
-			// Non-flattened unmarshal: use json.Unmarshal for child UnmarshalJSON support
+			// Non-flattened unmarshal: forward opts to child's UnmarshalJSONSebuf if available
 			if variantRaw, exists := raw["image"]; exists {
 				variant := &ImageContent{}
-				if err := json.Unmarshal(variantRaw, variant); err != nil {
+				if u, ok := any(variant).(interface {
+					UnmarshalJSONSebuf([]byte, protojson.UnmarshalOptions) error
+				}); ok {
+					if err := u.UnmarshalJSONSebuf(variantRaw, opts); err != nil {
+						return fmt.Errorf("failed to unmarshal variant %s: %%w", "Image", err)
+					}
+				} else if err := json.Unmarshal(variantRaw, variant); err != nil {
 					return fmt.Errorf("failed to unmarshal variant %s: %%w", "Image", err)
 				}
 				x.Content = &NestedEvent_Image{Image: variant}
 			}
 		case "vid":
-			// Non-flattened unmarshal: use json.Unmarshal for child UnmarshalJSON support
+			// Non-flattened unmarshal: forward opts to child's UnmarshalJSONSebuf if available
 			if variantRaw, exists := raw["video"]; exists {
 				variant := &VideoContent{}
-				if err := json.Unmarshal(variantRaw, variant); err != nil {
+				if u, ok := any(variant).(interface {
+					UnmarshalJSONSebuf([]byte, protojson.UnmarshalOptions) error
+				}); ok {
+					if err := u.UnmarshalJSONSebuf(variantRaw, opts); err != nil {
+						return fmt.Errorf("failed to unmarshal variant %s: %%w", "Video", err)
+					}
+				} else if err := json.Unmarshal(variantRaw, variant); err != nil {
 					return fmt.Errorf("failed to unmarshal variant %s: %%w", "Video", err)
 				}
 				x.Content = &NestedEvent_Video{Video: variant}
@@ -228,5 +263,10 @@ func (x *NestedEvent) UnmarshalJSON(data []byte) error {
 		return err
 	}
 
-	return protojson.Unmarshal(modified, x)
+	return opts.Unmarshal(modified, x)
+}
+
+// UnmarshalJSON implements json.Unmarshaler for NestedEvent.
+func (x *NestedEvent) UnmarshalJSON(data []byte) error {
+	return x.UnmarshalJSONSebuf(data, protojson.UnmarshalOptions{})
 }

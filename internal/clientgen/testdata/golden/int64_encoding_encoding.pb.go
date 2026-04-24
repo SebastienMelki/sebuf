@@ -94,9 +94,9 @@ func (x *Int64EncodingTest) MarshalJSON() ([]byte, error) {
 	return json.Marshal(raw)
 }
 
-// UnmarshalJSON implements json.Unmarshaler for Int64EncodingTest.
+// UnmarshalJSONSebuf implements sebufUnmarshaler for Int64EncodingTest.
 // This method handles int64_encoding=NUMBER fields: number_int64, number_uint64, number_sint64, number_sfixed64, number_fixed64, repeated_number_int64, optional_number_int64, commented_number_int64
-func (x *Int64EncodingTest) UnmarshalJSON(data []byte) error {
+func (x *Int64EncodingTest) UnmarshalJSONSebuf(data []byte, opts protojson.UnmarshalOptions) error {
 	// First, parse the raw JSON to extract NUMBER-encoded fields
 	var raw map[string]json.RawMessage
 	if err := json.Unmarshal(data, &raw); err != nil {
@@ -178,5 +178,10 @@ func (x *Int64EncodingTest) UnmarshalJSON(data []byte) error {
 	}
 
 	// Use protojson to unmarshal the rest
-	return protojson.Unmarshal(modified, x)
+	return opts.Unmarshal(modified, x)
+}
+
+// UnmarshalJSON implements json.Unmarshaler for Int64EncodingTest.
+func (x *Int64EncodingTest) UnmarshalJSON(data []byte) error {
+	return x.UnmarshalJSONSebuf(data, protojson.UnmarshalOptions{})
 }

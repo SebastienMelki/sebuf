@@ -50,9 +50,9 @@ func (x *TimestampFormatTest) MarshalJSON() ([]byte, error) {
 	return json.Marshal(raw)
 }
 
-// UnmarshalJSON implements json.Unmarshaler for TimestampFormatTest.
+// UnmarshalJSONSebuf implements sebufUnmarshaler for TimestampFormatTest.
 // This method handles timestamp_format fields: unix_seconds_ts, unix_millis_ts, date_ts
-func (x *TimestampFormatTest) UnmarshalJSON(data []byte) error {
+func (x *TimestampFormatTest) UnmarshalJSONSebuf(data []byte, opts protojson.UnmarshalOptions) error {
 	// Parse the raw JSON to extract timestamp format fields
 	var raw map[string]json.RawMessage
 	if err := json.Unmarshal(data, &raw); err != nil {
@@ -95,5 +95,10 @@ func (x *TimestampFormatTest) UnmarshalJSON(data []byte) error {
 	}
 
 	// Use protojson to unmarshal the rest
-	return protojson.Unmarshal(modified, x)
+	return opts.Unmarshal(modified, x)
+}
+
+// UnmarshalJSON implements json.Unmarshaler for TimestampFormatTest.
+func (x *TimestampFormatTest) UnmarshalJSON(data []byte) error {
+	return x.UnmarshalJSONSebuf(data, protojson.UnmarshalOptions{})
 }

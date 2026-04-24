@@ -48,9 +48,9 @@ func (x *SimpleFlatten) MarshalJSON() ([]byte, error) {
 	return json.Marshal(raw)
 }
 
-// UnmarshalJSON implements json.Unmarshaler for SimpleFlatten.
+// UnmarshalJSONSebuf implements sebufUnmarshaler for SimpleFlatten.
 // This method handles flatten fields: address
-func (x *SimpleFlatten) UnmarshalJSON(data []byte) error {
+func (x *SimpleFlatten) UnmarshalJSONSebuf(data []byte, opts protojson.UnmarshalOptions) error {
 	var raw map[string]json.RawMessage
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return err
@@ -77,8 +77,14 @@ func (x *SimpleFlatten) UnmarshalJSON(data []byte) error {
 				return childErr
 			}
 			x.Address = &Address{}
-			// Use json.Unmarshal to invoke child's UnmarshalJSON (annotation composability)
-			if childErr = json.Unmarshal(childData, x.Address); childErr != nil {
+			// Forward opts to child's UnmarshalJSONSebuf if available (annotation composability)
+			if u, ok := any(x.Address).(interface {
+				UnmarshalJSONSebuf([]byte, protojson.UnmarshalOptions) error
+			}); ok {
+				if childErr = u.UnmarshalJSONSebuf(childData, opts); childErr != nil {
+					return childErr
+				}
+			} else if childErr = json.Unmarshal(childData, x.Address); childErr != nil {
 				return childErr
 			}
 		}
@@ -90,7 +96,12 @@ func (x *SimpleFlatten) UnmarshalJSON(data []byte) error {
 		return err
 	}
 
-	return protojson.Unmarshal(remaining, x)
+	return opts.Unmarshal(remaining, x)
+}
+
+// UnmarshalJSON implements json.Unmarshaler for SimpleFlatten.
+func (x *SimpleFlatten) UnmarshalJSON(data []byte) error {
+	return x.UnmarshalJSONSebuf(data, protojson.UnmarshalOptions{})
 }
 
 // MarshalJSON implements json.Marshaler for DualFlatten.
@@ -149,9 +160,9 @@ func (x *DualFlatten) MarshalJSON() ([]byte, error) {
 	return json.Marshal(raw)
 }
 
-// UnmarshalJSON implements json.Unmarshaler for DualFlatten.
+// UnmarshalJSONSebuf implements sebufUnmarshaler for DualFlatten.
 // This method handles flatten fields: billing, shipping
-func (x *DualFlatten) UnmarshalJSON(data []byte) error {
+func (x *DualFlatten) UnmarshalJSONSebuf(data []byte, opts protojson.UnmarshalOptions) error {
 	var raw map[string]json.RawMessage
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return err
@@ -178,8 +189,14 @@ func (x *DualFlatten) UnmarshalJSON(data []byte) error {
 				return childErr
 			}
 			x.Billing = &Address{}
-			// Use json.Unmarshal to invoke child's UnmarshalJSON (annotation composability)
-			if childErr = json.Unmarshal(childData, x.Billing); childErr != nil {
+			// Forward opts to child's UnmarshalJSONSebuf if available (annotation composability)
+			if u, ok := any(x.Billing).(interface {
+				UnmarshalJSONSebuf([]byte, protojson.UnmarshalOptions) error
+			}); ok {
+				if childErr = u.UnmarshalJSONSebuf(childData, opts); childErr != nil {
+					return childErr
+				}
+			} else if childErr = json.Unmarshal(childData, x.Billing); childErr != nil {
 				return childErr
 			}
 		}
@@ -206,8 +223,14 @@ func (x *DualFlatten) UnmarshalJSON(data []byte) error {
 				return childErr
 			}
 			x.Shipping = &Address{}
-			// Use json.Unmarshal to invoke child's UnmarshalJSON (annotation composability)
-			if childErr = json.Unmarshal(childData, x.Shipping); childErr != nil {
+			// Forward opts to child's UnmarshalJSONSebuf if available (annotation composability)
+			if u, ok := any(x.Shipping).(interface {
+				UnmarshalJSONSebuf([]byte, protojson.UnmarshalOptions) error
+			}); ok {
+				if childErr = u.UnmarshalJSONSebuf(childData, opts); childErr != nil {
+					return childErr
+				}
+			} else if childErr = json.Unmarshal(childData, x.Shipping); childErr != nil {
 				return childErr
 			}
 		}
@@ -219,7 +242,12 @@ func (x *DualFlatten) UnmarshalJSON(data []byte) error {
 		return err
 	}
 
-	return protojson.Unmarshal(remaining, x)
+	return opts.Unmarshal(remaining, x)
+}
+
+// UnmarshalJSON implements json.Unmarshaler for DualFlatten.
+func (x *DualFlatten) UnmarshalJSON(data []byte) error {
+	return x.UnmarshalJSONSebuf(data, protojson.UnmarshalOptions{})
 }
 
 // MarshalJSON implements json.Marshaler for MixedFlatten.
@@ -261,9 +289,9 @@ func (x *MixedFlatten) MarshalJSON() ([]byte, error) {
 	return json.Marshal(raw)
 }
 
-// UnmarshalJSON implements json.Unmarshaler for MixedFlatten.
+// UnmarshalJSONSebuf implements sebufUnmarshaler for MixedFlatten.
 // This method handles flatten fields: address
-func (x *MixedFlatten) UnmarshalJSON(data []byte) error {
+func (x *MixedFlatten) UnmarshalJSONSebuf(data []byte, opts protojson.UnmarshalOptions) error {
 	var raw map[string]json.RawMessage
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return err
@@ -290,8 +318,14 @@ func (x *MixedFlatten) UnmarshalJSON(data []byte) error {
 				return childErr
 			}
 			x.Address = &Address{}
-			// Use json.Unmarshal to invoke child's UnmarshalJSON (annotation composability)
-			if childErr = json.Unmarshal(childData, x.Address); childErr != nil {
+			// Forward opts to child's UnmarshalJSONSebuf if available (annotation composability)
+			if u, ok := any(x.Address).(interface {
+				UnmarshalJSONSebuf([]byte, protojson.UnmarshalOptions) error
+			}); ok {
+				if childErr = u.UnmarshalJSONSebuf(childData, opts); childErr != nil {
+					return childErr
+				}
+			} else if childErr = json.Unmarshal(childData, x.Address); childErr != nil {
 				return childErr
 			}
 		}
@@ -303,5 +337,10 @@ func (x *MixedFlatten) UnmarshalJSON(data []byte) error {
 		return err
 	}
 
-	return protojson.Unmarshal(remaining, x)
+	return opts.Unmarshal(remaining, x)
+}
+
+// UnmarshalJSON implements json.Unmarshaler for MixedFlatten.
+func (x *MixedFlatten) UnmarshalJSON(data []byte) error {
+	return x.UnmarshalJSONSebuf(data, protojson.UnmarshalOptions{})
 }

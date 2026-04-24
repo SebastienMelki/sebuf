@@ -26,6 +26,12 @@ const (
 	ContentTypeProto = "application/x-protobuf"
 )
 
+// sebufUnmarshaler is implemented by generated messages with custom JSON unmarshaling.
+// It allows passing protojson.UnmarshalOptions (e.g. DiscardUnknown) through custom unmarshalers.
+type sebufUnmarshaler interface {
+	UnmarshalJSONSebuf(data []byte, opts protojson.UnmarshalOptions) error
+}
+
 // SSEServiceClient is the client API for SSEService service.
 type SSEServiceClient interface {
 	GetStatus(ctx context.Context, req *GetStatusRequest, opts ...SSEServiceCallOption) (*StatusResponse, error)
@@ -36,10 +42,11 @@ type SSEServiceClient interface {
 
 // sSEServiceClient is the implementation of SSEServiceClient.
 type sSEServiceClient struct {
-	baseURL        string
-	httpClient     *http.Client
-	contentType    string
-	defaultHeaders map[string]string
+	baseURL              string
+	httpClient           *http.Client
+	contentType          string
+	defaultHeaders       map[string]string
+	discardUnknownFields bool
 }
 
 var _ SSEServiceClient = (*sSEServiceClient)(nil)
@@ -72,13 +79,22 @@ func WithSSEServiceDefaultHeader(key, value string) SSEServiceClientOption {
 	}
 }
 
+// WithSSEServiceDiscardUnknownFields sets whether to discard unknown fields in JSON responses.
+// When true, unknown fields are silently ignored instead of causing unmarshal errors.
+func WithSSEServiceDiscardUnknownFields(discard bool) SSEServiceClientOption {
+	return func(c *sSEServiceClient) {
+		c.discardUnknownFields = discard
+	}
+}
+
 // SSEServiceCallOption configures a single RPC call.
 type SSEServiceCallOption func(*sSEServiceCallOptions)
 
 // sSEServiceCallOptions holds options for a single RPC call.
 type sSEServiceCallOptions struct {
-	headers     map[string]string
-	contentType string
+	headers              map[string]string
+	contentType          string
+	discardUnknownFields *bool
 }
 
 // WithSSEServiceHeader adds a header to a single request.
@@ -95,6 +111,14 @@ func WithSSEServiceHeader(key, value string) SSEServiceCallOption {
 func WithSSEServiceCallContentType(contentType string) SSEServiceCallOption {
 	return func(o *sSEServiceCallOptions) {
 		o.contentType = contentType
+	}
+}
+
+// WithSSEServiceCallDiscardUnknownFields sets whether to discard unknown fields for a single request.
+// Overrides the client-level setting from WithSSEServiceDiscardUnknownFields.
+func WithSSEServiceCallDiscardUnknownFields(discard bool) SSEServiceCallOption {
+	return func(o *sSEServiceCallOptions) {
+		o.discardUnknownFields = &discard
 	}
 }
 
@@ -116,9 +140,10 @@ func NewSSEServiceClient(baseURL string, opts ...SSEServiceClientOption) SSEServ
 
 // SSEServiceEventStream reads Server-Sent Events from a streaming endpoint.
 type SSEServiceEventStream[T proto.Message] struct {
-	resp   *http.Response
-	reader *bufio.Reader
-	err    error
+	resp                 *http.Response
+	reader               *bufio.Reader
+	err                  error
+	discardUnknownFields bool
 }
 
 // Next reads the next event from the stream.
@@ -137,8 +162,17 @@ func (s *SSEServiceEventStream[T]) Next(event T) bool {
 			continue
 		}
 		data := strings.TrimPrefix(line, "data: ")
-		if err := protojson.Unmarshal([]byte(data), event); err != nil {
-			s.err = fmt.Errorf("failed to unmarshal SSE event: %w", err)
+		opts := protojson.UnmarshalOptions{DiscardUnknown: s.discardUnknownFields}
+		var unmarshalErr error
+		if u, ok := any(event).(sebufUnmarshaler); ok {
+			unmarshalErr = u.UnmarshalJSONSebuf([]byte(data), opts)
+		} else if u, ok := any(event).(json.Unmarshaler); ok {
+			unmarshalErr = u.UnmarshalJSON([]byte(data))
+		} else {
+			unmarshalErr = opts.Unmarshal([]byte(data), event)
+		}
+		if unmarshalErr != nil {
+			s.err = fmt.Errorf("failed to unmarshal SSE event: %w", unmarshalErr)
 			return false
 		}
 		return true
@@ -204,9 +238,15 @@ func (c *sSEServiceClient) GetStatus(ctx context.Context, req *GetStatusRequest,
 		return nil, c.handleErrorResponse(resp.StatusCode, respBody, contentType)
 	}
 
+	// Resolve discardUnknownFields: per-call option overrides client default
+	discardUnknown := c.discardUnknownFields
+	if callOpts.discardUnknownFields != nil {
+		discardUnknown = *callOpts.discardUnknownFields
+	}
+
 	// Unmarshal response
 	result := &StatusResponse{}
-	if err := c.unmarshalResponse(respBody, result, contentType); err != nil {
+	if err := c.unmarshalResponse(respBody, result, contentType, discardUnknown); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal response: %w", err)
 	}
 
@@ -261,9 +301,15 @@ func (c *sSEServiceClient) StreamEvents(ctx context.Context, req *StreamEventsRe
 		return nil, c.handleErrorResponse(resp.StatusCode, respBody, contentType)
 	}
 
+	discardUnknown := c.discardUnknownFields
+	if callOpts.discardUnknownFields != nil {
+		discardUnknown = *callOpts.discardUnknownFields
+	}
+
 	return &SSEServiceEventStream[*Event]{
-		resp:   resp,
-		reader: bufio.NewReader(resp.Body),
+		resp:                 resp,
+		reader:               bufio.NewReader(resp.Body),
+		discardUnknownFields: discardUnknown,
 	}, nil
 }
 
@@ -316,9 +362,15 @@ func (c *sSEServiceClient) StreamResourceEvents(ctx context.Context, req *Stream
 		return nil, c.handleErrorResponse(resp.StatusCode, respBody, contentType)
 	}
 
+	discardUnknown := c.discardUnknownFields
+	if callOpts.discardUnknownFields != nil {
+		discardUnknown = *callOpts.discardUnknownFields
+	}
+
 	return &SSEServiceEventStream[*ResourceEvent]{
-		resp:   resp,
-		reader: bufio.NewReader(resp.Body),
+		resp:                 resp,
+		reader:               bufio.NewReader(resp.Body),
+		discardUnknownFields: discardUnknown,
 	}, nil
 }
 
@@ -382,9 +434,15 @@ func (c *sSEServiceClient) StreamFilteredEvents(ctx context.Context, req *Stream
 		return nil, c.handleErrorResponse(resp.StatusCode, respBody, contentType)
 	}
 
+	discardUnknown := c.discardUnknownFields
+	if callOpts.discardUnknownFields != nil {
+		discardUnknown = *callOpts.discardUnknownFields
+	}
+
 	return &SSEServiceEventStream[*Event]{
-		resp:   resp,
-		reader: bufio.NewReader(resp.Body),
+		resp:                 resp,
+		reader:               bufio.NewReader(resp.Body),
+		discardUnknownFields: discardUnknown,
 	}, nil
 }
 
@@ -405,16 +463,18 @@ func (c *sSEServiceClient) marshalRequest(req proto.Message, contentType string)
 
 func (c *sSEServiceClient) handleErrorResponse(statusCode int, body []byte, contentType string) error {
 	// Try to parse as ValidationError first (for 400 errors)
+	// Always use strict mode (false) for error parsing to avoid loose JSON
+	// falsely matching ValidationError or Error types.
 	if statusCode == http.StatusBadRequest {
 		validationErr := &sebufhttp.ValidationError{}
-		if unmarshalErr := c.unmarshalResponse(body, validationErr, contentType); unmarshalErr == nil {
+		if unmarshalErr := c.unmarshalResponse(body, validationErr, contentType, false); unmarshalErr == nil {
 			return validationErr
 		}
 	}
 
 	// Try to parse as generic Error
 	genericErr := &sebufhttp.Error{}
-	if unmarshalErr := c.unmarshalResponse(body, genericErr, contentType); unmarshalErr == nil {
+	if unmarshalErr := c.unmarshalResponse(body, genericErr, contentType, false); unmarshalErr == nil {
 		return genericErr
 	}
 
@@ -422,21 +482,27 @@ func (c *sSEServiceClient) handleErrorResponse(statusCode int, body []byte, cont
 	return fmt.Errorf("request failed with status %d: %s", statusCode, string(body))
 }
 
-func (c *sSEServiceClient) unmarshalResponse(body []byte, msg proto.Message, contentType string) error {
+func (c *sSEServiceClient) unmarshalResponse(body []byte, msg proto.Message, contentType string, discardUnknown bool) error {
 	if len(body) == 0 {
 		return nil
 	}
 
+	opts := protojson.UnmarshalOptions{DiscardUnknown: discardUnknown}
+
 	switch contentType {
 	case ContentTypeJSON:
-		// Check for custom JSON unmarshaler (unwrap support)
-		if unmarshaler, ok := msg.(json.Unmarshaler); ok {
-			return unmarshaler.UnmarshalJSON(body)
+		// Check for sebuf-generated custom unmarshaler (passes options through)
+		if u, ok := msg.(sebufUnmarshaler); ok {
+			return u.UnmarshalJSONSebuf(body, opts)
 		}
-		return protojson.Unmarshal(body, msg)
+		// Check for third-party json.Unmarshaler (best effort, cannot pass options)
+		if u, ok := msg.(json.Unmarshaler); ok {
+			return u.UnmarshalJSON(body)
+		}
+		return opts.Unmarshal(body, msg)
 	case ContentTypeProto:
 		return proto.Unmarshal(body, msg)
 	default:
-		return protojson.Unmarshal(body, msg)
+		return opts.Unmarshal(body, msg)
 	}
 }

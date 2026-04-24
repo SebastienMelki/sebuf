@@ -25,6 +25,12 @@ const (
 	ContentTypeProto = "application/x-protobuf"
 )
 
+// sebufUnmarshaler is implemented by generated messages with custom JSON unmarshaling.
+// It allows passing protojson.UnmarshalOptions (e.g. DiscardUnknown) through custom unmarshalers.
+type sebufUnmarshaler interface {
+	UnmarshalJSONSebuf(data []byte, opts protojson.UnmarshalOptions) error
+}
+
 // OptionDataServiceClient is the client API for OptionDataService service.
 type OptionDataServiceClient interface {
 	GetOptionBars(ctx context.Context, req *GetOptionBarsRequest, opts ...OptionDataServiceCallOption) (*GetOptionBarsResponse, error)
@@ -32,10 +38,11 @@ type OptionDataServiceClient interface {
 
 // optionDataServiceClient is the implementation of OptionDataServiceClient.
 type optionDataServiceClient struct {
-	baseURL        string
-	httpClient     *http.Client
-	contentType    string
-	defaultHeaders map[string]string
+	baseURL              string
+	httpClient           *http.Client
+	contentType          string
+	defaultHeaders       map[string]string
+	discardUnknownFields bool
 }
 
 var _ OptionDataServiceClient = (*optionDataServiceClient)(nil)
@@ -68,13 +75,22 @@ func WithOptionDataServiceDefaultHeader(key, value string) OptionDataServiceClie
 	}
 }
 
+// WithOptionDataServiceDiscardUnknownFields sets whether to discard unknown fields in JSON responses.
+// When true, unknown fields are silently ignored instead of causing unmarshal errors.
+func WithOptionDataServiceDiscardUnknownFields(discard bool) OptionDataServiceClientOption {
+	return func(c *optionDataServiceClient) {
+		c.discardUnknownFields = discard
+	}
+}
+
 // OptionDataServiceCallOption configures a single RPC call.
 type OptionDataServiceCallOption func(*optionDataServiceCallOptions)
 
 // optionDataServiceCallOptions holds options for a single RPC call.
 type optionDataServiceCallOptions struct {
-	headers     map[string]string
-	contentType string
+	headers              map[string]string
+	contentType          string
+	discardUnknownFields *bool
 }
 
 // WithOptionDataServiceHeader adds a header to a single request.
@@ -91,6 +107,14 @@ func WithOptionDataServiceHeader(key, value string) OptionDataServiceCallOption 
 func WithOptionDataServiceCallContentType(contentType string) OptionDataServiceCallOption {
 	return func(o *optionDataServiceCallOptions) {
 		o.contentType = contentType
+	}
+}
+
+// WithOptionDataServiceCallDiscardUnknownFields sets whether to discard unknown fields for a single request.
+// Overrides the client-level setting from WithOptionDataServiceDiscardUnknownFields.
+func WithOptionDataServiceCallDiscardUnknownFields(discard bool) OptionDataServiceCallOption {
+	return func(o *optionDataServiceCallOptions) {
+		o.discardUnknownFields = &discard
 	}
 }
 
@@ -165,9 +189,15 @@ func (c *optionDataServiceClient) GetOptionBars(ctx context.Context, req *GetOpt
 		return nil, c.handleErrorResponse(resp.StatusCode, respBody, contentType)
 	}
 
+	// Resolve discardUnknownFields: per-call option overrides client default
+	discardUnknown := c.discardUnknownFields
+	if callOpts.discardUnknownFields != nil {
+		discardUnknown = *callOpts.discardUnknownFields
+	}
+
 	// Unmarshal response
 	result := &GetOptionBarsResponse{}
-	if err := c.unmarshalResponse(respBody, result, contentType); err != nil {
+	if err := c.unmarshalResponse(respBody, result, contentType, discardUnknown); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal response: %w", err)
 	}
 
@@ -191,16 +221,18 @@ func (c *optionDataServiceClient) marshalRequest(req proto.Message, contentType 
 
 func (c *optionDataServiceClient) handleErrorResponse(statusCode int, body []byte, contentType string) error {
 	// Try to parse as ValidationError first (for 400 errors)
+	// Always use strict mode (false) for error parsing to avoid loose JSON
+	// falsely matching ValidationError or Error types.
 	if statusCode == http.StatusBadRequest {
 		validationErr := &sebufhttp.ValidationError{}
-		if unmarshalErr := c.unmarshalResponse(body, validationErr, contentType); unmarshalErr == nil {
+		if unmarshalErr := c.unmarshalResponse(body, validationErr, contentType, false); unmarshalErr == nil {
 			return validationErr
 		}
 	}
 
 	// Try to parse as generic Error
 	genericErr := &sebufhttp.Error{}
-	if unmarshalErr := c.unmarshalResponse(body, genericErr, contentType); unmarshalErr == nil {
+	if unmarshalErr := c.unmarshalResponse(body, genericErr, contentType, false); unmarshalErr == nil {
 		return genericErr
 	}
 
@@ -208,22 +240,28 @@ func (c *optionDataServiceClient) handleErrorResponse(statusCode int, body []byt
 	return fmt.Errorf("request failed with status %d: %s", statusCode, string(body))
 }
 
-func (c *optionDataServiceClient) unmarshalResponse(body []byte, msg proto.Message, contentType string) error {
+func (c *optionDataServiceClient) unmarshalResponse(body []byte, msg proto.Message, contentType string, discardUnknown bool) error {
 	if len(body) == 0 {
 		return nil
 	}
 
+	opts := protojson.UnmarshalOptions{DiscardUnknown: discardUnknown}
+
 	switch contentType {
 	case ContentTypeJSON:
-		// Check for custom JSON unmarshaler (unwrap support)
-		if unmarshaler, ok := msg.(json.Unmarshaler); ok {
-			return unmarshaler.UnmarshalJSON(body)
+		// Check for sebuf-generated custom unmarshaler (passes options through)
+		if u, ok := msg.(sebufUnmarshaler); ok {
+			return u.UnmarshalJSONSebuf(body, opts)
 		}
-		return protojson.Unmarshal(body, msg)
+		// Check for third-party json.Unmarshaler (best effort, cannot pass options)
+		if u, ok := msg.(json.Unmarshaler); ok {
+			return u.UnmarshalJSON(body)
+		}
+		return opts.Unmarshal(body, msg)
 	case ContentTypeProto:
 		return proto.Unmarshal(body, msg)
 	default:
-		return protojson.Unmarshal(body, msg)
+		return opts.Unmarshal(body, msg)
 	}
 }
 
@@ -237,10 +275,11 @@ type UnwrapServiceClient interface {
 
 // unwrapServiceClient is the implementation of UnwrapServiceClient.
 type unwrapServiceClient struct {
-	baseURL        string
-	httpClient     *http.Client
-	contentType    string
-	defaultHeaders map[string]string
+	baseURL              string
+	httpClient           *http.Client
+	contentType          string
+	defaultHeaders       map[string]string
+	discardUnknownFields bool
 }
 
 var _ UnwrapServiceClient = (*unwrapServiceClient)(nil)
@@ -273,13 +312,22 @@ func WithUnwrapServiceDefaultHeader(key, value string) UnwrapServiceClientOption
 	}
 }
 
+// WithUnwrapServiceDiscardUnknownFields sets whether to discard unknown fields in JSON responses.
+// When true, unknown fields are silently ignored instead of causing unmarshal errors.
+func WithUnwrapServiceDiscardUnknownFields(discard bool) UnwrapServiceClientOption {
+	return func(c *unwrapServiceClient) {
+		c.discardUnknownFields = discard
+	}
+}
+
 // UnwrapServiceCallOption configures a single RPC call.
 type UnwrapServiceCallOption func(*unwrapServiceCallOptions)
 
 // unwrapServiceCallOptions holds options for a single RPC call.
 type unwrapServiceCallOptions struct {
-	headers     map[string]string
-	contentType string
+	headers              map[string]string
+	contentType          string
+	discardUnknownFields *bool
 }
 
 // WithUnwrapServiceHeader adds a header to a single request.
@@ -296,6 +344,14 @@ func WithUnwrapServiceHeader(key, value string) UnwrapServiceCallOption {
 func WithUnwrapServiceCallContentType(contentType string) UnwrapServiceCallOption {
 	return func(o *unwrapServiceCallOptions) {
 		o.contentType = contentType
+	}
+}
+
+// WithUnwrapServiceCallDiscardUnknownFields sets whether to discard unknown fields for a single request.
+// Overrides the client-level setting from WithUnwrapServiceDiscardUnknownFields.
+func WithUnwrapServiceCallDiscardUnknownFields(discard bool) UnwrapServiceCallOption {
+	return func(o *unwrapServiceCallOptions) {
+		o.discardUnknownFields = &discard
 	}
 }
 
@@ -370,9 +426,15 @@ func (c *unwrapServiceClient) GetOptionBars(ctx context.Context, req *GetOptionB
 		return nil, c.handleErrorResponse(resp.StatusCode, respBody, contentType)
 	}
 
+	// Resolve discardUnknownFields: per-call option overrides client default
+	discardUnknown := c.discardUnknownFields
+	if callOpts.discardUnknownFields != nil {
+		discardUnknown = *callOpts.discardUnknownFields
+	}
+
 	// Unmarshal response
 	result := &GetOptionBarsResponse{}
-	if err := c.unmarshalResponse(respBody, result, contentType); err != nil {
+	if err := c.unmarshalResponse(respBody, result, contentType, discardUnknown); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal response: %w", err)
 	}
 
@@ -434,9 +496,15 @@ func (c *unwrapServiceClient) GetRootMap(ctx context.Context, req *GetOptionBars
 		return nil, c.handleErrorResponse(resp.StatusCode, respBody, contentType)
 	}
 
+	// Resolve discardUnknownFields: per-call option overrides client default
+	discardUnknown := c.discardUnknownFields
+	if callOpts.discardUnknownFields != nil {
+		discardUnknown = *callOpts.discardUnknownFields
+	}
+
 	// Unmarshal response
 	result := &RootMapResponse{}
-	if err := c.unmarshalResponse(respBody, result, contentType); err != nil {
+	if err := c.unmarshalResponse(respBody, result, contentType, discardUnknown); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal response: %w", err)
 	}
 
@@ -498,9 +566,15 @@ func (c *unwrapServiceClient) GetRootRepeated(ctx context.Context, req *GetOptio
 		return nil, c.handleErrorResponse(resp.StatusCode, respBody, contentType)
 	}
 
+	// Resolve discardUnknownFields: per-call option overrides client default
+	discardUnknown := c.discardUnknownFields
+	if callOpts.discardUnknownFields != nil {
+		discardUnknown = *callOpts.discardUnknownFields
+	}
+
 	// Unmarshal response
 	result := &RootRepeatedResponse{}
-	if err := c.unmarshalResponse(respBody, result, contentType); err != nil {
+	if err := c.unmarshalResponse(respBody, result, contentType, discardUnknown); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal response: %w", err)
 	}
 
@@ -562,9 +636,15 @@ func (c *unwrapServiceClient) GetRootMapWithValueUnwrap(ctx context.Context, req
 		return nil, c.handleErrorResponse(resp.StatusCode, respBody, contentType)
 	}
 
+	// Resolve discardUnknownFields: per-call option overrides client default
+	discardUnknown := c.discardUnknownFields
+	if callOpts.discardUnknownFields != nil {
+		discardUnknown = *callOpts.discardUnknownFields
+	}
+
 	// Unmarshal response
 	result := &RootMapWithValueUnwrapResponse{}
-	if err := c.unmarshalResponse(respBody, result, contentType); err != nil {
+	if err := c.unmarshalResponse(respBody, result, contentType, discardUnknown); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal response: %w", err)
 	}
 
@@ -588,16 +668,18 @@ func (c *unwrapServiceClient) marshalRequest(req proto.Message, contentType stri
 
 func (c *unwrapServiceClient) handleErrorResponse(statusCode int, body []byte, contentType string) error {
 	// Try to parse as ValidationError first (for 400 errors)
+	// Always use strict mode (false) for error parsing to avoid loose JSON
+	// falsely matching ValidationError or Error types.
 	if statusCode == http.StatusBadRequest {
 		validationErr := &sebufhttp.ValidationError{}
-		if unmarshalErr := c.unmarshalResponse(body, validationErr, contentType); unmarshalErr == nil {
+		if unmarshalErr := c.unmarshalResponse(body, validationErr, contentType, false); unmarshalErr == nil {
 			return validationErr
 		}
 	}
 
 	// Try to parse as generic Error
 	genericErr := &sebufhttp.Error{}
-	if unmarshalErr := c.unmarshalResponse(body, genericErr, contentType); unmarshalErr == nil {
+	if unmarshalErr := c.unmarshalResponse(body, genericErr, contentType, false); unmarshalErr == nil {
 		return genericErr
 	}
 
@@ -605,21 +687,27 @@ func (c *unwrapServiceClient) handleErrorResponse(statusCode int, body []byte, c
 	return fmt.Errorf("request failed with status %d: %s", statusCode, string(body))
 }
 
-func (c *unwrapServiceClient) unmarshalResponse(body []byte, msg proto.Message, contentType string) error {
+func (c *unwrapServiceClient) unmarshalResponse(body []byte, msg proto.Message, contentType string, discardUnknown bool) error {
 	if len(body) == 0 {
 		return nil
 	}
 
+	opts := protojson.UnmarshalOptions{DiscardUnknown: discardUnknown}
+
 	switch contentType {
 	case ContentTypeJSON:
-		// Check for custom JSON unmarshaler (unwrap support)
-		if unmarshaler, ok := msg.(json.Unmarshaler); ok {
-			return unmarshaler.UnmarshalJSON(body)
+		// Check for sebuf-generated custom unmarshaler (passes options through)
+		if u, ok := msg.(sebufUnmarshaler); ok {
+			return u.UnmarshalJSONSebuf(body, opts)
 		}
-		return protojson.Unmarshal(body, msg)
+		// Check for third-party json.Unmarshaler (best effort, cannot pass options)
+		if u, ok := msg.(json.Unmarshaler); ok {
+			return u.UnmarshalJSON(body)
+		}
+		return opts.Unmarshal(body, msg)
 	case ContentTypeProto:
 		return proto.Unmarshal(body, msg)
 	default:
-		return protojson.Unmarshal(body, msg)
+		return opts.Unmarshal(body, msg)
 	}
 }

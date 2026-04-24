@@ -260,9 +260,9 @@ func (g *Generator) generateFlattenUnmarshalJSON(gf *protogen.GeneratedFile, ctx
 		fieldNames = append(fieldNames, string(info.Field.Desc.Name()))
 	}
 
-	gf.P("// UnmarshalJSON implements json.Unmarshaler for ", msgName, ".")
+	gf.P("// UnmarshalJSONSebuf implements sebufUnmarshaler for ", msgName, ".")
 	gf.P("// This method handles flatten fields: ", strings.Join(fieldNames, ", "))
-	gf.P("func (x *", msgName, ") UnmarshalJSON(data []byte) error {")
+	gf.P("func (x *", msgName, ") UnmarshalJSONSebuf(data []byte, opts protojson.UnmarshalOptions) error {")
 	gf.P("var raw map[string]json.RawMessage")
 	gf.P("if err := json.Unmarshal(data, &raw); err != nil {")
 	gf.P("return err")
@@ -279,7 +279,14 @@ func (g *Generator) generateFlattenUnmarshalJSON(gf *protogen.GeneratedFile, ctx
 	gf.P("return err")
 	gf.P("}")
 	gf.P()
-	gf.P("return protojson.Unmarshal(remaining, x)")
+	gf.P("return opts.Unmarshal(remaining, x)")
+	gf.P("}")
+	gf.P()
+
+	// Backward-compatible UnmarshalJSON wrapper for stdlib encoding/json
+	gf.P("// UnmarshalJSON implements json.Unmarshaler for ", msgName, ".")
+	gf.P("func (x *", msgName, ") UnmarshalJSON(data []byte) error {")
+	gf.P("return x.UnmarshalJSONSebuf(data, protojson.UnmarshalOptions{})")
 	gf.P("}")
 	gf.P()
 }
@@ -319,8 +326,12 @@ func (g *Generator) generateFlattenFieldUnmarshal(gf *protogen.GeneratedFile, in
 	gf.P("return childErr")
 	gf.P("}")
 	gf.P("x.", goName, " = &", childTypeName, "{}")
-	gf.P("// Use json.Unmarshal to invoke child's UnmarshalJSON (annotation composability)")
-	gf.P("if childErr = json.Unmarshal(childData, x.", goName, "); childErr != nil {")
+	gf.P("// Forward opts to child's UnmarshalJSONSebuf if available (annotation composability)")
+	gf.P("if u, ok := any(x.", goName, ").(interface{ UnmarshalJSONSebuf([]byte, protojson.UnmarshalOptions) error }); ok {")
+	gf.P("if childErr = u.UnmarshalJSONSebuf(childData, opts); childErr != nil {")
+	gf.P("return childErr")
+	gf.P("}")
+	gf.P("} else if childErr = json.Unmarshal(childData, x.", goName, "); childErr != nil {")
 	gf.P("return childErr")
 	gf.P("}")
 	gf.P("}")

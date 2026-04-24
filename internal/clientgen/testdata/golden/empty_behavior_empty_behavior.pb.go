@@ -56,9 +56,9 @@ func (x *Response) MarshalJSON() ([]byte, error) {
 	return json.Marshal(raw)
 }
 
-// UnmarshalJSON implements json.Unmarshaler for Response.
+// UnmarshalJSONSebuf implements sebufUnmarshaler for Response.
 // This method handles empty_behavior fields: metadata_preserve, metadata_null, metadata_omit, settings
-func (x *Response) UnmarshalJSON(data []byte) error {
+func (x *Response) UnmarshalJSONSebuf(data []byte, opts protojson.UnmarshalOptions) error {
 	// Parse to check for explicit null values on empty_behavior=NULL fields
 	var raw map[string]json.RawMessage
 	if err := json.Unmarshal(data, &raw); err != nil {
@@ -81,5 +81,10 @@ func (x *Response) UnmarshalJSON(data []byte) error {
 		return err
 	}
 
-	return protojson.Unmarshal(modified, x)
+	return opts.Unmarshal(modified, x)
+}
+
+// UnmarshalJSON implements json.Unmarshaler for Response.
+func (x *Response) UnmarshalJSON(data []byte) error {
+	return x.UnmarshalJSONSebuf(data, protojson.UnmarshalOptions{})
 }
