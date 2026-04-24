@@ -265,9 +265,9 @@ func (g *Generator) generateOneofUnmarshalJSON(gf *protogen.GeneratedFile, ctx *
 		oneofNames = append(oneofNames, string(info.Oneof.Desc.Name()))
 	}
 
-	gf.P("// UnmarshalJSON implements json.Unmarshaler for ", msgName, ".")
+	gf.P("// UnmarshalJSONSebuf implements sebufUnmarshaler for ", msgName, ".")
 	gf.P("// This method handles oneof discriminator fields: ", strings.Join(oneofNames, ", "))
-	gf.P("func (x *", msgName, ") UnmarshalJSON(data []byte) error {")
+	gf.P("func (x *", msgName, ") UnmarshalJSONSebuf(data []byte, opts protojson.UnmarshalOptions) error {")
 	gf.P("// Parse into a map to read discriminator fields")
 	gf.P("var raw map[string]json.RawMessage")
 	gf.P("if err := json.Unmarshal(data, &raw); err != nil {")
@@ -291,7 +291,14 @@ func (g *Generator) generateOneofUnmarshalJSON(gf *protogen.GeneratedFile, ctx *
 	gf.P("return err")
 	gf.P("}")
 	gf.P()
-	gf.P("return protojson.Unmarshal(modified, x)")
+	gf.P("return opts.Unmarshal(modified, x)")
+	gf.P("}")
+	gf.P()
+
+	// Backward-compatible UnmarshalJSON wrapper for stdlib encoding/json
+	gf.P("// UnmarshalJSON implements json.Unmarshaler for ", msgName, ".")
+	gf.P("func (x *", msgName, ") UnmarshalJSON(data []byte) error {")
+	gf.P("return x.UnmarshalJSONSebuf(data, protojson.UnmarshalOptions{})")
 	gf.P("}")
 	gf.P()
 }
@@ -360,7 +367,11 @@ func (g *Generator) generateFlattenedUnmarshal(
 
 	gf.P("variantData, _ := json.Marshal(variantMap)")
 	gf.P("variant := &", msgType, "{}")
-	gf.P("if err := json.Unmarshal(variantData, variant); err != nil {")
+	gf.P("if u, ok := any(variant).(interface{ UnmarshalJSONSebuf([]byte, protojson.UnmarshalOptions) error }); ok {")
+	gf.P("if err := u.UnmarshalJSONSebuf(variantData, opts); err != nil {")
+	gf.P(`return fmt.Errorf("failed to unmarshal variant %s: %%w", "`, fieldGoName, `", err)`)
+	gf.P("}")
+	gf.P("} else if err := json.Unmarshal(variantData, variant); err != nil {")
 	gf.P(`return fmt.Errorf("failed to unmarshal variant %s: %%w", "`, fieldGoName, `", err)`)
 	gf.P("}")
 	gf.P("x.", info.Oneof.GoName, " = &", wrapperType, "{", fieldGoName, ": variant}")
@@ -383,10 +394,14 @@ func (g *Generator) generateNestedUnmarshal(
 	wrapperType := variant.Field.GoIdent.GoName
 	msgType := variant.Field.Message.GoIdent.GoName
 
-	gf.P("// Non-flattened unmarshal: use json.Unmarshal for child UnmarshalJSON support")
+	gf.P("// Non-flattened unmarshal: forward opts to child's UnmarshalJSONSebuf if available")
 	gf.P(`if variantRaw, exists := raw["`, fieldJSONName, `"]; exists {`)
 	gf.P("variant := &", msgType, "{}")
-	gf.P("if err := json.Unmarshal(variantRaw, variant); err != nil {")
+	gf.P("if u, ok := any(variant).(interface{ UnmarshalJSONSebuf([]byte, protojson.UnmarshalOptions) error }); ok {")
+	gf.P("if err := u.UnmarshalJSONSebuf(variantRaw, opts); err != nil {")
+	gf.P(`return fmt.Errorf("failed to unmarshal variant %s: %%w", "`, fieldGoName, `", err)`)
+	gf.P("}")
+	gf.P("} else if err := json.Unmarshal(variantRaw, variant); err != nil {")
 	gf.P(`return fmt.Errorf("failed to unmarshal variant %s: %%w", "`, fieldGoName, `", err)`)
 	gf.P("}")
 	gf.P("x.", info.Oneof.GoName, " = &", wrapperType, "{", fieldGoName, ": variant}")

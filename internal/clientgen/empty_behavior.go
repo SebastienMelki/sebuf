@@ -221,9 +221,9 @@ func (g *Generator) generateEmptyBehaviorUnmarshalJSON(gf *protogen.GeneratedFil
 		fieldNames = append(fieldNames, string(f.Field.Desc.Name()))
 	}
 
-	gf.P("// UnmarshalJSON implements json.Unmarshaler for ", msgName, ".")
+	gf.P("// UnmarshalJSONSebuf implements sebufUnmarshaler for ", msgName, ".")
 	gf.P("// This method handles empty_behavior fields: ", strings.Join(fieldNames, ", "))
-	gf.P("func (x *", msgName, ") UnmarshalJSON(data []byte) error {")
+	gf.P("func (x *", msgName, ") UnmarshalJSONSebuf(data []byte, opts protojson.UnmarshalOptions) error {")
 	gf.P("// Parse to check for explicit null values on empty_behavior=NULL fields")
 	gf.P("var raw map[string]json.RawMessage")
 	gf.P("if err := json.Unmarshal(data, &raw); err != nil {")
@@ -251,7 +251,14 @@ func (g *Generator) generateEmptyBehaviorUnmarshalJSON(gf *protogen.GeneratedFil
 	gf.P("return err")
 	gf.P("}")
 	gf.P()
-	gf.P("return protojson.Unmarshal(modified, x)")
+	gf.P("return opts.Unmarshal(modified, x)")
+	gf.P("}")
+	gf.P()
+
+	// Backward-compatible UnmarshalJSON wrapper for stdlib encoding/json
+	gf.P("// UnmarshalJSON implements json.Unmarshaler for ", msgName, ".")
+	gf.P("func (x *", msgName, ") UnmarshalJSON(data []byte) error {")
+	gf.P("return x.UnmarshalJSONSebuf(data, protojson.UnmarshalOptions{})")
 	gf.P("}")
 	gf.P()
 }

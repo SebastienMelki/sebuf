@@ -26,6 +26,12 @@ const (
 	ContentTypeProto = "application/x-protobuf"
 )
 
+// sebufUnmarshaler is implemented by generated messages with custom JSON unmarshaling.
+// It allows passing protojson.UnmarshalOptions (e.g. DiscardUnknown) through custom unmarshalers.
+type sebufUnmarshaler interface {
+	UnmarshalJSONSebuf(data []byte, opts protojson.UnmarshalOptions) error
+}
+
 // NullableServiceClient is the client API for NullableService service.
 type NullableServiceClient interface {
 	GetUser(ctx context.Context, req *GetUserRequest, opts ...NullableServiceCallOption) (*User, error)
@@ -34,10 +40,11 @@ type NullableServiceClient interface {
 
 // nullableServiceClient is the implementation of NullableServiceClient.
 type nullableServiceClient struct {
-	baseURL        string
-	httpClient     *http.Client
-	contentType    string
-	defaultHeaders map[string]string
+	baseURL              string
+	httpClient           *http.Client
+	contentType          string
+	defaultHeaders       map[string]string
+	discardUnknownFields bool
 }
 
 var _ NullableServiceClient = (*nullableServiceClient)(nil)
@@ -70,13 +77,22 @@ func WithNullableServiceDefaultHeader(key, value string) NullableServiceClientOp
 	}
 }
 
+// WithNullableServiceDiscardUnknownFields sets whether to discard unknown fields in JSON responses.
+// When true, unknown fields are silently ignored instead of causing unmarshal errors.
+func WithNullableServiceDiscardUnknownFields(discard bool) NullableServiceClientOption {
+	return func(c *nullableServiceClient) {
+		c.discardUnknownFields = discard
+	}
+}
+
 // NullableServiceCallOption configures a single RPC call.
 type NullableServiceCallOption func(*nullableServiceCallOptions)
 
 // nullableServiceCallOptions holds options for a single RPC call.
 type nullableServiceCallOptions struct {
-	headers     map[string]string
-	contentType string
+	headers              map[string]string
+	contentType          string
+	discardUnknownFields *bool
 }
 
 // WithNullableServiceHeader adds a header to a single request.
@@ -93,6 +109,14 @@ func WithNullableServiceHeader(key, value string) NullableServiceCallOption {
 func WithNullableServiceCallContentType(contentType string) NullableServiceCallOption {
 	return func(o *nullableServiceCallOptions) {
 		o.contentType = contentType
+	}
+}
+
+// WithNullableServiceCallDiscardUnknownFields sets whether to discard unknown fields for a single request.
+// Overrides the client-level setting from WithNullableServiceDiscardUnknownFields.
+func WithNullableServiceCallDiscardUnknownFields(discard bool) NullableServiceCallOption {
+	return func(o *nullableServiceCallOptions) {
+		o.discardUnknownFields = &discard
 	}
 }
 
@@ -162,9 +186,15 @@ func (c *nullableServiceClient) GetUser(ctx context.Context, req *GetUserRequest
 		return nil, c.handleErrorResponse(resp.StatusCode, respBody, contentType)
 	}
 
+	// Resolve discardUnknownFields: per-call option overrides client default
+	discardUnknown := c.discardUnknownFields
+	if callOpts.discardUnknownFields != nil {
+		discardUnknown = *callOpts.discardUnknownFields
+	}
+
 	// Unmarshal response
 	result := &User{}
-	if err := c.unmarshalResponse(respBody, result, contentType); err != nil {
+	if err := c.unmarshalResponse(respBody, result, contentType, discardUnknown); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal response: %w", err)
 	}
 
@@ -227,9 +257,15 @@ func (c *nullableServiceClient) UpdateUser(ctx context.Context, req *UpdateUserR
 		return nil, c.handleErrorResponse(resp.StatusCode, respBody, contentType)
 	}
 
+	// Resolve discardUnknownFields: per-call option overrides client default
+	discardUnknown := c.discardUnknownFields
+	if callOpts.discardUnknownFields != nil {
+		discardUnknown = *callOpts.discardUnknownFields
+	}
+
 	// Unmarshal response
 	result := &User{}
-	if err := c.unmarshalResponse(respBody, result, contentType); err != nil {
+	if err := c.unmarshalResponse(respBody, result, contentType, discardUnknown); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal response: %w", err)
 	}
 
@@ -253,16 +289,18 @@ func (c *nullableServiceClient) marshalRequest(req proto.Message, contentType st
 
 func (c *nullableServiceClient) handleErrorResponse(statusCode int, body []byte, contentType string) error {
 	// Try to parse as ValidationError first (for 400 errors)
+	// Always use strict mode (false) for error parsing to avoid loose JSON
+	// falsely matching ValidationError or Error types.
 	if statusCode == http.StatusBadRequest {
 		validationErr := &sebufhttp.ValidationError{}
-		if unmarshalErr := c.unmarshalResponse(body, validationErr, contentType); unmarshalErr == nil {
+		if unmarshalErr := c.unmarshalResponse(body, validationErr, contentType, false); unmarshalErr == nil {
 			return validationErr
 		}
 	}
 
 	// Try to parse as generic Error
 	genericErr := &sebufhttp.Error{}
-	if unmarshalErr := c.unmarshalResponse(body, genericErr, contentType); unmarshalErr == nil {
+	if unmarshalErr := c.unmarshalResponse(body, genericErr, contentType, false); unmarshalErr == nil {
 		return genericErr
 	}
 
@@ -270,21 +308,27 @@ func (c *nullableServiceClient) handleErrorResponse(statusCode int, body []byte,
 	return fmt.Errorf("request failed with status %d: %s", statusCode, string(body))
 }
 
-func (c *nullableServiceClient) unmarshalResponse(body []byte, msg proto.Message, contentType string) error {
+func (c *nullableServiceClient) unmarshalResponse(body []byte, msg proto.Message, contentType string, discardUnknown bool) error {
 	if len(body) == 0 {
 		return nil
 	}
 
+	opts := protojson.UnmarshalOptions{DiscardUnknown: discardUnknown}
+
 	switch contentType {
 	case ContentTypeJSON:
-		// Check for custom JSON unmarshaler (unwrap support)
-		if unmarshaler, ok := msg.(json.Unmarshaler); ok {
-			return unmarshaler.UnmarshalJSON(body)
+		// Check for sebuf-generated custom unmarshaler (passes options through)
+		if u, ok := msg.(sebufUnmarshaler); ok {
+			return u.UnmarshalJSONSebuf(body, opts)
 		}
-		return protojson.Unmarshal(body, msg)
+		// Check for third-party json.Unmarshaler (best effort, cannot pass options)
+		if u, ok := msg.(json.Unmarshaler); ok {
+			return u.UnmarshalJSON(body)
+		}
+		return opts.Unmarshal(body, msg)
 	case ContentTypeProto:
 		return proto.Unmarshal(body, msg)
 	default:
-		return protojson.Unmarshal(body, msg)
+		return opts.Unmarshal(body, msg)
 	}
 }

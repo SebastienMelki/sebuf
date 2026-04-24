@@ -26,6 +26,12 @@ const (
 	ContentTypeProto = "application/x-protobuf"
 )
 
+// sebufUnmarshaler is implemented by generated messages with custom JSON unmarshaling.
+// It allows passing protojson.UnmarshalOptions (e.g. DiscardUnknown) through custom unmarshalers.
+type sebufUnmarshaler interface {
+	UnmarshalJSONSebuf(data []byte, opts protojson.UnmarshalOptions) error
+}
+
 // TimestampFormatServiceClient is the client API for TimestampFormatService service.
 type TimestampFormatServiceClient interface {
 	CreateTimestampFormat(ctx context.Context, req *TimestampFormatTest, opts ...TimestampFormatServiceCallOption) (*TimestampFormatTest, error)
@@ -34,10 +40,11 @@ type TimestampFormatServiceClient interface {
 
 // timestampFormatServiceClient is the implementation of TimestampFormatServiceClient.
 type timestampFormatServiceClient struct {
-	baseURL        string
-	httpClient     *http.Client
-	contentType    string
-	defaultHeaders map[string]string
+	baseURL              string
+	httpClient           *http.Client
+	contentType          string
+	defaultHeaders       map[string]string
+	discardUnknownFields bool
 }
 
 var _ TimestampFormatServiceClient = (*timestampFormatServiceClient)(nil)
@@ -70,13 +77,22 @@ func WithTimestampFormatServiceDefaultHeader(key, value string) TimestampFormatS
 	}
 }
 
+// WithTimestampFormatServiceDiscardUnknownFields sets whether to discard unknown fields in JSON responses.
+// When true, unknown fields are silently ignored instead of causing unmarshal errors.
+func WithTimestampFormatServiceDiscardUnknownFields(discard bool) TimestampFormatServiceClientOption {
+	return func(c *timestampFormatServiceClient) {
+		c.discardUnknownFields = discard
+	}
+}
+
 // TimestampFormatServiceCallOption configures a single RPC call.
 type TimestampFormatServiceCallOption func(*timestampFormatServiceCallOptions)
 
 // timestampFormatServiceCallOptions holds options for a single RPC call.
 type timestampFormatServiceCallOptions struct {
-	headers     map[string]string
-	contentType string
+	headers              map[string]string
+	contentType          string
+	discardUnknownFields *bool
 }
 
 // WithTimestampFormatServiceHeader adds a header to a single request.
@@ -93,6 +109,14 @@ func WithTimestampFormatServiceHeader(key, value string) TimestampFormatServiceC
 func WithTimestampFormatServiceCallContentType(contentType string) TimestampFormatServiceCallOption {
 	return func(o *timestampFormatServiceCallOptions) {
 		o.contentType = contentType
+	}
+}
+
+// WithTimestampFormatServiceCallDiscardUnknownFields sets whether to discard unknown fields for a single request.
+// Overrides the client-level setting from WithTimestampFormatServiceDiscardUnknownFields.
+func WithTimestampFormatServiceCallDiscardUnknownFields(discard bool) TimestampFormatServiceCallOption {
+	return func(o *timestampFormatServiceCallOptions) {
+		o.discardUnknownFields = &discard
 	}
 }
 
@@ -167,9 +191,15 @@ func (c *timestampFormatServiceClient) CreateTimestampFormat(ctx context.Context
 		return nil, c.handleErrorResponse(resp.StatusCode, respBody, contentType)
 	}
 
+	// Resolve discardUnknownFields: per-call option overrides client default
+	discardUnknown := c.discardUnknownFields
+	if callOpts.discardUnknownFields != nil {
+		discardUnknown = *callOpts.discardUnknownFields
+	}
+
 	// Unmarshal response
 	result := &TimestampFormatTest{}
-	if err := c.unmarshalResponse(respBody, result, contentType); err != nil {
+	if err := c.unmarshalResponse(respBody, result, contentType, discardUnknown); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal response: %w", err)
 	}
 
@@ -226,9 +256,15 @@ func (c *timestampFormatServiceClient) GetTimestampFormat(ctx context.Context, r
 		return nil, c.handleErrorResponse(resp.StatusCode, respBody, contentType)
 	}
 
+	// Resolve discardUnknownFields: per-call option overrides client default
+	discardUnknown := c.discardUnknownFields
+	if callOpts.discardUnknownFields != nil {
+		discardUnknown = *callOpts.discardUnknownFields
+	}
+
 	// Unmarshal response
 	result := &TimestampFormatTest{}
-	if err := c.unmarshalResponse(respBody, result, contentType); err != nil {
+	if err := c.unmarshalResponse(respBody, result, contentType, discardUnknown); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal response: %w", err)
 	}
 
@@ -252,16 +288,18 @@ func (c *timestampFormatServiceClient) marshalRequest(req proto.Message, content
 
 func (c *timestampFormatServiceClient) handleErrorResponse(statusCode int, body []byte, contentType string) error {
 	// Try to parse as ValidationError first (for 400 errors)
+	// Always use strict mode (false) for error parsing to avoid loose JSON
+	// falsely matching ValidationError or Error types.
 	if statusCode == http.StatusBadRequest {
 		validationErr := &sebufhttp.ValidationError{}
-		if unmarshalErr := c.unmarshalResponse(body, validationErr, contentType); unmarshalErr == nil {
+		if unmarshalErr := c.unmarshalResponse(body, validationErr, contentType, false); unmarshalErr == nil {
 			return validationErr
 		}
 	}
 
 	// Try to parse as generic Error
 	genericErr := &sebufhttp.Error{}
-	if unmarshalErr := c.unmarshalResponse(body, genericErr, contentType); unmarshalErr == nil {
+	if unmarshalErr := c.unmarshalResponse(body, genericErr, contentType, false); unmarshalErr == nil {
 		return genericErr
 	}
 
@@ -269,21 +307,27 @@ func (c *timestampFormatServiceClient) handleErrorResponse(statusCode int, body 
 	return fmt.Errorf("request failed with status %d: %s", statusCode, string(body))
 }
 
-func (c *timestampFormatServiceClient) unmarshalResponse(body []byte, msg proto.Message, contentType string) error {
+func (c *timestampFormatServiceClient) unmarshalResponse(body []byte, msg proto.Message, contentType string, discardUnknown bool) error {
 	if len(body) == 0 {
 		return nil
 	}
 
+	opts := protojson.UnmarshalOptions{DiscardUnknown: discardUnknown}
+
 	switch contentType {
 	case ContentTypeJSON:
-		// Check for custom JSON unmarshaler (unwrap support)
-		if unmarshaler, ok := msg.(json.Unmarshaler); ok {
-			return unmarshaler.UnmarshalJSON(body)
+		// Check for sebuf-generated custom unmarshaler (passes options through)
+		if u, ok := msg.(sebufUnmarshaler); ok {
+			return u.UnmarshalJSONSebuf(body, opts)
 		}
-		return protojson.Unmarshal(body, msg)
+		// Check for third-party json.Unmarshaler (best effort, cannot pass options)
+		if u, ok := msg.(json.Unmarshaler); ok {
+			return u.UnmarshalJSON(body)
+		}
+		return opts.Unmarshal(body, msg)
 	case ContentTypeProto:
 		return proto.Unmarshal(body, msg)
 	default:
-		return protojson.Unmarshal(body, msg)
+		return opts.Unmarshal(body, msg)
 	}
 }

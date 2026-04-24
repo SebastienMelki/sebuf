@@ -26,6 +26,12 @@ const (
 	ContentTypeProto = "application/x-protobuf"
 )
 
+// sebufUnmarshaler is implemented by generated messages with custom JSON unmarshaling.
+// It allows passing protojson.UnmarshalOptions (e.g. DiscardUnknown) through custom unmarshalers.
+type sebufUnmarshaler interface {
+	UnmarshalJSONSebuf(data []byte, opts protojson.UnmarshalOptions) error
+}
+
 // RESTfulAPIServiceClient is the client API for RESTfulAPIService service.
 type RESTfulAPIServiceClient interface {
 	ListResources(ctx context.Context, req *ListResourcesRequest, opts ...RESTfulAPIServiceCallOption) (*ListResourcesResponse, error)
@@ -41,10 +47,11 @@ type RESTfulAPIServiceClient interface {
 
 // rESTfulAPIServiceClient is the implementation of RESTfulAPIServiceClient.
 type rESTfulAPIServiceClient struct {
-	baseURL        string
-	httpClient     *http.Client
-	contentType    string
-	defaultHeaders map[string]string
+	baseURL              string
+	httpClient           *http.Client
+	contentType          string
+	defaultHeaders       map[string]string
+	discardUnknownFields bool
 }
 
 var _ RESTfulAPIServiceClient = (*rESTfulAPIServiceClient)(nil)
@@ -77,13 +84,22 @@ func WithRESTfulAPIServiceDefaultHeader(key, value string) RESTfulAPIServiceClie
 	}
 }
 
+// WithRESTfulAPIServiceDiscardUnknownFields sets whether to discard unknown fields in JSON responses.
+// When true, unknown fields are silently ignored instead of causing unmarshal errors.
+func WithRESTfulAPIServiceDiscardUnknownFields(discard bool) RESTfulAPIServiceClientOption {
+	return func(c *rESTfulAPIServiceClient) {
+		c.discardUnknownFields = discard
+	}
+}
+
 // RESTfulAPIServiceCallOption configures a single RPC call.
 type RESTfulAPIServiceCallOption func(*rESTfulAPIServiceCallOptions)
 
 // rESTfulAPIServiceCallOptions holds options for a single RPC call.
 type rESTfulAPIServiceCallOptions struct {
-	headers     map[string]string
-	contentType string
+	headers              map[string]string
+	contentType          string
+	discardUnknownFields *bool
 }
 
 // WithRESTfulAPIServiceHeader adds a header to a single request.
@@ -100,6 +116,14 @@ func WithRESTfulAPIServiceHeader(key, value string) RESTfulAPIServiceCallOption 
 func WithRESTfulAPIServiceCallContentType(contentType string) RESTfulAPIServiceCallOption {
 	return func(o *rESTfulAPIServiceCallOptions) {
 		o.contentType = contentType
+	}
+}
+
+// WithRESTfulAPIServiceCallDiscardUnknownFields sets whether to discard unknown fields for a single request.
+// Overrides the client-level setting from WithRESTfulAPIServiceDiscardUnknownFields.
+func WithRESTfulAPIServiceCallDiscardUnknownFields(discard bool) RESTfulAPIServiceCallOption {
+	return func(o *rESTfulAPIServiceCallOptions) {
+		o.discardUnknownFields = &discard
 	}
 }
 
@@ -213,9 +237,15 @@ func (c *rESTfulAPIServiceClient) ListResources(ctx context.Context, req *ListRe
 		return nil, c.handleErrorResponse(resp.StatusCode, respBody, contentType)
 	}
 
+	// Resolve discardUnknownFields: per-call option overrides client default
+	discardUnknown := c.discardUnknownFields
+	if callOpts.discardUnknownFields != nil {
+		discardUnknown = *callOpts.discardUnknownFields
+	}
+
 	// Unmarshal response
 	result := &ListResourcesResponse{}
-	if err := c.unmarshalResponse(respBody, result, contentType); err != nil {
+	if err := c.unmarshalResponse(respBody, result, contentType, discardUnknown); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal response: %w", err)
 	}
 
@@ -272,9 +302,15 @@ func (c *rESTfulAPIServiceClient) GetResource(ctx context.Context, req *GetResou
 		return nil, c.handleErrorResponse(resp.StatusCode, respBody, contentType)
 	}
 
+	// Resolve discardUnknownFields: per-call option overrides client default
+	discardUnknown := c.discardUnknownFields
+	if callOpts.discardUnknownFields != nil {
+		discardUnknown = *callOpts.discardUnknownFields
+	}
+
 	// Unmarshal response
 	result := &Resource{}
-	if err := c.unmarshalResponse(respBody, result, contentType); err != nil {
+	if err := c.unmarshalResponse(respBody, result, contentType, discardUnknown); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal response: %w", err)
 	}
 
@@ -333,9 +369,15 @@ func (c *rESTfulAPIServiceClient) GetNestedResource(ctx context.Context, req *Ge
 		return nil, c.handleErrorResponse(resp.StatusCode, respBody, contentType)
 	}
 
+	// Resolve discardUnknownFields: per-call option overrides client default
+	discardUnknown := c.discardUnknownFields
+	if callOpts.discardUnknownFields != nil {
+		discardUnknown = *callOpts.discardUnknownFields
+	}
+
 	// Unmarshal response
 	result := &Resource{}
-	if err := c.unmarshalResponse(respBody, result, contentType); err != nil {
+	if err := c.unmarshalResponse(respBody, result, contentType, discardUnknown); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal response: %w", err)
 	}
 
@@ -397,9 +439,15 @@ func (c *rESTfulAPIServiceClient) CreateResource(ctx context.Context, req *Creat
 		return nil, c.handleErrorResponse(resp.StatusCode, respBody, contentType)
 	}
 
+	// Resolve discardUnknownFields: per-call option overrides client default
+	discardUnknown := c.discardUnknownFields
+	if callOpts.discardUnknownFields != nil {
+		discardUnknown = *callOpts.discardUnknownFields
+	}
+
 	// Unmarshal response
 	result := &Resource{}
-	if err := c.unmarshalResponse(respBody, result, contentType); err != nil {
+	if err := c.unmarshalResponse(respBody, result, contentType, discardUnknown); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal response: %w", err)
 	}
 
@@ -462,9 +510,15 @@ func (c *rESTfulAPIServiceClient) UpdateResource(ctx context.Context, req *Updat
 		return nil, c.handleErrorResponse(resp.StatusCode, respBody, contentType)
 	}
 
+	// Resolve discardUnknownFields: per-call option overrides client default
+	discardUnknown := c.discardUnknownFields
+	if callOpts.discardUnknownFields != nil {
+		discardUnknown = *callOpts.discardUnknownFields
+	}
+
 	// Unmarshal response
 	result := &Resource{}
-	if err := c.unmarshalResponse(respBody, result, contentType); err != nil {
+	if err := c.unmarshalResponse(respBody, result, contentType, discardUnknown); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal response: %w", err)
 	}
 
@@ -527,9 +581,15 @@ func (c *rESTfulAPIServiceClient) PatchResource(ctx context.Context, req *PatchR
 		return nil, c.handleErrorResponse(resp.StatusCode, respBody, contentType)
 	}
 
+	// Resolve discardUnknownFields: per-call option overrides client default
+	discardUnknown := c.discardUnknownFields
+	if callOpts.discardUnknownFields != nil {
+		discardUnknown = *callOpts.discardUnknownFields
+	}
+
 	// Unmarshal response
 	result := &Resource{}
-	if err := c.unmarshalResponse(respBody, result, contentType); err != nil {
+	if err := c.unmarshalResponse(respBody, result, contentType, discardUnknown); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal response: %w", err)
 	}
 
@@ -586,9 +646,15 @@ func (c *rESTfulAPIServiceClient) DeleteResource(ctx context.Context, req *Delet
 		return nil, c.handleErrorResponse(resp.StatusCode, respBody, contentType)
 	}
 
+	// Resolve discardUnknownFields: per-call option overrides client default
+	discardUnknown := c.discardUnknownFields
+	if callOpts.discardUnknownFields != nil {
+		discardUnknown = *callOpts.discardUnknownFields
+	}
+
 	// Unmarshal response
 	result := &DeleteResourceResponse{}
-	if err := c.unmarshalResponse(respBody, result, contentType); err != nil {
+	if err := c.unmarshalResponse(respBody, result, contentType, discardUnknown); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal response: %w", err)
 	}
 
@@ -650,9 +716,15 @@ func (c *rESTfulAPIServiceClient) DefaultPostMethod(ctx context.Context, req *De
 		return nil, c.handleErrorResponse(resp.StatusCode, respBody, contentType)
 	}
 
+	// Resolve discardUnknownFields: per-call option overrides client default
+	discardUnknown := c.discardUnknownFields
+	if callOpts.discardUnknownFields != nil {
+		discardUnknown = *callOpts.discardUnknownFields
+	}
+
 	// Unmarshal response
 	result := &DefaultPostResponse{}
-	if err := c.unmarshalResponse(respBody, result, contentType); err != nil {
+	if err := c.unmarshalResponse(respBody, result, contentType, discardUnknown); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal response: %w", err)
 	}
 
@@ -720,9 +792,15 @@ func (c *rESTfulAPIServiceClient) SearchResources(ctx context.Context, req *Sear
 		return nil, c.handleErrorResponse(resp.StatusCode, respBody, contentType)
 	}
 
+	// Resolve discardUnknownFields: per-call option overrides client default
+	discardUnknown := c.discardUnknownFields
+	if callOpts.discardUnknownFields != nil {
+		discardUnknown = *callOpts.discardUnknownFields
+	}
+
 	// Unmarshal response
 	result := &ListResourcesResponse{}
-	if err := c.unmarshalResponse(respBody, result, contentType); err != nil {
+	if err := c.unmarshalResponse(respBody, result, contentType, discardUnknown); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal response: %w", err)
 	}
 
@@ -746,16 +824,18 @@ func (c *rESTfulAPIServiceClient) marshalRequest(req proto.Message, contentType 
 
 func (c *rESTfulAPIServiceClient) handleErrorResponse(statusCode int, body []byte, contentType string) error {
 	// Try to parse as ValidationError first (for 400 errors)
+	// Always use strict mode (false) for error parsing to avoid loose JSON
+	// falsely matching ValidationError or Error types.
 	if statusCode == http.StatusBadRequest {
 		validationErr := &sebufhttp.ValidationError{}
-		if unmarshalErr := c.unmarshalResponse(body, validationErr, contentType); unmarshalErr == nil {
+		if unmarshalErr := c.unmarshalResponse(body, validationErr, contentType, false); unmarshalErr == nil {
 			return validationErr
 		}
 	}
 
 	// Try to parse as generic Error
 	genericErr := &sebufhttp.Error{}
-	if unmarshalErr := c.unmarshalResponse(body, genericErr, contentType); unmarshalErr == nil {
+	if unmarshalErr := c.unmarshalResponse(body, genericErr, contentType, false); unmarshalErr == nil {
 		return genericErr
 	}
 
@@ -763,22 +843,28 @@ func (c *rESTfulAPIServiceClient) handleErrorResponse(statusCode int, body []byt
 	return fmt.Errorf("request failed with status %d: %s", statusCode, string(body))
 }
 
-func (c *rESTfulAPIServiceClient) unmarshalResponse(body []byte, msg proto.Message, contentType string) error {
+func (c *rESTfulAPIServiceClient) unmarshalResponse(body []byte, msg proto.Message, contentType string, discardUnknown bool) error {
 	if len(body) == 0 {
 		return nil
 	}
 
+	opts := protojson.UnmarshalOptions{DiscardUnknown: discardUnknown}
+
 	switch contentType {
 	case ContentTypeJSON:
-		// Check for custom JSON unmarshaler (unwrap support)
-		if unmarshaler, ok := msg.(json.Unmarshaler); ok {
-			return unmarshaler.UnmarshalJSON(body)
+		// Check for sebuf-generated custom unmarshaler (passes options through)
+		if u, ok := msg.(sebufUnmarshaler); ok {
+			return u.UnmarshalJSONSebuf(body, opts)
 		}
-		return protojson.Unmarshal(body, msg)
+		// Check for third-party json.Unmarshaler (best effort, cannot pass options)
+		if u, ok := msg.(json.Unmarshaler); ok {
+			return u.UnmarshalJSON(body)
+		}
+		return opts.Unmarshal(body, msg)
 	case ContentTypeProto:
 		return proto.Unmarshal(body, msg)
 	default:
-		return protojson.Unmarshal(body, msg)
+		return opts.Unmarshal(body, msg)
 	}
 }
 
@@ -789,10 +875,11 @@ type BackwardCompatServiceClient interface {
 
 // backwardCompatServiceClient is the implementation of BackwardCompatServiceClient.
 type backwardCompatServiceClient struct {
-	baseURL        string
-	httpClient     *http.Client
-	contentType    string
-	defaultHeaders map[string]string
+	baseURL              string
+	httpClient           *http.Client
+	contentType          string
+	defaultHeaders       map[string]string
+	discardUnknownFields bool
 }
 
 var _ BackwardCompatServiceClient = (*backwardCompatServiceClient)(nil)
@@ -825,13 +912,22 @@ func WithBackwardCompatServiceDefaultHeader(key, value string) BackwardCompatSer
 	}
 }
 
+// WithBackwardCompatServiceDiscardUnknownFields sets whether to discard unknown fields in JSON responses.
+// When true, unknown fields are silently ignored instead of causing unmarshal errors.
+func WithBackwardCompatServiceDiscardUnknownFields(discard bool) BackwardCompatServiceClientOption {
+	return func(c *backwardCompatServiceClient) {
+		c.discardUnknownFields = discard
+	}
+}
+
 // BackwardCompatServiceCallOption configures a single RPC call.
 type BackwardCompatServiceCallOption func(*backwardCompatServiceCallOptions)
 
 // backwardCompatServiceCallOptions holds options for a single RPC call.
 type backwardCompatServiceCallOptions struct {
-	headers     map[string]string
-	contentType string
+	headers              map[string]string
+	contentType          string
+	discardUnknownFields *bool
 }
 
 // WithBackwardCompatServiceHeader adds a header to a single request.
@@ -848,6 +944,14 @@ func WithBackwardCompatServiceHeader(key, value string) BackwardCompatServiceCal
 func WithBackwardCompatServiceCallContentType(contentType string) BackwardCompatServiceCallOption {
 	return func(o *backwardCompatServiceCallOptions) {
 		o.contentType = contentType
+	}
+}
+
+// WithBackwardCompatServiceCallDiscardUnknownFields sets whether to discard unknown fields for a single request.
+// Overrides the client-level setting from WithBackwardCompatServiceDiscardUnknownFields.
+func WithBackwardCompatServiceCallDiscardUnknownFields(discard bool) BackwardCompatServiceCallOption {
+	return func(o *backwardCompatServiceCallOptions) {
+		o.discardUnknownFields = &discard
 	}
 }
 
@@ -922,9 +1026,15 @@ func (c *backwardCompatServiceClient) LegacyAction(ctx context.Context, req *Leg
 		return nil, c.handleErrorResponse(resp.StatusCode, respBody, contentType)
 	}
 
+	// Resolve discardUnknownFields: per-call option overrides client default
+	discardUnknown := c.discardUnknownFields
+	if callOpts.discardUnknownFields != nil {
+		discardUnknown = *callOpts.discardUnknownFields
+	}
+
 	// Unmarshal response
 	result := &LegacyResponse{}
-	if err := c.unmarshalResponse(respBody, result, contentType); err != nil {
+	if err := c.unmarshalResponse(respBody, result, contentType, discardUnknown); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal response: %w", err)
 	}
 
@@ -948,16 +1058,18 @@ func (c *backwardCompatServiceClient) marshalRequest(req proto.Message, contentT
 
 func (c *backwardCompatServiceClient) handleErrorResponse(statusCode int, body []byte, contentType string) error {
 	// Try to parse as ValidationError first (for 400 errors)
+	// Always use strict mode (false) for error parsing to avoid loose JSON
+	// falsely matching ValidationError or Error types.
 	if statusCode == http.StatusBadRequest {
 		validationErr := &sebufhttp.ValidationError{}
-		if unmarshalErr := c.unmarshalResponse(body, validationErr, contentType); unmarshalErr == nil {
+		if unmarshalErr := c.unmarshalResponse(body, validationErr, contentType, false); unmarshalErr == nil {
 			return validationErr
 		}
 	}
 
 	// Try to parse as generic Error
 	genericErr := &sebufhttp.Error{}
-	if unmarshalErr := c.unmarshalResponse(body, genericErr, contentType); unmarshalErr == nil {
+	if unmarshalErr := c.unmarshalResponse(body, genericErr, contentType, false); unmarshalErr == nil {
 		return genericErr
 	}
 
@@ -965,21 +1077,27 @@ func (c *backwardCompatServiceClient) handleErrorResponse(statusCode int, body [
 	return fmt.Errorf("request failed with status %d: %s", statusCode, string(body))
 }
 
-func (c *backwardCompatServiceClient) unmarshalResponse(body []byte, msg proto.Message, contentType string) error {
+func (c *backwardCompatServiceClient) unmarshalResponse(body []byte, msg proto.Message, contentType string, discardUnknown bool) error {
 	if len(body) == 0 {
 		return nil
 	}
 
+	opts := protojson.UnmarshalOptions{DiscardUnknown: discardUnknown}
+
 	switch contentType {
 	case ContentTypeJSON:
-		// Check for custom JSON unmarshaler (unwrap support)
-		if unmarshaler, ok := msg.(json.Unmarshaler); ok {
-			return unmarshaler.UnmarshalJSON(body)
+		// Check for sebuf-generated custom unmarshaler (passes options through)
+		if u, ok := msg.(sebufUnmarshaler); ok {
+			return u.UnmarshalJSONSebuf(body, opts)
 		}
-		return protojson.Unmarshal(body, msg)
+		// Check for third-party json.Unmarshaler (best effort, cannot pass options)
+		if u, ok := msg.(json.Unmarshaler); ok {
+			return u.UnmarshalJSON(body)
+		}
+		return opts.Unmarshal(body, msg)
 	case ContentTypeProto:
 		return proto.Unmarshal(body, msg)
 	default:
-		return protojson.Unmarshal(body, msg)
+		return opts.Unmarshal(body, msg)
 	}
 }

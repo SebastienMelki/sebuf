@@ -49,9 +49,9 @@ func (x *User) MarshalJSON() ([]byte, error) {
 	return json.Marshal(raw)
 }
 
-// UnmarshalJSON implements json.Unmarshaler for User.
+// UnmarshalJSONSebuf implements sebufUnmarshaler for User.
 // This method handles nullable fields: middle_name, age, is_verified
-func (x *User) UnmarshalJSON(data []byte) error {
+func (x *User) UnmarshalJSONSebuf(data []byte, opts protojson.UnmarshalOptions) error {
 	// Parse to check for explicit null values on nullable fields
 	var raw map[string]json.RawMessage
 	if err := json.Unmarshal(data, &raw); err != nil {
@@ -82,5 +82,10 @@ func (x *User) UnmarshalJSON(data []byte) error {
 		return err
 	}
 
-	return protojson.Unmarshal(modified, x)
+	return opts.Unmarshal(modified, x)
+}
+
+// UnmarshalJSON implements json.Unmarshaler for User.
+func (x *User) UnmarshalJSON(data []byte) error {
+	return x.UnmarshalJSONSebuf(data, protojson.UnmarshalOptions{})
 }

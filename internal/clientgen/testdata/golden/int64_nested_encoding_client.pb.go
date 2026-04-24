@@ -25,6 +25,12 @@ const (
 	ContentTypeProto = "application/x-protobuf"
 )
 
+// sebufUnmarshaler is implemented by generated messages with custom JSON unmarshaling.
+// It allows passing protojson.UnmarshalOptions (e.g. DiscardUnknown) through custom unmarshalers.
+type sebufUnmarshaler interface {
+	UnmarshalJSONSebuf(data []byte, opts protojson.UnmarshalOptions) error
+}
+
 // SensorServiceClient is the client API for SensorService service.
 type SensorServiceClient interface {
 	GetSensorReading(ctx context.Context, req *GetSensorRequest, opts ...SensorServiceCallOption) (*GetSensorReadingResponse, error)
@@ -33,10 +39,11 @@ type SensorServiceClient interface {
 
 // sensorServiceClient is the implementation of SensorServiceClient.
 type sensorServiceClient struct {
-	baseURL        string
-	httpClient     *http.Client
-	contentType    string
-	defaultHeaders map[string]string
+	baseURL              string
+	httpClient           *http.Client
+	contentType          string
+	defaultHeaders       map[string]string
+	discardUnknownFields bool
 }
 
 var _ SensorServiceClient = (*sensorServiceClient)(nil)
@@ -69,13 +76,22 @@ func WithSensorServiceDefaultHeader(key, value string) SensorServiceClientOption
 	}
 }
 
+// WithSensorServiceDiscardUnknownFields sets whether to discard unknown fields in JSON responses.
+// When true, unknown fields are silently ignored instead of causing unmarshal errors.
+func WithSensorServiceDiscardUnknownFields(discard bool) SensorServiceClientOption {
+	return func(c *sensorServiceClient) {
+		c.discardUnknownFields = discard
+	}
+}
+
 // SensorServiceCallOption configures a single RPC call.
 type SensorServiceCallOption func(*sensorServiceCallOptions)
 
 // sensorServiceCallOptions holds options for a single RPC call.
 type sensorServiceCallOptions struct {
-	headers     map[string]string
-	contentType string
+	headers              map[string]string
+	contentType          string
+	discardUnknownFields *bool
 }
 
 // WithSensorServiceHeader adds a header to a single request.
@@ -92,6 +108,14 @@ func WithSensorServiceHeader(key, value string) SensorServiceCallOption {
 func WithSensorServiceCallContentType(contentType string) SensorServiceCallOption {
 	return func(o *sensorServiceCallOptions) {
 		o.contentType = contentType
+	}
+}
+
+// WithSensorServiceCallDiscardUnknownFields sets whether to discard unknown fields for a single request.
+// Overrides the client-level setting from WithSensorServiceDiscardUnknownFields.
+func WithSensorServiceCallDiscardUnknownFields(discard bool) SensorServiceCallOption {
+	return func(o *sensorServiceCallOptions) {
+		o.discardUnknownFields = &discard
 	}
 }
 
@@ -161,9 +185,15 @@ func (c *sensorServiceClient) GetSensorReading(ctx context.Context, req *GetSens
 		return nil, c.handleErrorResponse(resp.StatusCode, respBody, contentType)
 	}
 
+	// Resolve discardUnknownFields: per-call option overrides client default
+	discardUnknown := c.discardUnknownFields
+	if callOpts.discardUnknownFields != nil {
+		discardUnknown = *callOpts.discardUnknownFields
+	}
+
 	// Unmarshal response
 	result := &GetSensorReadingResponse{}
-	if err := c.unmarshalResponse(respBody, result, contentType); err != nil {
+	if err := c.unmarshalResponse(respBody, result, contentType, discardUnknown); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal response: %w", err)
 	}
 
@@ -220,9 +250,15 @@ func (c *sensorServiceClient) GetMultiSensor(ctx context.Context, req *GetSensor
 		return nil, c.handleErrorResponse(resp.StatusCode, respBody, contentType)
 	}
 
+	// Resolve discardUnknownFields: per-call option overrides client default
+	discardUnknown := c.discardUnknownFields
+	if callOpts.discardUnknownFields != nil {
+		discardUnknown = *callOpts.discardUnknownFields
+	}
+
 	// Unmarshal response
 	result := &GetMultiSensorResponse{}
-	if err := c.unmarshalResponse(respBody, result, contentType); err != nil {
+	if err := c.unmarshalResponse(respBody, result, contentType, discardUnknown); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal response: %w", err)
 	}
 
@@ -246,16 +282,18 @@ func (c *sensorServiceClient) marshalRequest(req proto.Message, contentType stri
 
 func (c *sensorServiceClient) handleErrorResponse(statusCode int, body []byte, contentType string) error {
 	// Try to parse as ValidationError first (for 400 errors)
+	// Always use strict mode (false) for error parsing to avoid loose JSON
+	// falsely matching ValidationError or Error types.
 	if statusCode == http.StatusBadRequest {
 		validationErr := &sebufhttp.ValidationError{}
-		if unmarshalErr := c.unmarshalResponse(body, validationErr, contentType); unmarshalErr == nil {
+		if unmarshalErr := c.unmarshalResponse(body, validationErr, contentType, false); unmarshalErr == nil {
 			return validationErr
 		}
 	}
 
 	// Try to parse as generic Error
 	genericErr := &sebufhttp.Error{}
-	if unmarshalErr := c.unmarshalResponse(body, genericErr, contentType); unmarshalErr == nil {
+	if unmarshalErr := c.unmarshalResponse(body, genericErr, contentType, false); unmarshalErr == nil {
 		return genericErr
 	}
 
@@ -263,21 +301,27 @@ func (c *sensorServiceClient) handleErrorResponse(statusCode int, body []byte, c
 	return fmt.Errorf("request failed with status %d: %s", statusCode, string(body))
 }
 
-func (c *sensorServiceClient) unmarshalResponse(body []byte, msg proto.Message, contentType string) error {
+func (c *sensorServiceClient) unmarshalResponse(body []byte, msg proto.Message, contentType string, discardUnknown bool) error {
 	if len(body) == 0 {
 		return nil
 	}
 
+	opts := protojson.UnmarshalOptions{DiscardUnknown: discardUnknown}
+
 	switch contentType {
 	case ContentTypeJSON:
-		// Check for custom JSON unmarshaler (unwrap support)
-		if unmarshaler, ok := msg.(json.Unmarshaler); ok {
-			return unmarshaler.UnmarshalJSON(body)
+		// Check for sebuf-generated custom unmarshaler (passes options through)
+		if u, ok := msg.(sebufUnmarshaler); ok {
+			return u.UnmarshalJSONSebuf(body, opts)
 		}
-		return protojson.Unmarshal(body, msg)
+		// Check for third-party json.Unmarshaler (best effort, cannot pass options)
+		if u, ok := msg.(json.Unmarshaler); ok {
+			return u.UnmarshalJSON(body)
+		}
+		return opts.Unmarshal(body, msg)
 	case ContentTypeProto:
 		return proto.Unmarshal(body, msg)
 	default:
-		return protojson.Unmarshal(body, msg)
+		return opts.Unmarshal(body, msg)
 	}
 }

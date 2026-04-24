@@ -46,9 +46,9 @@ func (x *SensorReading) MarshalJSON() ([]byte, error) {
 	return json.Marshal(raw)
 }
 
-// UnmarshalJSON implements json.Unmarshaler for SensorReading.
+// UnmarshalJSONSebuf implements sebufUnmarshaler for SensorReading.
 // This method handles int64_encoding=NUMBER fields: timestamp_ms, values
-func (x *SensorReading) UnmarshalJSON(data []byte) error {
+func (x *SensorReading) UnmarshalJSONSebuf(data []byte, opts protojson.UnmarshalOptions) error {
 	// First, parse the raw JSON to extract NUMBER-encoded fields
 	var raw map[string]json.RawMessage
 	if err := json.Unmarshal(data, &raw); err != nil {
@@ -82,7 +82,12 @@ func (x *SensorReading) UnmarshalJSON(data []byte) error {
 	}
 
 	// Use protojson to unmarshal the rest
-	return protojson.Unmarshal(modified, x)
+	return opts.Unmarshal(modified, x)
+}
+
+// UnmarshalJSON implements json.Unmarshaler for SensorReading.
+func (x *SensorReading) UnmarshalJSON(data []byte) error {
+	return x.UnmarshalJSONSebuf(data, protojson.UnmarshalOptions{})
 }
 
 // MarshalJSON implements json.Marshaler for GetSensorReadingResponse.
@@ -115,18 +120,24 @@ func (x *GetSensorReadingResponse) MarshalJSON() ([]byte, error) {
 	return json.Marshal(raw)
 }
 
-// UnmarshalJSON implements json.Unmarshaler for GetSensorReadingResponse.
+// UnmarshalJSONSebuf implements sebufUnmarshaler for GetSensorReadingResponse.
 // This method handles nested messages that have int64_encoding=NUMBER fields: reading
-func (x *GetSensorReadingResponse) UnmarshalJSON(data []byte) error {
+func (x *GetSensorReadingResponse) UnmarshalJSONSebuf(data []byte, opts protojson.UnmarshalOptions) error {
 	var raw map[string]json.RawMessage
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return err
 	}
 
-	// Handle "reading" using its custom UnmarshalJSON
+	// Handle "reading" using its custom unmarshaler
 	if rawVal, ok := raw["reading"]; ok {
 		inner := &SensorReading{}
-		if err := json.Unmarshal(rawVal, inner); err != nil {
+		if u, ok := any(inner).(interface {
+			UnmarshalJSONSebuf([]byte, protojson.UnmarshalOptions) error
+		}); ok {
+			if err := u.UnmarshalJSONSebuf(rawVal, opts); err != nil {
+				return err
+			}
+		} else if err := json.Unmarshal(rawVal, inner); err != nil {
 			return err
 		}
 		innerJSON, err := protojson.Marshal(inner)
@@ -141,7 +152,12 @@ func (x *GetSensorReadingResponse) UnmarshalJSON(data []byte) error {
 		return err
 	}
 
-	return protojson.Unmarshal(modified, x)
+	return opts.Unmarshal(modified, x)
+}
+
+// UnmarshalJSON implements json.Unmarshaler for GetSensorReadingResponse.
+func (x *GetSensorReadingResponse) UnmarshalJSON(data []byte) error {
+	return x.UnmarshalJSONSebuf(data, protojson.UnmarshalOptions{})
 }
 
 // MarshalJSON implements json.Marshaler for GetMultiSensorResponse.
@@ -182,18 +198,24 @@ func (x *GetMultiSensorResponse) MarshalJSON() ([]byte, error) {
 	return json.Marshal(raw)
 }
 
-// UnmarshalJSON implements json.Unmarshaler for GetMultiSensorResponse.
+// UnmarshalJSONSebuf implements sebufUnmarshaler for GetMultiSensorResponse.
 // This method handles nested messages that have int64_encoding=NUMBER fields: primary, secondary
-func (x *GetMultiSensorResponse) UnmarshalJSON(data []byte) error {
+func (x *GetMultiSensorResponse) UnmarshalJSONSebuf(data []byte, opts protojson.UnmarshalOptions) error {
 	var raw map[string]json.RawMessage
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return err
 	}
 
-	// Handle "primary" using its custom UnmarshalJSON
+	// Handle "primary" using its custom unmarshaler
 	if rawVal, ok := raw["primary"]; ok {
 		inner := &SensorReading{}
-		if err := json.Unmarshal(rawVal, inner); err != nil {
+		if u, ok := any(inner).(interface {
+			UnmarshalJSONSebuf([]byte, protojson.UnmarshalOptions) error
+		}); ok {
+			if err := u.UnmarshalJSONSebuf(rawVal, opts); err != nil {
+				return err
+			}
+		} else if err := json.Unmarshal(rawVal, inner); err != nil {
 			return err
 		}
 		innerJSON, err := protojson.Marshal(inner)
@@ -203,10 +225,16 @@ func (x *GetMultiSensorResponse) UnmarshalJSON(data []byte) error {
 		raw["primary"] = innerJSON
 	}
 
-	// Handle "secondary" using its custom UnmarshalJSON
+	// Handle "secondary" using its custom unmarshaler
 	if rawVal, ok := raw["secondary"]; ok {
 		inner := &SensorReading{}
-		if err := json.Unmarshal(rawVal, inner); err != nil {
+		if u, ok := any(inner).(interface {
+			UnmarshalJSONSebuf([]byte, protojson.UnmarshalOptions) error
+		}); ok {
+			if err := u.UnmarshalJSONSebuf(rawVal, opts); err != nil {
+				return err
+			}
+		} else if err := json.Unmarshal(rawVal, inner); err != nil {
 			return err
 		}
 		innerJSON, err := protojson.Marshal(inner)
@@ -221,5 +249,10 @@ func (x *GetMultiSensorResponse) UnmarshalJSON(data []byte) error {
 		return err
 	}
 
-	return protojson.Unmarshal(modified, x)
+	return opts.Unmarshal(modified, x)
+}
+
+// UnmarshalJSON implements json.Unmarshaler for GetMultiSensorResponse.
+func (x *GetMultiSensorResponse) UnmarshalJSON(data []byte) error {
+	return x.UnmarshalJSONSebuf(data, protojson.UnmarshalOptions{})
 }
