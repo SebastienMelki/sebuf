@@ -959,6 +959,8 @@ func (g *Generator) serviceHasSSEMethods(service *protogen.Service) bool {
 }
 
 // generateEventStreamType generates the EventStream generic type for SSE streaming.
+//
+//nolint:funlen // SSE event stream generation requires many sequential code blocks
 func (g *Generator) generateEventStreamType(gf *protogen.GeneratedFile, serviceName string) {
 	gf.P("// ", serviceName, "EventStream reads Server-Sent Events from a streaming endpoint.")
 	gf.P("type ", serviceName, "EventStream[T proto.Message] struct {")

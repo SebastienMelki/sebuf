@@ -327,7 +327,10 @@ func (g *Generator) generateFlattenFieldUnmarshal(gf *protogen.GeneratedFile, in
 	gf.P("}")
 	gf.P("x.", goName, " = &", childTypeName, "{}")
 	gf.P("// Forward opts to child's UnmarshalJSONSebuf if available (annotation composability)")
-	gf.P("if u, ok := any(x.", goName, ").(interface{ UnmarshalJSONSebuf([]byte, protojson.UnmarshalOptions) error }); ok {")
+	gf.P(
+		"if u, ok := any(x.", goName,
+		`).(interface{ UnmarshalJSONSebuf([]byte, protojson.UnmarshalOptions) error }); ok {`,
+	)
 	gf.P("if childErr = u.UnmarshalJSONSebuf(childData, opts); childErr != nil {")
 	gf.P("return childErr")
 	gf.P("}")
