@@ -153,7 +153,9 @@ func (g *Generator) writeHeaderRegexConstants(p tscommon.Printer) {
 	p("")
 	p("const EMAIL_REGEX = /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/;")
 	p("")
-	p("const DATETIME_REGEX = /^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.[\\d]+)?(Z|[+-]\\d{2}:\\d{2})$/;")
+	p(
+		"const DATETIME_REGEX = /^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.[\\d]+)?(Z|[+-]\\d{2}:\\d{2})$/;",
+	)
 	p("")
 	p("const DATE_REGEX = /^\\d{4}-\\d{2}-\\d{2}$/;")
 	p("")
@@ -263,7 +265,12 @@ func (g *Generator) generateHandlerInterface(p tscommon.Printer, service *protog
 		inputType := string(method.Input.Desc.Name())
 		outputType := g.resolveOutputType(method)
 		if g.isSSEMethod(method) {
-			p("  %s(ctx: ServerContext, req: %s): ReadableStream<%s>;", methodName, inputType, outputType)
+			p(
+				"  %s(ctx: ServerContext, req: %s): ReadableStream<%s>;",
+				methodName,
+				inputType,
+				outputType,
+			)
 		} else {
 			p("  %s(ctx: ServerContext, req: %s): Promise<%s>;", methodName, inputType, outputType)
 		}
@@ -283,9 +290,9 @@ func (g *Generator) resolveOutputType(method *protogen.Method) string {
 
 // pathParamField maps a URL path parameter to its corresponding request message field.
 type pathParamField struct {
-	protoName string              // proto field name, e.g. "resource_id"
-	jsonName  string              // JSON/TS field name, e.g. "resourceId"
-	field     *protogen.Field     // the protogen field, needed for type-aware code generation (e.g. enum casts)
+	protoName string          // proto field name, e.g. "resource_id"
+	jsonName  string          // JSON/TS field name, e.g. "resourceId"
+	field     *protogen.Field // the protogen field, needed for type-aware code generation (e.g. enum casts)
 }
 
 // rpcRouteConfig holds config for generating a route handler.
@@ -300,7 +307,10 @@ type rpcRouteConfig struct {
 	hasBody         bool
 }
 
-func (g *Generator) buildRPCRouteConfig(service *protogen.Service, method *protogen.Method) (*rpcRouteConfig, error) {
+func (g *Generator) buildRPCRouteConfig(
+	service *protogen.Service,
+	method *protogen.Method,
+) (*rpcRouteConfig, error) {
 	serviceName := service.GoName
 	methodName := method.GoName
 
@@ -342,7 +352,10 @@ func (g *Generator) buildRPCRouteConfig(service *protogen.Service, method *proto
 
 // resolvePathParamFields validates that every path parameter has a matching field
 // on the input message, and returns the proto→JSON name mapping.
-func resolvePathParamFields(pathParams []string, method *protogen.Method) ([]pathParamField, error) {
+func resolvePathParamFields(
+	pathParams []string,
+	method *protogen.Method,
+) ([]pathParamField, error) {
 	if len(pathParams) == 0 {
 		return nil, nil
 	}
@@ -363,7 +376,10 @@ func resolvePathParamFields(pathParams []string, method *protogen.Method) ([]pat
 				param, method.Input.Desc.Name(), param,
 			)
 		}
-		fields = append(fields, pathParamField{protoName: param, jsonName: f.Desc.JSONName(), field: f})
+		fields = append(
+			fields,
+			pathParamField{protoName: param, jsonName: f.Desc.JSONName(), field: f},
+		)
 	}
 	return fields, nil
 }
@@ -399,7 +415,10 @@ func validateFieldCoverage(cfg *rpcRouteConfig, method *protogen.Method) error {
 		return fmt.Errorf(
 			"fields %v on request message %s are not reachable via path or query parameters for %s %s — "+
 				"annotate them with (sebuf.http.query) or include them as path parameters",
-			uncovered, method.Input.Desc.Name(), cfg.httpMethod, cfg.fullPath,
+			uncovered,
+			method.Input.Desc.Name(),
+			cfg.httpMethod,
+			cfg.fullPath,
 		)
 	}
 	return nil
@@ -428,7 +447,11 @@ func (g *Generator) generateCreateRoutes(p tscommon.Printer, service *protogen.S
 // generateRouteEntry generates a single route descriptor entry.
 //
 //nolint:funlen // Route entry generation requires many sequential code generation blocks
-func (g *Generator) generateRouteEntry(p tscommon.Printer, service *protogen.Service, method *protogen.Method) error {
+func (g *Generator) generateRouteEntry(
+	p tscommon.Printer,
+	service *protogen.Service,
+	method *protogen.Method,
+) error {
 	cfg, err := g.buildRPCRouteConfig(service, method)
 	if err != nil {
 		return err
@@ -566,12 +589,16 @@ func (g *Generator) generateSSERouteEntry(
 	p("                while (true) {")
 	p("                  const { done, value } = await reader.read();")
 	p("                  if (done) break;")
-	p("                  controller.enqueue(encoder.encode(`data: ${JSON.stringify(value)}\\n\\n`));")
+	p(
+		"                  controller.enqueue(encoder.encode(`data: ${JSON.stringify(value)}\\n\\n`));",
+	)
 	p("                }")
 	p("                controller.close();")
 	p("              } catch (err) {")
 	p("                controller.enqueue(")
-	p("                  encoder.encode(`event: error\\ndata: ${JSON.stringify({ message: String(err) })}\\n\\n`),")
+	p(
+		"                  encoder.encode(`event: error\\ndata: ${JSON.stringify({ message: String(err) })}\\n\\n`),",
+	)
 	p("                );")
 	p("                controller.close();")
 	p("              }")
@@ -613,13 +640,22 @@ func (g *Generator) generateSSERouteEntry(
 
 // generatePathParamMerge generates code to merge path params into the request body.
 // This ensures the handler receives a fully populated request, matching Go generator behavior.
-func (g *Generator) generatePathParamMerge(p tscommon.Printer, cfg *rpcRouteConfig, _ *protogen.Method) {
+func (g *Generator) generatePathParamMerge(
+	p tscommon.Printer,
+	cfg *rpcRouteConfig,
+	_ *protogen.Method,
+) {
 	if len(cfg.pathParamFields) == 0 {
 		return
 	}
 	for _, ppf := range cfg.pathParamFields {
 		if ppf.field.Desc.Kind() == protoreflect.EnumKind && ppf.field.Enum != nil {
-			p("          body.%s = pathParams[\"%s\"] as %s;", ppf.jsonName, ppf.protoName, string(ppf.field.Enum.Desc.Name()))
+			p(
+				"          body.%s = pathParams[\"%s\"] as %s;",
+				ppf.jsonName,
+				ppf.protoName,
+				string(ppf.field.Enum.Desc.Name()),
+			)
 		} else {
 			p("          body.%s = pathParams[\"%s\"];", ppf.jsonName, ppf.protoName)
 		}
@@ -678,7 +714,11 @@ func (g *Generator) generatePathParamExtraction(p tscommon.Printer, cfg *rpcRout
 		paramPlaceholder := "{" + param + "}"
 		for i, seg := range segments {
 			if seg == paramPlaceholder {
-				p("          pathParams[\"%s\"] = decodeURIComponent(pathSegments[%d] ?? \"\");", param, i)
+				p(
+					"          pathParams[\"%s\"] = decodeURIComponent(pathSegments[%d] ?? \"\");",
+					param,
+					i,
+				)
 				break
 			}
 		}
@@ -687,7 +727,11 @@ func (g *Generator) generatePathParamExtraction(p tscommon.Printer, cfg *rpcRout
 }
 
 // generateBodyParsing generates code to parse JSON request body.
-func (g *Generator) generateBodyParsing(p tscommon.Printer, method *protogen.Method, tsMethodName string) {
+func (g *Generator) generateBodyParsing(
+	p tscommon.Printer,
+	method *protogen.Method,
+	tsMethodName string,
+) {
 	inputType := string(method.Input.Desc.Name())
 	p("          const body = await req.json() as %s;", inputType)
 
@@ -755,7 +799,12 @@ func (g *Generator) generateQueryParamParsing(
 // casting to the enum type when needed for TypeScript type safety.
 func (g *Generator) emitPathParamAssignment(p tscommon.Printer, ppf pathParamField) {
 	if ppf.field.Desc.Kind() == protoreflect.EnumKind && ppf.field.Enum != nil {
-		p("            %s: pathParams[\"%s\"] as %s,", ppf.jsonName, ppf.protoName, string(ppf.field.Enum.Desc.Name()))
+		p(
+			"            %s: pathParams[\"%s\"] as %s,",
+			ppf.jsonName,
+			ppf.protoName,
+			string(ppf.field.Enum.Desc.Name()),
+		)
 	} else {
 		p("            %s: pathParams[\"%s\"],", ppf.jsonName, ppf.protoName)
 	}
@@ -769,7 +818,12 @@ func (g *Generator) generateQueryParamField(p tscommon.Printer, qp annotations.Q
 	// Handle repeated fields: use getAll() for multi-value params
 	if qp.Field != nil && qp.Field.Desc.IsList() {
 		if qp.Field.Desc.Kind() == protoreflect.EnumKind && qp.Field.Enum != nil {
-			p(`            %s: params.getAll("%s") as %s[],`, jsonName, paramName, string(qp.Field.Enum.Desc.Name()))
+			p(
+				`            %s: params.getAll("%s") as %s[],`,
+				jsonName,
+				paramName,
+				string(qp.Field.Enum.Desc.Name()),
+			)
 		} else {
 			p(`            %s: params.getAll("%s"),`, jsonName, paramName)
 		}

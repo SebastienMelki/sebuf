@@ -38,8 +38,8 @@ func TestEnumQueryAndPathParams(t *testing.T) {
 	// Create temp directory for generated code + test
 	tempDir := t.TempDir()
 	genDir := filepath.Join(tempDir, "generated")
-	if err := os.MkdirAll(genDir, 0o755); err != nil {
-		t.Fatalf("Failed to create gen dir: %v", err)
+	if mkErr := os.MkdirAll(genDir, 0o755); mkErr != nil {
+		t.Fatalf("Failed to create gen dir: %v", mkErr)
 	}
 
 	// Run protoc to generate both Go types and HTTP handlers
@@ -74,8 +74,8 @@ require (
 
 replace github.com/SebastienMelki/sebuf => %s
 `, projectRoot)
-	if err := os.WriteFile(filepath.Join(tempDir, "go.mod"), []byte(goMod), 0o644); err != nil {
-		t.Fatalf("Failed to write go.mod: %v", err)
+	if writeErr := os.WriteFile(filepath.Join(tempDir, "go.mod"), []byte(goMod), 0o644); writeErr != nil {
+		t.Fatalf("Failed to write go.mod: %v", writeErr)
 	}
 
 	// Write the runtime test file
@@ -363,8 +363,8 @@ func TestEnumPath_UnknownName(t *testing.T) {
 }
 `
 	testFilePath := filepath.Join(genDir, "enum_test.go")
-	if err := os.WriteFile(testFilePath, []byte(testCode), 0o644); err != nil {
-		t.Fatalf("Failed to write test file: %v", err)
+	if writeErr := os.WriteFile(testFilePath, []byte(testCode), 0o644); writeErr != nil {
+		t.Fatalf("Failed to write test file: %v", writeErr)
 	}
 
 	// Run go mod tidy
@@ -390,4 +390,3 @@ func TestEnumPath_UnknownName(t *testing.T) {
 
 	t.Logf("All enum runtime tests passed:\n%s", stdout.String())
 }
-

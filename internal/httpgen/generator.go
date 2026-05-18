@@ -93,7 +93,11 @@ func (g *Generator) generateFile(file *protogen.File) error {
 	// This is passed to the encoding generator to avoid duplicate method declarations.
 	unwrapMsgNames, unwrapErr := g.collectUnwrapMarshalJSONMessageNames(file)
 	if unwrapErr != nil {
-		return fmt.Errorf("collecting unwrap MarshalJSON message names for %s: %w", file.Desc.Path(), unwrapErr)
+		return fmt.Errorf(
+			"collecting unwrap MarshalJSON message names for %s: %w",
+			file.Desc.Path(),
+			unwrapErr,
+		)
 	}
 
 	// Generate encoding file if there are messages with int64_encoding=NUMBER annotations
@@ -194,7 +198,11 @@ func (g *Generator) generateHTTPFile(file *protogen.File) error {
 	return nil
 }
 
-func (g *Generator) generateService(gf *protogen.GeneratedFile, file *protogen.File, service *protogen.Service) error {
+func (g *Generator) generateService(
+	gf *protogen.GeneratedFile,
+	file *protogen.File,
+	service *protogen.Service,
+) error {
 	serviceName := service.GoName
 
 	// Generate service interface
@@ -218,7 +226,13 @@ func (g *Generator) generateService(gf *protogen.GeneratedFile, file *protogen.F
 		serviceName,
 		" to the given mux.",
 	)
-	gf.P("func Register", serviceName, "Server(server ", serviceName, "Server, opts ...ServerOption) error {")
+	gf.P(
+		"func Register",
+		serviceName,
+		"Server(server ",
+		serviceName,
+		"Server, opts ...ServerOption) error {",
+	)
 	gf.P("config := getConfiguration(opts...)")
 	gf.P()
 
@@ -364,13 +378,17 @@ func (g *Generator) generateBindingFile(file *protogen.File) error {
 	gf.P("// BindingMiddleware creates a middleware that binds HTTP requests to protobuf messages")
 	gf.P("// and validates them using protovalidate and header validation.")
 	gf.P("// It supports path parameters, query parameters, and request body binding.")
-	gf.P("func BindingMiddleware[Req any](next http.Handler, serviceHeaders, methodHeaders []*sebufhttp.Header,")
+	gf.P(
+		"func BindingMiddleware[Req any](next http.Handler, serviceHeaders, methodHeaders []*sebufhttp.Header,",
+	)
 	gf.P(
 		"pathParams []PathParamConfig, queryParams []QueryParamConfig, httpMethod string, errorHandler ErrorHandler) http.Handler {",
 	)
 	gf.P("return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {")
 	gf.P("// Validate headers first")
-	gf.P("if validationErr := validateHeaders(r, serviceHeaders, methodHeaders); validationErr != nil {")
+	gf.P(
+		"if validationErr := validateHeaders(r, serviceHeaders, methodHeaders); validationErr != nil {",
+	)
 	gf.P("writeErrorWithHandler(w, r, validationErr, errorHandler)")
 	gf.P("return")
 	gf.P("}")
@@ -506,7 +524,9 @@ func (g *Generator) generateBindingFile(file *protogen.File) error {
 	gf.P()
 
 	// bindPathParams function - binds URL path parameters to proto message fields
-	gf.P("// bindPathParams binds URL path parameters to proto message fields using Go 1.22+ PathValue.")
+	gf.P(
+		"// bindPathParams binds URL path parameters to proto message fields using Go 1.22+ PathValue.",
+	)
 	gf.P(
 		"func bindPathParams(r *http.Request, msg proto.Message, params []PathParamConfig) *sebufhttp.ValidationError {",
 	)
@@ -538,7 +558,9 @@ func (g *Generator) generateBindingFile(file *protogen.File) error {
 	gf.P("return &sebufhttp.ValidationError{")
 	gf.P("Violations: []*sebufhttp.FieldViolation{{")
 	gf.P(`Field: param.FieldName,`)
-	gf.P(`Description: fmt.Sprintf("invalid value for path parameter %s: %v", param.URLParam, err),`)
+	gf.P(
+		`Description: fmt.Sprintf("invalid value for path parameter %s: %v", param.URLParam, err),`,
+	)
 	gf.P("}},")
 	gf.P("}")
 	gf.P("}")
@@ -599,7 +621,9 @@ func (g *Generator) generateBindingFile(file *protogen.File) error {
 	gf.P("return &sebufhttp.ValidationError{")
 	gf.P("Violations: []*sebufhttp.FieldViolation{{")
 	gf.P(`Field: param.FieldName,`)
-	gf.P(`Description: fmt.Sprintf("invalid value for query parameter %s: %v", param.QueryName, err),`)
+	gf.P(
+		`Description: fmt.Sprintf("invalid value for query parameter %s: %v", param.QueryName, err),`,
+	)
 	gf.P("}},")
 	gf.P("}")
 	gf.P("}")
@@ -611,7 +635,9 @@ func (g *Generator) generateBindingFile(file *protogen.File) error {
 	gf.P("return &sebufhttp.ValidationError{")
 	gf.P("Violations: []*sebufhttp.FieldViolation{{")
 	gf.P(`Field: param.FieldName,`)
-	gf.P(`Description: fmt.Sprintf("invalid value for query parameter %s: %v", param.QueryName, err),`)
+	gf.P(
+		`Description: fmt.Sprintf("invalid value for query parameter %s: %v", param.QueryName, err),`,
+	)
 	gf.P("}},")
 	gf.P("}")
 	gf.P("}")
@@ -624,12 +650,18 @@ func (g *Generator) generateBindingFile(file *protogen.File) error {
 	gf.P()
 
 	// convertStringToFieldValue function - converts string values to protoreflect.Value
-	gf.P("// convertStringToFieldValue converts a string value to the appropriate protoreflect.Value.")
-	gf.P("func convertStringToFieldValue(value string, field protoreflect.FieldDescriptor) (protoreflect.Value, error) {")
+	gf.P(
+		"// convertStringToFieldValue converts a string value to the appropriate protoreflect.Value.",
+	)
+	gf.P(
+		"func convertStringToFieldValue(value string, field protoreflect.FieldDescriptor) (protoreflect.Value, error) {",
+	)
 	gf.P("switch field.Kind() {")
 	gf.P("case protoreflect.EnumKind:")
 	gf.P("// Try numeric value first — accept unknown numbers for proto3 forward-compat,")
-	gf.P("// matching protojson semantics. Unknown names are still rejected (same asymmetry as protojson).")
+	gf.P(
+		"// matching protojson semantics. Unknown names are still rejected (same asymmetry as protojson).",
+	)
 	gf.P("if v, err := strconv.ParseInt(value, 10, 32); err == nil {")
 	gf.P("return protoreflect.ValueOfEnum(protoreflect.EnumNumber(v)), nil")
 	gf.P("}")
@@ -638,7 +670,9 @@ func (g *Generator) generateBindingFile(file *protogen.File) error {
 	gf.P("if enumVal := enumDesc.Values().ByName(protoreflect.Name(value)); enumVal != nil {")
 	gf.P("return protoreflect.ValueOfEnum(enumVal.Number()), nil")
 	gf.P("}")
-	gf.P(`return protoreflect.Value{}, fmt.Errorf("invalid value %q for enum %s", value, enumDesc.Name())`)
+	gf.P(
+		`return protoreflect.Value{}, fmt.Errorf("invalid value %q for enum %s", value, enumDesc.Name())`,
+	)
 	gf.P("case protoreflect.StringKind:")
 	gf.P("return protoreflect.ValueOfString(value), nil")
 	gf.P("case protoreflect.Int32Kind, protoreflect.Sint32Kind, protoreflect.Sfixed32Kind:")
@@ -722,7 +756,9 @@ func (g *Generator) generateBindingFile(file *protogen.File) error {
 	gf.P()
 	gf.P("// Set Content-Type based on request Content-Type (matching serialization format)")
 	gf.P(`respContentType := "application/json"`)
-	gf.P(`if ct := filterFlags(r.Header.Get("Content-Type")); ct == BinaryContentType || ct == ProtoContentType {`)
+	gf.P(
+		`if ct := filterFlags(r.Header.Get("Content-Type")); ct == BinaryContentType || ct == ProtoContentType {`,
+	)
 	gf.P(`respContentType = "application/x-protobuf"`)
 	gf.P("}")
 	gf.P(`w.Header().Set("Content-Type", respContentType)`)
@@ -826,7 +862,9 @@ func (g *Generator) generateErrorHandlerType(gf *protogen.GeneratedFile) {
 	gf.P("// If you write directly to w (via w.Write()), the response is considered")
 	gf.P("// complete and no further writing occurs.")
 	gf.P("//")
-	gf.P("// Use errors.As() to inspect error types: *sebufhttp.ValidationError or *sebufhttp.Error")
+	gf.P(
+		"// Use errors.As() to inspect error types: *sebufhttp.ValidationError or *sebufhttp.Error",
+	)
 	gf.P("type ErrorHandler func(w http.ResponseWriter, r *http.Request, err error) proto.Message")
 	gf.P()
 }
@@ -893,7 +931,11 @@ func (g *Generator) writeHeader(gf *protogen.GeneratedFile, file *protogen.File)
 }
 
 // getMethodPath determines the HTTP path for a method.
-func (g *Generator) getMethodPath(method *protogen.Method, basePath string, packageName protogen.GoPackageName) string {
+func (g *Generator) getMethodPath(
+	method *protogen.Method,
+	basePath string,
+	packageName protogen.GoPackageName,
+) string {
 	// Try to get custom path from options
 	customPath := g.getCustomPath(method)
 
@@ -1044,14 +1086,18 @@ func (g *Generator) generateWriteValidationErrorResponseFunc(gf *protogen.Genera
 	gf.P(
 		"func writeValidationErrorResponse(w http.ResponseWriter, r *http.Request, validationErr *sebufhttp.ValidationError) {",
 	)
-	gf.P(`writeProtoMessageResponse(w, r, validationErr, http.StatusBadRequest, "validation failed")`)
+	gf.P(
+		`writeProtoMessageResponse(w, r, validationErr, http.StatusBadRequest, "validation failed")`,
+	)
 	gf.P("}")
 	gf.P()
 }
 
 // generateWriteValidationErrorFunc generates the writeValidationError function for protovalidate errors.
 func (g *Generator) generateWriteValidationErrorFunc(gf *protogen.GeneratedFile) {
-	gf.P("// writeValidationError converts a protovalidate error to ValidationError and writes it as response")
+	gf.P(
+		"// writeValidationError converts a protovalidate error to ValidationError and writes it as response",
+	)
 	gf.P("func writeValidationError(w http.ResponseWriter, r *http.Request, err error) {")
 	gf.P("validationErr := convertProtovalidateError(err)")
 	gf.P("writeValidationErrorResponse(w, r, validationErr)")
@@ -1062,8 +1108,12 @@ func (g *Generator) generateWriteValidationErrorFunc(gf *protogen.GeneratedFile)
 // generateWriteErrorResponseFunc generates the writeErrorResponse function.
 func (g *Generator) generateWriteErrorResponseFunc(gf *protogen.GeneratedFile) {
 	gf.P("// writeErrorResponse writes an Error as a response")
-	gf.P("func writeErrorResponse(w http.ResponseWriter, r *http.Request, errorMsg *sebufhttp.Error) {")
-	gf.P(`writeProtoMessageResponse(w, r, errorMsg, http.StatusInternalServerError, "internal server error")`)
+	gf.P(
+		"func writeErrorResponse(w http.ResponseWriter, r *http.Request, errorMsg *sebufhttp.Error) {",
+	)
+	gf.P(
+		`writeProtoMessageResponse(w, r, errorMsg, http.StatusInternalServerError, "internal server error")`,
+	)
 	gf.P("}")
 	gf.P()
 }
@@ -1120,7 +1170,9 @@ func (g *Generator) generateConvertProtovalidateErrorFunc(gf *protogen.Generated
 
 // generateDefaultErrorResponseFunc generates the defaultErrorResponse helper function.
 func (g *Generator) generateDefaultErrorResponseFunc(gf *protogen.GeneratedFile) {
-	gf.P("// defaultErrorResponse returns the appropriate error response message based on error type")
+	gf.P(
+		"// defaultErrorResponse returns the appropriate error response message based on error type",
+	)
 	gf.P("func defaultErrorResponse(err error) proto.Message {")
 	gf.P("var valErr *sebufhttp.ValidationError")
 	gf.P("if errors.As(err, &valErr) {")
@@ -1155,7 +1207,9 @@ func (g *Generator) generateDefaultErrorStatusCodeFunc(gf *protogen.GeneratedFil
 // generateWriteErrorWithHandlerFunc generates the writeErrorWithHandler function.
 func (g *Generator) generateWriteErrorWithHandlerFunc(gf *protogen.GeneratedFile) {
 	gf.P("// writeErrorWithHandler calls custom handler if set, then marshals response")
-	gf.P("func writeErrorWithHandler(w http.ResponseWriter, r *http.Request, err error, handler ErrorHandler) {")
+	gf.P(
+		"func writeErrorWithHandler(w http.ResponseWriter, r *http.Request, err error, handler ErrorHandler) {",
+	)
 	gf.P("var response proto.Message")
 	gf.P("var capture *responseCapture")
 	gf.P()
@@ -1341,7 +1395,9 @@ func (g *Generator) generateHeaderValidationLoop(gf *protogen.GeneratedFile) {
 	gf.P("if err := validateHeaderValue(headerSpec, value); err != nil {")
 	gf.P("violations = append(violations, &sebufhttp.FieldViolation{")
 	gf.P("Field: headerSpec.GetName(),")
-	gf.P(`Description: fmt.Sprintf("header '%s' validation failed: %v", headerSpec.GetName(), err),`)
+	gf.P(
+		`Description: fmt.Sprintf("header '%s' validation failed: %v", headerSpec.GetName(), err),`,
+	)
 	gf.P("})")
 	gf.P("}")
 	gf.P("}")
@@ -1554,10 +1610,18 @@ func (g *Generator) generateDateTimeValidators(gf *protogen.GeneratedFile) {
 }
 
 // generateHeaderGetters generates functions to get headers for service and methods.
-func (g *Generator) generateHeaderGetters(gf *protogen.GeneratedFile, service *protogen.Service) error {
+func (g *Generator) generateHeaderGetters(
+	gf *protogen.GeneratedFile,
+	service *protogen.Service,
+) error {
 	// Generate service headers getter function
 	serviceName := service.GoName
-	gf.P("// get", serviceName, "Headers returns the service-level required headers for ", serviceName)
+	gf.P(
+		"// get",
+		serviceName,
+		"Headers returns the service-level required headers for ",
+		serviceName,
+	)
 	gf.P("func get", serviceName, "Headers() []*sebufhttp.Header {")
 
 	// Get actual service headers if they exist
@@ -1576,7 +1640,12 @@ func (g *Generator) generateHeaderGetters(gf *protogen.GeneratedFile, service *p
 
 	// Generate method headers getter functions
 	for _, method := range service.Methods {
-		gf.P("// get", method.GoName, "Headers returns the method-level required headers for ", method.GoName)
+		gf.P(
+			"// get",
+			method.GoName,
+			"Headers returns the method-level required headers for ",
+			method.GoName,
+		)
 		gf.P("func get", method.GoName, "Headers() []*sebufhttp.Header {")
 
 		// Get actual method headers if they exist
@@ -1611,13 +1680,21 @@ func (g *Generator) generateHeaderLiteral(gf *protogen.GeneratedFile, header *ht
 }
 
 // generateParamConfigs generates path and query parameter configurations for each method.
-func (g *Generator) generateParamConfigs(gf *protogen.GeneratedFile, service *protogen.Service) error {
+func (g *Generator) generateParamConfigs(
+	gf *protogen.GeneratedFile,
+	service *protogen.Service,
+) error {
 	for _, method := range service.Methods {
 		methodName := annotations.LowerFirst(method.GoName)
 
 		// Generate path params config
 		pathParams := g.getPathParams(method)
-		gf.P("// ", methodName, "PathParams contains path parameter configuration for ", method.GoName)
+		gf.P(
+			"// ",
+			methodName,
+			"PathParams contains path parameter configuration for ",
+			method.GoName,
+		)
 		gf.P("var ", methodName, "PathParams = []PathParamConfig{")
 		for _, param := range pathParams {
 			gf.P("{URLParam: \"", param, "\", FieldName: \"", param, "\"},")
@@ -1627,7 +1704,12 @@ func (g *Generator) generateParamConfigs(gf *protogen.GeneratedFile, service *pr
 
 		// Generate query params config
 		queryParams := annotations.GetQueryParams(method.Input)
-		gf.P("// ", methodName, "QueryParams contains query parameter configuration for ", method.GoName)
+		gf.P(
+			"// ",
+			methodName,
+			"QueryParams contains query parameter configuration for ",
+			method.GoName,
+		)
 		gf.P("var ", methodName, "QueryParams = []QueryParamConfig{")
 		for _, qp := range queryParams {
 			gf.P(
@@ -1667,7 +1749,9 @@ func (g *Generator) generateSSETypes(gf *protogen.GeneratedFile) {
 
 	// sseSender struct
 	gf.P("// sseSender implements SSESender using http.ResponseWriter and http.Flusher.")
-	gf.P("// It tracks whether the response has been committed (any flush) to support proper error handling.")
+	gf.P(
+		"// It tracks whether the response has been committed (any flush) to support proper error handling.",
+	)
 	gf.P("type sseSender struct {")
 	gf.P("w         http.ResponseWriter")
 	gf.P("flusher   http.Flusher")
@@ -1728,7 +1812,9 @@ func (g *Generator) generateSSETypes(gf *protogen.GeneratedFile) {
 
 	// Header validation
 	gf.P("// Validate headers")
-	gf.P("if validationErr := validateHeaders(r, serviceHeaders, methodHeaders); validationErr != nil {")
+	gf.P(
+		"if validationErr := validateHeaders(r, serviceHeaders, methodHeaders); validationErr != nil {",
+	)
 	gf.P("writeErrorWithHandler(w, r, validationErr, errorHandler)")
 	gf.P("return")
 	gf.P("}")
