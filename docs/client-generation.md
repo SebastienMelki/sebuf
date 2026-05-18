@@ -265,6 +265,7 @@ message ListProductsRequest {
   int32 limit = 2 [(sebuf.http.query) = {name: "limit"}];
   string category = 3 [(sebuf.http.query) = {name: "category"}];
   double min_price = 4 [(sebuf.http.query) = {name: "min_price"}];
+  ProductStatus status = 5 [(sebuf.http.query) = {name: "status"}]; // enum — accepts name or number
 }
 ```
 

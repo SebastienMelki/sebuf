@@ -1,0 +1,57 @@
+syntax = "proto3";
+
+package api.models;
+
+import "sebuf/http/annotations.proto";
+
+// Timeframe represents the time period for portfolio data.
+enum Timeframe {
+  TIMEFRAME_UNSPECIFIED = 0;
+  TIMEFRAME_DAY = 1;
+  TIMEFRAME_WEEK = 2;
+  TIMEFRAME_MONTH = 3;
+  TIMEFRAME_YEAR = 4;
+  TIMEFRAME_ALL = 5;
+}
+
+// AssetClass represents a category of financial instruments.
+enum AssetClass {
+  ASSET_CLASS_UNSPECIFIED = 0;
+  ASSET_CLASS_EQUITY = 1;
+  ASSET_CLASS_FIXED_INCOME = 2;
+  ASSET_CLASS_COMMODITY = 3;
+  ASSET_CLASS_CRYPTO = 4;
+}
+
+message Holding {
+  string symbol = 1;
+  string name = 2;
+  double quantity = 3;
+  double current_price = 4;
+  AssetClass asset_class = 5;
+}
+
+// GetPortfolioRequest uses an enum as a query parameter.
+message GetPortfolioRequest {
+  // Filter by timeframe (enum query param — accepts name or number)
+  Timeframe timeframe = 1 [(sebuf.http.query) = { name: "timeframe" }];
+  // Filter by asset class (enum query param)
+  AssetClass asset_class = 2 [(sebuf.http.query) = { name: "asset_class" }];
+}
+
+message GetPortfolioResponse {
+  repeated Holding holdings = 1;
+  double total_value = 2;
+}
+
+// GetAssetClassRequest uses an enum as a path parameter.
+message GetAssetClassRequest {
+  // Asset class in the URL path (enum path param — accepts name or number)
+  AssetClass asset_class = 1;
+}
+
+message GetAssetClassResponse {
+  AssetClass asset_class = 1;
+  repeated Holding holdings = 2;
+  double total_value = 3;
+}

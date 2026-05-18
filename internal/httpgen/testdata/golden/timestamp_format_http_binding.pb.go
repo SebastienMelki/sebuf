@@ -216,7 +216,7 @@ func bindPathParams(r *http.Request, msg proto.Message, params []PathParamConfig
 			continue // Field not found, skip
 		}
 
-		convertedValue, err := convertStringToFieldValue(value, field.Kind())
+		convertedValue, err := convertStringToFieldValue(value, field)
 		if err != nil {
 			return &sebufhttp.ValidationError{
 				Violations: []*sebufhttp.FieldViolation{{
@@ -244,6 +244,14 @@ func bindQueryParams(r *http.Request, msg proto.Message, params []QueryParamConf
 
 	for _, param := range params {
 		values := query[param.QueryName]
+		// Filter out empty strings (e.g. ?param= is treated as unset)
+		filtered := values[:0]
+		for _, v := range values {
+			if v != "" {
+				filtered = append(filtered, v)
+			}
+		}
+		values = filtered
 		if len(values) == 0 {
 			if param.Required {
 				return &sebufhttp.ValidationError{
@@ -265,7 +273,7 @@ func bindQueryParams(r *http.Request, msg proto.Message, params []QueryParamConf
 		if field.IsList() {
 			list := reflectMsg.Mutable(field).List()
 			for _, v := range values {
-				converted, err := convertStringToFieldValue(v, field.Kind())
+				converted, err := convertStringToFieldValue(v, field)
 				if err != nil {
 					return &sebufhttp.ValidationError{
 						Violations: []*sebufhttp.FieldViolation{{
@@ -277,7 +285,7 @@ func bindQueryParams(r *http.Request, msg proto.Message, params []QueryParamConf
 				list.Append(converted)
 			}
 		} else {
-			converted, err := convertStringToFieldValue(values[0], field.Kind())
+			converted, err := convertStringToFieldValue(values[0], field)
 			if err != nil {
 				return &sebufhttp.ValidationError{
 					Violations: []*sebufhttp.FieldViolation{{
@@ -294,8 +302,20 @@ func bindQueryParams(r *http.Request, msg proto.Message, params []QueryParamConf
 }
 
 // convertStringToFieldValue converts a string value to the appropriate protoreflect.Value.
-func convertStringToFieldValue(value string, kind protoreflect.Kind) (protoreflect.Value, error) {
-	switch kind {
+func convertStringToFieldValue(value string, field protoreflect.FieldDescriptor) (protoreflect.Value, error) {
+	switch field.Kind() {
+	case protoreflect.EnumKind:
+		// Try numeric value first — accept unknown numbers for proto3 forward-compat,
+		// matching protojson semantics. Unknown names are still rejected (same asymmetry as protojson).
+		if v, err := strconv.ParseInt(value, 10, 32); err == nil {
+			return protoreflect.ValueOfEnum(protoreflect.EnumNumber(v)), nil
+		}
+		// Fall back to enum value name lookup
+		enumDesc := field.Enum()
+		if enumVal := enumDesc.Values().ByName(protoreflect.Name(value)); enumVal != nil {
+			return protoreflect.ValueOfEnum(enumVal.Number()), nil
+		}
+		return protoreflect.Value{}, fmt.Errorf("invalid value %q for enum %s", value, enumDesc.Name())
 	case protoreflect.StringKind:
 		return protoreflect.ValueOfString(value), nil
 	case protoreflect.Int32Kind, protoreflect.Sint32Kind, protoreflect.Sfixed32Kind:
@@ -341,7 +361,7 @@ func convertStringToFieldValue(value string, kind protoreflect.Kind) (protorefle
 		}
 		return protoreflect.ValueOfFloat64(v), nil
 	default:
-		return protoreflect.Value{}, fmt.Errorf("unsupported field type: %v", kind)
+		return protoreflect.Value{}, fmt.Errorf("unsupported field type: %v", field.Kind())
 	}
 }
 

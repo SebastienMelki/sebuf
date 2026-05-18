@@ -342,6 +342,62 @@ The final HTTP path is determined by:
    // Results in: POST /userapi/create_user (no annotations)
    ```
 
+## Supported Query & Path Parameter Types
+
+Both query parameters (`sebuf.http.query`) and path parameters (e.g., `{id}` in the path) support the following protobuf field types:
+
+| Protobuf Type | Example | Notes |
+|---|---|---|
+| `string` | `?name=alice` | |
+| `int32` / `sint32` / `sfixed32` | `?page=1` | |
+| `int64` / `sint64` / `sfixed64` | `?offset=100` | |
+| `uint32` / `fixed32` | `?id=42` | |
+| `uint64` / `fixed64` | `?ts=1234567890` | |
+| `float` / `double` | `?price=9.99` | |
+| `bool` | `?active=true` | Accepts `true` or `false` |
+| `enum` | `?status=STATUS_ACTIVE` or `?status=1` | See below |
+
+### Enum Parameters
+
+Enum fields accept two forms:
+
+- **Name**: The full proto enum value name, case-sensitive (e.g., `TIMEFRAME_MONTH`)
+- **Number**: The numeric enum value (e.g., `3`)
+
+Unknown numeric values are accepted for proto3 forward-compatibility (matching protojson semantics). Unknown names are rejected with a validation error.
+
+```protobuf
+enum Timeframe {
+  TIMEFRAME_UNSPECIFIED = 0;
+  TIMEFRAME_DAY = 1;
+  TIMEFRAME_WEEK = 2;
+  TIMEFRAME_MONTH = 3;
+}
+
+message GetPortfolioRequest {
+  Timeframe timeframe = 1 [(sebuf.http.query) = { name: "timeframe" }];
+}
+
+// GET /portfolio?timeframe=TIMEFRAME_MONTH  -> parsed as TIMEFRAME_MONTH
+// GET /portfolio?timeframe=3                -> parsed as TIMEFRAME_MONTH
+// GET /portfolio?timeframe=99               -> accepted (forward-compat)
+// GET /portfolio?timeframe=invalid          -> 400 validation error
+```
+
+Enums also work as path parameters:
+
+```protobuf
+message GetAssetClassRequest {
+  AssetClass asset_class = 1;  // used in path: /asset-classes/{asset_class}
+}
+
+// GET /asset-classes/ASSET_CLASS_EQUITY  -> parsed correctly
+// GET /asset-classes/1                   -> parsed correctly
+// GET /asset-classes/INVALID             -> 400 validation error
+```
+
+See the [enum-params example](../examples/enum-params/) for a complete working example.
+
 ## Field Examples
 
 Add example values to protobuf fields using the `field_examples` annotation. These examples are used in OpenAPI documentation and mock server generation.
@@ -1513,4 +1569,5 @@ The OpenAPI spec will automatically reflect your HTTP annotations and routing.
 **Feature-specific examples:**
 - [restful-crud](../examples/restful-crud/) - All HTTP verbs, path params, query params
 - [nested-resources](../examples/nested-resources/) - Deep path nesting with multiple path params
+- [enum-params](../examples/enum-params/) - Enum fields as query and path parameters
 - [multi-service-api](../examples/multi-service-api/) - Service/method-level header validation
