@@ -29,7 +29,7 @@ This starts a working HTTP API with JSON endpoints and OpenAPI docs - all genera
 
 ## What you get
 
-**Five generators from one `.proto` file:**
+**Six generators from one `.proto` file:**
 
 | Generator | Output |
 |-----------|--------|
@@ -37,6 +37,7 @@ This starts a working HTTP API with JSON endpoints and OpenAPI docs - all genera
 | `protoc-gen-go-client` | Go HTTP clients with type safety, header helpers, and per-call options |
 | `protoc-gen-ts-client` | TypeScript HTTP clients with type safety, header helpers, and per-call options |
 | `protoc-gen-ts-server` | TypeScript HTTP servers with routing, request binding, validation, and error handling — runs on Node, Deno, Bun, Cloudflare Workers |
+| `protoc-gen-py-client` | Python HTTP clients with type safety, header helpers, custom-transport injection, and typed proto-error exceptions — stdlib only (Python 3.10+) |
 | `protoc-gen-openapiv3` | OpenAPI v3.1 specs that stay in sync with your code, one file per service |
 
 **Validation and error handling — built in, not bolted on:**
@@ -138,6 +139,7 @@ go install github.com/SebastienMelki/sebuf/cmd/protoc-gen-go-client@latest
 go install github.com/SebastienMelki/sebuf/cmd/protoc-gen-openapiv3@latest
 go install github.com/SebastienMelki/sebuf/cmd/protoc-gen-ts-client@latest
 go install github.com/SebastienMelki/sebuf/cmd/protoc-gen-ts-server@latest
+go install github.com/SebastienMelki/sebuf/cmd/protoc-gen-py-client@latest
 
 # Try the complete example
 cd examples/simple-api && make demo

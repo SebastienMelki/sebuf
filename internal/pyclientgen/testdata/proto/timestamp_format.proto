@@ -1,0 +1,52 @@
+syntax = "proto3";
+
+package testdata.timestamp_format;
+
+option go_package = "github.com/SebastienMelki/sebuf/internal/httpgen/testdata/timestampformat;timestampformat";
+
+import "google/protobuf/timestamp.proto";
+import "sebuf/http/annotations.proto";
+
+// TimestampFormatTest demonstrates various timestamp format options.
+message TimestampFormatTest {
+  // Default (RFC3339) - no annotation
+  google.protobuf.Timestamp default_ts = 1;
+
+  // Explicit RFC3339
+  google.protobuf.Timestamp rfc3339_ts = 2 [(sebuf.http.timestamp_format) = TIMESTAMP_FORMAT_RFC3339];
+
+  // Unix seconds - serializes as integer
+  google.protobuf.Timestamp unix_seconds_ts = 3 [(sebuf.http.timestamp_format) = TIMESTAMP_FORMAT_UNIX_SECONDS];
+
+  // Unix milliseconds - serializes as integer
+  google.protobuf.Timestamp unix_millis_ts = 4 [(sebuf.http.timestamp_format) = TIMESTAMP_FORMAT_UNIX_MILLIS];
+
+  // Date only - serializes as "2024-01-15"
+  google.protobuf.Timestamp date_ts = 5 [(sebuf.http.timestamp_format) = TIMESTAMP_FORMAT_DATE];
+}
+
+// TimestampFormatRequest is the request for TestTimestampFormat.
+message TimestampFormatRequest {
+  string id = 1;
+}
+
+// TimestampFormatService tests timestamp format in responses.
+service TimestampFormatService {
+  option (sebuf.http.service_config) = {
+    base_path: "/api/v1"
+  };
+
+  rpc CreateTimestampFormat(TimestampFormatTest) returns (TimestampFormatTest) {
+    option (sebuf.http.config) = {
+      path: "/timestamp-format"
+      method: HTTP_METHOD_POST
+    };
+  }
+
+  rpc GetTimestampFormat(TimestampFormatRequest) returns (TimestampFormatTest) {
+    option (sebuf.http.config) = {
+      path: "/timestamp-format/{id}"
+      method: HTTP_METHOD_GET
+    };
+  }
+}

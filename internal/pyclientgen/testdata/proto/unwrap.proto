@@ -1,0 +1,158 @@
+// Test proto file for unwrap field option testing
+syntax = "proto3";
+
+package test.httpgen.unwrap;
+
+option go_package = "github.com/SebastienMelki/sebuf/internal/httpgen/testdata/generated;generated";
+
+import "sebuf/http/annotations.proto";
+
+// OptionBar represents a single option bar data point
+message OptionBar {
+  string symbol = 1;
+  double price = 2;
+  int64 volume = 3;
+  string timestamp = 4;
+}
+
+// OptionBarsList is a wrapper message with an unwrap field
+message OptionBarsList {
+  // The bars field is marked for unwrapping
+  repeated OptionBar bars = 1 [(sebuf.http.unwrap) = true];
+}
+
+// GetOptionBarsResponse contains a map of symbol to OptionBarsList
+// When serialized to JSON, the OptionBarsList wrapper will be collapsed
+message GetOptionBarsResponse {
+  // Map from symbol to option bars list
+  // JSON output: {"bars": {"AAPL": [...], "GOOG": [...]}}
+  // instead of: {"bars": {"AAPL": {"bars": [...]}, "GOOG": {"bars": [...]}}}
+  map<string, OptionBarsList> bars = 1;
+  string next_page_token = 2;
+}
+
+// GetOptionBarsRequest is the request message
+message GetOptionBarsRequest {
+  repeated string symbols = 1;
+  string start_date = 2;
+  string end_date = 3;
+}
+
+// OptionDataService provides option market data
+service OptionDataService {
+  option (sebuf.http.service_config) = {
+    base_path: "/api/v1"
+  };
+
+  // GetOptionBars retrieves option bar data for multiple symbols
+  rpc GetOptionBars(GetOptionBarsRequest) returns (GetOptionBarsResponse) {
+    option (sebuf.http.config) = {
+      path: "/options/bars"
+      method: HTTP_METHOD_POST
+    };
+  }
+}
+
+// UnwrapService tests all unwrap variants including root-level unwrap
+service UnwrapService {
+  option (sebuf.http.service_config) = {
+    base_path: "/api/v1"
+  };
+
+  // GetOptionBars retrieves option bar data
+  rpc GetOptionBars(GetOptionBarsRequest) returns (GetOptionBarsResponse) {
+    option (sebuf.http.config) = {
+      path: "/options/bars"
+      method: HTTP_METHOD_POST
+    };
+  }
+
+  // GetRootMap tests root-level map unwrap response
+  rpc GetRootMap(GetOptionBarsRequest) returns (RootMapResponse) {
+    option (sebuf.http.config) = {
+      path: "/root/map"
+      method: HTTP_METHOD_POST
+    };
+  }
+
+  // GetRootRepeated tests root-level repeated unwrap response
+  rpc GetRootRepeated(GetOptionBarsRequest) returns (RootRepeatedResponse) {
+    option (sebuf.http.config) = {
+      path: "/root/repeated"
+      method: HTTP_METHOD_POST
+    };
+  }
+
+  // GetRootMapWithValueUnwrap tests combined unwrap response
+  rpc GetRootMapWithValueUnwrap(GetOptionBarsRequest) returns (RootMapWithValueUnwrapResponse) {
+    option (sebuf.http.config) = {
+      path: "/root/map-value-unwrap"
+      method: HTTP_METHOD_POST
+    };
+  }
+}
+
+// Additional test cases
+
+// ScalarUnwrap tests unwrap with scalar types
+message IntList {
+  repeated int32 values = 1 [(sebuf.http.unwrap) = true];
+}
+
+message ScalarMapResponse {
+  map<string, IntList> data = 1;
+}
+
+// NestedMessage tests that non-unwrap maps still work
+message RegularWrapper {
+  repeated OptionBar items = 1;  // No unwrap annotation
+}
+
+message MixedResponse {
+  // This uses unwrap
+  map<string, OptionBarsList> unwrapped_bars = 1;
+  // This does not use unwrap - should serialize normally
+  map<string, RegularWrapper> regular_bars = 2;
+  // Simple scalar field
+  string status = 3;
+}
+
+// =============================================================================
+// Root-Level Unwrap Test Cases
+// =============================================================================
+
+// RootMapResponse tests root-level map unwrap with message values.
+// JSON: {"AAPL": {...}, "GOOG": {...}} instead of {"people": {"AAPL": {...}, ...}}
+message RootMapResponse {
+  map<string, OptionBar> people = 1 [(sebuf.http.unwrap) = true];
+}
+
+// RootRepeatedResponse tests root-level repeated unwrap.
+// JSON: [{...}, {...}] instead of {"items": [{...}, {...}]}
+message RootRepeatedResponse {
+  repeated OptionBar items = 1 [(sebuf.http.unwrap) = true];
+}
+
+// RootMapWithValueUnwrapResponse tests combined unwrap (root map + value unwrap).
+// JSON: {"AAPL": [...], "GOOG": [...]} where each value is an unwrapped array
+message RootMapWithValueUnwrapResponse {
+  map<string, OptionBarsList> data = 1 [(sebuf.http.unwrap) = true];
+}
+
+// ScalarRootMapResponse tests root-level map unwrap with scalar values.
+// JSON: {"key1": 100, "key2": 200}
+message ScalarRootMapResponse {
+  map<string, int32> counts = 1 [(sebuf.http.unwrap) = true];
+}
+
+// ScalarRootRepeatedResponse tests root-level repeated unwrap with scalars.
+// JSON: ["item1", "item2", "item3"]
+message ScalarRootRepeatedResponse {
+  repeated string names = 1 [(sebuf.http.unwrap) = true];
+}
+
+// RootMapScalarListResponse tests root map with scalar list values (combined unwrap).
+// JSON: {"group1": [1, 2, 3], "group2": [4, 5, 6]}
+message RootMapScalarListResponse {
+  map<string, IntList> groups = 1 [(sebuf.http.unwrap) = true];
+}

@@ -1,0 +1,64 @@
+syntax = "proto3";
+
+package testdata.enumencoding;
+
+option go_package = "github.com/SebastienMelki/sebuf/internal/httpgen/testdata/enumencoding;enumencoding";
+
+import "sebuf/http/annotations.proto";
+
+// Status enum with custom enum_value mappings
+enum Status {
+  STATUS_UNSPECIFIED = 0 [(sebuf.http.enum_value) = "unknown"];
+  STATUS_ACTIVE = 1 [(sebuf.http.enum_value) = "active"];
+  STATUS_INACTIVE = 2 [(sebuf.http.enum_value) = "inactive"];
+}
+
+// Priority enum without custom values (uses proto names)
+enum Priority {
+  PRIORITY_LOW = 0;
+  PRIORITY_MEDIUM = 1;
+  PRIORITY_HIGH = 2;
+}
+
+// EnumEncodingTest demonstrates enum encoding variations
+message EnumEncodingTest {
+  // Default encoding with custom enum_value mappings
+  Status status = 1;
+
+  // NUMBER encoding - should serialize as integer
+  Priority priority_as_number = 2 [(sebuf.http.enum_encoding) = ENUM_ENCODING_NUMBER];
+
+  // STRING encoding (explicit, same as default) - should serialize as string
+  Priority priority_as_string = 3 [(sebuf.http.enum_encoding) = ENUM_ENCODING_STRING];
+
+  // Default encoding (no annotation) - should serialize as string with proto names
+  Priority default_priority = 4;
+
+  // Repeated enum with custom values
+  repeated Status status_list = 5;
+
+  // Repeated enum with NUMBER encoding
+  repeated Priority number_priority_list = 6 [(sebuf.http.enum_encoding) = ENUM_ENCODING_NUMBER];
+
+  // Optional enum with custom values
+  optional Status optional_status = 7;
+}
+
+// Request message for testing
+message GetEnumTestRequest {
+  string id = 1;
+}
+
+// Service with enum encoding test
+service EnumEncodingService {
+  option (sebuf.http.service_config) = {
+    base_path: "/api/v1"
+  };
+
+  rpc GetEnumTest(GetEnumTestRequest) returns (EnumEncodingTest) {
+    option (sebuf.http.config) = {
+      path: "/test/enum/{id}"
+      method: HTTP_METHOD_GET
+    };
+  }
+}
