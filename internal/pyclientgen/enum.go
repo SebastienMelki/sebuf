@@ -24,28 +24,48 @@ func writeEnum(p printer, enum *protogen.Enum) {
 	p("")
 	p("")
 
-	if !annotations.HasAnyEnumValueMapping(enum) {
-		// Emit an empty mapping for shape stability so consumers can do
-		// `_VALUES.get(member, member.name)` unconditionally.
-		p("%s_JSON_VALUES: Mapping[%s, str] = {}", name, name)
-		p("")
-		p("")
-		return
-	}
-
-	p("%s_JSON_VALUES: Mapping[%s, str] = {", name, name)
-	for _, value := range enum.Values {
-		override := annotations.GetEnumValueMapping(value)
-		if override == "" {
-			continue
+	if annotations.HasAnyEnumValueMapping(enum) {
+		p("%s_JSON_VALUES: Mapping[%s, str] = {", name, name)
+		for _, value := range enum.Values {
+			override := annotations.GetEnumValueMapping(value)
+			if override == "" {
+				continue
+			}
+			variantName := variantPythonName(enum, value)
+			p("    %s.%s: %q,", name, variantName, override)
 		}
-		variantName := variantPythonName(enum, value)
-		p("    %s.%s: %q,", name, variantName, override)
+		p("}")
+	} else {
+		// Empty mapping kept for shape stability so the decoder can iterate
+		// JSON_VALUES.items() without a special case.
+		p("%s_JSON_VALUES: Mapping[%s, str] = {}", name, name)
 	}
-	p("}")
+	p("")
+	writeEnumDecoder(p, enum)
+}
+
+// writeEnumDecoder emits a `_decode_enum_<Name>` function that accepts either
+// a JSON string (enum name or custom enum_value) or an int and returns the
+// IntEnum member. Generated to_dict / from_dict uses this for STRING-encoded
+// enums so unknown values raise instead of silently passing through.
+func writeEnumDecoder(p printer, enum *protogen.Enum) {
+	name := pythonEnumName(enum)
+	p("def _decode_enum_%s(value: Any) -> %s:", name, name)
+	p("    if isinstance(value, int):")
+	p("        return %s(value)", name)
+	p("    if isinstance(value, str):")
+	p("        for member, json_value in %s_JSON_VALUES.items():", name)
+	p("            if json_value == value:")
+	p("                return member")
+	p("        try:")
+	p("            return %s[value]", name)
+	p("        except KeyError:")
+	p(`            raise ValueError(f"unknown %s value: {value!r}")`, name)
+	p(`    raise TypeError(f"cannot decode %s from {type(value).__name__}")`, name)
 	p("")
 	p("")
 }
+
 
 // variantPythonName trims the redundant enum-name prefix from each variant.
 // proto convention: enum Status { STATUS_ACTIVE = 1; } -> ACTIVE.
