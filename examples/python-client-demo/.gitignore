@@ -1,0 +1,17 @@
+# Generated files
+api/
+client/generated/
+
+# Python
+client/__pycache__/
+client/**/__pycache__/
+client/.venv/
+
+# Buf lock file (will be created on first buf dep update)
+buf.lock
+
+# Go sum file (will be created on first go mod tidy)
+go.sum
+
+# Go binary if anyone runs `go build .` instead of `go run main.go`
+/python-client-demo
