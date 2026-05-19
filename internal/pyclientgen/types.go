@@ -7,7 +7,6 @@ import (
 	"google.golang.org/protobuf/compiler/protogen"
 	"google.golang.org/protobuf/reflect/protoreflect"
 
-	sebufhttp "github.com/SebastienMelki/sebuf/http"
 	"github.com/SebastienMelki/sebuf/internal/annotations"
 )
 
@@ -204,18 +203,10 @@ func wellKnownPythonType(field *protogen.Field) string {
 	return ""
 }
 
-// wellKnownTimestampType picks the Python annotation type for Timestamp fields
-// based on timestamp_format.
-//
-//nolint:exhaustive // UNSPECIFIED/RFC3339 fall through to datetime default
-func wellKnownTimestampType(field *protogen.Field) string {
-	switch annotations.GetTimestampFormat(field) {
-	case sebufhttp.TimestampFormat_TIMESTAMP_FORMAT_UNIX_SECONDS,
-		sebufhttp.TimestampFormat_TIMESTAMP_FORMAT_UNIX_MILLIS:
-		return pyInt
-	case sebufhttp.TimestampFormat_TIMESTAMP_FORMAT_DATE:
-		return pyStr
-	default:
-		return "datetime"
-	}
+// wellKnownTimestampType returns the Python annotation type for Timestamp
+// fields. The user-facing type is always `datetime`; `timestamp_format` only
+// affects the wire encoding (the encoder/decoder in encoding.go convert
+// to/from int seconds, int millis, date string, or RFC3339 string).
+func wellKnownTimestampType(_ *protogen.Field) string {
+	return "datetime"
 }

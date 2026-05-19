@@ -1,0 +1,61 @@
+// Test proto for per-*Error-message Exception subclass generation.
+//
+// Any message whose name ends in "Error" gets a generated dataclass-Exception
+// hybrid and an entry in the _ERROR_CLASSES registry keyed by its required
+// JSON field-name set. The error-handler picks the most specific class whose
+// keys match the response body.
+syntax = "proto3";
+
+package test.pyclientgen.errors;
+
+option go_package = "github.com/SebastienMelki/sebuf/internal/pyclientgen/testdata/generated;generated";
+
+import "sebuf/http/annotations.proto";
+
+// Simple resource-style error.
+message NotFoundError {
+  string resource_type = 1;
+  string resource_id = 2;
+}
+
+// Auth-style error with a numeric field.
+message LoginError {
+  string reason = 1;
+  string email = 2;
+  int32 retry_after_seconds = 3;
+}
+
+// Permission error that overlaps NotFoundError on resource_id only -- exercises
+// disambiguation via the required-field-set match in _ERROR_CLASSES.
+message PermissionError {
+  string resource_id = 1;
+  string action = 2;
+  string subject = 3;
+}
+
+// Conflict error with no fields -- exercises the "empty required set" branch
+// of the error matcher (must not greedy-match every body).
+message ConflictError {
+}
+
+message GetThingRequest {
+  string id = 1;
+}
+
+message Thing {
+  string id = 1;
+  string name = 2;
+}
+
+service ErrorService {
+  option (sebuf.http.service_config) = {
+    base_path: "/api/v1"
+  };
+
+  rpc GetThing(GetThingRequest) returns (Thing) {
+    option (sebuf.http.config) = {
+      path: "/things/{id}"
+      method: HTTP_METHOD_GET
+    };
+  }
+}

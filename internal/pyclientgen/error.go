@@ -154,7 +154,7 @@ func writeErrorRegistry(p printer, collected *collectedTypes) {
 	for _, msg := range collected.OrderedErrors() {
 		className := pythonTypeName(msg)
 		keys := errorMarkerKeys(msg)
-		p("    (%s, {%s}),", className, joinPyStringSet(keys))
+		p("    (%s, %s),", className, formatPyStringSet(keys))
 	}
 	p("]")
 	p("")
@@ -172,13 +172,16 @@ func errorMarkerKeys(msg *protogen.Message) []string {
 	return out
 }
 
-func joinPyStringSet(keys []string) string {
+// formatPyStringSet renders the registry key set as a valid Python literal.
+// Empty sets must be written as `set()` because `{}` is an empty dict literal,
+// which would violate the registry's `set[str]` type annotation.
+func formatPyStringSet(keys []string) string {
 	if len(keys) == 0 {
-		return ""
+		return "set()"
 	}
 	parts := make([]string, len(keys))
 	for i, k := range keys {
 		parts[i] = `"` + k + `"`
 	}
-	return strings.Join(parts, ", ")
+	return "{" + strings.Join(parts, ", ") + "}"
 }

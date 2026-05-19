@@ -22,13 +22,8 @@ func writeMessage(p printer, msg *protogen.Message) {
 	p("class %s:", className)
 	p(`    """Generated from proto message %s."""`, msg.Desc.FullName())
 
-	if len(visibleFields(msg)) == 0 {
-		p("    pass")
-		p("")
-		writeMessageSerialization(p, msg, className)
-		return
-	}
-
+	// Field-less messages still emit to_dict / from_dict, so no `pass` is needed
+	// — the methods themselves keep the class body non-empty.
 	for _, f := range visibleFields(msg) {
 		writeFieldDecl(p, f)
 	}
@@ -146,8 +141,13 @@ func writeFieldToDict(p printer, f *protogen.Field) {
 		return
 	}
 
-	// Scalar field.
-	if f.Desc.HasOptionalKeyword() || annotations.IsNullableField(f) {
+	// Scalar field, or a well-known-type message routed through the scalar path.
+	// WKT message fields (Timestamp, Duration, Any, Empty, FieldMask, Struct,
+	// scalar wrappers, ...) are always nullable in proto3, so we guard them the
+	// same way as proto3 `optional` scalars to avoid AttributeError when the
+	// encoder calls methods like .timestamp() or .strftime() on a None default.
+	if f.Desc.HasOptionalKeyword() || annotations.IsNullableField(f) ||
+		f.Desc.Kind() == protoreflect.MessageKind {
 		p("        if %s is not None:", src)
 		p(`            d["%s"] = %s`, jsonName, encodeScalarExpr(f, src))
 		return

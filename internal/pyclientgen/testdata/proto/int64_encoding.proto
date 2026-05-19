@@ -1,0 +1,66 @@
+syntax = "proto3";
+
+package testdata.int64encoding;
+
+option go_package = "github.com/SebastienMelki/sebuf/internal/httpgen/testdata/int64encoding;int64encoding";
+
+import "sebuf/http/annotations.proto";
+
+// Int64EncodingTest demonstrates all int64/uint64 encoding variations.
+message Int64EncodingTest {
+  // Default int64 (no annotation) - should be string in JSON
+  int64 default_int64 = 1;
+
+  // Explicit STRING encoding - should be string in JSON
+  int64 string_int64 = 2 [(sebuf.http.int64_encoding) = INT64_ENCODING_STRING];
+
+  // NUMBER encoding - should be number in JSON (precision risk for > 2^53)
+  int64 number_int64 = 3 [(sebuf.http.int64_encoding) = INT64_ENCODING_NUMBER];
+
+  // Default uint64 (no annotation) - should be string in JSON
+  uint64 default_uint64 = 4;
+
+  // NUMBER encoded uint64 - should be number in JSON
+  uint64 number_uint64 = 5 [(sebuf.http.int64_encoding) = INT64_ENCODING_NUMBER];
+
+  // sint64 with NUMBER encoding
+  sint64 number_sint64 = 6 [(sebuf.http.int64_encoding) = INT64_ENCODING_NUMBER];
+
+  // sfixed64 with NUMBER encoding
+  sfixed64 number_sfixed64 = 7 [(sebuf.http.int64_encoding) = INT64_ENCODING_NUMBER];
+
+  // fixed64 with NUMBER encoding
+  fixed64 number_fixed64 = 8 [(sebuf.http.int64_encoding) = INT64_ENCODING_NUMBER];
+
+  // Repeated int64 with NUMBER encoding
+  repeated int64 repeated_number_int64 = 9 [(sebuf.http.int64_encoding) = INT64_ENCODING_NUMBER];
+
+  // Repeated int64 with default STRING encoding
+  repeated int64 repeated_default_int64 = 10;
+
+  // Optional int64 with NUMBER encoding
+  optional int64 optional_number_int64 = 11 [(sebuf.http.int64_encoding) = INT64_ENCODING_NUMBER];
+
+  // int64 field with leading comment (for description test)
+  // This is the user's unique identifier
+  int64 commented_number_int64 = 12 [(sebuf.http.int64_encoding) = INT64_ENCODING_NUMBER];
+}
+
+// Request message for testing
+message GetInt64TestRequest {
+  string id = 1;
+}
+
+// Service with int64 encoding test
+service Int64EncodingService {
+  option (sebuf.http.service_config) = {
+    base_path: "/api/v1"
+  };
+
+  rpc GetInt64Test(GetInt64TestRequest) returns (Int64EncodingTest) {
+    option (sebuf.http.config) = {
+      path: "/test/int64/{id}"
+      method: HTTP_METHOD_GET
+    };
+  }
+}
