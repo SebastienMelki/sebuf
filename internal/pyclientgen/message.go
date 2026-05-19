@@ -86,9 +86,24 @@ func writeToDict(p printer, msg *protogen.Message) {
 	p("")
 }
 
+// findRootUnwrapField returns the single field on a root-unwrap message that
+// carries the unwrap annotation, regardless of whether it's a list or a map.
+// The public annotations.FindUnwrapField intentionally returns only list
+// fields (it's documented as the "simple version" used by tsclientgen and
+// openapiv3), but root-unwrap codepaths in py-client need to handle root-map
+// unwrap too — without this helper, ItemMap.to_dict() silently returns `{}`
+// and ItemMap.from_dict() returns an empty instance.
+func findRootUnwrapField(msg *protogen.Message) *protogen.Field {
+	for _, f := range msg.Fields {
+		if annotations.HasUnwrapAnnotation(f) {
+			return f
+		}
+	}
+	return nil
+}
+
 func writeRootUnwrapToDict(p printer, msg *protogen.Message) {
-	// Find the unwrap field — there is exactly one (validated by annotations).
-	target := annotations.FindUnwrapField(msg)
+	target := findRootUnwrapField(msg)
 	if target == nil {
 		// Defensive: fall back to the normal path.
 		p("    def to_dict(self) -> Any:")
@@ -206,14 +221,32 @@ func writeMessageFieldToDict(p printer, f *protogen.Field, name, jsonName string
 	p(`            d["%s"] = %s.to_dict()`, jsonName, src)
 }
 
+// writeFlattenToDict emits one wire key per field of the nested message,
+// prefixed with `flatten_prefix`. Critically the wire key is built from the
+// nested field's PROTO NAME (snake_case), not its JSON name (camelCase),
+// because the Go HTTP plugin's flatten encoder uses proto names — passing
+// JSON names through .to_dict() here would produce
+// `author_zipCode` while the server emits `author_zip_code`, breaking
+// round-trips.
 func writeFlattenToDict(p printer, f *protogen.Field, src string) {
 	prefix := annotations.GetFlattenPrefix(f)
 	p("        if %s is not None:", src)
-	p("            for _k, _v in %s.to_dict().items():", src)
-	if prefix == "" {
-		p("                d[_k] = _v")
-	} else {
-		p(`                d["%s" + _k] = _v`, prefix)
+	if f.Message == nil {
+		// Defensive: shouldn't happen for a flatten field, but fall back to
+		// the previous behavior if it somehow does.
+		p("            for _k, _v in %s.to_dict().items():", src)
+		if prefix == "" {
+			p("                d[_k] = _v")
+		} else {
+			p(`                d["%s" + _k] = _v`, prefix)
+		}
+		return
+	}
+	for _, sub := range f.Message.Fields {
+		subProtoName := string(sub.Desc.Name())
+		subPyName := pythonFieldName(sub)
+		encoded := encodeScalarExpr(sub, src+"."+subPyName)
+		p(`            d["%s%s"] = %s`, prefix, subProtoName, encoded)
 	}
 }
 
@@ -295,7 +328,7 @@ func writeFromDict(p printer, msg *protogen.Message, className string) {
 }
 
 func writeRootUnwrapFromDict(p printer, msg *protogen.Message, _ string) {
-	target := annotations.FindUnwrapField(msg)
+	target := findRootUnwrapField(msg)
 	if target == nil {
 		p("        return cls()")
 		return
@@ -379,21 +412,31 @@ func writeListFromDict(p printer, f *protogen.Field, name, jsonName string) {
 	p(`            kwargs["%s"] = [%s for v in data["%s"]]`, name, itemExpr, jsonName)
 }
 
+// writeFlattenFromDict reads each flattened wire key (prefix + nested-field
+// proto name) directly and assembles a kwargs dict for the nested message
+// class. It deliberately bypasses the nested type's from_dict because that
+// path expects JSON names (camelCase), while the wire form for flatten uses
+// proto names (snake_case) — see writeFlattenToDict.
 func writeFlattenFromDict(p printer, f *protogen.Field, name string) {
 	prefix := annotations.GetFlattenPrefix(f)
 	nestedType := pythonTypeName(f.Message)
-	if prefix == "" {
-		// Without a prefix it's ambiguous which keys belong to the nested message.
-		// Punt: pass the entire dict; the nested from_dict will ignore unknown keys.
+
+	if f.Message == nil {
 		p(`        kwargs["%s"] = %s.from_dict(data)`, name, nestedType)
 		return
 	}
-	p(`        _sub_%s: dict[str, Any] = {}`, name)
-	p(`        for _k, _v in data.items():`)
-	p(`            if _k.startswith("%s"):`, prefix)
-	p(`                _sub_%s[_k[%d:]] = _v`, name, len(prefix))
-	p(`        if _sub_%s:`, name)
-	p(`            kwargs["%s"] = %s.from_dict(_sub_%s)`, name, nestedType, name)
+
+	p(`        _sub_%s_kwargs: dict[str, Any] = {}`, name)
+	for _, sub := range f.Message.Fields {
+		subProtoName := string(sub.Desc.Name())
+		subPyName := pythonFieldName(sub)
+		wireKey := prefix + subProtoName
+		p(`        if "%s" in data and data["%s"] is not None:`, wireKey, wireKey)
+		decoded := decodeScalarExpr(sub, fmt.Sprintf(`data["%s"]`, wireKey))
+		p(`            _sub_%s_kwargs["%s"] = %s`, name, subPyName, decoded)
+	}
+	p(`        if _sub_%s_kwargs:`, name)
+	p(`            kwargs["%s"] = %s(**_sub_%s_kwargs)`, name, nestedType, name)
 }
 
 func writeDiscriminatedOneofFromDict(p printer, info *annotations.OneofDiscriminatorInfo) {

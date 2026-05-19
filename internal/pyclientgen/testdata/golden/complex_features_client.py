@@ -255,12 +255,15 @@ class CombinedUnwrap:
     data: dict[str, BarWrapper] = field(default_factory=dict)
 
     def to_dict(self) -> Any:
-        return {}
+        """Serialize to a JSON-ready value (root-unwrapped)."""
+        return {k: v.to_dict() for k, v in self.data.items()}
 
     @classmethod
     def from_dict(cls, data: Any) -> "CombinedUnwrap":
         """Deserialize from a JSON-decoded dict (or value, for root-unwrapped messages)."""
-        return cls()
+        if data is None:
+            return cls()
+        return cls(data={k: BarWrapper.from_dict(v) for k, v in data.items()})
 
 @dataclass
 class CreateNoteRequest:
@@ -555,12 +558,15 @@ class NoteMap:
     notes: dict[str, Note] = field(default_factory=dict)
 
     def to_dict(self) -> Any:
-        return {}
+        """Serialize to a JSON-ready value (root-unwrapped)."""
+        return {k: v.to_dict() for k, v in self.notes.items()}
 
     @classmethod
     def from_dict(cls, data: Any) -> "NoteMap":
         """Deserialize from a JSON-decoded dict (or value, for root-unwrapped messages)."""
-        return cls()
+        if data is None:
+            return cls()
+        return cls(notes={k: Note.from_dict(v) for k, v in data.items()})
 
 @dataclass
 class Tag:

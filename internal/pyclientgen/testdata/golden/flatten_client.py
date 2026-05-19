@@ -166,11 +166,13 @@ class DualFlatten:
         d: dict[str, Any] = {}
         d["id"] = self.id
         if self.billing is not None:
-            for _k, _v in self.billing.to_dict().items():
-                d["billing_" + _k] = _v
+            d["billing_street"] = self.billing.street
+            d["billing_city"] = self.billing.city
+            d["billing_zip"] = self.billing.zip
         if self.shipping is not None:
-            for _k, _v in self.shipping.to_dict().items():
-                d["shipping_" + _k] = _v
+            d["shipping_street"] = self.shipping.street
+            d["shipping_city"] = self.shipping.city
+            d["shipping_zip"] = self.shipping.zip
         return d
 
     @classmethod
@@ -181,18 +183,24 @@ class DualFlatten:
         kwargs: dict[str, Any] = {}
         if "id" in data and data["id"] is not None:
             kwargs["id"] = str(data["id"])
-        _sub_billing: dict[str, Any] = {}
-        for _k, _v in data.items():
-            if _k.startswith("billing_"):
-                _sub_billing[_k[8:]] = _v
-        if _sub_billing:
-            kwargs["billing"] = Address.from_dict(_sub_billing)
-        _sub_shipping: dict[str, Any] = {}
-        for _k, _v in data.items():
-            if _k.startswith("shipping_"):
-                _sub_shipping[_k[9:]] = _v
-        if _sub_shipping:
-            kwargs["shipping"] = Address.from_dict(_sub_shipping)
+        _sub_billing_kwargs: dict[str, Any] = {}
+        if "billing_street" in data and data["billing_street"] is not None:
+            _sub_billing_kwargs["street"] = str(data["billing_street"])
+        if "billing_city" in data and data["billing_city"] is not None:
+            _sub_billing_kwargs["city"] = str(data["billing_city"])
+        if "billing_zip" in data and data["billing_zip"] is not None:
+            _sub_billing_kwargs["zip"] = str(data["billing_zip"])
+        if _sub_billing_kwargs:
+            kwargs["billing"] = Address(**_sub_billing_kwargs)
+        _sub_shipping_kwargs: dict[str, Any] = {}
+        if "shipping_street" in data and data["shipping_street"] is not None:
+            _sub_shipping_kwargs["street"] = str(data["shipping_street"])
+        if "shipping_city" in data and data["shipping_city"] is not None:
+            _sub_shipping_kwargs["city"] = str(data["shipping_city"])
+        if "shipping_zip" in data and data["shipping_zip"] is not None:
+            _sub_shipping_kwargs["zip"] = str(data["shipping_zip"])
+        if _sub_shipping_kwargs:
+            kwargs["shipping"] = Address(**_sub_shipping_kwargs)
         return cls(**kwargs)
 
 @dataclass
@@ -208,8 +216,9 @@ class MixedFlatten:
         d: dict[str, Any] = {}
         d["id"] = self.id
         if self.address is not None:
-            for _k, _v in self.address.to_dict().items():
-                d[_k] = _v
+            d["street"] = self.address.street
+            d["city"] = self.address.city
+            d["zip"] = self.address.zip
         if self.contact is not None:
             d["contact"] = self.contact.to_dict()
         d["notes"] = self.notes
@@ -223,7 +232,15 @@ class MixedFlatten:
         kwargs: dict[str, Any] = {}
         if "id" in data and data["id"] is not None:
             kwargs["id"] = str(data["id"])
-        kwargs["address"] = Address.from_dict(data)
+        _sub_address_kwargs: dict[str, Any] = {}
+        if "street" in data and data["street"] is not None:
+            _sub_address_kwargs["street"] = str(data["street"])
+        if "city" in data and data["city"] is not None:
+            _sub_address_kwargs["city"] = str(data["city"])
+        if "zip" in data and data["zip"] is not None:
+            _sub_address_kwargs["zip"] = str(data["zip"])
+        if _sub_address_kwargs:
+            kwargs["address"] = Address(**_sub_address_kwargs)
         if "contact" in data and data["contact"] is not None:
             kwargs["contact"] = ContactInfo.from_dict(data["contact"])
         if "notes" in data and data["notes"] is not None:
@@ -267,8 +284,9 @@ class SimpleFlatten:
         d: dict[str, Any] = {}
         d["id"] = self.id
         if self.address is not None:
-            for _k, _v in self.address.to_dict().items():
-                d[_k] = _v
+            d["street"] = self.address.street
+            d["city"] = self.address.city
+            d["zip"] = self.address.zip
         return d
 
     @classmethod
@@ -279,7 +297,15 @@ class SimpleFlatten:
         kwargs: dict[str, Any] = {}
         if "id" in data and data["id"] is not None:
             kwargs["id"] = str(data["id"])
-        kwargs["address"] = Address.from_dict(data)
+        _sub_address_kwargs: dict[str, Any] = {}
+        if "street" in data and data["street"] is not None:
+            _sub_address_kwargs["street"] = str(data["street"])
+        if "city" in data and data["city"] is not None:
+            _sub_address_kwargs["city"] = str(data["city"])
+        if "zip" in data and data["zip"] is not None:
+            _sub_address_kwargs["zip"] = str(data["zip"])
+        if _sub_address_kwargs:
+            kwargs["address"] = Address(**_sub_address_kwargs)
         return cls(**kwargs)
 
 @dataclass

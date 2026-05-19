@@ -286,12 +286,15 @@ class RootMapResponse:
     people: dict[str, OptionBar] = field(default_factory=dict)
 
     def to_dict(self) -> Any:
-        return {}
+        """Serialize to a JSON-ready value (root-unwrapped)."""
+        return {k: v.to_dict() for k, v in self.people.items()}
 
     @classmethod
     def from_dict(cls, data: Any) -> "RootMapResponse":
         """Deserialize from a JSON-decoded dict (or value, for root-unwrapped messages)."""
-        return cls()
+        if data is None:
+            return cls()
+        return cls(people={k: OptionBar.from_dict(v) for k, v in data.items()})
 
 @dataclass
 class RootMapScalarListResponse:
@@ -299,12 +302,15 @@ class RootMapScalarListResponse:
     groups: dict[str, IntList] = field(default_factory=dict)
 
     def to_dict(self) -> Any:
-        return {}
+        """Serialize to a JSON-ready value (root-unwrapped)."""
+        return {k: v.to_dict() for k, v in self.groups.items()}
 
     @classmethod
     def from_dict(cls, data: Any) -> "RootMapScalarListResponse":
         """Deserialize from a JSON-decoded dict (or value, for root-unwrapped messages)."""
-        return cls()
+        if data is None:
+            return cls()
+        return cls(groups={k: IntList.from_dict(v) for k, v in data.items()})
 
 @dataclass
 class RootMapWithValueUnwrapResponse:
@@ -312,12 +318,15 @@ class RootMapWithValueUnwrapResponse:
     data: dict[str, OptionBarsList] = field(default_factory=dict)
 
     def to_dict(self) -> Any:
-        return {}
+        """Serialize to a JSON-ready value (root-unwrapped)."""
+        return {k: v.to_dict() for k, v in self.data.items()}
 
     @classmethod
     def from_dict(cls, data: Any) -> "RootMapWithValueUnwrapResponse":
         """Deserialize from a JSON-decoded dict (or value, for root-unwrapped messages)."""
-        return cls()
+        if data is None:
+            return cls()
+        return cls(data={k: OptionBarsList.from_dict(v) for k, v in data.items()})
 
 @dataclass
 class RootRepeatedResponse:
@@ -366,12 +375,15 @@ class ScalarRootMapResponse:
     counts: dict[str, int] = field(default_factory=dict)
 
     def to_dict(self) -> Any:
-        return {}
+        """Serialize to a JSON-ready value (root-unwrapped)."""
+        return {k: v for k, v in self.counts.items()}
 
     @classmethod
     def from_dict(cls, data: Any) -> "ScalarRootMapResponse":
         """Deserialize from a JSON-decoded dict (or value, for root-unwrapped messages)."""
-        return cls()
+        if data is None:
+            return cls()
+        return cls(counts={k: int(v) for k, v in data.items()})
 
 @dataclass
 class ScalarRootRepeatedResponse:

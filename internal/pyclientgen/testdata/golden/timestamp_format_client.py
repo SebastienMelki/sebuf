@@ -185,7 +185,7 @@ class TimestampFormatTest:
         if "unixMillisTs" in data and data["unixMillisTs"] is not None:
             kwargs["unix_millis_ts"] = datetime.fromtimestamp(int(data["unixMillisTs"]) / 1000, tz=timezone.utc)
         if "dateTs" in data and data["dateTs"] is not None:
-            kwargs["date_ts"] = data["dateTs"]
+            kwargs["date_ts"] = datetime.strptime(data["dateTs"], "%Y-%m-%d").replace(tzinfo=timezone.utc)
         return cls(**kwargs)
 
 @dataclass

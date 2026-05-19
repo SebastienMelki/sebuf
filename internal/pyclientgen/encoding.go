@@ -187,7 +187,9 @@ func decodeWKTExpr(field *protogen.Field, src string) string {
 	return src
 }
 
-// decodeTimestampExpr renders the inverse of encodeTimestampExpr.
+// decodeTimestampExpr renders the inverse of encodeTimestampExpr. The Python
+// field type is always datetime (see types.go:wellKnownTimestampType) so each
+// branch must produce a datetime, not a raw wire-form value.
 //
 //nolint:exhaustive // UNSPECIFIED/RFC3339 fall through to the default
 func decodeTimestampExpr(field *protogen.Field, src string) string {
@@ -197,7 +199,7 @@ func decodeTimestampExpr(field *protogen.Field, src string) string {
 	case sebufhttp.TimestampFormat_TIMESTAMP_FORMAT_UNIX_MILLIS:
 		return fmt.Sprintf("datetime.fromtimestamp(int(%s) / 1000, tz=timezone.utc)", src)
 	case sebufhttp.TimestampFormat_TIMESTAMP_FORMAT_DATE:
-		return src
+		return fmt.Sprintf(`datetime.strptime(%s, "%%Y-%%m-%%d").replace(tzinfo=timezone.utc)`, src)
 	default:
 		return fmt.Sprintf(`datetime.fromisoformat(%s.replace("Z", "+00:00"))`, src)
 	}

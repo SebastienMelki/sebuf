@@ -781,6 +781,8 @@ The repository contains:
 - **internal/openapiv3/**: OpenAPI generation logic and comprehensive test suite
 - **examples/ts-client-demo/**: End-to-end TypeScript client example with NoteService CRUD API
 - **examples/python-client-demo/**: End-to-end Python client example sharing the same Go HTTP server as ts-client-demo
+- **examples/python-encoding-demo/**: Python client end-to-end test of every JSON-mapping annotation (timestamp_format, int64_encoding, bytes_encoding, enum_value, oneof_config, flatten, all 3 unwrap variants, Python keyword field, repeated query params)
+- **examples/python-errors-demo/**: Python client end-to-end test of every error surface (ValidationError, registry-based disambiguation across multiple typed *Error subclasses, *Error embedded as a field on a regular message)
 - **scripts/run_tests.sh**: Advanced test runner with coverage analysis and reporting
 
 ## Acknowledgments & Ecosystem
