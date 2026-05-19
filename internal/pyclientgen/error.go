@@ -177,7 +177,7 @@ func errorMarkerKeys(msg *protogen.Message) []string {
 // which would violate the registry's `set[str]` type annotation.
 func formatPyStringSet(keys []string) string {
 	if len(keys) == 0 {
-		return "set()"
+		return pyEmptySet
 	}
 	parts := make([]string, len(keys))
 	for i, k := range keys {

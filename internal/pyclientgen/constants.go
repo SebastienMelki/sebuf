@@ -10,6 +10,9 @@ const (
 	pyNone = "None"
 	pyAny  = "Any"
 
+	pyFalse      = "False"
+	pyEmptySet   = "set()"
+	pyListStr    = "list[str]"
 	pyDictStrAny = "dict[str, Any]"
 )
 

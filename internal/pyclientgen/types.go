@@ -104,7 +104,7 @@ func pythonFieldDefault(field *protogen.Field) string {
 	}
 	switch field.Desc.Kind() {
 	case protoreflect.BoolKind:
-		return "False"
+		return pyFalse
 	case protoreflect.StringKind:
 		return `""`
 	case protoreflect.BytesKind:
@@ -179,7 +179,7 @@ func wellKnownPythonType(field *protogen.Field) string {
 	case wktAny, wktEmpty, wktStruct:
 		return pyDictStrAny
 	case wktFieldMask:
-		return "list[str]"
+		return pyListStr
 	case wktValue:
 		return pyAny
 	case wktListValue:

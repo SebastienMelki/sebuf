@@ -11,8 +11,8 @@ package pyclientgen
 //
 //nolint:gochecknoglobals // intentional constant lookup table
 var pyKeywords = map[string]bool{
-	"False":    true,
-	"None":     true,
+	pyFalse:    true,
+	pyNone:     true,
 	"True":     true,
 	"and":      true,
 	"as":       true,
