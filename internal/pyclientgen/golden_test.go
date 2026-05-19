@@ -203,6 +203,7 @@ func TestPyClientGenGoldenFiles(t *testing.T) {
 
 				if pythonAvailable {
 					assertPythonParses(t, generatedPath, generatedContent)
+					assertPythonImports(t, generatedPath)
 				}
 
 				if updateGolden {
@@ -228,6 +229,30 @@ func assertPythonParses(t *testing.T, path string, content []byte) {
 	cmd.Stderr = &stderr
 	if err := cmd.Run(); err != nil {
 		t.Errorf("generated file %s failed ast.parse:\n%s", path, stderr.String())
+	}
+}
+
+// assertPythonImports actually executes the generated file as a module. This
+// catches runtime errors that ast.parse cannot — most importantly NameError
+// from forward references in class-definition-time expressions like enum
+// defaults (`code: Reason = Reason.X`) when the enum was emitted later in the
+// file. Reported by @yashagarwal-sarwa on #172 against the pre-fix ordering.
+func assertPythonImports(t *testing.T, path string) {
+	t.Helper()
+	// The module must be registered in sys.modules before exec_module —
+	// @dataclass machinery looks up cls.__module__ in sys.modules to resolve
+	// string annotations from `from __future__ import annotations`, and it
+	// crashes on AttributeError if the module isn't there yet.
+	cmd := exec.Command("python3", "-c",
+		"import importlib.util, sys; "+
+			"spec = importlib.util.spec_from_file_location('m', "+pythonRepr(path)+"); "+
+			"mod = importlib.util.module_from_spec(spec); "+
+			"sys.modules['m'] = mod; "+
+			"spec.loader.exec_module(mod)")
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
+	if err := cmd.Run(); err != nil {
+		t.Errorf("generated file %s failed to import:\n%s", path, stderr.String())
 	}
 }
 

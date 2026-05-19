@@ -62,6 +62,35 @@ class UrllibTransport:
             )
 
 
+class Region(IntEnum):
+    """Generated from proto enum test.httpgen.query.Region."""
+    REGION_UNSPECIFIED = 0
+    REGION_AMERICAS = 1
+    REGION_EUROPE = 2
+    REGION_ASIA = 3
+
+
+Region_JSON_VALUES: Mapping[Region, str] = {
+    Region.REGION_UNSPECIFIED: "unspecified",
+    Region.REGION_AMERICAS: "americas",
+    Region.REGION_EUROPE: "europe",
+    Region.REGION_ASIA: "asia",
+}
+
+def _decode_enum_Region(value: Any) -> Region:
+    if isinstance(value, int):
+        return Region(value)
+    if isinstance(value, str):
+        for member, json_value in Region_JSON_VALUES.items():
+            if json_value == value:
+                return member
+        try:
+            return Region[value]
+        except KeyError:
+            raise ValueError(f"unknown Region value: {value!r}")
+    raise TypeError(f"cannot decode Region from {type(value).__name__}")
+
+
 @dataclass
 class FieldViolation:
     """Single validation violation, matching sebuf.http.FieldViolation."""
@@ -98,35 +127,6 @@ class ValidationError(ApiError):
 
 _ERROR_CLASSES: list[tuple[type[ApiError], set[str]]] = [
 ]
-
-
-class Region(IntEnum):
-    """Generated from proto enum test.httpgen.query.Region."""
-    REGION_UNSPECIFIED = 0
-    REGION_AMERICAS = 1
-    REGION_EUROPE = 2
-    REGION_ASIA = 3
-
-
-Region_JSON_VALUES: Mapping[Region, str] = {
-    Region.REGION_UNSPECIFIED: "unspecified",
-    Region.REGION_AMERICAS: "americas",
-    Region.REGION_EUROPE: "europe",
-    Region.REGION_ASIA: "asia",
-}
-
-def _decode_enum_Region(value: Any) -> Region:
-    if isinstance(value, int):
-        return Region(value)
-    if isinstance(value, str):
-        for member, json_value in Region_JSON_VALUES.items():
-            if json_value == value:
-                return member
-        try:
-            return Region[value]
-        except KeyError:
-            raise ValueError(f"unknown Region value: {value!r}")
-    raise TypeError(f"cannot decode Region from {type(value).__name__}")
 
 
 @dataclass

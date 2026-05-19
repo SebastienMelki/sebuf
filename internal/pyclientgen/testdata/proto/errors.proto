@@ -38,6 +38,22 @@ message PermissionError {
 message ConflictError {
 }
 
+// Regression: an *Error message that references an enum field. The enum's
+// default value is evaluated at class-definition time, so the enum class
+// must be emitted before the error class. (Reported by @yashagarwal-sarwa
+// on #172 -- previously raised NameError on import.)
+enum RejectionReason {
+  REJECTION_REASON_UNSPECIFIED = 0;
+  REJECTION_REASON_RATE_LIMITED = 1;
+  REJECTION_REASON_INVALID_PAYLOAD = 2;
+  REJECTION_REASON_INSUFFICIENT_FUNDS = 3;
+}
+
+message EventError {
+  string event_id = 1;
+  RejectionReason code = 2;
+}
+
 message GetThingRequest {
   string id = 1;
 }

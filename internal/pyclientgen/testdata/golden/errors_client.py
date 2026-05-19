@@ -62,6 +62,30 @@ class UrllibTransport:
             )
 
 
+class RejectionReason(IntEnum):
+    """Generated from proto enum test.pyclientgen.errors.RejectionReason."""
+    REJECTION_REASON_UNSPECIFIED = 0
+    REJECTION_REASON_RATE_LIMITED = 1
+    REJECTION_REASON_INVALID_PAYLOAD = 2
+    REJECTION_REASON_INSUFFICIENT_FUNDS = 3
+
+
+RejectionReason_JSON_VALUES: Mapping[RejectionReason, str] = {}
+
+def _decode_enum_RejectionReason(value: Any) -> RejectionReason:
+    if isinstance(value, int):
+        return RejectionReason(value)
+    if isinstance(value, str):
+        for member, json_value in RejectionReason_JSON_VALUES.items():
+            if json_value == value:
+                return member
+        try:
+            return RejectionReason[value]
+        except KeyError:
+            raise ValueError(f"unknown RejectionReason value: {value!r}")
+    raise TypeError(f"cannot decode RejectionReason from {type(value).__name__}")
+
+
 @dataclass
 class FieldViolation:
     """Single validation violation, matching sebuf.http.FieldViolation."""
@@ -112,6 +136,38 @@ class ConflictError(ApiError):
     @classmethod
     def populate(cls, status: int, body: bytes, headers: Optional[Mapping[str, str]], data: Mapping[str, Any]) -> "ConflictError":
         return cls(status=status, body=body, headers=headers)
+
+
+class EventError(ApiError):
+    """Generated from proto message test.pyclientgen.errors.EventError."""
+    def __init__(
+        self,
+        status: int = 0,
+        body: bytes = b"",
+        headers: Optional[Mapping[str, str]] = None,
+        event_id: str = "",
+        code: RejectionReason = RejectionReason.REJECTION_REASON_UNSPECIFIED,
+    ) -> None:
+        super().__init__(status, body, headers)
+        self.event_id = event_id
+        self.code = code
+
+    def to_dict(self) -> dict[str, Any]:
+        """Serialize to the JSON wire form."""
+        d: dict[str, Any] = {}
+        d["eventId"] = self.event_id
+        d["code"] = RejectionReason_JSON_VALUES.get(self.code, self.code.name)
+        return d
+
+    @classmethod
+    def populate(cls, status: int, body: bytes, headers: Optional[Mapping[str, str]], data: Mapping[str, Any]) -> "EventError":
+        """Build an instance from a parsed JSON dict — only used by the client error path."""
+        kwargs: dict[str, Any] = {}
+        if "eventId" in data and data["eventId"] is not None:
+            kwargs["event_id"] = str(data["eventId"])
+        if "code" in data and data["code"] is not None:
+            kwargs["code"] = _decode_enum_RejectionReason(data["code"])
+        return cls(status=status, body=body, headers=headers, **kwargs)
 
 
 class LoginError(ApiError):
@@ -222,6 +278,7 @@ class PermissionError(ApiError):
 
 _ERROR_CLASSES: list[tuple[type[ApiError], set[str]]] = [
     (ConflictError, set()),
+    (EventError, {"eventId", "code"}),
     (LoginError, {"reason", "email", "retryAfterSeconds"}),
     (NotFoundError, {"resourceType", "resourceId"}),
     (PermissionError, {"resourceId", "action", "subject"}),

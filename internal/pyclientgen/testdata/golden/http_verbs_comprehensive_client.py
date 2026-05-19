@@ -62,6 +62,30 @@ class UrllibTransport:
             )
 
 
+class ResourceStatus(IntEnum):
+    """Generated from proto enum test.httpgen.ResourceStatus."""
+    RESOURCE_STATUS_UNSPECIFIED = 0
+    RESOURCE_STATUS_ACTIVE = 1
+    RESOURCE_STATUS_INACTIVE = 2
+    RESOURCE_STATUS_ARCHIVED = 3
+
+
+ResourceStatus_JSON_VALUES: Mapping[ResourceStatus, str] = {}
+
+def _decode_enum_ResourceStatus(value: Any) -> ResourceStatus:
+    if isinstance(value, int):
+        return ResourceStatus(value)
+    if isinstance(value, str):
+        for member, json_value in ResourceStatus_JSON_VALUES.items():
+            if json_value == value:
+                return member
+        try:
+            return ResourceStatus[value]
+        except KeyError:
+            raise ValueError(f"unknown ResourceStatus value: {value!r}")
+    raise TypeError(f"cannot decode ResourceStatus from {type(value).__name__}")
+
+
 @dataclass
 class FieldViolation:
     """Single validation violation, matching sebuf.http.FieldViolation."""
@@ -98,30 +122,6 @@ class ValidationError(ApiError):
 
 _ERROR_CLASSES: list[tuple[type[ApiError], set[str]]] = [
 ]
-
-
-class ResourceStatus(IntEnum):
-    """Generated from proto enum test.httpgen.ResourceStatus."""
-    RESOURCE_STATUS_UNSPECIFIED = 0
-    RESOURCE_STATUS_ACTIVE = 1
-    RESOURCE_STATUS_INACTIVE = 2
-    RESOURCE_STATUS_ARCHIVED = 3
-
-
-ResourceStatus_JSON_VALUES: Mapping[ResourceStatus, str] = {}
-
-def _decode_enum_ResourceStatus(value: Any) -> ResourceStatus:
-    if isinstance(value, int):
-        return ResourceStatus(value)
-    if isinstance(value, str):
-        for member, json_value in ResourceStatus_JSON_VALUES.items():
-            if json_value == value:
-                return member
-        try:
-            return ResourceStatus[value]
-        except KeyError:
-            raise ValueError(f"unknown ResourceStatus value: {value!r}")
-    raise TypeError(f"cannot decode ResourceStatus from {type(value).__name__}")
 
 
 @dataclass

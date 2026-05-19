@@ -62,44 +62,6 @@ class UrllibTransport:
             )
 
 
-@dataclass
-class FieldViolation:
-    """Single validation violation, matching sebuf.http.FieldViolation."""
-    field: str
-    description: str = ""
-
-
-class ApiError(Exception):
-    """Base exception for any non-2xx HTTP response."""
-    def __init__(
-        self,
-        status: int,
-        body: bytes,
-        headers: Optional[Mapping[str, str]] = None,
-    ) -> None:
-        self.status = status
-        self.body = body
-        self.headers = headers or {}
-        super().__init__(f"HTTP {status}")
-
-
-class ValidationError(ApiError):
-    """Raised on HTTP 400 when the server returns sebuf.http.ValidationError JSON."""
-    def __init__(
-        self,
-        status: int,
-        body: bytes,
-        headers: Optional[Mapping[str, str]] = None,
-        violations: Optional[Sequence[FieldViolation]] = None,
-    ) -> None:
-        super().__init__(status, body, headers)
-        self.violations: list[FieldViolation] = list(violations or [])
-
-
-_ERROR_CLASSES: list[tuple[type[ApiError], set[str]]] = [
-]
-
-
 class Priority(IntEnum):
     """Generated from proto enum testdata.enumencoding.Priority."""
     PRIORITY_LOW = 0
@@ -148,6 +110,44 @@ def _decode_enum_Status(value: Any) -> Status:
         except KeyError:
             raise ValueError(f"unknown Status value: {value!r}")
     raise TypeError(f"cannot decode Status from {type(value).__name__}")
+
+
+@dataclass
+class FieldViolation:
+    """Single validation violation, matching sebuf.http.FieldViolation."""
+    field: str
+    description: str = ""
+
+
+class ApiError(Exception):
+    """Base exception for any non-2xx HTTP response."""
+    def __init__(
+        self,
+        status: int,
+        body: bytes,
+        headers: Optional[Mapping[str, str]] = None,
+    ) -> None:
+        self.status = status
+        self.body = body
+        self.headers = headers or {}
+        super().__init__(f"HTTP {status}")
+
+
+class ValidationError(ApiError):
+    """Raised on HTTP 400 when the server returns sebuf.http.ValidationError JSON."""
+    def __init__(
+        self,
+        status: int,
+        body: bytes,
+        headers: Optional[Mapping[str, str]] = None,
+        violations: Optional[Sequence[FieldViolation]] = None,
+    ) -> None:
+        super().__init__(status, body, headers)
+        self.violations: list[FieldViolation] = list(violations or [])
+
+
+_ERROR_CLASSES: list[tuple[type[ApiError], set[str]]] = [
+]
 
 
 @dataclass

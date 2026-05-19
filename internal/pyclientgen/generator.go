@@ -68,11 +68,17 @@ func (g *Generator) generateClientFile(file *protogen.File) error {
 	writeHeader(p, file)
 	writeImports(p, collected)
 	writeTransport(p)
-	writeErrors(p, collected)
 
+	// Enums must precede the error classes — an *Error message with an enum
+	// field carries a default value expression like `code: Reason = Reason.X`
+	// which is evaluated at def-time, so a forward reference to a
+	// not-yet-declared enum would raise NameError on import. (Reported by
+	// @yashagarwal-sarwa on #172.) The same ordering keeps message-typed
+	// fields safe because message defaults are always None.
 	for _, enum := range collected.OrderedEnums() {
 		writeEnum(p, enum)
 	}
+	writeErrors(p, collected)
 	for _, msg := range collected.OrderedMessages() {
 		writeMessage(p, msg)
 	}
