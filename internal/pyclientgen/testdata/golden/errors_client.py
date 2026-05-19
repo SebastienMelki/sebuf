@@ -137,6 +137,13 @@ class ConflictError(ApiError):
     def populate(cls, status: int, body: bytes, headers: Optional[Mapping[str, str]], data: Mapping[str, Any]) -> "ConflictError":
         return cls(status=status, body=body, headers=headers)
 
+    @classmethod
+    def from_dict(cls, data: Any) -> "ConflictError":
+        """Deserialize from a JSON-decoded dict, matching the regular message API."""
+        if data is None:
+            return cls()
+        return cls.populate(0, b"", None, data)
+
 
 class EventError(ApiError):
     """Generated from proto message test.pyclientgen.errors.EventError."""
@@ -168,6 +175,13 @@ class EventError(ApiError):
         if "code" in data and data["code"] is not None:
             kwargs["code"] = _decode_enum_RejectionReason(data["code"])
         return cls(status=status, body=body, headers=headers, **kwargs)
+
+    @classmethod
+    def from_dict(cls, data: Any) -> "EventError":
+        """Deserialize from a JSON-decoded dict, matching the regular message API."""
+        if data is None:
+            return cls()
+        return cls.populate(0, b"", None, data)
 
 
 class LoginError(ApiError):
@@ -206,6 +220,13 @@ class LoginError(ApiError):
             kwargs["retry_after_seconds"] = int(data["retryAfterSeconds"])
         return cls(status=status, body=body, headers=headers, **kwargs)
 
+    @classmethod
+    def from_dict(cls, data: Any) -> "LoginError":
+        """Deserialize from a JSON-decoded dict, matching the regular message API."""
+        if data is None:
+            return cls()
+        return cls.populate(0, b"", None, data)
+
 
 class NotFoundError(ApiError):
     """Generated from proto message test.pyclientgen.errors.NotFoundError."""
@@ -237,6 +258,13 @@ class NotFoundError(ApiError):
         if "resourceId" in data and data["resourceId"] is not None:
             kwargs["resource_id"] = str(data["resourceId"])
         return cls(status=status, body=body, headers=headers, **kwargs)
+
+    @classmethod
+    def from_dict(cls, data: Any) -> "NotFoundError":
+        """Deserialize from a JSON-decoded dict, matching the regular message API."""
+        if data is None:
+            return cls()
+        return cls.populate(0, b"", None, data)
 
 
 class PermissionError(ApiError):
@@ -275,6 +303,13 @@ class PermissionError(ApiError):
             kwargs["subject"] = str(data["subject"])
         return cls(status=status, body=body, headers=headers, **kwargs)
 
+    @classmethod
+    def from_dict(cls, data: Any) -> "PermissionError":
+        """Deserialize from a JSON-decoded dict, matching the regular message API."""
+        if data is None:
+            return cls()
+        return cls.populate(0, b"", None, data)
+
 
 _ERROR_CLASSES: list[tuple[type[ApiError], set[str]]] = [
     (ConflictError, set()),
@@ -284,6 +319,32 @@ _ERROR_CLASSES: list[tuple[type[ApiError], set[str]]] = [
     (PermissionError, {"resourceId", "action", "subject"}),
 ]
 
+
+@dataclass
+class EventResult:
+    """Generated from proto message test.pyclientgen.errors.EventResult."""
+    event_id: str = ""
+    error: Optional[EventError] = None
+
+    def to_dict(self) -> Any:
+        """Serialize to a JSON-ready dict respecting sebuf JSON mapping annotations."""
+        d: dict[str, Any] = {}
+        d["eventId"] = self.event_id
+        if self.error is not None:
+            d["error"] = self.error.to_dict()
+        return d
+
+    @classmethod
+    def from_dict(cls, data: Any) -> "EventResult":
+        """Deserialize from a JSON-decoded dict (or value, for root-unwrapped messages)."""
+        if data is None:
+            return cls()
+        kwargs: dict[str, Any] = {}
+        if "eventId" in data and data["eventId"] is not None:
+            kwargs["event_id"] = str(data["eventId"])
+        if "error" in data and data["error"] is not None:
+            kwargs["error"] = EventError.from_dict(data["error"])
+        return cls(**kwargs)
 
 @dataclass
 class GetThingRequest:

@@ -54,6 +54,16 @@ message EventError {
   RejectionReason code = 2;
 }
 
+// Regression: a regular message that carries an *Error message as a field.
+// The parent's generated from_dict will call EventError.from_dict, which
+// must exist alongside populate or import-time class construction breaks
+// when the parent is deserialized at runtime. (Reported by
+// @yashagarwal-sarwa on #172.)
+message EventResult {
+  string event_id = 1;
+  EventError error = 2;
+}
+
 message GetThingRequest {
   string id = 1;
 }

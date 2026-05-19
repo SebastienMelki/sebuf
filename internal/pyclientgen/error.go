@@ -92,6 +92,7 @@ func writeErrorClass(p printer, msg *protogen.Message) {
 		)
 		p("        return cls(status=status, body=body, headers=headers)")
 		p("")
+		writeErrorFromDict(p, className)
 		p("")
 		return
 	}
@@ -112,6 +113,24 @@ func writeErrorClass(p printer, msg *protogen.Message) {
 
 	writeErrorToDict(p, msg, fields)
 	writeErrorPopulate(p, msg, className, fields)
+	writeErrorFromDict(p, className)
+	p("")
+}
+
+// writeErrorFromDict emits a from_dict classmethod that delegates to populate
+// with neutral status/body/headers. This lets *Error classes be used
+// interchangeably with regular message classes when embedded as a field on
+// another message — the generated parent.from_dict will call
+// EventError.from_dict(data["error"]) and would otherwise raise AttributeError
+// because populate has a different signature. (Reported by
+// @yashagarwal-sarwa on #172.)
+func writeErrorFromDict(p printer, className string) {
+	p("    @classmethod")
+	p(`    def from_dict(cls, data: Any) -> "%s":`, className)
+	p(`        """Deserialize from a JSON-decoded dict, matching the regular message API."""`)
+	p("        if data is None:")
+	p("            return cls()")
+	p("        return cls.populate(0, b\"\", None, data)")
 	p("")
 }
 
