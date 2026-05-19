@@ -18,31 +18,31 @@ import (
 func pythonScalarType(field *protogen.Field) string {
 	switch field.Desc.Kind() {
 	case protoreflect.BoolKind:
-		return "bool"
+		return pyBool
 	case protoreflect.StringKind:
-		return "str"
+		return pyStr
 	case protoreflect.BytesKind:
 		return "bytes"
 	case protoreflect.DoubleKind, protoreflect.FloatKind:
 		return "float"
 	case protoreflect.Int32Kind, protoreflect.Sint32Kind, protoreflect.Sfixed32Kind,
 		protoreflect.Uint32Kind, protoreflect.Fixed32Kind:
-		return "int"
+		return pyInt
 	case protoreflect.Int64Kind, protoreflect.Sint64Kind, protoreflect.Sfixed64Kind,
 		protoreflect.Uint64Kind, protoreflect.Fixed64Kind:
 		if annotations.IsInt64NumberEncoding(field) {
-			return "int"
+			return pyInt
 		}
-		return "str"
+		return pyStr
 	case protoreflect.EnumKind:
 		if field.Enum != nil {
 			return pythonEnumName(field.Enum)
 		}
-		return "int"
+		return pyInt
 	case protoreflect.MessageKind, protoreflect.GroupKind:
 		return pythonTypeName(field.Message)
 	default:
-		return "Any"
+		return pyAny
 	}
 }
 
@@ -101,7 +101,7 @@ func pythonFieldDefault(field *protogen.Field) string {
 		return "field(default_factory=list)"
 	}
 	if field.Desc.HasOptionalKeyword() || annotations.IsNullableField(field) {
-		return "None"
+		return pyNone
 	}
 	switch field.Desc.Kind() {
 	case protoreflect.BoolKind:
@@ -128,9 +128,9 @@ func pythonFieldDefault(field *protogen.Field) string {
 		}
 		return "0"
 	case protoreflect.MessageKind, protoreflect.GroupKind:
-		return "None"
+		return pyNone
 	default:
-		return "None"
+		return pyNone
 	}
 }
 
@@ -173,46 +173,49 @@ func wellKnownPythonType(field *protogen.Field) string {
 		return ""
 	}
 	switch field.Message.Desc.FullName() {
-	case "google.protobuf.Timestamp":
-		// Default RFC3339 → datetime. UNIX seconds/millis → int. DATE → str.
-		switch annotations.GetTimestampFormat(field) {
-		case sebufhttp.TimestampFormat_TIMESTAMP_FORMAT_UNIX_SECONDS,
-			sebufhttp.TimestampFormat_TIMESTAMP_FORMAT_UNIX_MILLIS:
-			return "int"
-		case sebufhttp.TimestampFormat_TIMESTAMP_FORMAT_DATE:
-			return "str"
-		default:
-			return "datetime"
-		}
-	case "google.protobuf.Duration":
-		return "str"
-	case "google.protobuf.Any":
-		return "dict[str, Any]"
-	case "google.protobuf.FieldMask":
+	case wktTimestamp:
+		return wellKnownTimestampType(field)
+	case wktDuration:
+		return pyStr
+	case wktAny, wktEmpty, wktStruct:
+		return pyDictStrAny
+	case wktFieldMask:
 		return "list[str]"
-	case "google.protobuf.Empty":
-		return "dict[str, Any]"
-	case "google.protobuf.Struct":
-		return "dict[str, Any]"
-	case "google.protobuf.Value":
-		return "Any"
-	case "google.protobuf.ListValue":
+	case wktValue:
+		return pyAny
+	case wktListValue:
 		return "list[Any]"
-	case "google.protobuf.StringValue":
-		return "str"
-	case "google.protobuf.BoolValue":
-		return "bool"
-	case "google.protobuf.Int32Value", "google.protobuf.UInt32Value":
-		return "int"
-	case "google.protobuf.Int64Value", "google.protobuf.UInt64Value":
+	case wktStringValue:
+		return pyStr
+	case wktBoolValue:
+		return pyBool
+	case wktInt32Value, wktUInt32Value:
+		return pyInt
+	case wktInt64Value, wktUInt64Value:
 		if annotations.IsInt64NumberEncoding(field) {
-			return "int"
+			return pyInt
 		}
-		return "str"
-	case "google.protobuf.FloatValue", "google.protobuf.DoubleValue":
+		return pyStr
+	case wktFloatValue, wktDoubleValue:
 		return "float"
-	case "google.protobuf.BytesValue":
+	case wktBytesValue:
 		return "bytes"
 	}
 	return ""
+}
+
+// wellKnownTimestampType picks the Python annotation type for Timestamp fields
+// based on timestamp_format.
+//
+//nolint:exhaustive // UNSPECIFIED/RFC3339 fall through to datetime default
+func wellKnownTimestampType(field *protogen.Field) string {
+	switch annotations.GetTimestampFormat(field) {
+	case sebufhttp.TimestampFormat_TIMESTAMP_FORMAT_UNIX_SECONDS,
+		sebufhttp.TimestampFormat_TIMESTAMP_FORMAT_UNIX_MILLIS:
+		return pyInt
+	case sebufhttp.TimestampFormat_TIMESTAMP_FORMAT_DATE:
+		return pyStr
+	default:
+		return "datetime"
+	}
 }

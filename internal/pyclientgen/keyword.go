@@ -8,6 +8,8 @@ package pyclientgen
 //	python3 -c "import keyword; print(sorted(keyword.kwlist + keyword.softkwlist))"
 //
 // Source: https://docs.python.org/3.10/reference/lexical_analysis.html#keywords
+//
+//nolint:gochecknoglobals // intentional constant lookup table
 var pyKeywords = map[string]bool{
 	"False":    true,
 	"None":     true,

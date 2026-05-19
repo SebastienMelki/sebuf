@@ -18,6 +18,8 @@ import (
 // transformation: bytes → base64/hex string, int64 → str/int depending on
 // int64_encoding, enum → JSON name or custom enum_value, Timestamp → RFC3339
 // string or unix int per timestamp_format.
+//
+//nolint:exhaustive // default returns src unchanged for kinds that need no transform
 func encodeScalarExpr(field *protogen.Field, src string) string {
 	if isWellKnown(field) {
 		return encodeWKTExpr(field, src)
@@ -29,9 +31,9 @@ func encodeScalarExpr(field *protogen.Field, src string) string {
 	case protoreflect.Int64Kind, protoreflect.Sint64Kind, protoreflect.Sfixed64Kind,
 		protoreflect.Uint64Kind, protoreflect.Fixed64Kind:
 		if annotations.IsInt64NumberEncoding(field) {
-			return src // emit as JSON number
+			return src
 		}
-		return fmt.Sprintf("str(%s)", src) // protojson default: emit as string
+		return fmt.Sprintf("str(%s)", src)
 	case protoreflect.EnumKind:
 		return encodeEnumExpr(field, src)
 	case protoreflect.MessageKind, protoreflect.GroupKind:
@@ -55,7 +57,6 @@ func decodeScalarExpr(field *protogen.Field, src string) string {
 		if annotations.IsInt64NumberEncoding(field) {
 			return fmt.Sprintf("int(%s)", src)
 		}
-		// Wire is string; we keep it as string locally to preserve precision.
 		return fmt.Sprintf("str(%s)", src)
 	case protoreflect.EnumKind:
 		return decodeEnumExpr(field, src)
@@ -76,6 +77,8 @@ func decodeScalarExpr(field *protogen.Field, src string) string {
 
 // encodeBytesExpr returns a Python expression that encodes a bytes value to JSON
 // per the field's bytes_encoding annotation.
+//
+//nolint:exhaustive // default covers BASE64 and UNSPECIFIED with the same expression
 func encodeBytesExpr(field *protogen.Field, src string) string {
 	switch annotations.GetBytesEncoding(field) {
 	case sebufhttp.BytesEncoding_BYTES_ENCODING_HEX:
@@ -87,20 +90,19 @@ func encodeBytesExpr(field *protogen.Field, src string) string {
 	case sebufhttp.BytesEncoding_BYTES_ENCODING_BASE64_RAW:
 		return fmt.Sprintf(`base64.b64encode(%s).decode("ascii").rstrip("=")`, src)
 	default:
-		// BASE64 / UNSPECIFIED: standard base64 with padding (protojson default)
 		return fmt.Sprintf(`base64.b64encode(%s).decode("ascii")`, src)
 	}
 }
 
 // decodeBytesExpr inverts encodeBytesExpr.
+//
+//nolint:exhaustive // default covers BASE64 and UNSPECIFIED with the same expression
 func decodeBytesExpr(field *protogen.Field, src string) string {
 	switch annotations.GetBytesEncoding(field) {
 	case sebufhttp.BytesEncoding_BYTES_ENCODING_HEX:
 		return fmt.Sprintf("bytes.fromhex(%s)", src)
 	case sebufhttp.BytesEncoding_BYTES_ENCODING_BASE64URL,
 		sebufhttp.BytesEncoding_BYTES_ENCODING_BASE64URL_RAW:
-		// urlsafe_b64decode tolerates missing padding when input length is a multiple
-		// of 4 already; pad to a multiple of 4 so RAW variants decode cleanly.
 		return fmt.Sprintf(`base64.urlsafe_b64decode(%s + "=" * (-len(%s) %% 4))`, src, src)
 	case sebufhttp.BytesEncoding_BYTES_ENCODING_BASE64_RAW:
 		return fmt.Sprintf(`base64.b64decode(%s + "=" * (-len(%s) %% 4))`, src, src)
@@ -113,81 +115,90 @@ func decodeBytesExpr(field *protogen.Field, src string) string {
 // enums serialize as the proto enum name (STRING) or the integer (NUMBER); if
 // any variant declares (sebuf.http.enum_value), the JSON_VALUES table overrides.
 func encodeEnumExpr(field *protogen.Field, src string) string {
-	switch annotations.GetEnumEncoding(field) {
-	case sebufhttp.EnumEncoding_ENUM_ENCODING_NUMBER:
+	if annotations.GetEnumEncoding(field) == sebufhttp.EnumEncoding_ENUM_ENCODING_NUMBER {
 		return fmt.Sprintf("int(%s)", src)
-	default:
-		// STRING / UNSPECIFIED: use JSON_VALUES override or the variant name.
-		enumName := pythonEnumName(field.Enum)
-		return fmt.Sprintf("%s_JSON_VALUES.get(%s, %s.name)", enumName, src, src)
 	}
+	enumName := pythonEnumName(field.Enum)
+	return fmt.Sprintf("%s_JSON_VALUES.get(%s, %s.name)", enumName, src, src)
 }
 
 // decodeEnumExpr returns the Python-side decoding for an enum field.
 func decodeEnumExpr(field *protogen.Field, src string) string {
 	enumName := pythonEnumName(field.Enum)
-	switch annotations.GetEnumEncoding(field) {
-	case sebufhttp.EnumEncoding_ENUM_ENCODING_NUMBER:
+	if annotations.GetEnumEncoding(field) == sebufhttp.EnumEncoding_ENUM_ENCODING_NUMBER {
 		return fmt.Sprintf("%s(int(%s))", enumName, src)
-	default:
-		// Accept either string (name or json_value) or int from the wire.
-		return fmt.Sprintf("_decode_enum_%s(%s)", enumName, src)
 	}
+	return fmt.Sprintf("_decode_enum_%s(%s)", enumName, src)
 }
 
 // encodeWKTExpr handles JSON encoding for well-known types.
 func encodeWKTExpr(field *protogen.Field, src string) string {
 	switch field.Message.Desc.FullName() {
-	case "google.protobuf.Timestamp":
-		switch annotations.GetTimestampFormat(field) {
-		case sebufhttp.TimestampFormat_TIMESTAMP_FORMAT_UNIX_SECONDS:
-			return fmt.Sprintf("int(%s.timestamp())", src)
-		case sebufhttp.TimestampFormat_TIMESTAMP_FORMAT_UNIX_MILLIS:
-			return fmt.Sprintf("int(%s.timestamp() * 1000)", src)
-		case sebufhttp.TimestampFormat_TIMESTAMP_FORMAT_DATE:
-			return fmt.Sprintf(`%s.strftime("%%Y-%%m-%%d")`, src)
-		default:
-			// RFC3339: ensure trailing Z when UTC, .isoformat() otherwise.
-			return fmt.Sprintf(`(%s.astimezone(timezone.utc).strftime("%%Y-%%m-%%dT%%H:%%M:%%SZ") if %s.tzinfo else %s.isoformat() + "Z")`, src, src, src)
-		}
-	case "google.protobuf.Empty":
+	case wktTimestamp:
+		return encodeTimestampExpr(field, src)
+	case wktEmpty:
 		return "{}"
-	case "google.protobuf.StringValue", "google.protobuf.BoolValue",
-		"google.protobuf.Int32Value", "google.protobuf.UInt32Value",
-		"google.protobuf.FloatValue", "google.protobuf.DoubleValue",
-		"google.protobuf.Duration", "google.protobuf.Any", "google.protobuf.FieldMask",
-		"google.protobuf.Struct", "google.protobuf.Value", "google.protobuf.ListValue":
-		// Already in the appropriate JSON-ready Python form (str/int/float/bool/dict/list).
-		return src
-	case "google.protobuf.Int64Value", "google.protobuf.UInt64Value":
+	case wktInt64Value, wktUInt64Value:
 		if annotations.IsInt64NumberEncoding(field) {
 			return src
 		}
 		return fmt.Sprintf("str(%s)", src)
-	case "google.protobuf.BytesValue":
+	case wktBytesValue:
 		return fmt.Sprintf(`base64.b64encode(%s).decode("ascii")`, src)
+	case wktStringValue, wktBoolValue, wktInt32Value, wktUInt32Value,
+		wktFloatValue, wktDoubleValue, wktDuration, wktAny, wktFieldMask,
+		wktStruct, wktValue, wktListValue:
+		return src
 	}
 	return src
+}
+
+// encodeTimestampExpr renders the Timestamp JSON expression per timestamp_format.
+//
+//nolint:exhaustive // UNSPECIFIED/RFC3339 fall through to the default
+func encodeTimestampExpr(field *protogen.Field, src string) string {
+	switch annotations.GetTimestampFormat(field) {
+	case sebufhttp.TimestampFormat_TIMESTAMP_FORMAT_UNIX_SECONDS:
+		return fmt.Sprintf("int(%s.timestamp())", src)
+	case sebufhttp.TimestampFormat_TIMESTAMP_FORMAT_UNIX_MILLIS:
+		return fmt.Sprintf("int(%s.timestamp() * 1000)", src)
+	case sebufhttp.TimestampFormat_TIMESTAMP_FORMAT_DATE:
+		return fmt.Sprintf(`%s.strftime("%%Y-%%m-%%d")`, src)
+	default:
+		// RFC3339: ensure trailing Z when UTC, .isoformat() otherwise.
+		return fmt.Sprintf(
+			`(%s.astimezone(timezone.utc).strftime("%%Y-%%m-%%dT%%H:%%M:%%SZ") `+
+				`if %s.tzinfo else %s.isoformat() + "Z")`,
+			src, src, src,
+		)
+	}
 }
 
 // decodeWKTExpr inverts encodeWKTExpr.
 func decodeWKTExpr(field *protogen.Field, src string) string {
 	switch field.Message.Desc.FullName() {
-	case "google.protobuf.Timestamp":
-		switch annotations.GetTimestampFormat(field) {
-		case sebufhttp.TimestampFormat_TIMESTAMP_FORMAT_UNIX_SECONDS:
-			return fmt.Sprintf("datetime.fromtimestamp(int(%s), tz=timezone.utc)", src)
-		case sebufhttp.TimestampFormat_TIMESTAMP_FORMAT_UNIX_MILLIS:
-			return fmt.Sprintf("datetime.fromtimestamp(int(%s) / 1000, tz=timezone.utc)", src)
-		case sebufhttp.TimestampFormat_TIMESTAMP_FORMAT_DATE:
-			return src // keep as date string
-		default:
-			return fmt.Sprintf(`datetime.fromisoformat(%s.replace("Z", "+00:00"))`, src)
-		}
-	case "google.protobuf.Empty":
+	case wktTimestamp:
+		return decodeTimestampExpr(field, src)
+	case wktEmpty:
 		return "{}"
-	case "google.protobuf.BytesValue":
+	case wktBytesValue:
 		return fmt.Sprintf("base64.b64decode(%s)", src)
 	}
 	return src
+}
+
+// decodeTimestampExpr renders the inverse of encodeTimestampExpr.
+//
+//nolint:exhaustive // UNSPECIFIED/RFC3339 fall through to the default
+func decodeTimestampExpr(field *protogen.Field, src string) string {
+	switch annotations.GetTimestampFormat(field) {
+	case sebufhttp.TimestampFormat_TIMESTAMP_FORMAT_UNIX_SECONDS:
+		return fmt.Sprintf("datetime.fromtimestamp(int(%s), tz=timezone.utc)", src)
+	case sebufhttp.TimestampFormat_TIMESTAMP_FORMAT_UNIX_MILLIS:
+		return fmt.Sprintf("datetime.fromtimestamp(int(%s) / 1000, tz=timezone.utc)", src)
+	case sebufhttp.TimestampFormat_TIMESTAMP_FORMAT_DATE:
+		return src
+	default:
+		return fmt.Sprintf(`datetime.fromisoformat(%s.replace("Z", "+00:00"))`, src)
+	}
 }

@@ -40,9 +40,7 @@ func writeMessage(p printer, msg *protogen.Message) {
 // synthetic messages are not visible (handled at the parent map field level).
 func visibleFields(msg *protogen.Message) []*protogen.Field {
 	out := make([]*protogen.Field, 0, len(msg.Fields))
-	for _, f := range msg.Fields {
-		out = append(out, f)
-	}
+	out = append(out, msg.Fields...)
 	return out
 }
 
@@ -123,8 +121,6 @@ func writeRootUnwrapToDict(p printer, msg *protogen.Message) {
 }
 
 // writeFieldToDict emits the to_dict lines for one field.
-//
-//nolint:gocyclo // mapping logic is inherently branchy
 func writeFieldToDict(p printer, f *protogen.Field) {
 	name := pythonFieldName(f)
 	jsonName := jsonFieldName(f)
@@ -162,7 +158,7 @@ func writeFieldToDict(p printer, f *protogen.Field) {
 	p(`        d["%s"] = %s`, jsonName, encodeScalarExpr(f, src))
 }
 
-func writeMapToDict(p printer, f *protogen.Field, name, jsonName, src string) {
+func writeMapToDict(p printer, f *protogen.Field, _, jsonName, src string) {
 	valField := f.Message.Fields[1]
 	// Check for map-value unwrap: if the value is a wrapper with `unwrap` set
 	// on its repeated field, collapse `{...wrapper...}` to just the array.
@@ -181,7 +177,7 @@ func writeMapToDict(p printer, f *protogen.Field, name, jsonName, src string) {
 	p(`            d["%s"] = {k: %s for k, v in %s.items()}`, jsonName, valExpr, src)
 }
 
-func writeListToDict(p printer, f *protogen.Field, name, jsonName, src string) {
+func writeListToDict(p printer, f *protogen.Field, _, jsonName, src string) {
 	itemExpr := encodeListItemExpr(f, "v")
 	p("        if %s:", src)
 	p(`            d["%s"] = [%s for v in %s]`, jsonName, itemExpr, src)
@@ -250,19 +246,19 @@ func isOneofVariant(f *protogen.Field, info *annotations.OneofDiscriminatorInfo)
 }
 
 // writeDiscriminatedOneofToDict emits the discriminator key + the active variant.
-func writeDiscriminatedOneofToDict(p printer, msg *protogen.Message, info *annotations.OneofDiscriminatorInfo) {
-	_ = msg
+func writeDiscriminatedOneofToDict(p printer, _ *protogen.Message, info *annotations.OneofDiscriminatorInfo) {
 	for _, v := range info.Variants {
 		name := pythonFieldName(v.Field)
 		src := "self." + name
 		p("        if %s is not None:", src)
 		p(`            d["%s"] = "%s"`, info.Discriminator, v.DiscriminatorVal)
-		if info.Flatten && v.Field.Message != nil {
+		switch {
+		case info.Flatten && v.Field.Message != nil:
 			p("            for _k, _v in %s.to_dict().items():", src)
 			p("                d[_k] = _v")
-		} else if v.Field.Message != nil {
+		case v.Field.Message != nil:
 			p(`            d["%s"] = %s.to_dict()`, jsonFieldName(v.Field), src)
-		} else {
+		default:
 			p(`            d["%s"] = %s`, jsonFieldName(v.Field), encodeScalarExpr(v.Field, src))
 		}
 	}
@@ -298,7 +294,7 @@ func writeFromDict(p printer, msg *protogen.Message, className string) {
 	p("        return cls(**kwargs)")
 }
 
-func writeRootUnwrapFromDict(p printer, msg *protogen.Message, className string) {
+func writeRootUnwrapFromDict(p printer, msg *protogen.Message, _ string) {
 	target := annotations.FindUnwrapField(msg)
 	if target == nil {
 		p("        return cls()")
@@ -325,7 +321,6 @@ func writeRootUnwrapFromDict(p printer, msg *protogen.Message, className string)
 	}
 }
 
-//nolint:gocyclo // mapping logic is inherently branchy
 func writeFieldFromDict(p printer, f *protogen.Field) {
 	name := pythonFieldName(f)
 	jsonName := jsonFieldName(f)
@@ -406,13 +401,14 @@ func writeDiscriminatedOneofFromDict(p printer, info *annotations.OneofDiscrimin
 	for _, v := range info.Variants {
 		varName := pythonFieldName(v.Field)
 		p(`        if _disc == "%s":`, v.DiscriminatorVal)
-		if info.Flatten && v.Field.Message != nil {
+		switch {
+		case info.Flatten && v.Field.Message != nil:
 			p(`            kwargs["%s"] = %s.from_dict(data)`, varName, pythonTypeName(v.Field.Message))
-		} else if v.Field.Message != nil {
+		case v.Field.Message != nil:
 			p(`            if "%s" in data:`, jsonFieldName(v.Field))
 			p(`                kwargs["%s"] = %s.from_dict(data["%s"])`,
 				varName, pythonTypeName(v.Field.Message), jsonFieldName(v.Field))
-		} else {
+		default:
 			p(`            if "%s" in data:`, jsonFieldName(v.Field))
 			p(`                kwargs["%s"] = %s`, varName,
 				decodeScalarExpr(v.Field, fmt.Sprintf(`data["%s"]`, jsonFieldName(v.Field))))

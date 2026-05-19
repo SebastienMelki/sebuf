@@ -13,11 +13,9 @@ import (
 // Python output emits each type at most once with deterministic ordering so golden
 // tests stay stable.
 type collectedTypes struct {
-	messages    map[string]*protogen.Message
-	enums       map[string]*protogen.Enum
-	errorMsgs   map[string]*protogen.Message // *Error messages emitted as Exception classes
-	hasNullable bool
-	hasTime     bool // any field needs datetime/time imports
+	messages  map[string]*protogen.Message
+	enums     map[string]*protogen.Enum
+	errorMsgs map[string]*protogen.Message // *Error messages emitted as Exception classes
 }
 
 func collectFileTypes(file *protogen.File) *collectedTypes {

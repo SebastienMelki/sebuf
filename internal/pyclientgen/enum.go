@@ -66,7 +66,6 @@ func writeEnumDecoder(p printer, enum *protogen.Enum) {
 	p("")
 }
 
-
 // variantPythonName trims the redundant enum-name prefix from each variant.
 // proto convention: enum Status { STATUS_ACTIVE = 1; } -> ACTIVE.
 // When trimming would produce an invalid identifier (leading digit) we keep the original.
