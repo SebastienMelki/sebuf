@@ -1,0 +1,136 @@
+// End-to-end error-handling demo for protoc-gen-py-client.
+//
+// Exercises every error surface the Python client supports:
+//   - ValidationError parsed from a buf.validate response body
+//   - Multiple typed *Error subclasses (NotFoundError, ConflictError,
+//     RateLimitError) selected from the response shape by _ERROR_CLASSES
+//   - An *Error message embedded as a field on a regular response
+//     (BatchResult.error) — exercises FieldValidationError.from_dict
+//     which lives alongside populate()
+syntax = "proto3";
+
+package py_errors;
+
+import "sebuf/http/annotations.proto";
+import "buf/validate/validate.proto";
+
+// ============================================================================
+// Error messages — one per registry key shape
+// ============================================================================
+
+message NotFoundError {
+  string resource_type = 1;
+  string resource_id   = 2;
+}
+
+message ConflictError {
+  string resource_type = 1;
+  string title         = 2;
+  string existing_id   = 3;
+}
+
+message RateLimitError {
+  int32  retry_after_seconds = 1;
+  string detail              = 2;
+}
+
+// FieldValidationError is embedded on BatchCreateItemResponse below — it is
+// never raised as a status-error, it's a normal proto field. This is the
+// pattern @yashagarwal-sarwa reported on #172: the parent's from_dict calls
+// FieldValidationError.from_dict, which must coexist with populate().
+message FieldValidationError {
+  string field       = 1;
+  string description = 2;
+}
+
+// ============================================================================
+// Domain model
+// ============================================================================
+
+message Item {
+  string id    = 1;
+  string title = 2;
+}
+
+// ============================================================================
+// Requests / responses
+// ============================================================================
+
+message GetItemRequest {
+  string id = 1;
+}
+
+message CreateItemRequest {
+  string title = 1 [(buf.validate.field).string = { min_len: 1, max_len: 200 }];
+}
+
+message DeleteItemRequest {
+  string id = 1;
+}
+
+message DeleteItemResponse {
+  bool deleted = 1;
+}
+
+message TriggerRateLimitRequest {}
+
+// BatchItemInput is structurally similar to CreateItemRequest but carries no
+// buf.validate constraints — invalid rows in a batch must reach our handler
+// so we can demonstrate the *embedded* FieldValidationError pattern rather
+// than being rejected by the validator at the gateway.
+message BatchItemInput {
+  string title = 1;
+}
+
+message BatchCreateItemsRequest {
+  repeated BatchItemInput items = 1;
+}
+
+message BatchCreateItemResult {
+  string                          title = 1;
+  optional Item                   item  = 2;
+  optional FieldValidationError   error = 3;
+}
+
+message BatchCreateItemsResponse {
+  repeated BatchCreateItemResult results = 1;
+}
+
+// ============================================================================
+// Service
+// ============================================================================
+
+service ErrorsDemoService {
+  option (sebuf.http.service_config) = {
+    base_path: "/api/v1"
+  };
+
+  // Returns the item, or NotFoundError if id == "missing".
+  rpc GetItem(GetItemRequest) returns (Item) {
+    option (sebuf.http.config) = { path: "/items/{id}" method: HTTP_METHOD_GET };
+  }
+
+  // Returns the item, or ConflictError if title == "duplicate".
+  rpc CreateItem(CreateItemRequest) returns (Item) {
+    option (sebuf.http.config) = { path: "/items"       method: HTTP_METHOD_POST };
+  }
+
+  // Returns ok, or NotFoundError if id == "missing".
+  rpc DeleteItem(DeleteItemRequest) returns (DeleteItemResponse) {
+    option (sebuf.http.config) = { path: "/items/{id}"  method: HTTP_METHOD_DELETE };
+  }
+
+  // Always returns RateLimitError — used to verify the registry picks the
+  // right subclass given the response body shape.
+  rpc TriggerRateLimit(TriggerRateLimitRequest) returns (Item) {
+    option (sebuf.http.config) = { path: "/rate-limit"  method: HTTP_METHOD_POST };
+  }
+
+  // For each input: if title is empty, return a result with the embedded
+  // FieldValidationError; if title is "duplicate", return a result with a
+  // 'fake' validation error too; otherwise return a result with the created
+  // Item. The whole response is 200 — errors are per-row, not status-codes.
+  rpc BatchCreateItems(BatchCreateItemsRequest) returns (BatchCreateItemsResponse) {
+    option (sebuf.http.config) = { path: "/items/batch" method: HTTP_METHOD_POST };
+  }
+}

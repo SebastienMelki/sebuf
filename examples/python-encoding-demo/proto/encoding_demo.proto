@@ -1,0 +1,271 @@
+// End-to-end encoding-annotation demo for protoc-gen-py-client.
+//
+// Every JSON-mapping annotation that the Python generator supports lives on
+// its own message here, and each message is returned by its own RPC. That's
+// the Go HTTP plugin's "one MarshalJSON per message" rule — each of
+// timestamp_format / int64_encoding=NUMBER / bytes_encoding≠default /
+// flatten / nullable / empty_behavior emits its own MarshalJSON in its own
+// generated file, and two of them on the same message would collide at
+// compile time. So we spread features one-per-message and round-trip each
+// against the Go server.
+syntax = "proto3";
+
+package py_encoding;
+
+import "sebuf/http/annotations.proto";
+import "google/protobuf/timestamp.proto";
+
+// ============================================================================
+// Enum value override — wire form is the custom string, not the proto name.
+// ============================================================================
+
+enum Visibility {
+  VISIBILITY_UNSPECIFIED = 0 [(sebuf.http.enum_value) = "unset"];
+  VISIBILITY_PRIVATE     = 1 [(sebuf.http.enum_value) = "private"];
+  VISIBILITY_TEAM        = 2 [(sebuf.http.enum_value) = "team"];
+  VISIBILITY_PUBLIC      = 3 [(sebuf.http.enum_value) = "public"];
+}
+
+message EnumExample {
+  Visibility visibility = 1;
+  // Sanity-check field so the Python decoder sees a non-empty body.
+  string label = 2;
+}
+
+// ============================================================================
+// Timestamp WKT — every supported timestamp_format variant.
+// ============================================================================
+//
+// Wire forms:
+//   rfc3339      → "2026-05-19T12:34:56Z"
+//   unix_seconds → 1747900000
+//   unix_millis  → 1747900000123
+//   date_only    → "2026-05-19"
+//
+// The Python type is always `datetime` regardless of format — the wire
+// encoding is the only thing that changes.
+
+message TimestampsExample {
+  google.protobuf.Timestamp rfc3339      = 1;
+  google.protobuf.Timestamp unix_seconds = 2 [(sebuf.http.timestamp_format) = TIMESTAMP_FORMAT_UNIX_SECONDS];
+  google.protobuf.Timestamp unix_millis  = 3 [(sebuf.http.timestamp_format) = TIMESTAMP_FORMAT_UNIX_MILLIS];
+  google.protobuf.Timestamp date_only    = 4 [(sebuf.http.timestamp_format) = TIMESTAMP_FORMAT_DATE];
+}
+
+// ============================================================================
+// int64 encoding — STRING (default) and NUMBER override.
+// ============================================================================
+//
+// Default int64 is wire-string "12345" / Python str — JS-safe.
+// `int64_encoding = NUMBER` flips both to JSON number / Python int.
+// Each lives on its own message because NUMBER generates MarshalJSON.
+
+message Int64StringExample {
+  // No annotation → STRING wire form, str in Python.
+  int64 value = 1;
+}
+
+message Int64NumberExample {
+  int64 value = 1 [(sebuf.http.int64_encoding) = INT64_ENCODING_NUMBER];
+}
+
+// ============================================================================
+// bytes encoding — base64 (default) + HEX override.
+// ============================================================================
+
+message BytesBase64Example {
+  // No annotation → base64 wire form, bytes in Python.
+  bytes data = 1;
+}
+
+message BytesHexExample {
+  bytes data = 1 [(sebuf.http.bytes_encoding) = BYTES_ENCODING_HEX];
+}
+
+// ============================================================================
+// flatten + flatten_prefix — promotes nested Address fields onto the parent
+// JSON object with a prefix.
+// ============================================================================
+
+message Address {
+  string street   = 1;
+  string city     = 2;
+  string zip_code = 3;
+}
+
+message FlattenExample {
+  string name = 1;
+  Address author_address = 2 [
+    (sebuf.http.flatten) = true,
+    (sebuf.http.flatten_prefix) = "author_"
+  ];
+}
+
+// ============================================================================
+// Oneof with discriminator — flatten=false (nested variant).
+// ============================================================================
+
+message ImageAttachment {
+  string url    = 1;
+  int32  width  = 2;
+  int32  height = 3;
+}
+
+message LinkAttachment {
+  string url   = 1;
+  string title = 2;
+}
+
+message OneofNestedExample {
+  string id = 1;
+  oneof content {
+    option (sebuf.http.oneof_config) = {
+      discriminator: "kind"
+      flatten: false
+    };
+    ImageAttachment image = 2 [(sebuf.http.oneof_value) = "image"];
+    LinkAttachment  link  = 3 [(sebuf.http.oneof_value) = "link"];
+  }
+}
+
+// ============================================================================
+// Oneof with discriminator — flatten=true (variant fields promoted).
+// ============================================================================
+
+message TextPayload  { string body = 1; }
+message ImagePayload { string url  = 1; }
+
+message OneofFlattenedExample {
+  string id = 1;
+  oneof payload {
+    option (sebuf.http.oneof_config) = {
+      discriminator: "type"
+      flatten: true
+    };
+    TextPayload  text  = 2 [(sebuf.http.oneof_value) = "text"];
+    ImagePayload image = 3 [(sebuf.http.oneof_value) = "image"];
+  }
+}
+
+// ============================================================================
+// Unwrap — every variant supported.
+// ============================================================================
+
+message Item {
+  string id   = 1;
+  string name = 2;
+}
+
+// Root repeated unwrap — body is a bare JSON array.
+message ItemList {
+  repeated Item items = 1 [(sebuf.http.unwrap) = true];
+}
+
+// Root map unwrap — body is { "id": {Item}, ... }.
+message ItemMap {
+  map<string, Item> items = 1 [(sebuf.http.unwrap) = true];
+}
+
+// Map-value unwrap — value type wraps a repeated field with unwrap=true so
+// the wire form collapses { "k": { "items": [...] } } to { "k": [...] }.
+message ItemBucket {
+  repeated Item items = 1 [(sebuf.http.unwrap) = true];
+}
+
+message ItemsByCategory {
+  map<string, ItemBucket> buckets = 1;
+}
+
+// ============================================================================
+// Python keyword field + repeated query params.
+// ============================================================================
+
+// Field literally named `from`, plus a couple more keywords for good measure.
+message PyKeywordExample {
+  string from   = 1;
+  string class  = 2;
+  string return = 3;
+  string normal = 4;
+}
+
+message ListItemsRequest {
+  // Repeated query parameter — emits &tag=foo&tag=bar via doseq=True.
+  repeated string tag = 1 [(sebuf.http.query) = { name: "tag" }];
+  int32 limit         = 2 [(sebuf.http.query) = { name: "limit" }];
+}
+
+message ListItemsResponse {
+  repeated Item items = 1;
+  int32 total         = 2;
+}
+
+// ============================================================================
+// Request stubs
+// ============================================================================
+
+message GetEnumExampleRequest {}
+message GetTimestampsExampleRequest {}
+message GetInt64StringExampleRequest {}
+message GetInt64NumberExampleRequest {}
+message GetBytesBase64ExampleRequest {}
+message GetBytesHexExampleRequest {}
+message GetFlattenExampleRequest {}
+message GetOneofNestedRequest { string variant = 1 [(sebuf.http.query) = { name: "variant" }]; }
+message GetOneofFlattenedRequest { string variant = 1 [(sebuf.http.query) = { name: "variant" }]; }
+message GetItemListRequest {}
+message GetItemMapRequest {}
+message GetItemsByCategoryRequest {}
+message GetPyKeywordRequest {}
+
+// ============================================================================
+// Service — one RPC per feature, each focused.
+// ============================================================================
+
+service EncodingDemoService {
+  option (sebuf.http.service_config) = {
+    base_path: "/api/v1"
+  };
+
+  rpc GetEnumExample(GetEnumExampleRequest) returns (EnumExample) {
+    option (sebuf.http.config) = { path: "/enum"             method: HTTP_METHOD_GET };
+  }
+  rpc GetTimestampsExample(GetTimestampsExampleRequest) returns (TimestampsExample) {
+    option (sebuf.http.config) = { path: "/timestamps"       method: HTTP_METHOD_GET };
+  }
+  rpc GetInt64StringExample(GetInt64StringExampleRequest) returns (Int64StringExample) {
+    option (sebuf.http.config) = { path: "/int64/string"     method: HTTP_METHOD_GET };
+  }
+  rpc GetInt64NumberExample(GetInt64NumberExampleRequest) returns (Int64NumberExample) {
+    option (sebuf.http.config) = { path: "/int64/number"     method: HTTP_METHOD_GET };
+  }
+  rpc GetBytesBase64Example(GetBytesBase64ExampleRequest) returns (BytesBase64Example) {
+    option (sebuf.http.config) = { path: "/bytes/base64"     method: HTTP_METHOD_GET };
+  }
+  rpc GetBytesHexExample(GetBytesHexExampleRequest) returns (BytesHexExample) {
+    option (sebuf.http.config) = { path: "/bytes/hex"        method: HTTP_METHOD_GET };
+  }
+  rpc GetFlattenExample(GetFlattenExampleRequest) returns (FlattenExample) {
+    option (sebuf.http.config) = { path: "/flatten"          method: HTTP_METHOD_GET };
+  }
+  rpc GetOneofNested(GetOneofNestedRequest) returns (OneofNestedExample) {
+    option (sebuf.http.config) = { path: "/oneof/nested"     method: HTTP_METHOD_GET };
+  }
+  rpc GetOneofFlattened(GetOneofFlattenedRequest) returns (OneofFlattenedExample) {
+    option (sebuf.http.config) = { path: "/oneof/flattened"  method: HTTP_METHOD_GET };
+  }
+  rpc GetItemList(GetItemListRequest) returns (ItemList) {
+    option (sebuf.http.config) = { path: "/unwrap/list"      method: HTTP_METHOD_GET };
+  }
+  rpc GetItemMap(GetItemMapRequest) returns (ItemMap) {
+    option (sebuf.http.config) = { path: "/unwrap/map"       method: HTTP_METHOD_GET };
+  }
+  rpc GetItemsByCategory(GetItemsByCategoryRequest) returns (ItemsByCategory) {
+    option (sebuf.http.config) = { path: "/unwrap/map-value" method: HTTP_METHOD_GET };
+  }
+  rpc GetPyKeyword(GetPyKeywordRequest) returns (PyKeywordExample) {
+    option (sebuf.http.config) = { path: "/pykeyword"        method: HTTP_METHOD_GET };
+  }
+  rpc ListItems(ListItemsRequest) returns (ListItemsResponse) {
+    option (sebuf.http.config) = { path: "/items"            method: HTTP_METHOD_GET };
+  }
+}

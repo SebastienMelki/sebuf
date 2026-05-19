@@ -1,0 +1,7 @@
+api/
+client/generated/
+client/__pycache__/
+client/**/__pycache__/
+buf.lock
+go.sum
+/python-errors-demo
