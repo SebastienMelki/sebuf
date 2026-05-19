@@ -1,8 +1,6 @@
 package pyclientgen
 
 import (
-	"strings"
-
 	"google.golang.org/protobuf/compiler/protogen"
 
 	"github.com/SebastienMelki/sebuf/internal/annotations"
@@ -66,38 +64,11 @@ func writeEnumDecoder(p printer, enum *protogen.Enum) {
 	p("")
 }
 
-// variantPythonName trims the redundant enum-name prefix from each variant.
-// proto convention: enum Status { STATUS_ACTIVE = 1; } -> ACTIVE.
-// When trimming would produce an invalid identifier (leading digit) we keep the original.
-func variantPythonName(enum *protogen.Enum, value *protogen.EnumValue) string {
-	prefix := strings.ToUpper(camelToSnake(string(enum.Desc.Name()))) + "_"
-	name := string(value.Desc.Name())
-	trimmed := strings.TrimPrefix(name, prefix)
-	if trimmed == "" || isInvalidIdentifier(trimmed) {
-		return escapePyKeyword(strings.ToLower(name))
-	}
-	return escapePyKeyword(strings.ToLower(trimmed))
-}
-
-func isInvalidIdentifier(s string) bool {
-	if s == "" {
-		return true
-	}
-	first := s[0]
-	if first >= '0' && first <= '9' {
-		return true
-	}
-	return false
-}
-
-// camelToSnake converts CamelCase to snake_case for enum-prefix trimming.
-func camelToSnake(s string) string {
-	var b strings.Builder
-	for i, r := range s {
-		if i > 0 && r >= 'A' && r <= 'Z' {
-			b.WriteByte('_')
-		}
-		b.WriteRune(r)
-	}
-	return b.String()
+// variantPythonName returns the Python attribute name for an enum value.
+// We preserve the original proto value name (e.g. PRIORITY_HIGH) verbatim so
+// that IntEnum.name — used as the default JSON wire form — matches Go's
+// protojson default. Trimming the redundant enum-name prefix would be more
+// ergonomic but would break cross-generator wire compatibility.
+func variantPythonName(_ *protogen.Enum, value *protogen.EnumValue) string {
+	return escapePyKeyword(string(value.Desc.Name()))
 }

@@ -102,10 +102,10 @@ _ERROR_CLASSES: list[tuple[type[ApiError], set[str]]] = [
 
 class ResourceStatus(IntEnum):
     """Generated from proto enum test.httpgen.ResourceStatus."""
-    unspecified = 0
-    active = 1
-    inactive = 2
-    archived = 3
+    RESOURCE_STATUS_UNSPECIFIED = 0
+    RESOURCE_STATUS_ACTIVE = 1
+    RESOURCE_STATUS_INACTIVE = 2
+    RESOURCE_STATUS_ARCHIVED = 3
 
 
 ResourceStatus_JSON_VALUES: Mapping[ResourceStatus, str] = {}
@@ -447,7 +447,7 @@ class Resource:
     metadata: dict[str, str] = field(default_factory=dict)
     created_at: str = "0"
     updated_at: str = "0"
-    status: ResourceStatus = ResourceStatus.unspecified
+    status: ResourceStatus = ResourceStatus.RESOURCE_STATUS_UNSPECIFIED
     metadata_detail: Optional[ResourceMetadata] = None
     tag: Optional[str] = None
 
@@ -526,7 +526,7 @@ class ResourceMetadata:
 @dataclass
 class SearchResourcesRequest:
     """Generated from proto message test.httpgen.SearchResourcesRequest."""
-    status_filter: ResourceStatus = ResourceStatus.unspecified
+    status_filter: ResourceStatus = ResourceStatus.RESOURCE_STATUS_UNSPECIFIED
     query: str = ""
 
     def to_dict(self) -> Any:

@@ -102,11 +102,11 @@ _ERROR_CLASSES: list[tuple[type[ApiError], set[str]]] = [
 
 class Priority(IntEnum):
     """Generated from proto enum test.tsclientgen.Priority."""
-    unspecified = 0
-    low = 1
-    medium = 2
-    high = 3
-    urgent = 4
+    PRIORITY_UNSPECIFIED = 0
+    PRIORITY_LOW = 1
+    PRIORITY_MEDIUM = 2
+    PRIORITY_HIGH = 3
+    PRIORITY_URGENT = 4
 
 
 Priority_JSON_VALUES: Mapping[Priority, str] = {}
@@ -127,11 +127,11 @@ def _decode_enum_Priority(value: Any) -> Priority:
 
 class Status(IntEnum):
     """Generated from proto enum test.tsclientgen.Status."""
-    unspecified = 0
-    pending = 1
-    in_progress = 2
-    done = 3
-    archived = 4
+    STATUS_UNSPECIFIED = 0
+    STATUS_PENDING = 1
+    STATUS_IN_PROGRESS = 2
+    STATUS_DONE = 3
+    STATUS_ARCHIVED = 4
 
 
 Status_JSON_VALUES: Mapping[Status, str] = {}
@@ -267,8 +267,8 @@ class CreateNoteRequest:
     """Generated from proto message test.tsclientgen.CreateNoteRequest."""
     title: str = ""
     content: str = ""
-    priority: Priority = Priority.unspecified
-    status: Status = Status.unspecified
+    priority: Priority = Priority.PRIORITY_UNSPECIFIED
+    status: Status = Status.STATUS_UNSPECIFIED
     tags: list[Tag] = field(default_factory=list)
     metadata: dict[str, str] = field(default_factory=dict)
     due_date: Optional[str] = None
@@ -482,8 +482,8 @@ class Note:
     id: str = ""
     title: str = ""
     content: str = ""
-    priority: Priority = Priority.unspecified
-    status: Status = Status.unspecified
+    priority: Priority = Priority.PRIORITY_UNSPECIFIED
+    status: Status = Status.STATUS_UNSPECIFIED
     tags: list[Tag] = field(default_factory=list)
     metadata: dict[str, str] = field(default_factory=dict)
     due_date: Optional[str] = None
@@ -593,7 +593,7 @@ class UpdateNoteRequest:
     note_id: str = ""
     title: str = ""
     content: str = ""
-    priority: Priority = Priority.unspecified
+    priority: Priority = Priority.PRIORITY_UNSPECIFIED
 
     def to_dict(self) -> Any:
         """Serialize to a JSON-ready dict respecting sebuf JSON mapping annotations."""

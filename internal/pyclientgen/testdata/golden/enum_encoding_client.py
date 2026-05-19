@@ -102,9 +102,9 @@ _ERROR_CLASSES: list[tuple[type[ApiError], set[str]]] = [
 
 class Priority(IntEnum):
     """Generated from proto enum testdata.enumencoding.Priority."""
-    low = 0
-    medium = 1
-    high = 2
+    PRIORITY_LOW = 0
+    PRIORITY_MEDIUM = 1
+    PRIORITY_HIGH = 2
 
 
 Priority_JSON_VALUES: Mapping[Priority, str] = {}
@@ -125,15 +125,15 @@ def _decode_enum_Priority(value: Any) -> Priority:
 
 class Status(IntEnum):
     """Generated from proto enum testdata.enumencoding.Status."""
-    unspecified = 0
-    active = 1
-    inactive = 2
+    STATUS_UNSPECIFIED = 0
+    STATUS_ACTIVE = 1
+    STATUS_INACTIVE = 2
 
 
 Status_JSON_VALUES: Mapping[Status, str] = {
-    Status.unspecified: "unknown",
-    Status.active: "active",
-    Status.inactive: "inactive",
+    Status.STATUS_UNSPECIFIED: "unknown",
+    Status.STATUS_ACTIVE: "active",
+    Status.STATUS_INACTIVE: "inactive",
 }
 
 def _decode_enum_Status(value: Any) -> Status:
@@ -153,10 +153,10 @@ def _decode_enum_Status(value: Any) -> Status:
 @dataclass
 class EnumEncodingTest:
     """Generated from proto message testdata.enumencoding.EnumEncodingTest."""
-    status: Status = Status.unspecified
-    priority_as_number: Priority = Priority.low
-    priority_as_string: Priority = Priority.low
-    default_priority: Priority = Priority.low
+    status: Status = Status.STATUS_UNSPECIFIED
+    priority_as_number: Priority = Priority.PRIORITY_LOW
+    priority_as_string: Priority = Priority.PRIORITY_LOW
+    default_priority: Priority = Priority.PRIORITY_LOW
     status_list: list[Status] = field(default_factory=list)
     number_priority_list: list[Priority] = field(default_factory=list)
     optional_status: Optional[Status] = None

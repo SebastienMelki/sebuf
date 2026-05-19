@@ -102,17 +102,17 @@ _ERROR_CLASSES: list[tuple[type[ApiError], set[str]]] = [
 
 class Region(IntEnum):
     """Generated from proto enum test.httpgen.query.Region."""
-    unspecified = 0
-    americas = 1
-    europe = 2
-    asia = 3
+    REGION_UNSPECIFIED = 0
+    REGION_AMERICAS = 1
+    REGION_EUROPE = 2
+    REGION_ASIA = 3
 
 
 Region_JSON_VALUES: Mapping[Region, str] = {
-    Region.unspecified: "unspecified",
-    Region.americas: "americas",
-    Region.europe: "europe",
-    Region.asia: "asia",
+    Region.REGION_UNSPECIFIED: "unspecified",
+    Region.REGION_AMERICAS: "americas",
+    Region.REGION_EUROPE: "europe",
+    Region.REGION_ASIA: "asia",
 }
 
 def _decode_enum_Region(value: Any) -> Region:
@@ -178,7 +178,7 @@ class GetWithFiltersRequest:
 @dataclass
 class SearchAdvancedRequest:
     """Generated from proto message test.httpgen.query.SearchAdvancedRequest."""
-    region: Region = Region.unspecified
+    region: Region = Region.REGION_UNSPECIFIED
     countries: list[str] = field(default_factory=list)
     keyword: str = ""
     years: list[int] = field(default_factory=list)
