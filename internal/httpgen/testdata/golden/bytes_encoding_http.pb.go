@@ -23,18 +23,18 @@ func RegisterBytesEncodingServiceServer(server BytesEncodingServiceServer, opts 
 
 	methodHeaders := getTestBytesEncodingHeaders()
 	testBytesEncodingHandler := BindingMiddleware[BytesEncodingTest](
-		genericHandler(server.TestBytesEncoding, config.errorHandler), serviceHeaders, methodHeaders,
+		genericHandler(server.TestBytesEncoding, config.errorHandler, config.marshalOpts), serviceHeaders, methodHeaders,
 		testBytesEncodingPathParams, testBytesEncodingQueryParams,
-		"POST", config.errorHandler,
+		"POST", config.errorHandler, config.marshalOpts,
 	)
 
 	config.mux.Handle("POST /api/v1/bytes-encoding", testBytesEncodingHandler)
 
 	methodHeaders = getGetBytesEncodingHeaders()
 	getBytesEncodingHandler := BindingMiddleware[BytesEncodingRequest](
-		genericHandler(server.GetBytesEncoding, config.errorHandler), serviceHeaders, methodHeaders,
+		genericHandler(server.GetBytesEncoding, config.errorHandler, config.marshalOpts), serviceHeaders, methodHeaders,
 		getBytesEncodingPathParams, getBytesEncodingQueryParams,
-		"GET", config.errorHandler,
+		"GET", config.errorHandler, config.marshalOpts,
 	)
 
 	config.mux.Handle("GET /api/v1/bytes-encoding/{id}", getBytesEncodingHandler)

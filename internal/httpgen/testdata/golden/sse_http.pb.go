@@ -25,9 +25,9 @@ func RegisterSSEServiceServer(server SSEServiceServer, opts ...ServerOption) err
 
 	methodHeaders := getGetStatusHeaders()
 	getStatusHandler := BindingMiddleware[GetStatusRequest](
-		genericHandler(server.GetStatus, config.errorHandler), serviceHeaders, methodHeaders,
+		genericHandler(server.GetStatus, config.errorHandler, config.marshalOpts), serviceHeaders, methodHeaders,
 		getStatusPathParams, getStatusQueryParams,
-		"GET", config.errorHandler,
+		"GET", config.errorHandler, config.marshalOpts,
 	)
 
 	config.mux.Handle("GET /api/v1/status", getStatusHandler)
@@ -36,7 +36,7 @@ func RegisterSSEServiceServer(server SSEServiceServer, opts ...ServerOption) err
 	streamEventsHandler := SSEHandler[StreamEventsRequest](
 		server.StreamEvents, config.errorHandler, serviceHeaders, methodHeaders,
 		streamEventsPathParams, streamEventsQueryParams,
-		"GET",
+		"GET", config.marshalOpts,
 	)
 
 	config.mux.Handle("GET /api/v1/events", streamEventsHandler)
@@ -45,7 +45,7 @@ func RegisterSSEServiceServer(server SSEServiceServer, opts ...ServerOption) err
 	streamResourceEventsHandler := SSEHandler[StreamResourceEventsRequest](
 		server.StreamResourceEvents, config.errorHandler, serviceHeaders, methodHeaders,
 		streamResourceEventsPathParams, streamResourceEventsQueryParams,
-		"GET",
+		"GET", config.marshalOpts,
 	)
 
 	config.mux.Handle("GET /api/v1/resources/{resource_id}/events", streamResourceEventsHandler)
@@ -54,7 +54,7 @@ func RegisterSSEServiceServer(server SSEServiceServer, opts ...ServerOption) err
 	streamFilteredEventsHandler := SSEHandler[StreamFilteredEventsRequest](
 		server.StreamFilteredEvents, config.errorHandler, serviceHeaders, methodHeaders,
 		streamFilteredEventsPathParams, streamFilteredEventsQueryParams,
-		"GET",
+		"GET", config.marshalOpts,
 	)
 
 	config.mux.Handle("GET /api/v1/events/filtered", streamFilteredEventsHandler)

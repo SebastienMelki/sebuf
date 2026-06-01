@@ -188,16 +188,20 @@ func (g *Generator) generateFlattenMarshalJSON(gf *protogen.GeneratedFile, ctx *
 		fieldNames = append(fieldNames, string(info.Field.Desc.Name()))
 	}
 
-	gf.P("// MarshalJSON implements json.Marshaler for ", msgName, ".")
+	gf.P("// MarshalJSONSebuf implements sebufMarshaler for ", msgName, ".")
 	gf.P("// This method handles flatten fields: ", strings.Join(fieldNames, ", "))
-	gf.P("func (x *", msgName, ") MarshalJSON() ([]byte, error) {")
+	gf.P(
+		"func (x *",
+		msgName,
+		") MarshalJSONSebuf(opts protojson.MarshalOptions) ([]byte, error) {",
+	)
 	gf.P("if x == nil {")
 	gf.P("return []byte(\"null\"), nil")
 	gf.P("}")
 	gf.P()
 
 	gf.P("// Use protojson for base serialization (handles all other fields correctly)")
-	gf.P("data, err := protojson.Marshal(x)")
+	gf.P("data, err := opts.Marshal(x)")
 	gf.P("if err != nil {")
 	gf.P("return nil, err")
 	gf.P("}")
@@ -217,10 +221,18 @@ func (g *Generator) generateFlattenMarshalJSON(gf *protogen.GeneratedFile, ctx *
 	gf.P("return json.Marshal(raw)")
 	gf.P("}")
 	gf.P()
+
+	// Backward-compatible MarshalJSON wrapper for stdlib encoding/json.
+	gf.P("// MarshalJSON implements json.Marshaler for ", msgName, ".")
+	gf.P("func (x *", msgName, ") MarshalJSON() ([]byte, error) {")
+	gf.P("return x.MarshalJSONSebuf(protojson.MarshalOptions{})")
+	gf.P("}")
+	gf.P()
 }
 
 // generateFlattenFieldMarshal generates marshaling code for a single flattened field.
-// Uses json.Marshal for the child to respect its own MarshalJSON (annotation composability).
+// Forwards opts to child's MarshalJSONSebuf when available (annotation composability),
+// otherwise uses opts.Marshal so server-configured options reach plain messages too.
 func (g *Generator) generateFlattenFieldMarshal(gf *protogen.GeneratedFile, info *FlattenFieldInfo) {
 	field := info.Field
 	goName := field.GoName
@@ -230,8 +242,18 @@ func (g *Generator) generateFlattenFieldMarshal(gf *protogen.GeneratedFile, info
 	gf.P("// Flatten field: ", field.Desc.Name())
 	gf.P("if x.", goName, " != nil {")
 	gf.P(`delete(raw, "`, jsonName, `")`)
-	gf.P("// Use json.Marshal to invoke child's MarshalJSON (annotation composability)")
-	gf.P("childData, childErr := json.Marshal(x.", goName, ")")
+	gf.P("// Forward opts to child's MarshalJSONSebuf when available (annotation composability)")
+	gf.P("var childData []byte")
+	gf.P("var childErr error")
+	gf.P(
+		"if m, ok := any(x.",
+		goName,
+		").(interface{ MarshalJSONSebuf(protojson.MarshalOptions) ([]byte, error) }); ok {",
+	)
+	gf.P("childData, childErr = m.MarshalJSONSebuf(opts)")
+	gf.P("} else {")
+	gf.P("childData, childErr = opts.Marshal(x.", goName, ")")
+	gf.P("}")
 	gf.P("if childErr != nil {")
 	gf.P("return nil, childErr")
 	gf.P("}")

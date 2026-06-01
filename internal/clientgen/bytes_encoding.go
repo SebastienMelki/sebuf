@@ -165,16 +165,20 @@ func (g *Generator) generateBytesMarshalJSON(gf *protogen.GeneratedFile, ctx *By
 		fieldNames = append(fieldNames, string(f.Field.Desc.Name()))
 	}
 
-	gf.P("// MarshalJSON implements json.Marshaler for ", msgName, ".")
+	gf.P("// MarshalJSONSebuf implements sebufMarshaler for ", msgName, ".")
 	gf.P("// This method handles bytes_encoding fields: ", strings.Join(fieldNames, ", "))
-	gf.P("func (x *", msgName, ") MarshalJSON() ([]byte, error) {")
+	gf.P(
+		"func (x *",
+		msgName,
+		") MarshalJSONSebuf(opts protojson.MarshalOptions) ([]byte, error) {",
+	)
 	gf.P("if x == nil {")
 	gf.P("return []byte(\"null\"), nil")
 	gf.P("}")
 	gf.P()
 
 	gf.P("// Use protojson for base serialization (handles all other fields correctly)")
-	gf.P("data, err := protojson.Marshal(x)")
+	gf.P("data, err := opts.Marshal(x)")
 	gf.P("if err != nil {")
 	gf.P("return nil, err")
 	gf.P("}")
@@ -192,6 +196,13 @@ func (g *Generator) generateBytesMarshalJSON(gf *protogen.GeneratedFile, ctx *By
 	}
 
 	gf.P("return json.Marshal(raw)")
+	gf.P("}")
+	gf.P()
+
+	// Backward-compatible MarshalJSON wrapper for stdlib encoding/json.
+	gf.P("// MarshalJSON implements json.Marshaler for ", msgName, ".")
+	gf.P("func (x *", msgName, ") MarshalJSON() ([]byte, error) {")
+	gf.P("return x.MarshalJSONSebuf(protojson.MarshalOptions{})")
 	gf.P("}")
 	gf.P()
 }

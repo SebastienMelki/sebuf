@@ -9,16 +9,24 @@ import (
 	"google.golang.org/protobuf/encoding/protojson"
 )
 
-// MarshalJSON implements json.Marshaler for UnwrapWrapper.
+// MarshalJSONSebuf implements sebufMarshaler for UnwrapWrapper.
 // This method performs root-level unwrap, serializing the message as just the array value.
-func (x *UnwrapWrapper) MarshalJSON() ([]byte, error) {
+func (x *UnwrapWrapper) MarshalJSONSebuf(opts protojson.MarshalOptions) ([]byte, error) {
 	if x == nil {
 		return []byte("null"), nil
 	}
 
 	items := make([]json.RawMessage, 0, len(x.Items))
 	for _, item := range x.Items {
-		data, err := json.Marshal(item)
+		var data []byte
+		var err error
+		if m, ok := any(item).(interface {
+			MarshalJSONSebuf(protojson.MarshalOptions) ([]byte, error)
+		}); ok {
+			data, err = m.MarshalJSONSebuf(opts)
+		} else {
+			data, err = opts.Marshal(item)
+		}
 		if err != nil {
 			return nil, err
 		}
@@ -26,6 +34,11 @@ func (x *UnwrapWrapper) MarshalJSON() ([]byte, error) {
 	}
 	return json.Marshal(items)
 
+}
+
+// MarshalJSON implements json.Marshaler for UnwrapWrapper.
+func (x *UnwrapWrapper) MarshalJSON() ([]byte, error) {
+	return x.MarshalJSONSebuf(protojson.MarshalOptions{})
 }
 
 // UnmarshalJSON implements json.Unmarshaler for UnwrapWrapper.
@@ -46,9 +59,9 @@ func (x *UnwrapWrapper) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-// MarshalJSON implements json.Marshaler for CombinedResponse.
+// MarshalJSONSebuf implements sebufMarshaler for CombinedResponse.
 // This method handles unwrap field serialization for map values.
-func (x *CombinedResponse) MarshalJSON() ([]byte, error) {
+func (x *CombinedResponse) MarshalJSONSebuf(opts protojson.MarshalOptions) ([]byte, error) {
 	if x == nil {
 		return []byte("null"), nil
 	}
@@ -63,7 +76,15 @@ func (x *CombinedResponse) MarshalJSON() ([]byte, error) {
 				// Marshal the unwrap field directly (the array)
 				items := make([]json.RawMessage, 0, len(wrapper.GetItems()))
 				for _, item := range wrapper.GetItems() {
-					data, err := json.Marshal(item)
+					var data []byte
+					var err error
+					if m, ok := any(item).(interface {
+						MarshalJSONSebuf(protojson.MarshalOptions) ([]byte, error)
+					}); ok {
+						data, err = m.MarshalJSONSebuf(opts)
+					} else {
+						data, err = opts.Marshal(item)
+					}
 					if err != nil {
 						return nil, err
 					}
@@ -85,7 +106,15 @@ func (x *CombinedResponse) MarshalJSON() ([]byte, error) {
 
 	// Handle message field: Meta
 	if x.Meta != nil {
-		data, err := json.Marshal(x.Meta)
+		var data []byte
+		var err error
+		if m, ok := any(x.Meta).(interface {
+			MarshalJSONSebuf(protojson.MarshalOptions) ([]byte, error)
+		}); ok {
+			data, err = m.MarshalJSONSebuf(opts)
+		} else {
+			data, err = opts.Marshal(x.Meta)
+		}
 		if err != nil {
 			return nil, err
 		}
@@ -93,6 +122,11 @@ func (x *CombinedResponse) MarshalJSON() ([]byte, error) {
 	}
 
 	return json.Marshal(out)
+}
+
+// MarshalJSON implements json.Marshaler for CombinedResponse.
+func (x *CombinedResponse) MarshalJSON() ([]byte, error) {
+	return x.MarshalJSONSebuf(protojson.MarshalOptions{})
 }
 
 // UnmarshalJSON implements json.Unmarshaler for CombinedResponse.

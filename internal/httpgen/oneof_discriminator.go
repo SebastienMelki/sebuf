@@ -166,16 +166,20 @@ func (g *Generator) generateOneofMarshalJSON(gf *protogen.GeneratedFile, ctx *On
 		oneofNames = append(oneofNames, string(info.Oneof.Desc.Name()))
 	}
 
-	gf.P("// MarshalJSON implements json.Marshaler for ", msgName, ".")
+	gf.P("// MarshalJSONSebuf implements sebufMarshaler for ", msgName, ".")
 	gf.P("// This method handles oneof discriminator fields: ", strings.Join(oneofNames, ", "))
-	gf.P("func (x *", msgName, ") MarshalJSON() ([]byte, error) {")
+	gf.P(
+		"func (x *",
+		msgName,
+		") MarshalJSONSebuf(opts protojson.MarshalOptions) ([]byte, error) {",
+	)
 	gf.P("if x == nil {")
 	gf.P("return []byte(\"null\"), nil")
 	gf.P("}")
 	gf.P()
 
 	gf.P("// Use protojson for base serialization")
-	gf.P("data, err := protojson.Marshal(x)")
+	gf.P("data, err := opts.Marshal(x)")
 	gf.P("if err != nil {")
 	gf.P("return nil, err")
 	gf.P("}")
@@ -193,6 +197,13 @@ func (g *Generator) generateOneofMarshalJSON(gf *protogen.GeneratedFile, ctx *On
 	}
 
 	gf.P("return json.Marshal(raw)")
+	gf.P("}")
+	gf.P()
+
+	// Backward-compatible MarshalJSON wrapper for stdlib encoding/json.
+	gf.P("// MarshalJSON implements json.Marshaler for ", msgName, ".")
+	gf.P("func (x *", msgName, ") MarshalJSON() ([]byte, error) {")
+	gf.P("return x.MarshalJSONSebuf(protojson.MarshalOptions{})")
 	gf.P("}")
 	gf.P()
 }
@@ -232,9 +243,17 @@ func (g *Generator) generateFlattenedMarshal(
 	fieldGoName := variant.Field.GoName
 	fieldJSONName := variant.Field.Desc.JSONName()
 
-	gf.P("// Flatten: marshal variant via json.Marshal to invoke child MarshalJSON")
+	gf.P("// Flatten: forward opts to variant via MarshalJSONSebuf when available")
 	gf.P("if inner := x.Get", fieldGoName, "(); inner != nil {")
-	gf.P("variantData, varErr := json.Marshal(inner)")
+	gf.P("var variantData []byte")
+	gf.P("var varErr error")
+	gf.P(
+		"if m, ok := any(inner).(interface{ MarshalJSONSebuf(protojson.MarshalOptions) ([]byte, error) }); ok {",
+	)
+	gf.P("variantData, varErr = m.MarshalJSONSebuf(opts)")
+	gf.P("} else {")
+	gf.P("variantData, varErr = opts.Marshal(inner)")
+	gf.P("}")
 	gf.P("if varErr == nil {")
 	gf.P("var variantMap map[string]json.RawMessage")
 	gf.P("if json.Unmarshal(variantData, &variantMap) == nil {")

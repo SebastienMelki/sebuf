@@ -25,36 +25,36 @@ func RegisterFlattenServiceServer(server FlattenServiceServer, opts ...ServerOpt
 
 	methodHeaders := getTestSimpleFlattenHeaders()
 	testSimpleFlattenHandler := BindingMiddleware[SimpleFlatten](
-		genericHandler(server.TestSimpleFlatten, config.errorHandler), serviceHeaders, methodHeaders,
+		genericHandler(server.TestSimpleFlatten, config.errorHandler, config.marshalOpts), serviceHeaders, methodHeaders,
 		testSimpleFlattenPathParams, testSimpleFlattenQueryParams,
-		"POST", config.errorHandler,
+		"POST", config.errorHandler, config.marshalOpts,
 	)
 
 	config.mux.Handle("POST /api/v1/flatten/simple", testSimpleFlattenHandler)
 
 	methodHeaders = getTestDualFlattenHeaders()
 	testDualFlattenHandler := BindingMiddleware[DualFlatten](
-		genericHandler(server.TestDualFlatten, config.errorHandler), serviceHeaders, methodHeaders,
+		genericHandler(server.TestDualFlatten, config.errorHandler, config.marshalOpts), serviceHeaders, methodHeaders,
 		testDualFlattenPathParams, testDualFlattenQueryParams,
-		"POST", config.errorHandler,
+		"POST", config.errorHandler, config.marshalOpts,
 	)
 
 	config.mux.Handle("POST /api/v1/flatten/dual", testDualFlattenHandler)
 
 	methodHeaders = getTestMixedFlattenHeaders()
 	testMixedFlattenHandler := BindingMiddleware[MixedFlatten](
-		genericHandler(server.TestMixedFlatten, config.errorHandler), serviceHeaders, methodHeaders,
+		genericHandler(server.TestMixedFlatten, config.errorHandler, config.marshalOpts), serviceHeaders, methodHeaders,
 		testMixedFlattenPathParams, testMixedFlattenQueryParams,
-		"POST", config.errorHandler,
+		"POST", config.errorHandler, config.marshalOpts,
 	)
 
 	config.mux.Handle("POST /api/v1/flatten/mixed", testMixedFlattenHandler)
 
 	methodHeaders = getTestPlainNestedHeaders()
 	testPlainNestedHandler := BindingMiddleware[PlainNested](
-		genericHandler(server.TestPlainNested, config.errorHandler), serviceHeaders, methodHeaders,
+		genericHandler(server.TestPlainNested, config.errorHandler, config.marshalOpts), serviceHeaders, methodHeaders,
 		testPlainNestedPathParams, testPlainNestedQueryParams,
-		"POST", config.errorHandler,
+		"POST", config.errorHandler, config.marshalOpts,
 	)
 
 	config.mux.Handle("POST /api/v1/flatten/plain", testPlainNestedHandler)

@@ -23,18 +23,18 @@ func RegisterNoAnnotationsServiceServer(server NoAnnotationsServiceServer, opts 
 
 	methodHeaders := getSimpleActionHeaders()
 	simpleActionHandler := BindingMiddleware[SimpleRequest](
-		genericHandler(server.SimpleAction, config.errorHandler), serviceHeaders, methodHeaders,
+		genericHandler(server.SimpleAction, config.errorHandler, config.marshalOpts), serviceHeaders, methodHeaders,
 		simpleActionPathParams, simpleActionQueryParams,
-		"POST", config.errorHandler,
+		"POST", config.errorHandler, config.marshalOpts,
 	)
 
 	config.mux.Handle("POST /generated/simple_action", simpleActionHandler)
 
 	methodHeaders = getAnotherActionHeaders()
 	anotherActionHandler := BindingMiddleware[AnotherRequest](
-		genericHandler(server.AnotherAction, config.errorHandler), serviceHeaders, methodHeaders,
+		genericHandler(server.AnotherAction, config.errorHandler, config.marshalOpts), serviceHeaders, methodHeaders,
 		anotherActionPathParams, anotherActionQueryParams,
-		"POST", config.errorHandler,
+		"POST", config.errorHandler, config.marshalOpts,
 	)
 
 	config.mux.Handle("POST /generated/another_action", anotherActionHandler)
@@ -83,18 +83,18 @@ func RegisterBasePathOnlyServiceServer(server BasePathOnlyServiceServer, opts ..
 
 	methodHeaders := getActionOneHeaders()
 	actionOneHandler := BindingMiddleware[ActionRequest](
-		genericHandler(server.ActionOne, config.errorHandler), serviceHeaders, methodHeaders,
+		genericHandler(server.ActionOne, config.errorHandler, config.marshalOpts), serviceHeaders, methodHeaders,
 		actionOnePathParams, actionOneQueryParams,
-		"POST", config.errorHandler,
+		"POST", config.errorHandler, config.marshalOpts,
 	)
 
 	config.mux.Handle("POST /api/v2/action_one", actionOneHandler)
 
 	methodHeaders = getActionTwoHeaders()
 	actionTwoHandler := BindingMiddleware[ActionRequest](
-		genericHandler(server.ActionTwo, config.errorHandler), serviceHeaders, methodHeaders,
+		genericHandler(server.ActionTwo, config.errorHandler, config.marshalOpts), serviceHeaders, methodHeaders,
 		actionTwoPathParams, actionTwoQueryParams,
-		"POST", config.errorHandler,
+		"POST", config.errorHandler, config.marshalOpts,
 	)
 
 	config.mux.Handle("POST /api/v2/action_two", actionTwoHandler)

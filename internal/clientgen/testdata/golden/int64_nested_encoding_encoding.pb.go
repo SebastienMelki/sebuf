@@ -10,16 +10,16 @@ import (
 	"google.golang.org/protobuf/encoding/protojson"
 )
 
-// MarshalJSON implements json.Marshaler for SensorReading.
+// MarshalJSONSebuf implements sebufMarshaler for SensorReading.
 // This method handles int64_encoding=NUMBER fields: timestamp_ms, values
 // Warning: int64 fields with NUMBER encoding may lose precision for values > 2^53 in JavaScript.
-func (x *SensorReading) MarshalJSON() ([]byte, error) {
+func (x *SensorReading) MarshalJSONSebuf(opts protojson.MarshalOptions) ([]byte, error) {
 	if x == nil {
 		return []byte("null"), nil
 	}
 
 	// Use protojson for base serialization (handles all other fields correctly)
-	data, err := protojson.Marshal(x)
+	data, err := opts.Marshal(x)
 	if err != nil {
 		return nil, err
 	}
@@ -44,6 +44,11 @@ func (x *SensorReading) MarshalJSON() ([]byte, error) {
 	}
 
 	return json.Marshal(raw)
+}
+
+// MarshalJSON implements json.Marshaler for SensorReading.
+func (x *SensorReading) MarshalJSON() ([]byte, error) {
+	return x.MarshalJSONSebuf(protojson.MarshalOptions{})
 }
 
 // UnmarshalJSONSebuf implements sebufUnmarshaler for SensorReading.
@@ -90,15 +95,15 @@ func (x *SensorReading) UnmarshalJSON(data []byte) error {
 	return x.UnmarshalJSONSebuf(data, protojson.UnmarshalOptions{})
 }
 
-// MarshalJSON implements json.Marshaler for GetSensorReadingResponse.
+// MarshalJSONSebuf implements sebufMarshaler for GetSensorReadingResponse.
 // This method re-marshals nested messages that have int64_encoding=NUMBER fields: reading
-func (x *GetSensorReadingResponse) MarshalJSON() ([]byte, error) {
+func (x *GetSensorReadingResponse) MarshalJSONSebuf(opts protojson.MarshalOptions) ([]byte, error) {
 	if x == nil {
 		return []byte("null"), nil
 	}
 
 	// Use protojson for base serialization (handles all other fields correctly)
-	data, err := protojson.Marshal(x)
+	data, err := opts.Marshal(x)
 	if err != nil {
 		return nil, err
 	}
@@ -109,15 +114,26 @@ func (x *GetSensorReadingResponse) MarshalJSON() ([]byte, error) {
 		return nil, err
 	}
 
-	// Re-serialize "reading" using its custom MarshalJSON
+	// Re-serialize "reading" forwarding opts when child supports MarshalJSONSebuf
 	if x.Reading != nil {
-		raw["reading"], err = json.Marshal(x.Reading)
+		if m, ok := any(x.Reading).(interface {
+			MarshalJSONSebuf(protojson.MarshalOptions) ([]byte, error)
+		}); ok {
+			raw["reading"], err = m.MarshalJSONSebuf(opts)
+		} else {
+			raw["reading"], err = opts.Marshal(x.Reading)
+		}
 		if err != nil {
 			return nil, err
 		}
 	}
 
 	return json.Marshal(raw)
+}
+
+// MarshalJSON implements json.Marshaler for GetSensorReadingResponse.
+func (x *GetSensorReadingResponse) MarshalJSON() ([]byte, error) {
+	return x.MarshalJSONSebuf(protojson.MarshalOptions{})
 }
 
 // UnmarshalJSONSebuf implements sebufUnmarshaler for GetSensorReadingResponse.
@@ -160,15 +176,15 @@ func (x *GetSensorReadingResponse) UnmarshalJSON(data []byte) error {
 	return x.UnmarshalJSONSebuf(data, protojson.UnmarshalOptions{})
 }
 
-// MarshalJSON implements json.Marshaler for GetMultiSensorResponse.
+// MarshalJSONSebuf implements sebufMarshaler for GetMultiSensorResponse.
 // This method re-marshals nested messages that have int64_encoding=NUMBER fields: primary, secondary
-func (x *GetMultiSensorResponse) MarshalJSON() ([]byte, error) {
+func (x *GetMultiSensorResponse) MarshalJSONSebuf(opts protojson.MarshalOptions) ([]byte, error) {
 	if x == nil {
 		return []byte("null"), nil
 	}
 
 	// Use protojson for base serialization (handles all other fields correctly)
-	data, err := protojson.Marshal(x)
+	data, err := opts.Marshal(x)
 	if err != nil {
 		return nil, err
 	}
@@ -179,23 +195,40 @@ func (x *GetMultiSensorResponse) MarshalJSON() ([]byte, error) {
 		return nil, err
 	}
 
-	// Re-serialize "primary" using its custom MarshalJSON
+	// Re-serialize "primary" forwarding opts when child supports MarshalJSONSebuf
 	if x.Primary != nil {
-		raw["primary"], err = json.Marshal(x.Primary)
+		if m, ok := any(x.Primary).(interface {
+			MarshalJSONSebuf(protojson.MarshalOptions) ([]byte, error)
+		}); ok {
+			raw["primary"], err = m.MarshalJSONSebuf(opts)
+		} else {
+			raw["primary"], err = opts.Marshal(x.Primary)
+		}
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	// Re-serialize "secondary" using its custom MarshalJSON
+	// Re-serialize "secondary" forwarding opts when child supports MarshalJSONSebuf
 	if x.Secondary != nil {
-		raw["secondary"], err = json.Marshal(x.Secondary)
+		if m, ok := any(x.Secondary).(interface {
+			MarshalJSONSebuf(protojson.MarshalOptions) ([]byte, error)
+		}); ok {
+			raw["secondary"], err = m.MarshalJSONSebuf(opts)
+		} else {
+			raw["secondary"], err = opts.Marshal(x.Secondary)
+		}
 		if err != nil {
 			return nil, err
 		}
 	}
 
 	return json.Marshal(raw)
+}
+
+// MarshalJSON implements json.Marshaler for GetMultiSensorResponse.
+func (x *GetMultiSensorResponse) MarshalJSON() ([]byte, error) {
+	return x.MarshalJSONSebuf(protojson.MarshalOptions{})
 }
 
 // UnmarshalJSONSebuf implements sebufUnmarshaler for GetMultiSensorResponse.

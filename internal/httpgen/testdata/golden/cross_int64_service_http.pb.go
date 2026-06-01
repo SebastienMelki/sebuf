@@ -22,9 +22,9 @@ func RegisterBarsServiceServer(server BarsServiceServer, opts ...ServerOption) e
 
 	methodHeaders := getGetBarsHeaders()
 	getBarsHandler := BindingMiddleware[GetBarsRequest](
-		genericHandler(server.GetBars, config.errorHandler), serviceHeaders, methodHeaders,
+		genericHandler(server.GetBars, config.errorHandler, config.marshalOpts), serviceHeaders, methodHeaders,
 		getBarsPathParams, getBarsQueryParams,
-		"GET", config.errorHandler,
+		"GET", config.errorHandler, config.marshalOpts,
 	)
 
 	config.mux.Handle("GET /v2/bars", getBarsHandler)

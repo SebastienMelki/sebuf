@@ -27,54 +27,54 @@ func RegisterQueryParamServiceServer(server QueryParamServiceServer, opts ...Ser
 
 	methodHeaders := getSearchWithTypesHeaders()
 	searchWithTypesHandler := BindingMiddleware[SearchWithTypesRequest](
-		genericHandler(server.SearchWithTypes, config.errorHandler), serviceHeaders, methodHeaders,
+		genericHandler(server.SearchWithTypes, config.errorHandler, config.marshalOpts), serviceHeaders, methodHeaders,
 		searchWithTypesPathParams, searchWithTypesQueryParams,
-		"GET", config.errorHandler,
+		"GET", config.errorHandler, config.marshalOpts,
 	)
 
 	config.mux.Handle("GET /api/search/typed", searchWithTypesHandler)
 
 	methodHeaders = getSearchRequiredHeaders()
 	searchRequiredHandler := BindingMiddleware[SearchRequiredRequest](
-		genericHandler(server.SearchRequired, config.errorHandler), serviceHeaders, methodHeaders,
+		genericHandler(server.SearchRequired, config.errorHandler, config.marshalOpts), serviceHeaders, methodHeaders,
 		searchRequiredPathParams, searchRequiredQueryParams,
-		"GET", config.errorHandler,
+		"GET", config.errorHandler, config.marshalOpts,
 	)
 
 	config.mux.Handle("GET /api/search/required", searchRequiredHandler)
 
 	methodHeaders = getSearchCustomNamesHeaders()
 	searchCustomNamesHandler := BindingMiddleware[SearchCustomNamesRequest](
-		genericHandler(server.SearchCustomNames, config.errorHandler), serviceHeaders, methodHeaders,
+		genericHandler(server.SearchCustomNames, config.errorHandler, config.marshalOpts), serviceHeaders, methodHeaders,
 		searchCustomNamesPathParams, searchCustomNamesQueryParams,
-		"GET", config.errorHandler,
+		"GET", config.errorHandler, config.marshalOpts,
 	)
 
 	config.mux.Handle("GET /api/search/custom", searchCustomNamesHandler)
 
 	methodHeaders = getGetWithFiltersHeaders()
 	getWithFiltersHandler := BindingMiddleware[GetWithFiltersRequest](
-		genericHandler(server.GetWithFilters, config.errorHandler), serviceHeaders, methodHeaders,
+		genericHandler(server.GetWithFilters, config.errorHandler, config.marshalOpts), serviceHeaders, methodHeaders,
 		getWithFiltersPathParams, getWithFiltersQueryParams,
-		"GET", config.errorHandler,
+		"GET", config.errorHandler, config.marshalOpts,
 	)
 
 	config.mux.Handle("GET /api/resources/{resource_id}/items", getWithFiltersHandler)
 
 	methodHeaders = getSearchAdvancedHeaders()
 	searchAdvancedHandler := BindingMiddleware[SearchAdvancedRequest](
-		genericHandler(server.SearchAdvanced, config.errorHandler), serviceHeaders, methodHeaders,
+		genericHandler(server.SearchAdvanced, config.errorHandler, config.marshalOpts), serviceHeaders, methodHeaders,
 		searchAdvancedPathParams, searchAdvancedQueryParams,
-		"GET", config.errorHandler,
+		"GET", config.errorHandler, config.marshalOpts,
 	)
 
 	config.mux.Handle("GET /api/search/advanced", searchAdvancedHandler)
 
 	methodHeaders = getGetDefaultsHeaders()
 	getDefaultsHandler := BindingMiddleware[EmptyRequest](
-		genericHandler(server.GetDefaults, config.errorHandler), serviceHeaders, methodHeaders,
+		genericHandler(server.GetDefaults, config.errorHandler, config.marshalOpts), serviceHeaders, methodHeaders,
 		getDefaultsPathParams, getDefaultsQueryParams,
-		"GET", config.errorHandler,
+		"GET", config.errorHandler, config.marshalOpts,
 	)
 
 	config.mux.Handle("GET /api/defaults", getDefaultsHandler)

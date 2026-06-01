@@ -22,9 +22,9 @@ func RegisterOptionDataServiceServer(server OptionDataServiceServer, opts ...Ser
 
 	methodHeaders := getGetOptionBarsHeaders()
 	getOptionBarsHandler := BindingMiddleware[GetOptionBarsRequest](
-		genericHandler(server.GetOptionBars, config.errorHandler), serviceHeaders, methodHeaders,
+		genericHandler(server.GetOptionBars, config.errorHandler, config.marshalOpts), serviceHeaders, methodHeaders,
 		getOptionBarsPathParams, getOptionBarsQueryParams,
-		"POST", config.errorHandler,
+		"POST", config.errorHandler, config.marshalOpts,
 	)
 
 	config.mux.Handle("POST /api/v1/options/bars", getOptionBarsHandler)
@@ -64,36 +64,36 @@ func RegisterUnwrapServiceServer(server UnwrapServiceServer, opts ...ServerOptio
 
 	methodHeaders := getGetOptionBarsHeaders()
 	getOptionBarsHandler := BindingMiddleware[GetOptionBarsRequest](
-		genericHandler(server.GetOptionBars, config.errorHandler), serviceHeaders, methodHeaders,
+		genericHandler(server.GetOptionBars, config.errorHandler, config.marshalOpts), serviceHeaders, methodHeaders,
 		getOptionBarsPathParams, getOptionBarsQueryParams,
-		"POST", config.errorHandler,
+		"POST", config.errorHandler, config.marshalOpts,
 	)
 
 	config.mux.Handle("POST /api/v1/options/bars", getOptionBarsHandler)
 
 	methodHeaders = getGetRootMapHeaders()
 	getRootMapHandler := BindingMiddleware[GetOptionBarsRequest](
-		genericHandler(server.GetRootMap, config.errorHandler), serviceHeaders, methodHeaders,
+		genericHandler(server.GetRootMap, config.errorHandler, config.marshalOpts), serviceHeaders, methodHeaders,
 		getRootMapPathParams, getRootMapQueryParams,
-		"POST", config.errorHandler,
+		"POST", config.errorHandler, config.marshalOpts,
 	)
 
 	config.mux.Handle("POST /api/v1/root/map", getRootMapHandler)
 
 	methodHeaders = getGetRootRepeatedHeaders()
 	getRootRepeatedHandler := BindingMiddleware[GetOptionBarsRequest](
-		genericHandler(server.GetRootRepeated, config.errorHandler), serviceHeaders, methodHeaders,
+		genericHandler(server.GetRootRepeated, config.errorHandler, config.marshalOpts), serviceHeaders, methodHeaders,
 		getRootRepeatedPathParams, getRootRepeatedQueryParams,
-		"POST", config.errorHandler,
+		"POST", config.errorHandler, config.marshalOpts,
 	)
 
 	config.mux.Handle("POST /api/v1/root/repeated", getRootRepeatedHandler)
 
 	methodHeaders = getGetRootMapWithValueUnwrapHeaders()
 	getRootMapWithValueUnwrapHandler := BindingMiddleware[GetOptionBarsRequest](
-		genericHandler(server.GetRootMapWithValueUnwrap, config.errorHandler), serviceHeaders, methodHeaders,
+		genericHandler(server.GetRootMapWithValueUnwrap, config.errorHandler, config.marshalOpts), serviceHeaders, methodHeaders,
 		getRootMapWithValueUnwrapPathParams, getRootMapWithValueUnwrapQueryParams,
-		"POST", config.errorHandler,
+		"POST", config.errorHandler, config.marshalOpts,
 	)
 
 	config.mux.Handle("POST /api/v1/root/map-value-unwrap", getRootMapWithValueUnwrapHandler)

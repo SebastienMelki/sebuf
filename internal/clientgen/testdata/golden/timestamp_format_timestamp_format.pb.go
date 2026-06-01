@@ -10,15 +10,15 @@ import (
 	"google.golang.org/protobuf/encoding/protojson"
 )
 
-// MarshalJSON implements json.Marshaler for TimestampFormatTest.
+// MarshalJSONSebuf implements sebufMarshaler for TimestampFormatTest.
 // This method handles timestamp_format fields: unix_seconds_ts, unix_millis_ts, date_ts
-func (x *TimestampFormatTest) MarshalJSON() ([]byte, error) {
+func (x *TimestampFormatTest) MarshalJSONSebuf(opts protojson.MarshalOptions) ([]byte, error) {
 	if x == nil {
 		return []byte("null"), nil
 	}
 
 	// Use protojson for base serialization (handles all other fields correctly)
-	data, err := protojson.Marshal(x)
+	data, err := opts.Marshal(x)
 	if err != nil {
 		return nil, err
 	}
@@ -48,6 +48,11 @@ func (x *TimestampFormatTest) MarshalJSON() ([]byte, error) {
 	}
 
 	return json.Marshal(raw)
+}
+
+// MarshalJSON implements json.Marshaler for TimestampFormatTest.
+func (x *TimestampFormatTest) MarshalJSON() ([]byte, error) {
+	return x.MarshalJSONSebuf(protojson.MarshalOptions{})
 }
 
 // UnmarshalJSONSebuf implements sebufUnmarshaler for TimestampFormatTest.

@@ -179,9 +179,12 @@ func TestUnwrapBindingIntegration(t *testing.T) {
 		}
 	})
 
-	t.Run("marshalResponse checks for json.Marshaler", func(t *testing.T) {
-		if !strings.Contains(content, "if marshaler, ok := response.(json.Marshaler); ok {") {
-			t.Error("marshalResponse should check for json.Marshaler")
+	t.Run("marshalJSONWithOpts checks sebufMarshaler before json.Marshaler", func(t *testing.T) {
+		if !strings.Contains(content, "if m, ok := msg.(sebufMarshaler); ok {") {
+			t.Error("marshalJSONWithOpts should check for sebufMarshaler")
+		}
+		if !strings.Contains(content, "if m, ok := msg.(json.Marshaler); ok {") {
+			t.Error("marshalJSONWithOpts should also check for json.Marshaler as a fallback")
 		}
 	})
 }
@@ -461,18 +464,18 @@ func TestCrossFileInt64EncodingUnwrap(t *testing.T) {
 	}
 	content := string(unwrapContent)
 
-	// Bar.MarshalJSON (from cross_int64_bar_encoding.pb.go) converts volume to a number.
-	// The unwrap generator must call json.Marshal(item) so that method is invoked.
-	// If it calls protojson.Marshal(item) instead, Bar.MarshalJSON is bypassed and
-	// volume will be serialized as a quoted string — wrong.
-	t.Run("uses json.Marshal for Bar items so Bar.MarshalJSON is called", func(t *testing.T) {
+	// Bar.MarshalJSONSebuf (from cross_int64_bar_encoding.pb.go) converts volume to a number.
+	// The unwrap generator emits an inline MarshalJSONSebuf type assertion for each item
+	// so Bar.MarshalJSONSebuf is invoked. Direct protojson.Marshal(item) would bypass it
+	// and volume would be serialized as a quoted string — wrong.
+	t.Run("forwards opts via inline MarshalJSONSebuf so Bar.MarshalJSONSebuf is called", func(t *testing.T) {
 		if strings.Contains(content, "protojson.Marshal(item)") {
-			t.Error("unwrap generator uses protojson.Marshal(item) instead of json.Marshal(item): " +
-				"Bar.MarshalJSON from the encoding generator will be bypassed, " +
-				"and int64 fields with NUMBER encoding will be serialized as quoted strings")
+			t.Error("unwrap generator must not call protojson.Marshal(item) directly: " +
+				"Bar.MarshalJSONSebuf from the encoding generator would be bypassed, " +
+				"and int64 fields with NUMBER encoding would serialize as quoted strings")
 		}
-		if !strings.Contains(content, "json.Marshal(item)") {
-			t.Error("expected json.Marshal(item) in generated unwrap file")
+		if !strings.Contains(content, "m.MarshalJSONSebuf(opts)") {
+			t.Error("expected inline MarshalJSONSebuf forwarding in generated unwrap file")
 		}
 	})
 }

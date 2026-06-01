@@ -228,10 +228,14 @@ func (g *Generator) generateInt64MarshalJSON(gf *protogen.GeneratedFile, ctx *In
 		numberFieldNames = append(numberFieldNames, string(f.Desc.Name()))
 	}
 
-	gf.P("// MarshalJSON implements json.Marshaler for ", msgName, ".")
+	gf.P("// MarshalJSONSebuf implements sebufMarshaler for ", msgName, ".")
 	gf.P("// This method handles int64_encoding=NUMBER fields: ", strings.Join(numberFieldNames, ", "))
 	gf.P("// Warning: int64 fields with NUMBER encoding may lose precision for values > 2^53 in JavaScript.")
-	gf.P("func (x *", msgName, ") MarshalJSON() ([]byte, error) {")
+	gf.P(
+		"func (x *",
+		msgName,
+		") MarshalJSONSebuf(opts protojson.MarshalOptions) ([]byte, error) {",
+	)
 	gf.P("if x == nil {")
 	gf.P("return []byte(\"null\"), nil")
 	gf.P("}")
@@ -239,7 +243,7 @@ func (g *Generator) generateInt64MarshalJSON(gf *protogen.GeneratedFile, ctx *In
 
 	// First, marshal using protojson to get the base JSON
 	gf.P("// Use protojson for base serialization (handles all other fields correctly)")
-	gf.P("data, err := protojson.Marshal(x)")
+	gf.P("data, err := opts.Marshal(x)")
 	gf.P("if err != nil {")
 	gf.P("return nil, err")
 	gf.P("}")
@@ -259,6 +263,13 @@ func (g *Generator) generateInt64MarshalJSON(gf *protogen.GeneratedFile, ctx *In
 	}
 
 	gf.P("return json.Marshal(raw)")
+	gf.P("}")
+	gf.P()
+
+	// Backward-compatible MarshalJSON wrapper for stdlib encoding/json.
+	gf.P("// MarshalJSON implements json.Marshaler for ", msgName, ".")
+	gf.P("func (x *", msgName, ") MarshalJSON() ([]byte, error) {")
+	gf.P("return x.MarshalJSONSebuf(protojson.MarshalOptions{})")
 	gf.P("}")
 	gf.P()
 }
@@ -416,8 +427,10 @@ func isUint64Type(field *protogen.Field) bool {
 	return kind == kindUint64 || kind == kindFixed64
 }
 
-// generateWrapperMarshalJSON generates a MarshalJSON that re-marshals nested
-// messages via json.Marshal, so their custom MarshalJSON methods are called.
+// generateWrapperMarshalJSON generates a MarshalJSONSebuf that re-marshals nested
+// messages via the sebuf opts pipeline, so their custom MarshalJSONSebuf methods are called.
+//
+//nolint:funlen // Per-field repeated/singular dispatch with opts forwarding is intentionally inlined for clarity
 func (g *Generator) generateWrapperMarshalJSON(gf *protogen.GeneratedFile, ctx *Int64WrapperContext) {
 	msgName := ctx.Message.GoIdent.GoName
 
@@ -426,18 +439,22 @@ func (g *Generator) generateWrapperMarshalJSON(gf *protogen.GeneratedFile, ctx *
 		nestedFieldNames = append(nestedFieldNames, string(f.Desc.Name()))
 	}
 
-	gf.P("// MarshalJSON implements json.Marshaler for ", msgName, ".")
+	gf.P("// MarshalJSONSebuf implements sebufMarshaler for ", msgName, ".")
 	gf.P(
 		"// This method re-marshals nested messages that have int64_encoding=NUMBER fields: ",
 		strings.Join(nestedFieldNames, ", "),
 	)
-	gf.P("func (x *", msgName, ") MarshalJSON() ([]byte, error) {")
+	gf.P(
+		"func (x *",
+		msgName,
+		") MarshalJSONSebuf(opts protojson.MarshalOptions) ([]byte, error) {",
+	)
 	gf.P("if x == nil {")
 	gf.P("return []byte(\"null\"), nil")
 	gf.P("}")
 	gf.P()
 	gf.P("// Use protojson for base serialization (handles all other fields correctly)")
-	gf.P("data, err := protojson.Marshal(x)")
+	gf.P("data, err := opts.Marshal(x)")
 	gf.P("if err != nil {")
 	gf.P("return nil, err")
 	gf.P("}")
@@ -452,20 +469,46 @@ func (g *Generator) generateWrapperMarshalJSON(gf *protogen.GeneratedFile, ctx *
 	for _, field := range ctx.NestedFields {
 		jsonName := field.Desc.JSONName()
 		if field.Desc.IsList() {
-			// Repeated field: use len() check; json.Marshal on a slice calls each element's MarshalJSON.
-			gf.P("// Re-serialize repeated \"", jsonName, "\" using its custom MarshalJSON")
+			// Repeated field: per-element opts forwarding so child MarshalJSONSebuf receives opts.
+			gf.P("// Re-serialize repeated \"", jsonName, "\" forwarding opts to each element")
 			gf.P("if len(x.", field.GoName, ") > 0 {")
-			gf.P("raw[\"", jsonName, "\"], err = json.Marshal(x.", field.GoName, ")")
+			gf.P("items := make([]json.RawMessage, 0, len(x.", field.GoName, "))")
+			gf.P("for _, item := range x.", field.GoName, " {")
+			gf.P(
+				"if m, ok := any(item).(interface{ MarshalJSONSebuf(protojson.MarshalOptions) ([]byte, error) }); ok {",
+			)
+			gf.P("itemData, itemErr := m.MarshalJSONSebuf(opts)")
+			gf.P("if itemErr != nil {")
+			gf.P("return nil, itemErr")
+			gf.P("}")
+			gf.P("items = append(items, itemData)")
+			gf.P("} else {")
+			gf.P("itemData, itemErr := opts.Marshal(item)")
+			gf.P("if itemErr != nil {")
+			gf.P("return nil, itemErr")
+			gf.P("}")
+			gf.P("items = append(items, itemData)")
+			gf.P("}")
+			gf.P("}")
+			gf.P("raw[\"", jsonName, "\"], err = json.Marshal(items)")
 			gf.P("if err != nil {")
 			gf.P("return nil, err")
 			gf.P("}")
 			gf.P("}")
 			gf.P()
 		} else {
-			// Singular field: nil check then re-serialize.
-			gf.P("// Re-serialize \"", jsonName, "\" using its custom MarshalJSON")
+			// Singular field: nil check then re-serialize forwarding opts when possible.
+			gf.P("// Re-serialize \"", jsonName, "\" forwarding opts when child supports MarshalJSONSebuf")
 			gf.P("if x.", field.GoName, " != nil {")
-			gf.P("raw[\"", jsonName, "\"], err = json.Marshal(x.", field.GoName, ")")
+			gf.P(
+				"if m, ok := any(x.",
+				field.GoName,
+				").(interface{ MarshalJSONSebuf(protojson.MarshalOptions) ([]byte, error) }); ok {",
+			)
+			gf.P("raw[\"", jsonName, "\"], err = m.MarshalJSONSebuf(opts)")
+			gf.P("} else {")
+			gf.P("raw[\"", jsonName, "\"], err = opts.Marshal(x.", field.GoName, ")")
+			gf.P("}")
 			gf.P("if err != nil {")
 			gf.P("return nil, err")
 			gf.P("}")
@@ -475,6 +518,13 @@ func (g *Generator) generateWrapperMarshalJSON(gf *protogen.GeneratedFile, ctx *
 	}
 
 	gf.P("return json.Marshal(raw)")
+	gf.P("}")
+	gf.P()
+
+	// Backward-compatible MarshalJSON wrapper for stdlib encoding/json.
+	gf.P("// MarshalJSON implements json.Marshaler for ", msgName, ".")
+	gf.P("func (x *", msgName, ") MarshalJSON() ([]byte, error) {")
+	gf.P("return x.MarshalJSONSebuf(protojson.MarshalOptions{})")
 	gf.P("}")
 	gf.P()
 }

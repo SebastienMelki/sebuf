@@ -9,15 +9,15 @@ import (
 	"google.golang.org/protobuf/encoding/protojson"
 )
 
-// MarshalJSON implements json.Marshaler for SimpleFlatten.
+// MarshalJSONSebuf implements sebufMarshaler for SimpleFlatten.
 // This method handles flatten fields: address
-func (x *SimpleFlatten) MarshalJSON() ([]byte, error) {
+func (x *SimpleFlatten) MarshalJSONSebuf(opts protojson.MarshalOptions) ([]byte, error) {
 	if x == nil {
 		return []byte("null"), nil
 	}
 
 	// Use protojson for base serialization (handles all other fields correctly)
-	data, err := protojson.Marshal(x)
+	data, err := opts.Marshal(x)
 	if err != nil {
 		return nil, err
 	}
@@ -31,8 +31,16 @@ func (x *SimpleFlatten) MarshalJSON() ([]byte, error) {
 	// Flatten field: address
 	if x.Address != nil {
 		delete(raw, "address")
-		// Use json.Marshal to invoke child's MarshalJSON (annotation composability)
-		childData, childErr := json.Marshal(x.Address)
+		// Forward opts to child's MarshalJSONSebuf when available (annotation composability)
+		var childData []byte
+		var childErr error
+		if m, ok := any(x.Address).(interface {
+			MarshalJSONSebuf(protojson.MarshalOptions) ([]byte, error)
+		}); ok {
+			childData, childErr = m.MarshalJSONSebuf(opts)
+		} else {
+			childData, childErr = opts.Marshal(x.Address)
+		}
 		if childErr != nil {
 			return nil, childErr
 		}
@@ -46,6 +54,11 @@ func (x *SimpleFlatten) MarshalJSON() ([]byte, error) {
 	}
 
 	return json.Marshal(raw)
+}
+
+// MarshalJSON implements json.Marshaler for SimpleFlatten.
+func (x *SimpleFlatten) MarshalJSON() ([]byte, error) {
+	return x.MarshalJSONSebuf(protojson.MarshalOptions{})
 }
 
 // UnmarshalJSONSebuf implements sebufUnmarshaler for SimpleFlatten.
@@ -104,15 +117,15 @@ func (x *SimpleFlatten) UnmarshalJSON(data []byte) error {
 	return x.UnmarshalJSONSebuf(data, protojson.UnmarshalOptions{})
 }
 
-// MarshalJSON implements json.Marshaler for DualFlatten.
+// MarshalJSONSebuf implements sebufMarshaler for DualFlatten.
 // This method handles flatten fields: billing, shipping
-func (x *DualFlatten) MarshalJSON() ([]byte, error) {
+func (x *DualFlatten) MarshalJSONSebuf(opts protojson.MarshalOptions) ([]byte, error) {
 	if x == nil {
 		return []byte("null"), nil
 	}
 
 	// Use protojson for base serialization (handles all other fields correctly)
-	data, err := protojson.Marshal(x)
+	data, err := opts.Marshal(x)
 	if err != nil {
 		return nil, err
 	}
@@ -126,8 +139,16 @@ func (x *DualFlatten) MarshalJSON() ([]byte, error) {
 	// Flatten field: billing
 	if x.Billing != nil {
 		delete(raw, "billing")
-		// Use json.Marshal to invoke child's MarshalJSON (annotation composability)
-		childData, childErr := json.Marshal(x.Billing)
+		// Forward opts to child's MarshalJSONSebuf when available (annotation composability)
+		var childData []byte
+		var childErr error
+		if m, ok := any(x.Billing).(interface {
+			MarshalJSONSebuf(protojson.MarshalOptions) ([]byte, error)
+		}); ok {
+			childData, childErr = m.MarshalJSONSebuf(opts)
+		} else {
+			childData, childErr = opts.Marshal(x.Billing)
+		}
 		if childErr != nil {
 			return nil, childErr
 		}
@@ -143,8 +164,16 @@ func (x *DualFlatten) MarshalJSON() ([]byte, error) {
 	// Flatten field: shipping
 	if x.Shipping != nil {
 		delete(raw, "shipping")
-		// Use json.Marshal to invoke child's MarshalJSON (annotation composability)
-		childData, childErr := json.Marshal(x.Shipping)
+		// Forward opts to child's MarshalJSONSebuf when available (annotation composability)
+		var childData []byte
+		var childErr error
+		if m, ok := any(x.Shipping).(interface {
+			MarshalJSONSebuf(protojson.MarshalOptions) ([]byte, error)
+		}); ok {
+			childData, childErr = m.MarshalJSONSebuf(opts)
+		} else {
+			childData, childErr = opts.Marshal(x.Shipping)
+		}
 		if childErr != nil {
 			return nil, childErr
 		}
@@ -158,6 +187,11 @@ func (x *DualFlatten) MarshalJSON() ([]byte, error) {
 	}
 
 	return json.Marshal(raw)
+}
+
+// MarshalJSON implements json.Marshaler for DualFlatten.
+func (x *DualFlatten) MarshalJSON() ([]byte, error) {
+	return x.MarshalJSONSebuf(protojson.MarshalOptions{})
 }
 
 // UnmarshalJSONSebuf implements sebufUnmarshaler for DualFlatten.
@@ -250,15 +284,15 @@ func (x *DualFlatten) UnmarshalJSON(data []byte) error {
 	return x.UnmarshalJSONSebuf(data, protojson.UnmarshalOptions{})
 }
 
-// MarshalJSON implements json.Marshaler for MixedFlatten.
+// MarshalJSONSebuf implements sebufMarshaler for MixedFlatten.
 // This method handles flatten fields: address
-func (x *MixedFlatten) MarshalJSON() ([]byte, error) {
+func (x *MixedFlatten) MarshalJSONSebuf(opts protojson.MarshalOptions) ([]byte, error) {
 	if x == nil {
 		return []byte("null"), nil
 	}
 
 	// Use protojson for base serialization (handles all other fields correctly)
-	data, err := protojson.Marshal(x)
+	data, err := opts.Marshal(x)
 	if err != nil {
 		return nil, err
 	}
@@ -272,8 +306,16 @@ func (x *MixedFlatten) MarshalJSON() ([]byte, error) {
 	// Flatten field: address
 	if x.Address != nil {
 		delete(raw, "address")
-		// Use json.Marshal to invoke child's MarshalJSON (annotation composability)
-		childData, childErr := json.Marshal(x.Address)
+		// Forward opts to child's MarshalJSONSebuf when available (annotation composability)
+		var childData []byte
+		var childErr error
+		if m, ok := any(x.Address).(interface {
+			MarshalJSONSebuf(protojson.MarshalOptions) ([]byte, error)
+		}); ok {
+			childData, childErr = m.MarshalJSONSebuf(opts)
+		} else {
+			childData, childErr = opts.Marshal(x.Address)
+		}
 		if childErr != nil {
 			return nil, childErr
 		}
@@ -287,6 +329,11 @@ func (x *MixedFlatten) MarshalJSON() ([]byte, error) {
 	}
 
 	return json.Marshal(raw)
+}
+
+// MarshalJSON implements json.Marshaler for MixedFlatten.
+func (x *MixedFlatten) MarshalJSON() ([]byte, error) {
+	return x.MarshalJSONSebuf(protojson.MarshalOptions{})
 }
 
 // UnmarshalJSONSebuf implements sebufUnmarshaler for MixedFlatten.

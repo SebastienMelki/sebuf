@@ -386,12 +386,35 @@ func (g *Generator) writeUnwrapImports(gf *protogen.GeneratedFile) {
 	gf.P()
 }
 
+// emitInlineMarshalChild emits the inline dispatch that forwards opts to a child's
+// MarshalJSONSebuf when available and falls back to opts.Marshal otherwise. The dispatch
+// is inlined (rather than calling a package-level helper) so two proto files in the same
+// Go package can both produce unwrap files without redeclaring the helper. Output binds
+// the result to local `data` / `err` variables that the caller checks.
+func emitInlineMarshalChild(gf *protogen.GeneratedFile, valueExpr string) {
+	gf.P("var data []byte")
+	gf.P("var err error")
+	gf.P(
+		"if m, ok := any(",
+		valueExpr,
+		").(interface{ MarshalJSONSebuf(protojson.MarshalOptions) ([]byte, error) }); ok {",
+	)
+	gf.P("data, err = m.MarshalJSONSebuf(opts)")
+	gf.P("} else {")
+	gf.P("data, err = opts.Marshal(", valueExpr, ")")
+	gf.P("}")
+}
+
 func (g *Generator) generateUnwrapMarshalJSON(gf *protogen.GeneratedFile, containing *UnwrapContainingMessage) {
 	msgName := containing.Message.GoIdent.GoName
 
-	gf.P("// MarshalJSON implements json.Marshaler for ", msgName, ".")
+	gf.P("// MarshalJSONSebuf implements sebufMarshaler for ", msgName, ".")
 	gf.P("// This method handles unwrap field serialization for map values.")
-	gf.P("func (x *", msgName, ") MarshalJSON() ([]byte, error) {")
+	gf.P(
+		"func (x *",
+		msgName,
+		") MarshalJSONSebuf(opts protojson.MarshalOptions) ([]byte, error) {",
+	)
 	gf.P("if x == nil {")
 	gf.P("return []byte(\"null\"), nil")
 	gf.P("}")
@@ -432,6 +455,13 @@ func (g *Generator) generateUnwrapMarshalJSON(gf *protogen.GeneratedFile, contai
 	gf.P("return json.Marshal(out)")
 	gf.P("}")
 	gf.P()
+
+	// Backward-compatible MarshalJSON wrapper for stdlib encoding/json.
+	gf.P("// MarshalJSON implements json.Marshaler for ", msgName, ".")
+	gf.P("func (x *", msgName, ") MarshalJSON() ([]byte, error) {")
+	gf.P("return x.MarshalJSONSebuf(protojson.MarshalOptions{})")
+	gf.P("}")
+	gf.P()
 }
 
 func (g *Generator) generateUnwrapMapMarshal(
@@ -451,15 +481,11 @@ func (g *Generator) generateUnwrapMapMarshal(
 	gf.P("if wrapper != nil {")
 
 	if isMessageType {
-		// For message types, marshal each item
+		// For message types, marshal each item forwarding opts when supported.
 		gf.P("// Marshal the unwrap field directly (the array)")
 		gf.P("items := make([]json.RawMessage, 0, len(wrapper.Get", unwrapFieldName, "()))")
 		gf.P("for _, item := range wrapper.Get", unwrapFieldName, "() {")
-		if g.hasEncodingMarshalJSON(unwrapMapField.UnwrapField.ElementType) {
-			gf.P("data, err := json.Marshal(item)")
-		} else {
-			gf.P("data, err := protojson.Marshal(item)")
-		}
+		emitInlineMarshalChild(gf, "item")
 		gf.P("if err != nil {")
 		gf.P("return nil, err")
 		gf.P("}")
@@ -510,11 +536,7 @@ func (g *Generator) generateRepeatedFieldMarshal(gf *protogen.GeneratedFile, fie
 	if field.Message != nil {
 		gf.P("items := make([]json.RawMessage, 0, len(x.", fieldName, "))")
 		gf.P("for _, item := range x.", fieldName, " {")
-		if g.hasEncodingMarshalJSON(field.Message) {
-			gf.P("data, err := json.Marshal(item)")
-		} else {
-			gf.P("data, err := protojson.Marshal(item)")
-		}
+		emitInlineMarshalChild(gf, "item")
 		gf.P("if err != nil {")
 		gf.P("return nil, err")
 		gf.P("}")
@@ -541,11 +563,7 @@ func (g *Generator) generateScalarFieldMarshal(
 	if field.Message != nil {
 		gf.P("// Handle message field: ", fieldName)
 		gf.P("if x.", fieldName, " != nil {")
-		if g.hasEncodingMarshalJSON(field.Message) {
-			gf.P("data, err := json.Marshal(x.", fieldName, ")")
-		} else {
-			gf.P("data, err := protojson.Marshal(x.", fieldName, ")")
-		}
+		emitInlineMarshalChild(gf, "x."+fieldName)
 		gf.P("if err != nil {")
 		gf.P("return nil, err")
 		gf.P("}")
@@ -786,15 +804,19 @@ func getScalarTypeName(field *protogen.Field) string {
 // Root Unwrap Generation Methods
 // =============================================================================
 
-// generateRootMapUnwrapMarshalJSON generates MarshalJSON for root-level map unwrap.
+// generateRootMapUnwrapMarshalJSON generates MarshalJSONSebuf for root-level map unwrap.
 // The message serializes to {"key1": ..., "key2": ...} instead of {"fieldName": {"key1": ..., ...}}.
 func (g *Generator) generateRootMapUnwrapMarshalJSON(gf *protogen.GeneratedFile, rootUnwrap *RootUnwrapMessage) {
 	msgName := rootUnwrap.Message.GoIdent.GoName
 	fieldName := rootUnwrap.UnwrapField.GoName
 
-	gf.P("// MarshalJSON implements json.Marshaler for ", msgName, ".")
+	gf.P("// MarshalJSONSebuf implements sebufMarshaler for ", msgName, ".")
 	gf.P("// This method performs root-level unwrap, serializing the message as just the map value.")
-	gf.P("func (x *", msgName, ") MarshalJSON() ([]byte, error) {")
+	gf.P(
+		"func (x *",
+		msgName,
+		") MarshalJSONSebuf(opts protojson.MarshalOptions) ([]byte, error) {",
+	)
 	gf.P("if x == nil {")
 	gf.P("return []byte(\"null\"), nil")
 	gf.P("}")
@@ -813,6 +835,13 @@ func (g *Generator) generateRootMapUnwrapMarshalJSON(gf *protogen.GeneratedFile,
 		gf.P("return json.Marshal(x.", fieldName, ")")
 	}
 
+	gf.P("}")
+	gf.P()
+
+	// Backward-compatible MarshalJSON wrapper for stdlib encoding/json.
+	gf.P("// MarshalJSON implements json.Marshaler for ", msgName, ".")
+	gf.P("func (x *", msgName, ") MarshalJSON() ([]byte, error) {")
+	gf.P("return x.MarshalJSONSebuf(protojson.MarshalOptions{})")
 	gf.P("}")
 	gf.P()
 }
@@ -834,11 +863,7 @@ func (g *Generator) generateRootMapWithValueUnwrapMarshal(
 	if isMessageType {
 		gf.P("items := make([]json.RawMessage, 0, len(wrapper.Get", unwrapFieldName, "()))")
 		gf.P("for _, item := range wrapper.Get", unwrapFieldName, "() {")
-		if g.hasEncodingMarshalJSON(rootUnwrap.ValueUnwrap.ElementType) {
-			gf.P("data, err := json.Marshal(item)")
-		} else {
-			gf.P("data, err := protojson.Marshal(item)")
-		}
+		emitInlineMarshalChild(gf, "item")
 		gf.P("if err != nil {")
 		gf.P("return nil, err")
 		gf.P("}")
@@ -859,19 +884,17 @@ func (g *Generator) generateRootMapWithValueUnwrapMarshal(
 }
 
 // generateRootMapMessageValueMarshal handles root map with message values (no value unwrap).
+// rootUnwrap is unused; the signature stays symmetric with generateRootMapWithValueUnwrapMarshal
+// so callers can pick freely.
 func (g *Generator) generateRootMapMessageValueMarshal(
 	gf *protogen.GeneratedFile,
-	rootUnwrap *RootUnwrapMessage,
+	_ *RootUnwrapMessage,
 	fieldName string,
 ) {
 	gf.P("out := make(map[string]json.RawMessage)")
 	gf.P("for k, v := range x.", fieldName, " {")
 	gf.P("if v != nil {")
-	if g.hasEncodingMarshalJSON(rootUnwrap.ValueMessage) {
-		gf.P("data, err := json.Marshal(v)")
-	} else {
-		gf.P("data, err := protojson.Marshal(v)")
-	}
+	emitInlineMarshalChild(gf, "v")
 	gf.P("if err != nil {")
 	gf.P("return nil, err")
 	gf.P("}")
@@ -982,15 +1005,19 @@ func (g *Generator) generateRootMapMessageValueUnmarshal(
 	gf.P("return nil")
 }
 
-// generateRootRepeatedUnwrapMarshalJSON generates MarshalJSON for root-level repeated unwrap.
+// generateRootRepeatedUnwrapMarshalJSON generates MarshalJSONSebuf for root-level repeated unwrap.
 // The message serializes to [...] instead of {"fieldName": [...]}.
 func (g *Generator) generateRootRepeatedUnwrapMarshalJSON(gf *protogen.GeneratedFile, rootUnwrap *RootUnwrapMessage) {
 	msgName := rootUnwrap.Message.GoIdent.GoName
 	fieldName := rootUnwrap.UnwrapField.GoName
 
-	gf.P("// MarshalJSON implements json.Marshaler for ", msgName, ".")
+	gf.P("// MarshalJSONSebuf implements sebufMarshaler for ", msgName, ".")
 	gf.P("// This method performs root-level unwrap, serializing the message as just the array value.")
-	gf.P("func (x *", msgName, ") MarshalJSON() ([]byte, error) {")
+	gf.P(
+		"func (x *",
+		msgName,
+		") MarshalJSONSebuf(opts protojson.MarshalOptions) ([]byte, error) {",
+	)
 	gf.P("if x == nil {")
 	gf.P("return []byte(\"null\"), nil")
 	gf.P("}")
@@ -998,14 +1025,9 @@ func (g *Generator) generateRootRepeatedUnwrapMarshalJSON(gf *protogen.Generated
 
 	// Check if element is a message type
 	if rootUnwrap.UnwrapField.Message != nil {
-		elementTypeIdent := rootUnwrap.UnwrapField.Message.GoIdent
 		gf.P("items := make([]json.RawMessage, 0, len(x.", fieldName, "))")
 		gf.P("for _, item := range x.", fieldName, " {")
-		if g.hasEncodingMarshalJSON(rootUnwrap.UnwrapField.Message) {
-			gf.P("data, err := json.Marshal(item)")
-		} else {
-			gf.P("data, err := protojson.Marshal(item)")
-		}
+		emitInlineMarshalChild(gf, "item")
 		gf.P("if err != nil {")
 		gf.P("return nil, err")
 		gf.P("}")
@@ -1013,13 +1035,18 @@ func (g *Generator) generateRootRepeatedUnwrapMarshalJSON(gf *protogen.Generated
 		gf.P("}")
 		gf.P("return json.Marshal(items)")
 		gf.P()
-		// Suppress unused variable warning
-		_ = elementTypeIdent
 	} else {
 		// Scalar type - marshal directly
 		gf.P("return json.Marshal(x.", fieldName, ")")
 	}
 
+	gf.P("}")
+	gf.P()
+
+	// Backward-compatible MarshalJSON wrapper for stdlib encoding/json.
+	gf.P("// MarshalJSON implements json.Marshaler for ", msgName, ".")
+	gf.P("func (x *", msgName, ") MarshalJSON() ([]byte, error) {")
+	gf.P("return x.MarshalJSONSebuf(protojson.MarshalOptions{})")
 	gf.P("}")
 	gf.P()
 }

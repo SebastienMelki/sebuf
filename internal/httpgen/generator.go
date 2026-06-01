@@ -250,19 +250,23 @@ func (g *Generator) generateService(gf *protogen.GeneratedFile, file *protogen.F
 				annotations.LowerFirst(method.GoName),
 				"QueryParams,",
 			)
-			gf.P(`"`, httpMethod, `",`)
+			gf.P(`"`, httpMethod, `", config.marshalOpts,`)
 			gf.P(")")
 		} else {
 			// Standard handler registration
 			gf.P(handlerName, " := BindingMiddleware[", method.Input.GoIdent, "](")
-			gf.P("genericHandler(server.", method.GoName, ", config.errorHandler), serviceHeaders, methodHeaders,")
+			gf.P(
+				"genericHandler(server.",
+				method.GoName,
+				", config.errorHandler, config.marshalOpts), serviceHeaders, methodHeaders,",
+			)
 			gf.P(
 				annotations.LowerFirst(method.GoName),
 				"PathParams, ",
 				annotations.LowerFirst(method.GoName),
 				"QueryParams,",
 			)
-			gf.P(`"`, httpMethod, `", config.errorHandler,`)
+			gf.P(`"`, httpMethod, `", config.errorHandler, config.marshalOpts,`)
 			gf.P(")")
 		}
 		gf.P()
@@ -332,6 +336,16 @@ func (g *Generator) generateBindingFile(file *protogen.File) error {
 	gf.P("type bodyCtxKey struct{}")
 	gf.P()
 
+	// sebufMarshaler interface — implemented by generated messages with custom JSON marshaling.
+	// Allows passing protojson.MarshalOptions (e.g. EmitUnpopulated) through custom marshalers.
+	gf.P("// sebufMarshaler is implemented by generated messages with custom JSON marshaling.")
+	gf.P("// It allows passing protojson.MarshalOptions (e.g. EmitUnpopulated) through")
+	gf.P("// custom marshalers so server-configured options reach every wire-format site.")
+	gf.P("type sebufMarshaler interface {")
+	gf.P("MarshalJSONSebuf(opts protojson.MarshalOptions) ([]byte, error)")
+	gf.P("}")
+	gf.P()
+
 	// PathParamConfig type
 	gf.P("// PathParamConfig defines configuration for a path parameter.")
 	gf.P("type PathParamConfig struct {")
@@ -366,12 +380,12 @@ func (g *Generator) generateBindingFile(file *protogen.File) error {
 	gf.P("// It supports path parameters, query parameters, and request body binding.")
 	gf.P("func BindingMiddleware[Req any](next http.Handler, serviceHeaders, methodHeaders []*sebufhttp.Header,")
 	gf.P(
-		"pathParams []PathParamConfig, queryParams []QueryParamConfig, httpMethod string, errorHandler ErrorHandler) http.Handler {",
+		"pathParams []PathParamConfig, queryParams []QueryParamConfig, httpMethod string, errorHandler ErrorHandler, marshalOpts protojson.MarshalOptions) http.Handler {",
 	)
 	gf.P("return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {")
 	gf.P("// Validate headers first")
 	gf.P("if validationErr := validateHeaders(r, serviceHeaders, methodHeaders); validationErr != nil {")
-	gf.P("writeErrorWithHandler(w, r, validationErr, errorHandler)")
+	gf.P("writeErrorWithHandler(w, r, validationErr, errorHandler, marshalOpts)")
 	gf.P("return")
 	gf.P("}")
 	gf.P()
@@ -380,13 +394,13 @@ func (g *Generator) generateBindingFile(file *protogen.File) error {
 	gf.P("// Bind path parameters")
 	gf.P("if msg, ok := any(toBind).(proto.Message); ok {")
 	gf.P("if err := bindPathParams(r, msg, pathParams); err != nil {")
-	gf.P("writeErrorWithHandler(w, r, err, errorHandler)")
+	gf.P("writeErrorWithHandler(w, r, err, errorHandler, marshalOpts)")
 	gf.P("return")
 	gf.P("}")
 	gf.P()
 	gf.P("// Bind query parameters")
 	gf.P("if err := bindQueryParams(r, msg, queryParams); err != nil {")
-	gf.P("writeErrorWithHandler(w, r, err, errorHandler)")
+	gf.P("writeErrorWithHandler(w, r, err, errorHandler, marshalOpts)")
 	gf.P("return")
 	gf.P("}")
 	gf.P("}")
@@ -404,7 +418,7 @@ func (g *Generator) generateBindingFile(file *protogen.File) error {
 	gf.P("},")
 	gf.P("},")
 	gf.P("}")
-	gf.P("writeErrorWithHandler(w, r, validationErr, errorHandler)")
+	gf.P("writeErrorWithHandler(w, r, validationErr, errorHandler, marshalOpts)")
 	gf.P("return")
 	gf.P("}")
 	gf.P("}")
@@ -412,7 +426,7 @@ func (g *Generator) generateBindingFile(file *protogen.File) error {
 	gf.P("// Validate the complete message")
 	gf.P("if msg, ok := any(toBind).(proto.Message); ok {")
 	gf.P("if err := ValidateMessage(msg); err != nil {")
-	gf.P("writeErrorWithHandler(w, r, convertProtovalidateError(err), errorHandler)")
+	gf.P("writeErrorWithHandler(w, r, convertProtovalidateError(err), errorHandler, marshalOpts)")
 	gf.P("return")
 	gf.P("}")
 	gf.P("}")
@@ -671,7 +685,7 @@ func (g *Generator) generateBindingFile(file *protogen.File) error {
 
 	// genericHandler function
 	gf.P(
-		"func genericHandler[Req any, Res any](serve func(context.Context, Req) (Res, error), errorHandler ErrorHandler) http.HandlerFunc {",
+		"func genericHandler[Req any, Res any](serve func(context.Context, Req) (Res, error), errorHandler ErrorHandler, marshalOpts protojson.MarshalOptions) http.HandlerFunc {",
 	)
 	gf.P("return func(w http.ResponseWriter, r *http.Request) {")
 	gf.P("request := getRequest[Req](r.Context())")
@@ -681,22 +695,22 @@ func (g *Generator) generateBindingFile(file *protogen.File) error {
 	gf.P("// Check if error is already a proto.Message (e.g., custom proto error types)")
 	gf.P("// If so, pass it directly - defaultErrorResponse will preserve its structure")
 	gf.P("if _, ok := err.(proto.Message); ok {")
-	gf.P("writeErrorWithHandler(w, r, err, errorHandler)")
+	gf.P("writeErrorWithHandler(w, r, err, errorHandler, marshalOpts)")
 	gf.P("return")
 	gf.P("}")
 	gf.P("errorMsg := &sebufhttp.Error{")
 	gf.P("Message: err.Error(),")
 	gf.P("}")
-	gf.P("writeErrorWithHandler(w, r, errorMsg, errorHandler)")
+	gf.P("writeErrorWithHandler(w, r, errorMsg, errorHandler, marshalOpts)")
 	gf.P("return")
 	gf.P("}")
 	gf.P()
-	gf.P("responseBytes, err := marshalResponse(r, response)")
+	gf.P("responseBytes, err := marshalResponse(r, response, marshalOpts)")
 	gf.P("if err != nil {")
 	gf.P("errorMsg := &sebufhttp.Error{")
 	gf.P("Message: fmt.Sprintf(\"failed to marshal response: %v\", err),")
 	gf.P("}")
-	gf.P("writeErrorWithHandler(w, r, errorMsg, errorHandler)")
+	gf.P("writeErrorWithHandler(w, r, errorMsg, errorHandler, marshalOpts)")
 	gf.P("return")
 	gf.P("}")
 	gf.P()
@@ -712,7 +726,7 @@ func (g *Generator) generateBindingFile(file *protogen.File) error {
 	gf.P("errorMsg := &sebufhttp.Error{")
 	gf.P("Message: fmt.Sprintf(\"failed to write response: %v\", err),")
 	gf.P("}")
-	gf.P("writeErrorWithHandler(w, r, errorMsg, errorHandler)")
+	gf.P("writeErrorWithHandler(w, r, errorMsg, errorHandler, marshalOpts)")
 	gf.P("return")
 	gf.P("}")
 	gf.P("}")
@@ -720,7 +734,7 @@ func (g *Generator) generateBindingFile(file *protogen.File) error {
 	gf.P()
 
 	// marshalResponse function
-	gf.P("func marshalResponse(r *http.Request, response any) ([]byte, error) {")
+	gf.P("func marshalResponse(r *http.Request, response any, marshalOpts protojson.MarshalOptions) ([]byte, error) {")
 	gf.P(`contentType := r.Header.Get("Content-Type")`)
 	gf.P("if contentType == \"\" {")
 	gf.P("contentType = JSONContentType")
@@ -733,20 +747,29 @@ func (g *Generator) generateBindingFile(file *protogen.File) error {
 	gf.P()
 	gf.P("switch filterFlags(contentType) {")
 	gf.P("case JSONContentType:")
-	gf.P("// Check for custom JSON marshaler (unwrap support)")
-	gf.P("if marshaler, ok := response.(json.Marshaler); ok {")
-	gf.P("return marshaler.MarshalJSON()")
-	gf.P("}")
-	gf.P("return protojson.Marshal(msg)")
+	gf.P("return marshalJSONWithOpts(msg, marshalOpts)")
 	gf.P("case BinaryContentType, ProtoContentType:")
 	gf.P("return proto.Marshal(msg)")
 	gf.P("default:")
 	gf.P("// Default to JSON for unrecognized content types")
-	gf.P("if marshaler, ok := response.(json.Marshaler); ok {")
-	gf.P("return marshaler.MarshalJSON()")
+	gf.P("return marshalJSONWithOpts(msg, marshalOpts)")
 	gf.P("}")
-	gf.P("return protojson.Marshal(msg)")
 	gf.P("}")
+	gf.P()
+
+	// marshalJSONWithOpts dispatches: sebufMarshaler → json.Marshaler → protojson.
+	gf.P("// marshalJSONWithOpts dispatches JSON marshaling:")
+	gf.P("//   - sebufMarshaler (sebuf-generated custom marshalers) receives marshalOpts")
+	gf.P("//   - json.Marshaler (third-party / back-compat) is called with no options")
+	gf.P("//   - otherwise marshalOpts.Marshal is used")
+	gf.P("func marshalJSONWithOpts(msg proto.Message, marshalOpts protojson.MarshalOptions) ([]byte, error) {")
+	gf.P("if m, ok := msg.(sebufMarshaler); ok {")
+	gf.P("return m.MarshalJSONSebuf(marshalOpts)")
+	gf.P("}")
+	gf.P("if m, ok := msg.(json.Marshaler); ok {")
+	gf.P("return m.MarshalJSON()")
+	gf.P("}")
+	gf.P("return marshalOpts.Marshal(msg)")
 	gf.P("}")
 	gf.P()
 
@@ -789,6 +812,7 @@ func (g *Generator) generateConfigImports(gf *protogen.GeneratedFile) {
 	gf.P("import (")
 	gf.P(`"net/http"`)
 	gf.P()
+	gf.P(`"google.golang.org/protobuf/encoding/protojson"`)
 	gf.P(`"google.golang.org/protobuf/proto"`)
 	gf.P(")")
 	gf.P()
@@ -822,6 +846,7 @@ func (g *Generator) generateServerConfigurationStruct(gf *protogen.GeneratedFile
 	gf.P("mux *http.ServeMux")
 	gf.P("withMux bool")
 	gf.P("errorHandler ErrorHandler")
+	gf.P("marshalOpts protojson.MarshalOptions")
 	gf.P("}")
 	gf.P()
 }
@@ -859,6 +884,17 @@ func (g *Generator) generateServerOptions(gf *protogen.GeneratedFile) {
 	gf.P("func WithErrorHandler(handler ErrorHandler) ServerOption {")
 	gf.P("return func(c *serverConfiguration) {")
 	gf.P("c.errorHandler = handler")
+	gf.P("}")
+	gf.P("}")
+	gf.P()
+
+	gf.P("// WithMarshalOptions configures the protojson.MarshalOptions used when serializing")
+	gf.P("// JSON responses (including SSE events and error bodies). The zero value preserves")
+	gf.P("// default behavior. Use this to surface zero-value fields with EmitUnpopulated,")
+	gf.P("// switch to proto field names with UseProtoNames, or tune any other protojson knob.")
+	gf.P("func WithMarshalOptions(opts protojson.MarshalOptions) ServerOption {")
+	gf.P("return func(c *serverConfiguration) {")
+	gf.P("c.marshalOpts = opts")
 	gf.P("}")
 	gf.P("}")
 	gf.P()
@@ -981,7 +1017,7 @@ func (g *Generator) generateErrorResponseFunctions(gf *protogen.GeneratedFile) {
 func (g *Generator) generateWriteProtoMessageResponseFunc(gf *protogen.GeneratedFile) {
 	gf.P("// writeProtoMessageResponse writes a protobuf message as an HTTP response")
 	gf.P(
-		"func writeProtoMessageResponse(w http.ResponseWriter, r *http.Request, msg proto.Message, statusCode int, fallbackMsg string) {",
+		"func writeProtoMessageResponse(w http.ResponseWriter, r *http.Request, msg proto.Message, statusCode int, fallbackMsg string, marshalOpts protojson.MarshalOptions) {",
 	)
 	gf.P(`contentType := r.Header.Get("Content-Type")`)
 	gf.P("if contentType == \"\" {")
@@ -994,14 +1030,14 @@ func (g *Generator) generateWriteProtoMessageResponseFunc(gf *protogen.Generated
 	gf.P()
 	gf.P("switch filterFlags(contentType) {")
 	gf.P("case JSONContentType:")
-	gf.P("responseBytes, err = protojson.Marshal(msg)")
+	gf.P("responseBytes, err = marshalJSONWithOpts(msg, marshalOpts)")
 	gf.P(`respContentType = "application/json"`)
 	gf.P("case BinaryContentType, ProtoContentType:")
 	gf.P("responseBytes, err = proto.Marshal(msg)")
 	gf.P(`respContentType = "application/x-protobuf"`)
 	gf.P("default:")
 	gf.P("// Default to JSON for unrecognized content types")
-	gf.P("responseBytes, err = protojson.Marshal(msg)")
+	gf.P("responseBytes, err = marshalJSONWithOpts(msg, marshalOpts)")
 	gf.P(`respContentType = "application/json"`)
 	gf.P("}")
 	gf.P()
@@ -1022,9 +1058,9 @@ func (g *Generator) generateWriteProtoMessageResponseFunc(gf *protogen.Generated
 func (g *Generator) generateWriteValidationErrorResponseFunc(gf *protogen.GeneratedFile) {
 	gf.P("// writeValidationErrorResponse writes a ValidationError as a response")
 	gf.P(
-		"func writeValidationErrorResponse(w http.ResponseWriter, r *http.Request, validationErr *sebufhttp.ValidationError) {",
+		"func writeValidationErrorResponse(w http.ResponseWriter, r *http.Request, validationErr *sebufhttp.ValidationError, marshalOpts protojson.MarshalOptions) {",
 	)
-	gf.P(`writeProtoMessageResponse(w, r, validationErr, http.StatusBadRequest, "validation failed")`)
+	gf.P(`writeProtoMessageResponse(w, r, validationErr, http.StatusBadRequest, "validation failed", marshalOpts)`)
 	gf.P("}")
 	gf.P()
 }
@@ -1032,9 +1068,11 @@ func (g *Generator) generateWriteValidationErrorResponseFunc(gf *protogen.Genera
 // generateWriteValidationErrorFunc generates the writeValidationError function for protovalidate errors.
 func (g *Generator) generateWriteValidationErrorFunc(gf *protogen.GeneratedFile) {
 	gf.P("// writeValidationError converts a protovalidate error to ValidationError and writes it as response")
-	gf.P("func writeValidationError(w http.ResponseWriter, r *http.Request, err error) {")
+	gf.P(
+		"func writeValidationError(w http.ResponseWriter, r *http.Request, err error, marshalOpts protojson.MarshalOptions) {",
+	)
 	gf.P("validationErr := convertProtovalidateError(err)")
-	gf.P("writeValidationErrorResponse(w, r, validationErr)")
+	gf.P("writeValidationErrorResponse(w, r, validationErr, marshalOpts)")
 	gf.P("}")
 	gf.P()
 }
@@ -1042,8 +1080,12 @@ func (g *Generator) generateWriteValidationErrorFunc(gf *protogen.GeneratedFile)
 // generateWriteErrorResponseFunc generates the writeErrorResponse function.
 func (g *Generator) generateWriteErrorResponseFunc(gf *protogen.GeneratedFile) {
 	gf.P("// writeErrorResponse writes an Error as a response")
-	gf.P("func writeErrorResponse(w http.ResponseWriter, r *http.Request, errorMsg *sebufhttp.Error) {")
-	gf.P(`writeProtoMessageResponse(w, r, errorMsg, http.StatusInternalServerError, "internal server error")`)
+	gf.P(
+		"func writeErrorResponse(w http.ResponseWriter, r *http.Request, errorMsg *sebufhttp.Error, marshalOpts protojson.MarshalOptions) {",
+	)
+	gf.P(
+		`writeProtoMessageResponse(w, r, errorMsg, http.StatusInternalServerError, "internal server error", marshalOpts)`,
+	)
 	gf.P("}")
 	gf.P()
 }
@@ -1135,7 +1177,9 @@ func (g *Generator) generateDefaultErrorStatusCodeFunc(gf *protogen.GeneratedFil
 // generateWriteErrorWithHandlerFunc generates the writeErrorWithHandler function.
 func (g *Generator) generateWriteErrorWithHandlerFunc(gf *protogen.GeneratedFile) {
 	gf.P("// writeErrorWithHandler calls custom handler if set, then marshals response")
-	gf.P("func writeErrorWithHandler(w http.ResponseWriter, r *http.Request, err error, handler ErrorHandler) {")
+	gf.P(
+		"func writeErrorWithHandler(w http.ResponseWriter, r *http.Request, err error, handler ErrorHandler, marshalOpts protojson.MarshalOptions) {",
+	)
 	gf.P("var response proto.Message")
 	gf.P("var capture *responseCapture")
 	gf.P()
@@ -1158,19 +1202,21 @@ func (g *Generator) generateWriteErrorWithHandlerFunc(gf *protogen.GeneratedFile
 	gf.P("// If handler already set status, don't set it again")
 	gf.P("if capture != nil && capture.wroteHeader {")
 	gf.P("// Handler set status, just write the body")
-	gf.P("writeResponseBody(w, r, response)")
+	gf.P("writeResponseBody(w, r, response, marshalOpts)")
 	gf.P("return")
 	gf.P("}")
 	gf.P()
 	gf.P("// Write full response with status code")
-	gf.P(`writeProtoMessageResponse(w, r, response, statusCode, "error processing request")`)
+	gf.P(`writeProtoMessageResponse(w, r, response, statusCode, "error processing request", marshalOpts)`)
 	gf.P("}")
 	gf.P()
 }
 
 func (g *Generator) generateWriteResponseBodyFunc(gf *protogen.GeneratedFile) {
 	gf.P("// writeResponseBody writes the response body without setting status code")
-	gf.P("func writeResponseBody(w http.ResponseWriter, r *http.Request, msg proto.Message) {")
+	gf.P(
+		"func writeResponseBody(w http.ResponseWriter, r *http.Request, msg proto.Message, marshalOpts protojson.MarshalOptions) {",
+	)
 	gf.P(`contentType := r.Header.Get("Content-Type")`)
 	gf.P("if contentType == \"\" {")
 	gf.P("contentType = JSONContentType")
@@ -1182,13 +1228,13 @@ func (g *Generator) generateWriteResponseBodyFunc(gf *protogen.GeneratedFile) {
 	gf.P()
 	gf.P("switch filterFlags(contentType) {")
 	gf.P("case JSONContentType:")
-	gf.P("responseBytes, err = protojson.Marshal(msg)")
+	gf.P("responseBytes, err = marshalJSONWithOpts(msg, marshalOpts)")
 	gf.P(`respContentType = "application/json"`)
 	gf.P("case BinaryContentType, ProtoContentType:")
 	gf.P("responseBytes, err = proto.Marshal(msg)")
 	gf.P(`respContentType = "application/x-protobuf"`)
 	gf.P("default:")
-	gf.P("responseBytes, err = protojson.Marshal(msg)")
+	gf.P("responseBytes, err = marshalJSONWithOpts(msg, marshalOpts)")
 	gf.P(`respContentType = "application/json"`)
 	gf.P("}")
 	gf.P()
@@ -1649,15 +1695,16 @@ func (g *Generator) generateSSETypes(gf *protogen.GeneratedFile) {
 	gf.P("// sseSender implements SSESender using http.ResponseWriter and http.Flusher.")
 	gf.P("// It tracks whether the response has been committed (any flush) to support proper error handling.")
 	gf.P("type sseSender struct {")
-	gf.P("w         http.ResponseWriter")
-	gf.P("flusher   http.Flusher")
-	gf.P("committed bool")
+	gf.P("w           http.ResponseWriter")
+	gf.P("flusher     http.Flusher")
+	gf.P("committed   bool")
+	gf.P("marshalOpts protojson.MarshalOptions")
 	gf.P("}")
 	gf.P()
 
 	// Send method
 	gf.P("func (s *sseSender) Send(event proto.Message) error {")
-	gf.P("data, err := protojson.Marshal(event)")
+	gf.P("data, err := marshalJSONWithOpts(event, s.marshalOpts)")
 	gf.P("if err != nil {")
 	gf.P(`return fmt.Errorf("failed to marshal SSE event: %w", err)`)
 	gf.P("}")
@@ -1673,7 +1720,7 @@ func (g *Generator) generateSSETypes(gf *protogen.GeneratedFile) {
 
 	// SendWithEvent method
 	gf.P("func (s *sseSender) SendWithEvent(eventType string, event proto.Message) error {")
-	gf.P("data, err := protojson.Marshal(event)")
+	gf.P("data, err := marshalJSONWithOpts(event, s.marshalOpts)")
 	gf.P("if err != nil {")
 	gf.P(`return fmt.Errorf("failed to marshal SSE event: %w", err)`)
 	gf.P("}")
@@ -1703,13 +1750,14 @@ func (g *Generator) generateSSETypes(gf *protogen.GeneratedFile) {
 	gf.P("pathParams []PathParamConfig,")
 	gf.P("queryParams []QueryParamConfig,")
 	gf.P("httpMethod string,")
+	gf.P("marshalOpts protojson.MarshalOptions,")
 	gf.P(") http.Handler {")
 	gf.P("return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {")
 
 	// Header validation
 	gf.P("// Validate headers")
 	gf.P("if validationErr := validateHeaders(r, serviceHeaders, methodHeaders); validationErr != nil {")
-	gf.P("writeErrorWithHandler(w, r, validationErr, errorHandler)")
+	gf.P("writeErrorWithHandler(w, r, validationErr, errorHandler, marshalOpts)")
 	gf.P("return")
 	gf.P("}")
 	gf.P()
@@ -1718,11 +1766,11 @@ func (g *Generator) generateSSETypes(gf *protogen.GeneratedFile) {
 	gf.P("req := new(Req)")
 	gf.P("if msg, ok := any(req).(proto.Message); ok {")
 	gf.P("if err := bindPathParams(r, msg, pathParams); err != nil {")
-	gf.P("writeErrorWithHandler(w, r, err, errorHandler)")
+	gf.P("writeErrorWithHandler(w, r, err, errorHandler, marshalOpts)")
 	gf.P("return")
 	gf.P("}")
 	gf.P("if err := bindQueryParams(r, msg, queryParams); err != nil {")
-	gf.P("writeErrorWithHandler(w, r, err, errorHandler)")
+	gf.P("writeErrorWithHandler(w, r, err, errorHandler, marshalOpts)")
 	gf.P("return")
 	gf.P("}")
 	gf.P("}")
@@ -1740,7 +1788,7 @@ func (g *Generator) generateSSETypes(gf *protogen.GeneratedFile) {
 	gf.P("},")
 	gf.P("},")
 	gf.P("}")
-	gf.P("writeErrorWithHandler(w, r, validationErr, errorHandler)")
+	gf.P("writeErrorWithHandler(w, r, validationErr, errorHandler, marshalOpts)")
 	gf.P("return")
 	gf.P("}")
 	gf.P("}")
@@ -1750,7 +1798,7 @@ func (g *Generator) generateSSETypes(gf *protogen.GeneratedFile) {
 	gf.P("// Validate request body")
 	gf.P("if msg, ok := any(req).(proto.Message); ok {")
 	gf.P("if err := ValidateMessage(msg); err != nil {")
-	gf.P("writeErrorWithHandler(w, r, convertProtovalidateError(err), errorHandler)")
+	gf.P("writeErrorWithHandler(w, r, convertProtovalidateError(err), errorHandler, marshalOpts)")
 	gf.P("return")
 	gf.P("}")
 	gf.P("}")
@@ -1772,7 +1820,7 @@ func (g *Generator) generateSSETypes(gf *protogen.GeneratedFile) {
 	gf.P(`w.Header().Set("Connection", "keep-alive")`)
 	gf.P()
 
-	gf.P("sender := &sseSender{w: w, flusher: flusher}")
+	gf.P("sender := &sseSender{w: w, flusher: flusher, marshalOpts: marshalOpts}")
 	gf.P()
 
 	// Call handler
@@ -1781,7 +1829,7 @@ func (g *Generator) generateSSETypes(gf *protogen.GeneratedFile) {
 	gf.P("if !sender.committed {")
 	gf.P("// No events sent yet -- headers not flushed to client, so we can")
 	gf.P("// still send a proper HTTP error response.")
-	gf.P("writeErrorWithHandler(w, r, err, errorHandler)")
+	gf.P("writeErrorWithHandler(w, r, err, errorHandler, marshalOpts)")
 	gf.P("} else {")
 	gf.P("// Events already sent -- HTTP 200 and SSE headers are committed.")
 	gf.P("// Send an SSE error event instead.")

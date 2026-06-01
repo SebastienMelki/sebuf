@@ -10,16 +10,16 @@ import (
 	"google.golang.org/protobuf/encoding/protojson"
 )
 
-// MarshalJSON implements json.Marshaler for Stock.
+// MarshalJSONSebuf implements sebufMarshaler for Stock.
 // This method handles int64_encoding=NUMBER fields: volume
 // Warning: int64 fields with NUMBER encoding may lose precision for values > 2^53 in JavaScript.
-func (x *Stock) MarshalJSON() ([]byte, error) {
+func (x *Stock) MarshalJSONSebuf(opts protojson.MarshalOptions) ([]byte, error) {
 	if x == nil {
 		return []byte("null"), nil
 	}
 
 	// Use protojson for base serialization (handles all other fields correctly)
-	data, err := protojson.Marshal(x)
+	data, err := opts.Marshal(x)
 	if err != nil {
 		return nil, err
 	}
@@ -39,6 +39,11 @@ func (x *Stock) MarshalJSON() ([]byte, error) {
 	}
 
 	return json.Marshal(raw)
+}
+
+// MarshalJSON implements json.Marshaler for Stock.
+func (x *Stock) MarshalJSON() ([]byte, error) {
+	return x.MarshalJSONSebuf(protojson.MarshalOptions{})
 }
 
 // UnmarshalJSON implements json.Unmarshaler for Stock.
@@ -68,15 +73,15 @@ func (x *Stock) UnmarshalJSON(data []byte) error {
 	return protojson.Unmarshal(modified, x)
 }
 
-// MarshalJSON implements json.Marshaler for GetStocksResponse.
+// MarshalJSONSebuf implements sebufMarshaler for GetStocksResponse.
 // This method re-marshals nested messages that have int64_encoding=NUMBER fields: stocks
-func (x *GetStocksResponse) MarshalJSON() ([]byte, error) {
+func (x *GetStocksResponse) MarshalJSONSebuf(opts protojson.MarshalOptions) ([]byte, error) {
 	if x == nil {
 		return []byte("null"), nil
 	}
 
 	// Use protojson for base serialization (handles all other fields correctly)
-	data, err := protojson.Marshal(x)
+	data, err := opts.Marshal(x)
 	if err != nil {
 		return nil, err
 	}
@@ -87,15 +92,38 @@ func (x *GetStocksResponse) MarshalJSON() ([]byte, error) {
 		return nil, err
 	}
 
-	// Re-serialize repeated "stocks" using its custom MarshalJSON
+	// Re-serialize repeated "stocks" forwarding opts to each element
 	if len(x.Stocks) > 0 {
-		raw["stocks"], err = json.Marshal(x.Stocks)
+		items := make([]json.RawMessage, 0, len(x.Stocks))
+		for _, item := range x.Stocks {
+			if m, ok := any(item).(interface {
+				MarshalJSONSebuf(protojson.MarshalOptions) ([]byte, error)
+			}); ok {
+				itemData, itemErr := m.MarshalJSONSebuf(opts)
+				if itemErr != nil {
+					return nil, itemErr
+				}
+				items = append(items, itemData)
+			} else {
+				itemData, itemErr := opts.Marshal(item)
+				if itemErr != nil {
+					return nil, itemErr
+				}
+				items = append(items, itemData)
+			}
+		}
+		raw["stocks"], err = json.Marshal(items)
 		if err != nil {
 			return nil, err
 		}
 	}
 
 	return json.Marshal(raw)
+}
+
+// MarshalJSON implements json.Marshaler for GetStocksResponse.
+func (x *GetStocksResponse) MarshalJSON() ([]byte, error) {
+	return x.MarshalJSONSebuf(protojson.MarshalOptions{})
 }
 
 // UnmarshalJSON implements json.Unmarshaler for GetStocksResponse.

@@ -10,16 +10,16 @@ import (
 	"google.golang.org/protobuf/encoding/protojson"
 )
 
-// MarshalJSON implements json.Marshaler for Int64EncodingTest.
+// MarshalJSONSebuf implements sebufMarshaler for Int64EncodingTest.
 // This method handles int64_encoding=NUMBER fields: number_int64, number_uint64, number_sint64, number_sfixed64, number_fixed64, repeated_number_int64, optional_number_int64, commented_number_int64
 // Warning: int64 fields with NUMBER encoding may lose precision for values > 2^53 in JavaScript.
-func (x *Int64EncodingTest) MarshalJSON() ([]byte, error) {
+func (x *Int64EncodingTest) MarshalJSONSebuf(opts protojson.MarshalOptions) ([]byte, error) {
 	if x == nil {
 		return []byte("null"), nil
 	}
 
 	// Use protojson for base serialization (handles all other fields correctly)
-	data, err := protojson.Marshal(x)
+	data, err := opts.Marshal(x)
 	if err != nil {
 		return nil, err
 	}
@@ -92,6 +92,11 @@ func (x *Int64EncodingTest) MarshalJSON() ([]byte, error) {
 	}
 
 	return json.Marshal(raw)
+}
+
+// MarshalJSON implements json.Marshaler for Int64EncodingTest.
+func (x *Int64EncodingTest) MarshalJSON() ([]byte, error) {
+	return x.MarshalJSONSebuf(protojson.MarshalOptions{})
 }
 
 // UnmarshalJSON implements json.Unmarshaler for Int64EncodingTest.
