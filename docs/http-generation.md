@@ -767,6 +767,34 @@ type ServerOption func(c *serverConfiguration)
 
 // WithMux configures a custom HTTP ServeMux
 func WithMux(mux *http.ServeMux) ServerOption
+
+// WithErrorHandler installs a custom handler for error responses.
+// The handler can inspect errors (use errors.As() for *sebufhttp.ValidationError or
+// *sebufhttp.Error), set custom status codes/headers, or return a proto.Message to
+// be marshaled as the response body.
+func WithErrorHandler(h ErrorHandler) ServerOption
+
+// WithMarshalOptions configures protojson.MarshalOptions used for JSON responses
+// (including SSE events and error bodies). Zero value preserves default behavior.
+// Use EmitUnpopulated to surface proto3 zero values (false, "", 0), UseProtoNames
+// for snake_case field names, or any other protojson knob.
+func WithMarshalOptions(opts protojson.MarshalOptions) ServerOption
+```
+
+**Example — surfacing zero-value bool fields:**
+
+```go
+import "google.golang.org/protobuf/encoding/protojson"
+
+// By default, proto3 zero values are omitted from JSON responses.
+// EmitUnpopulated forces them to be serialized — useful when `false` carries
+// semantic meaning that clients need to observe.
+err := userapi.RegisterUserServiceServer(userService,
+    userapi.WithMux(mux),
+    userapi.WithMarshalOptions(protojson.MarshalOptions{
+        EmitUnpopulated: true,
+    }),
+)
 ```
 
 ## Framework Integration

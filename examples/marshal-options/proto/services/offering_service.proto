@@ -1,0 +1,43 @@
+syntax = "proto3";
+
+package api.services;
+
+import "sebuf/http/annotations.proto";
+
+// OfferingService demonstrates how WithMarshalOptions controls protojson
+// behavior at the response wire boundary. The Status message intentionally
+// includes proto3 zero-value fields (bool false, int32 0, string "") so the
+// EmitUnpopulated knob produces a visibly different payload.
+service OfferingService {
+  option (sebuf.http.service_config) = {
+    base_path: "/api/v1"
+  };
+
+  rpc GetStatus(GetStatusRequest) returns (Status) {
+    option (sebuf.http.config) = {
+      path: "/status"
+      method: HTTP_METHOD_GET
+    };
+  }
+}
+
+message GetStatusRequest {}
+
+// Status carries fields that are commonly set to proto3 zero values in
+// real systems — and clients often need to observe those zero values
+// (e.g. "no_new_orders: false" means "orders ARE accepted", not "unset").
+message Status {
+  // True if the offering is open to new orders. The motivating use case:
+  // an explicit `false` here carries semantic meaning. Without
+  // EmitUnpopulated, protojson drops the field entirely and the client
+  // can't tell "false" from "unset".
+  bool accepting_orders = 1;
+
+  // Active subscriber count. A real 0 (no subscribers) must be visible
+  // to dashboards, not omitted.
+  int32 subscriber_count = 2;
+
+  // Operator-supplied note. Empty string ("no note") is a valid state
+  // distinct from "field never set".
+  string note = 3;
+}
