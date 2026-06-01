@@ -22,9 +22,9 @@ func RegisterTestServiceServer(server TestServiceServer, opts ...ServerOption) e
 
 	methodHeaders := getGetCombinedHeaders()
 	getCombinedHandler := BindingMiddleware[Request](
-		genericHandler(server.GetCombined, config.errorHandler), serviceHeaders, methodHeaders,
+		genericHandler(server.GetCombined, config.errorHandler, config.marshalOpts), serviceHeaders, methodHeaders,
 		getCombinedPathParams, getCombinedQueryParams,
-		"POST", config.errorHandler,
+		"POST", config.errorHandler, config.marshalOpts,
 	)
 
 	config.mux.Handle("POST /api/v1/combined", getCombinedHandler)

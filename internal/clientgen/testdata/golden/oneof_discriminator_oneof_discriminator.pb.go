@@ -10,15 +10,15 @@ import (
 	"google.golang.org/protobuf/encoding/protojson"
 )
 
-// MarshalJSON implements json.Marshaler for FlattenedEvent.
+// MarshalJSONSebuf implements sebufMarshaler for FlattenedEvent.
 // This method handles oneof discriminator fields: content
-func (x *FlattenedEvent) MarshalJSON() ([]byte, error) {
+func (x *FlattenedEvent) MarshalJSONSebuf(opts protojson.MarshalOptions) ([]byte, error) {
 	if x == nil {
 		return []byte("null"), nil
 	}
 
 	// Use protojson for base serialization
-	data, err := protojson.Marshal(x)
+	data, err := opts.Marshal(x)
 	if err != nil {
 		return nil, err
 	}
@@ -33,9 +33,17 @@ func (x *FlattenedEvent) MarshalJSON() ([]byte, error) {
 	switch x.GetContent().(type) {
 	case *FlattenedEvent_Text:
 		raw["type"], _ = json.Marshal("text")
-		// Flatten: marshal variant via json.Marshal to invoke child MarshalJSON
+		// Flatten: forward opts to variant via MarshalJSONSebuf when available
 		if inner := x.GetText(); inner != nil {
-			variantData, varErr := json.Marshal(inner)
+			var variantData []byte
+			var varErr error
+			if m, ok := any(inner).(interface {
+				MarshalJSONSebuf(protojson.MarshalOptions) ([]byte, error)
+			}); ok {
+				variantData, varErr = m.MarshalJSONSebuf(opts)
+			} else {
+				variantData, varErr = opts.Marshal(inner)
+			}
 			if varErr == nil {
 				var variantMap map[string]json.RawMessage
 				if json.Unmarshal(variantData, &variantMap) == nil {
@@ -49,9 +57,17 @@ func (x *FlattenedEvent) MarshalJSON() ([]byte, error) {
 		}
 	case *FlattenedEvent_Image:
 		raw["type"], _ = json.Marshal("img")
-		// Flatten: marshal variant via json.Marshal to invoke child MarshalJSON
+		// Flatten: forward opts to variant via MarshalJSONSebuf when available
 		if inner := x.GetImage(); inner != nil {
-			variantData, varErr := json.Marshal(inner)
+			var variantData []byte
+			var varErr error
+			if m, ok := any(inner).(interface {
+				MarshalJSONSebuf(protojson.MarshalOptions) ([]byte, error)
+			}); ok {
+				variantData, varErr = m.MarshalJSONSebuf(opts)
+			} else {
+				variantData, varErr = opts.Marshal(inner)
+			}
 			if varErr == nil {
 				var variantMap map[string]json.RawMessage
 				if json.Unmarshal(variantData, &variantMap) == nil {
@@ -68,6 +84,11 @@ func (x *FlattenedEvent) MarshalJSON() ([]byte, error) {
 	}
 
 	return json.Marshal(raw)
+}
+
+// MarshalJSON implements json.Marshaler for FlattenedEvent.
+func (x *FlattenedEvent) MarshalJSON() ([]byte, error) {
+	return x.MarshalJSONSebuf(protojson.MarshalOptions{})
 }
 
 // UnmarshalJSONSebuf implements sebufUnmarshaler for FlattenedEvent.
@@ -155,15 +176,15 @@ func (x *FlattenedEvent) UnmarshalJSON(data []byte) error {
 	return x.UnmarshalJSONSebuf(data, protojson.UnmarshalOptions{})
 }
 
-// MarshalJSON implements json.Marshaler for NestedEvent.
+// MarshalJSONSebuf implements sebufMarshaler for NestedEvent.
 // This method handles oneof discriminator fields: content
-func (x *NestedEvent) MarshalJSON() ([]byte, error) {
+func (x *NestedEvent) MarshalJSONSebuf(opts protojson.MarshalOptions) ([]byte, error) {
 	if x == nil {
 		return []byte("null"), nil
 	}
 
 	// Use protojson for base serialization
-	data, err := protojson.Marshal(x)
+	data, err := opts.Marshal(x)
 	if err != nil {
 		return nil, err
 	}
@@ -187,6 +208,11 @@ func (x *NestedEvent) MarshalJSON() ([]byte, error) {
 	}
 
 	return json.Marshal(raw)
+}
+
+// MarshalJSON implements json.Marshaler for NestedEvent.
+func (x *NestedEvent) MarshalJSON() ([]byte, error) {
+	return x.MarshalJSONSebuf(protojson.MarshalOptions{})
 }
 
 // UnmarshalJSONSebuf implements sebufUnmarshaler for NestedEvent.

@@ -22,9 +22,9 @@ func RegisterEmptyBehaviorServiceServer(server EmptyBehaviorServiceServer, opts 
 
 	methodHeaders := getGetResponseHeaders()
 	getResponseHandler := BindingMiddleware[GetResponseRequest](
-		genericHandler(server.GetResponse, config.errorHandler), serviceHeaders, methodHeaders,
+		genericHandler(server.GetResponse, config.errorHandler, config.marshalOpts), serviceHeaders, methodHeaders,
 		getResponsePathParams, getResponseQueryParams,
-		"GET", config.errorHandler,
+		"GET", config.errorHandler, config.marshalOpts,
 	)
 
 	config.mux.Handle("GET /api/v1/responses/{id}", getResponseHandler)

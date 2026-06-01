@@ -23,18 +23,18 @@ func RegisterTimestampFormatServiceServer(server TimestampFormatServiceServer, o
 
 	methodHeaders := getCreateTimestampFormatHeaders()
 	createTimestampFormatHandler := BindingMiddleware[TimestampFormatTest](
-		genericHandler(server.CreateTimestampFormat, config.errorHandler), serviceHeaders, methodHeaders,
+		genericHandler(server.CreateTimestampFormat, config.errorHandler, config.marshalOpts), serviceHeaders, methodHeaders,
 		createTimestampFormatPathParams, createTimestampFormatQueryParams,
-		"POST", config.errorHandler,
+		"POST", config.errorHandler, config.marshalOpts,
 	)
 
 	config.mux.Handle("POST /api/v1/timestamp-format", createTimestampFormatHandler)
 
 	methodHeaders = getGetTimestampFormatHeaders()
 	getTimestampFormatHandler := BindingMiddleware[TimestampFormatRequest](
-		genericHandler(server.GetTimestampFormat, config.errorHandler), serviceHeaders, methodHeaders,
+		genericHandler(server.GetTimestampFormat, config.errorHandler, config.marshalOpts), serviceHeaders, methodHeaders,
 		getTimestampFormatPathParams, getTimestampFormatQueryParams,
-		"GET", config.errorHandler,
+		"GET", config.errorHandler, config.marshalOpts,
 	)
 
 	config.mux.Handle("GET /api/v1/timestamp-format/{id}", getTimestampFormatHandler)

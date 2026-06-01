@@ -195,7 +195,7 @@ func TestWriteErrorWithHandlerGeneration(t *testing.T) {
 	t.Run("function is generated", func(t *testing.T) {
 		if !strings.Contains(
 			files.binding,
-			"func writeErrorWithHandler(w http.ResponseWriter, r *http.Request, err error, handler ErrorHandler)",
+			"func writeErrorWithHandler(w http.ResponseWriter, r *http.Request, err error, handler ErrorHandler, marshalOpts protojson.MarshalOptions)",
 		) {
 			t.Error("writeErrorWithHandler function not found")
 		}
@@ -275,7 +275,7 @@ func TestDefaultErrorFunctionsGeneration(t *testing.T) {
 	t.Run("writeResponseBody is generated", func(t *testing.T) {
 		if !strings.Contains(
 			files.binding,
-			"func writeResponseBody(w http.ResponseWriter, r *http.Request, msg proto.Message)",
+			"func writeResponseBody(w http.ResponseWriter, r *http.Request, msg proto.Message, marshalOpts protojson.MarshalOptions)",
 		) {
 			t.Error("writeResponseBody function not found")
 		}
@@ -287,14 +287,17 @@ func TestErrorHandlerIntegration(t *testing.T) {
 	files := generateTestFiles(t, "http_verbs_comprehensive.proto")
 
 	t.Run("genericHandler receives errorHandler", func(t *testing.T) {
-		if !strings.Contains(files.http, "config.errorHandler), serviceHeaders, methodHeaders") {
-			t.Error("genericHandler should receive config.errorHandler")
+		if !strings.Contains(
+			files.http,
+			"config.errorHandler, config.marshalOpts), serviceHeaders, methodHeaders",
+		) {
+			t.Error("genericHandler should receive config.errorHandler and config.marshalOpts")
 		}
 	})
 
 	t.Run("BindingMiddleware receives errorHandler", func(t *testing.T) {
-		if !strings.Contains(files.http, ", config.errorHandler,") {
-			t.Error("BindingMiddleware should receive config.errorHandler")
+		if !strings.Contains(files.http, ", config.errorHandler, config.marshalOpts,") {
+			t.Error("BindingMiddleware should receive config.errorHandler and config.marshalOpts")
 		}
 	})
 }
@@ -304,28 +307,31 @@ func TestErrorHandlerEdgeCases(t *testing.T) {
 	files := generateTestFiles(t, "http_verbs_comprehensive.proto")
 
 	t.Run("BindingMiddleware signature includes errorHandler", func(t *testing.T) {
-		if !strings.Contains(files.binding, "httpMethod string, errorHandler ErrorHandler) http.Handler") {
-			t.Error("BindingMiddleware should have errorHandler as last parameter")
+		if !strings.Contains(
+			files.binding,
+			"httpMethod string, errorHandler ErrorHandler, marshalOpts protojson.MarshalOptions) http.Handler",
+		) {
+			t.Error("BindingMiddleware should have errorHandler and marshalOpts as trailing parameters")
 		}
 	})
 
 	t.Run("genericHandler signature includes errorHandler", func(t *testing.T) {
 		if !strings.Contains(
 			files.binding,
-			"func genericHandler[Req any, Res any](serve func(context.Context, Req) (Res, error), errorHandler ErrorHandler) http.HandlerFunc",
+			"func genericHandler[Req any, Res any](serve func(context.Context, Req) (Res, error), errorHandler ErrorHandler, marshalOpts protojson.MarshalOptions) http.HandlerFunc",
 		) {
-			t.Error("genericHandler should have errorHandler parameter")
+			t.Error("genericHandler should have errorHandler and marshalOpts parameters")
 		}
 	})
 
 	t.Run("header validation uses writeErrorWithHandler", func(t *testing.T) {
-		if !strings.Contains(files.binding, "writeErrorWithHandler(w, r, validationErr, errorHandler)") {
+		if !strings.Contains(files.binding, "writeErrorWithHandler(w, r, validationErr, errorHandler, marshalOpts)") {
 			t.Error("Header validation should use writeErrorWithHandler")
 		}
 	})
 
 	t.Run("path param binding uses writeErrorWithHandler", func(t *testing.T) {
-		if !strings.Contains(files.binding, "writeErrorWithHandler(w, r, err, errorHandler)") {
+		if !strings.Contains(files.binding, "writeErrorWithHandler(w, r, err, errorHandler, marshalOpts)") {
 			t.Error("Path param binding should use writeErrorWithHandler")
 		}
 	})
@@ -333,14 +339,14 @@ func TestErrorHandlerEdgeCases(t *testing.T) {
 	t.Run("body validation uses writeErrorWithHandler", func(t *testing.T) {
 		if !strings.Contains(
 			files.binding,
-			"writeErrorWithHandler(w, r, convertProtovalidateError(err), errorHandler)",
+			"writeErrorWithHandler(w, r, convertProtovalidateError(err), errorHandler, marshalOpts)",
 		) {
 			t.Error("Body validation should use writeErrorWithHandler with convertProtovalidateError")
 		}
 	})
 
 	t.Run("handler errors use writeErrorWithHandler", func(t *testing.T) {
-		if !strings.Contains(files.binding, "writeErrorWithHandler(w, r, errorMsg, errorHandler)") {
+		if !strings.Contains(files.binding, "writeErrorWithHandler(w, r, errorMsg, errorHandler, marshalOpts)") {
 			t.Error("Handler errors should use writeErrorWithHandler")
 		}
 	})
@@ -358,7 +364,7 @@ func TestErrorHandlerEdgeCases(t *testing.T) {
 	})
 
 	t.Run("writeErrorWithHandler uses writeResponseBody for custom status", func(t *testing.T) {
-		if !strings.Contains(files.binding, "writeResponseBody(w, r, response)") {
+		if !strings.Contains(files.binding, "writeResponseBody(w, r, response, marshalOpts)") {
 			t.Error("writeErrorWithHandler should use writeResponseBody when handler set status")
 		}
 	})

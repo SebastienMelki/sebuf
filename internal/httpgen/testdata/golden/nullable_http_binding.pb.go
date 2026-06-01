@@ -36,6 +36,13 @@ const (
 
 type bodyCtxKey struct{}
 
+// sebufMarshaler is implemented by generated messages with custom JSON marshaling.
+// It allows passing protojson.MarshalOptions (e.g. EmitUnpopulated) through
+// custom marshalers so server-configured options reach every wire-format site.
+type sebufMarshaler interface {
+	MarshalJSONSebuf(opts protojson.MarshalOptions) ([]byte, error)
+}
+
 // PathParamConfig defines configuration for a path parameter.
 type PathParamConfig struct {
 	URLParam  string // Parameter name in URL path
@@ -62,11 +69,11 @@ func getRequest[Req any](ctx context.Context) Req {
 // and validates them using protovalidate and header validation.
 // It supports path parameters, query parameters, and request body binding.
 func BindingMiddleware[Req any](next http.Handler, serviceHeaders, methodHeaders []*sebufhttp.Header,
-	pathParams []PathParamConfig, queryParams []QueryParamConfig, httpMethod string, errorHandler ErrorHandler) http.Handler {
+	pathParams []PathParamConfig, queryParams []QueryParamConfig, httpMethod string, errorHandler ErrorHandler, marshalOpts protojson.MarshalOptions) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Validate headers first
 		if validationErr := validateHeaders(r, serviceHeaders, methodHeaders); validationErr != nil {
-			writeErrorWithHandler(w, r, validationErr, errorHandler)
+			writeErrorWithHandler(w, r, validationErr, errorHandler, marshalOpts)
 			return
 		}
 
@@ -75,13 +82,13 @@ func BindingMiddleware[Req any](next http.Handler, serviceHeaders, methodHeaders
 		// Bind path parameters
 		if msg, ok := any(toBind).(proto.Message); ok {
 			if err := bindPathParams(r, msg, pathParams); err != nil {
-				writeErrorWithHandler(w, r, err, errorHandler)
+				writeErrorWithHandler(w, r, err, errorHandler, marshalOpts)
 				return
 			}
 
 			// Bind query parameters
 			if err := bindQueryParams(r, msg, queryParams); err != nil {
-				writeErrorWithHandler(w, r, err, errorHandler)
+				writeErrorWithHandler(w, r, err, errorHandler, marshalOpts)
 				return
 			}
 		}
@@ -99,7 +106,7 @@ func BindingMiddleware[Req any](next http.Handler, serviceHeaders, methodHeaders
 						},
 					},
 				}
-				writeErrorWithHandler(w, r, validationErr, errorHandler)
+				writeErrorWithHandler(w, r, validationErr, errorHandler, marshalOpts)
 				return
 			}
 		}
@@ -107,7 +114,7 @@ func BindingMiddleware[Req any](next http.Handler, serviceHeaders, methodHeaders
 		// Validate the complete message
 		if msg, ok := any(toBind).(proto.Message); ok {
 			if err := ValidateMessage(msg); err != nil {
-				writeErrorWithHandler(w, r, convertProtovalidateError(err), errorHandler)
+				writeErrorWithHandler(w, r, convertProtovalidateError(err), errorHandler, marshalOpts)
 				return
 			}
 		}
@@ -345,7 +352,7 @@ func convertStringToFieldValue(value string, kind protoreflect.Kind) (protorefle
 	}
 }
 
-func genericHandler[Req any, Res any](serve func(context.Context, Req) (Res, error), errorHandler ErrorHandler) http.HandlerFunc {
+func genericHandler[Req any, Res any](serve func(context.Context, Req) (Res, error), errorHandler ErrorHandler, marshalOpts protojson.MarshalOptions) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		request := getRequest[Req](r.Context())
 
@@ -354,22 +361,22 @@ func genericHandler[Req any, Res any](serve func(context.Context, Req) (Res, err
 			// Check if error is already a proto.Message (e.g., custom proto error types)
 			// If so, pass it directly - defaultErrorResponse will preserve its structure
 			if _, ok := err.(proto.Message); ok {
-				writeErrorWithHandler(w, r, err, errorHandler)
+				writeErrorWithHandler(w, r, err, errorHandler, marshalOpts)
 				return
 			}
 			errorMsg := &sebufhttp.Error{
 				Message: err.Error(),
 			}
-			writeErrorWithHandler(w, r, errorMsg, errorHandler)
+			writeErrorWithHandler(w, r, errorMsg, errorHandler, marshalOpts)
 			return
 		}
 
-		responseBytes, err := marshalResponse(r, response)
+		responseBytes, err := marshalResponse(r, response, marshalOpts)
 		if err != nil {
 			errorMsg := &sebufhttp.Error{
 				Message: fmt.Sprintf("failed to marshal response: %v", err),
 			}
-			writeErrorWithHandler(w, r, errorMsg, errorHandler)
+			writeErrorWithHandler(w, r, errorMsg, errorHandler, marshalOpts)
 			return
 		}
 
@@ -385,13 +392,13 @@ func genericHandler[Req any, Res any](serve func(context.Context, Req) (Res, err
 			errorMsg := &sebufhttp.Error{
 				Message: fmt.Sprintf("failed to write response: %v", err),
 			}
-			writeErrorWithHandler(w, r, errorMsg, errorHandler)
+			writeErrorWithHandler(w, r, errorMsg, errorHandler, marshalOpts)
 			return
 		}
 	}
 }
 
-func marshalResponse(r *http.Request, response any) ([]byte, error) {
+func marshalResponse(r *http.Request, response any, marshalOpts protojson.MarshalOptions) ([]byte, error) {
 	contentType := r.Header.Get("Content-Type")
 	if contentType == "" {
 		contentType = JSONContentType
@@ -404,20 +411,27 @@ func marshalResponse(r *http.Request, response any) ([]byte, error) {
 
 	switch filterFlags(contentType) {
 	case JSONContentType:
-		// Check for custom JSON marshaler (unwrap support)
-		if marshaler, ok := response.(json.Marshaler); ok {
-			return marshaler.MarshalJSON()
-		}
-		return protojson.Marshal(msg)
+		return marshalJSONWithOpts(msg, marshalOpts)
 	case BinaryContentType, ProtoContentType:
 		return proto.Marshal(msg)
 	default:
 		// Default to JSON for unrecognized content types
-		if marshaler, ok := response.(json.Marshaler); ok {
-			return marshaler.MarshalJSON()
-		}
-		return protojson.Marshal(msg)
+		return marshalJSONWithOpts(msg, marshalOpts)
 	}
+}
+
+// marshalJSONWithOpts dispatches JSON marshaling:
+//   - sebufMarshaler (sebuf-generated custom marshalers) receives marshalOpts
+//   - json.Marshaler (third-party / back-compat) is called with no options
+//   - otherwise marshalOpts.Marshal is used
+func marshalJSONWithOpts(msg proto.Message, marshalOpts protojson.MarshalOptions) ([]byte, error) {
+	if m, ok := msg.(sebufMarshaler); ok {
+		return m.MarshalJSONSebuf(marshalOpts)
+	}
+	if m, ok := msg.(json.Marshaler); ok {
+		return m.MarshalJSON()
+	}
+	return marshalOpts.Marshal(msg)
 }
 
 // responseCapture wraps ResponseWriter to track if Write or WriteHeader was called
@@ -438,7 +452,7 @@ func (rc *responseCapture) Write(b []byte) (int, error) {
 }
 
 // writeProtoMessageResponse writes a protobuf message as an HTTP response
-func writeProtoMessageResponse(w http.ResponseWriter, r *http.Request, msg proto.Message, statusCode int, fallbackMsg string) {
+func writeProtoMessageResponse(w http.ResponseWriter, r *http.Request, msg proto.Message, statusCode int, fallbackMsg string, marshalOpts protojson.MarshalOptions) {
 	contentType := r.Header.Get("Content-Type")
 	if contentType == "" {
 		contentType = JSONContentType
@@ -450,14 +464,14 @@ func writeProtoMessageResponse(w http.ResponseWriter, r *http.Request, msg proto
 
 	switch filterFlags(contentType) {
 	case JSONContentType:
-		responseBytes, err = protojson.Marshal(msg)
+		responseBytes, err = marshalJSONWithOpts(msg, marshalOpts)
 		respContentType = "application/json"
 	case BinaryContentType, ProtoContentType:
 		responseBytes, err = proto.Marshal(msg)
 		respContentType = "application/x-protobuf"
 	default:
 		// Default to JSON for unrecognized content types
-		responseBytes, err = protojson.Marshal(msg)
+		responseBytes, err = marshalJSONWithOpts(msg, marshalOpts)
 		respContentType = "application/json"
 	}
 
@@ -473,19 +487,19 @@ func writeProtoMessageResponse(w http.ResponseWriter, r *http.Request, msg proto
 }
 
 // writeValidationErrorResponse writes a ValidationError as a response
-func writeValidationErrorResponse(w http.ResponseWriter, r *http.Request, validationErr *sebufhttp.ValidationError) {
-	writeProtoMessageResponse(w, r, validationErr, http.StatusBadRequest, "validation failed")
+func writeValidationErrorResponse(w http.ResponseWriter, r *http.Request, validationErr *sebufhttp.ValidationError, marshalOpts protojson.MarshalOptions) {
+	writeProtoMessageResponse(w, r, validationErr, http.StatusBadRequest, "validation failed", marshalOpts)
 }
 
 // writeValidationError converts a protovalidate error to ValidationError and writes it as response
-func writeValidationError(w http.ResponseWriter, r *http.Request, err error) {
+func writeValidationError(w http.ResponseWriter, r *http.Request, err error, marshalOpts protojson.MarshalOptions) {
 	validationErr := convertProtovalidateError(err)
-	writeValidationErrorResponse(w, r, validationErr)
+	writeValidationErrorResponse(w, r, validationErr, marshalOpts)
 }
 
 // writeErrorResponse writes an Error as a response
-func writeErrorResponse(w http.ResponseWriter, r *http.Request, errorMsg *sebufhttp.Error) {
-	writeProtoMessageResponse(w, r, errorMsg, http.StatusInternalServerError, "internal server error")
+func writeErrorResponse(w http.ResponseWriter, r *http.Request, errorMsg *sebufhttp.Error, marshalOpts protojson.MarshalOptions) {
+	writeProtoMessageResponse(w, r, errorMsg, http.StatusInternalServerError, "internal server error", marshalOpts)
 }
 
 // convertProtovalidateError converts a protovalidate error to ValidationError
@@ -554,7 +568,7 @@ func defaultErrorStatusCode(err error) int {
 }
 
 // writeErrorWithHandler calls custom handler if set, then marshals response
-func writeErrorWithHandler(w http.ResponseWriter, r *http.Request, err error, handler ErrorHandler) {
+func writeErrorWithHandler(w http.ResponseWriter, r *http.Request, err error, handler ErrorHandler, marshalOpts protojson.MarshalOptions) {
 	var response proto.Message
 	var capture *responseCapture
 
@@ -577,16 +591,16 @@ func writeErrorWithHandler(w http.ResponseWriter, r *http.Request, err error, ha
 	// If handler already set status, don't set it again
 	if capture != nil && capture.wroteHeader {
 		// Handler set status, just write the body
-		writeResponseBody(w, r, response)
+		writeResponseBody(w, r, response, marshalOpts)
 		return
 	}
 
 	// Write full response with status code
-	writeProtoMessageResponse(w, r, response, statusCode, "error processing request")
+	writeProtoMessageResponse(w, r, response, statusCode, "error processing request", marshalOpts)
 }
 
 // writeResponseBody writes the response body without setting status code
-func writeResponseBody(w http.ResponseWriter, r *http.Request, msg proto.Message) {
+func writeResponseBody(w http.ResponseWriter, r *http.Request, msg proto.Message, marshalOpts protojson.MarshalOptions) {
 	contentType := r.Header.Get("Content-Type")
 	if contentType == "" {
 		contentType = JSONContentType
@@ -598,13 +612,13 @@ func writeResponseBody(w http.ResponseWriter, r *http.Request, msg proto.Message
 
 	switch filterFlags(contentType) {
 	case JSONContentType:
-		responseBytes, err = protojson.Marshal(msg)
+		responseBytes, err = marshalJSONWithOpts(msg, marshalOpts)
 		respContentType = "application/json"
 	case BinaryContentType, ProtoContentType:
 		responseBytes, err = proto.Marshal(msg)
 		respContentType = "application/x-protobuf"
 	default:
-		responseBytes, err = protojson.Marshal(msg)
+		responseBytes, err = marshalJSONWithOpts(msg, marshalOpts)
 		respContentType = "application/json"
 	}
 

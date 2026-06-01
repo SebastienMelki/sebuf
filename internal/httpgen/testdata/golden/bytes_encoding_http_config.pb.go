@@ -6,6 +6,7 @@ package bytesencoding
 import (
 	"net/http"
 
+	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -30,6 +31,7 @@ type serverConfiguration struct {
 	mux          *http.ServeMux
 	withMux      bool
 	errorHandler ErrorHandler
+	marshalOpts  protojson.MarshalOptions
 }
 
 func getDefaultConfiguration() *serverConfiguration {
@@ -59,5 +61,15 @@ func WithMux(mux *http.ServeMux) ServerOption {
 func WithErrorHandler(handler ErrorHandler) ServerOption {
 	return func(c *serverConfiguration) {
 		c.errorHandler = handler
+	}
+}
+
+// WithMarshalOptions configures the protojson.MarshalOptions used when serializing
+// JSON responses (including SSE events and error bodies). The zero value preserves
+// default behavior. Use this to surface zero-value fields with EmitUnpopulated,
+// switch to proto field names with UseProtoNames, or tune any other protojson knob.
+func WithMarshalOptions(opts protojson.MarshalOptions) ServerOption {
+	return func(c *serverConfiguration) {
+		c.marshalOpts = opts
 	}
 }

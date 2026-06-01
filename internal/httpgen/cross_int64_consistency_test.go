@@ -8,13 +8,14 @@ import (
 )
 
 // TestCrossFileInt64UnwrapUsesJsonMarshal asserts the generated unwrap code for the
-// cross-file int64_encoding=NUMBER + unwrap scenario uses json.Marshal(item) rather than
-// protojson.Marshal(item).
+// cross-file int64_encoding=NUMBER + unwrap scenario forwards opts to each item's
+// MarshalJSONSebuf method (via an inline interface assertion) rather than calling
+// protojson.Marshal(item) directly.
 //
 // Context: when the item type (e.g. Bar with int64_encoding=NUMBER) is defined in file A,
 // and the response with the unwrap map is defined in file B that imports A, the unwrap
-// generator must call json.Marshal(item) so that Bar.MarshalJSON (from the encoding
-// generator) is invoked and int64 fields come out as JSON numbers — not quoted strings.
+// generator must forward opts to Bar.MarshalJSONSebuf (from the encoding generator) so
+// int64 fields come out as JSON numbers — not quoted strings.
 //
 // This test reads the golden file produced by TestHTTPGenGoldenFiles; run with
 // UPDATE_GOLDEN=1 to (re)generate it after applying the fix.
@@ -35,22 +36,22 @@ func TestCrossFileInt64UnwrapUsesJsonMarshal(t *testing.T) {
 
 	code := string(content)
 
-	// The unwrap generator must use json.Marshal(item) so that Bar.MarshalJSON is called.
-	// If it uses protojson.Marshal(item) instead, the custom encoding is bypassed and
-	// int64 fields with NUMBER encoding will be serialized as quoted strings at runtime.
+	// The unwrap generator must emit an inline interface assertion that forwards opts
+	// to Bar.MarshalJSONSebuf. Direct protojson.Marshal(item) would bypass the custom
+	// encoding and serialize int64 NUMBER fields as quoted strings.
 	t.Run("no protojson.Marshal(item) for cross-file int64 NUMBER items", func(t *testing.T) {
 		if strings.Contains(code, "protojson.Marshal(item)") {
-			t.Error("cross_int64_service_unwrap.pb.go uses protojson.Marshal(item): " +
-				"Bar.MarshalJSON will be bypassed and int64 NUMBER fields will serialize as " +
-				"quoted strings instead of numbers. Fix: hasEncodingMarshalJSON must call " +
-				"hasInt64NumberFields(msg) directly rather than looking up g.directEncodingMsgNames.")
+			t.Error("cross_int64_service_unwrap.pb.go uses protojson.Marshal(item) directly: " +
+				"Bar.MarshalJSONSebuf will be bypassed and int64 NUMBER fields will serialize as " +
+				"quoted strings instead of numbers. The unwrap generator should emit an inline " +
+				"MarshalJSONSebuf type assertion for every message-typed item.")
 		}
 	})
 
-	t.Run("json.Marshal(item) present for cross-file int64 NUMBER items", func(t *testing.T) {
-		if !strings.Contains(code, "json.Marshal(item)") {
-			t.Error("cross_int64_service_unwrap.pb.go should contain json.Marshal(item) " +
-				"so that Bar.MarshalJSON is called when marshaling Bar items in the unwrap loop")
+	t.Run("MarshalJSONSebuf forwarding present for cross-file int64 NUMBER items", func(t *testing.T) {
+		if !strings.Contains(code, "m.MarshalJSONSebuf(opts)") {
+			t.Error("cross_int64_service_unwrap.pb.go should emit an inline MarshalJSONSebuf forward " +
+				"so Bar.MarshalJSONSebuf is invoked when marshaling Bar items in the unwrap loop")
 		}
 	})
 

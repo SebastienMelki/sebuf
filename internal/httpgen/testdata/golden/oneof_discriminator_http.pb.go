@@ -24,27 +24,27 @@ func RegisterOneofDiscriminatorServiceServer(server OneofDiscriminatorServiceSer
 
 	methodHeaders := getTestFlattenedEventHeaders()
 	testFlattenedEventHandler := BindingMiddleware[FlattenedEvent](
-		genericHandler(server.TestFlattenedEvent, config.errorHandler), serviceHeaders, methodHeaders,
+		genericHandler(server.TestFlattenedEvent, config.errorHandler, config.marshalOpts), serviceHeaders, methodHeaders,
 		testFlattenedEventPathParams, testFlattenedEventQueryParams,
-		"POST", config.errorHandler,
+		"POST", config.errorHandler, config.marshalOpts,
 	)
 
 	config.mux.Handle("POST /api/v1/events/flattened", testFlattenedEventHandler)
 
 	methodHeaders = getTestNestedEventHeaders()
 	testNestedEventHandler := BindingMiddleware[NestedEvent](
-		genericHandler(server.TestNestedEvent, config.errorHandler), serviceHeaders, methodHeaders,
+		genericHandler(server.TestNestedEvent, config.errorHandler, config.marshalOpts), serviceHeaders, methodHeaders,
 		testNestedEventPathParams, testNestedEventQueryParams,
-		"POST", config.errorHandler,
+		"POST", config.errorHandler, config.marshalOpts,
 	)
 
 	config.mux.Handle("POST /api/v1/events/nested", testNestedEventHandler)
 
 	methodHeaders = getTestPlainEventHeaders()
 	testPlainEventHandler := BindingMiddleware[PlainEvent](
-		genericHandler(server.TestPlainEvent, config.errorHandler), serviceHeaders, methodHeaders,
+		genericHandler(server.TestPlainEvent, config.errorHandler, config.marshalOpts), serviceHeaders, methodHeaders,
 		testPlainEventPathParams, testPlainEventQueryParams,
-		"POST", config.errorHandler,
+		"POST", config.errorHandler, config.marshalOpts,
 	)
 
 	config.mux.Handle("POST /api/v1/events/plain", testPlainEventHandler)

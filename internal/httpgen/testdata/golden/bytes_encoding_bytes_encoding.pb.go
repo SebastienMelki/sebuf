@@ -11,15 +11,15 @@ import (
 	"google.golang.org/protobuf/encoding/protojson"
 )
 
-// MarshalJSON implements json.Marshaler for BytesEncodingTest.
+// MarshalJSONSebuf implements sebufMarshaler for BytesEncodingTest.
 // This method handles bytes_encoding fields: base64_raw_data, base64url_data, base64url_raw_data, hex_data
-func (x *BytesEncodingTest) MarshalJSON() ([]byte, error) {
+func (x *BytesEncodingTest) MarshalJSONSebuf(opts protojson.MarshalOptions) ([]byte, error) {
 	if x == nil {
 		return []byte("null"), nil
 	}
 
 	// Use protojson for base serialization (handles all other fields correctly)
-	data, err := protojson.Marshal(x)
+	data, err := opts.Marshal(x)
 	if err != nil {
 		return nil, err
 	}
@@ -51,6 +51,11 @@ func (x *BytesEncodingTest) MarshalJSON() ([]byte, error) {
 	}
 
 	return json.Marshal(raw)
+}
+
+// MarshalJSON implements json.Marshaler for BytesEncodingTest.
+func (x *BytesEncodingTest) MarshalJSON() ([]byte, error) {
+	return x.MarshalJSONSebuf(protojson.MarshalOptions{})
 }
 
 // UnmarshalJSON implements json.Unmarshaler for BytesEncodingTest.

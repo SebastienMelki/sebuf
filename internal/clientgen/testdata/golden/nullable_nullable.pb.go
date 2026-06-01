@@ -9,15 +9,15 @@ import (
 	"google.golang.org/protobuf/encoding/protojson"
 )
 
-// MarshalJSON implements json.Marshaler for User.
+// MarshalJSONSebuf implements sebufMarshaler for User.
 // This method handles nullable fields: middle_name, age, is_verified
-func (x *User) MarshalJSON() ([]byte, error) {
+func (x *User) MarshalJSONSebuf(opts protojson.MarshalOptions) ([]byte, error) {
 	if x == nil {
 		return []byte("null"), nil
 	}
 
 	// Use protojson for base serialization
-	data, err := protojson.Marshal(x)
+	data, err := opts.Marshal(x)
 	if err != nil {
 		return nil, err
 	}
@@ -47,6 +47,11 @@ func (x *User) MarshalJSON() ([]byte, error) {
 	}
 
 	return json.Marshal(raw)
+}
+
+// MarshalJSON implements json.Marshaler for User.
+func (x *User) MarshalJSON() ([]byte, error) {
+	return x.MarshalJSONSebuf(protojson.MarshalOptions{})
 }
 
 // UnmarshalJSONSebuf implements sebufUnmarshaler for User.

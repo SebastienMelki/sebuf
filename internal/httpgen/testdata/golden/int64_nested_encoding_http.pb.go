@@ -23,18 +23,18 @@ func RegisterSensorServiceServer(server SensorServiceServer, opts ...ServerOptio
 
 	methodHeaders := getGetSensorReadingHeaders()
 	getSensorReadingHandler := BindingMiddleware[GetSensorRequest](
-		genericHandler(server.GetSensorReading, config.errorHandler), serviceHeaders, methodHeaders,
+		genericHandler(server.GetSensorReading, config.errorHandler, config.marshalOpts), serviceHeaders, methodHeaders,
 		getSensorReadingPathParams, getSensorReadingQueryParams,
-		"GET", config.errorHandler,
+		"GET", config.errorHandler, config.marshalOpts,
 	)
 
 	config.mux.Handle("GET /api/v1/sensors/{sensor_id}", getSensorReadingHandler)
 
 	methodHeaders = getGetMultiSensorHeaders()
 	getMultiSensorHandler := BindingMiddleware[GetSensorRequest](
-		genericHandler(server.GetMultiSensor, config.errorHandler), serviceHeaders, methodHeaders,
+		genericHandler(server.GetMultiSensor, config.errorHandler, config.marshalOpts), serviceHeaders, methodHeaders,
 		getMultiSensorPathParams, getMultiSensorQueryParams,
-		"GET", config.errorHandler,
+		"GET", config.errorHandler, config.marshalOpts,
 	)
 
 	config.mux.Handle("GET /api/v1/sensors/{sensor_id}/multi", getMultiSensorHandler)

@@ -10,15 +10,15 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-// MarshalJSON implements json.Marshaler for Response.
+// MarshalJSONSebuf implements sebufMarshaler for Response.
 // This method handles empty_behavior fields: metadata_preserve, metadata_null, metadata_omit, settings
-func (x *Response) MarshalJSON() ([]byte, error) {
+func (x *Response) MarshalJSONSebuf(opts protojson.MarshalOptions) ([]byte, error) {
 	if x == nil {
 		return []byte("null"), nil
 	}
 
 	// Use protojson for base serialization
-	data, err := protojson.Marshal(x)
+	data, err := opts.Marshal(x)
 	if err != nil {
 		return nil, err
 	}
@@ -54,6 +54,11 @@ func (x *Response) MarshalJSON() ([]byte, error) {
 	}
 
 	return json.Marshal(raw)
+}
+
+// MarshalJSON implements json.Marshaler for Response.
+func (x *Response) MarshalJSON() ([]byte, error) {
+	return x.MarshalJSONSebuf(protojson.MarshalOptions{})
 }
 
 // UnmarshalJSON implements json.Unmarshaler for Response.

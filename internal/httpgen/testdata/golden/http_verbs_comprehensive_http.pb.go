@@ -30,81 +30,81 @@ func RegisterRESTfulAPIServiceServer(server RESTfulAPIServiceServer, opts ...Ser
 
 	methodHeaders := getListResourcesHeaders()
 	listResourcesHandler := BindingMiddleware[ListResourcesRequest](
-		genericHandler(server.ListResources, config.errorHandler), serviceHeaders, methodHeaders,
+		genericHandler(server.ListResources, config.errorHandler, config.marshalOpts), serviceHeaders, methodHeaders,
 		listResourcesPathParams, listResourcesQueryParams,
-		"GET", config.errorHandler,
+		"GET", config.errorHandler, config.marshalOpts,
 	)
 
 	config.mux.Handle("GET /api/v1/resources", listResourcesHandler)
 
 	methodHeaders = getGetResourceHeaders()
 	getResourceHandler := BindingMiddleware[GetResourceRequest](
-		genericHandler(server.GetResource, config.errorHandler), serviceHeaders, methodHeaders,
+		genericHandler(server.GetResource, config.errorHandler, config.marshalOpts), serviceHeaders, methodHeaders,
 		getResourcePathParams, getResourceQueryParams,
-		"GET", config.errorHandler,
+		"GET", config.errorHandler, config.marshalOpts,
 	)
 
 	config.mux.Handle("GET /api/v1/resources/{resource_id}", getResourceHandler)
 
 	methodHeaders = getGetNestedResourceHeaders()
 	getNestedResourceHandler := BindingMiddleware[GetNestedResourceRequest](
-		genericHandler(server.GetNestedResource, config.errorHandler), serviceHeaders, methodHeaders,
+		genericHandler(server.GetNestedResource, config.errorHandler, config.marshalOpts), serviceHeaders, methodHeaders,
 		getNestedResourcePathParams, getNestedResourceQueryParams,
-		"GET", config.errorHandler,
+		"GET", config.errorHandler, config.marshalOpts,
 	)
 
 	config.mux.Handle("GET /api/v1/orgs/{org_id}/teams/{team_id}/resources/{resource_id}", getNestedResourceHandler)
 
 	methodHeaders = getCreateResourceHeaders()
 	createResourceHandler := BindingMiddleware[CreateResourceRequest](
-		genericHandler(server.CreateResource, config.errorHandler), serviceHeaders, methodHeaders,
+		genericHandler(server.CreateResource, config.errorHandler, config.marshalOpts), serviceHeaders, methodHeaders,
 		createResourcePathParams, createResourceQueryParams,
-		"POST", config.errorHandler,
+		"POST", config.errorHandler, config.marshalOpts,
 	)
 
 	config.mux.Handle("POST /api/v1/resources", createResourceHandler)
 
 	methodHeaders = getUpdateResourceHeaders()
 	updateResourceHandler := BindingMiddleware[UpdateResourceRequest](
-		genericHandler(server.UpdateResource, config.errorHandler), serviceHeaders, methodHeaders,
+		genericHandler(server.UpdateResource, config.errorHandler, config.marshalOpts), serviceHeaders, methodHeaders,
 		updateResourcePathParams, updateResourceQueryParams,
-		"PUT", config.errorHandler,
+		"PUT", config.errorHandler, config.marshalOpts,
 	)
 
 	config.mux.Handle("PUT /api/v1/resources/{resource_id}", updateResourceHandler)
 
 	methodHeaders = getPatchResourceHeaders()
 	patchResourceHandler := BindingMiddleware[PatchResourceRequest](
-		genericHandler(server.PatchResource, config.errorHandler), serviceHeaders, methodHeaders,
+		genericHandler(server.PatchResource, config.errorHandler, config.marshalOpts), serviceHeaders, methodHeaders,
 		patchResourcePathParams, patchResourceQueryParams,
-		"PATCH", config.errorHandler,
+		"PATCH", config.errorHandler, config.marshalOpts,
 	)
 
 	config.mux.Handle("PATCH /api/v1/resources/{resource_id}", patchResourceHandler)
 
 	methodHeaders = getDeleteResourceHeaders()
 	deleteResourceHandler := BindingMiddleware[DeleteResourceRequest](
-		genericHandler(server.DeleteResource, config.errorHandler), serviceHeaders, methodHeaders,
+		genericHandler(server.DeleteResource, config.errorHandler, config.marshalOpts), serviceHeaders, methodHeaders,
 		deleteResourcePathParams, deleteResourceQueryParams,
-		"DELETE", config.errorHandler,
+		"DELETE", config.errorHandler, config.marshalOpts,
 	)
 
 	config.mux.Handle("DELETE /api/v1/resources/{resource_id}", deleteResourceHandler)
 
 	methodHeaders = getDefaultPostMethodHeaders()
 	defaultPostMethodHandler := BindingMiddleware[DefaultPostRequest](
-		genericHandler(server.DefaultPostMethod, config.errorHandler), serviceHeaders, methodHeaders,
+		genericHandler(server.DefaultPostMethod, config.errorHandler, config.marshalOpts), serviceHeaders, methodHeaders,
 		defaultPostMethodPathParams, defaultPostMethodQueryParams,
-		"POST", config.errorHandler,
+		"POST", config.errorHandler, config.marshalOpts,
 	)
 
 	config.mux.Handle("POST /api/v1/legacy/action", defaultPostMethodHandler)
 
 	methodHeaders = getSearchResourcesHeaders()
 	searchResourcesHandler := BindingMiddleware[SearchResourcesRequest](
-		genericHandler(server.SearchResources, config.errorHandler), serviceHeaders, methodHeaders,
+		genericHandler(server.SearchResources, config.errorHandler, config.marshalOpts), serviceHeaders, methodHeaders,
 		searchResourcesPathParams, searchResourcesQueryParams,
-		"GET", config.errorHandler,
+		"GET", config.errorHandler, config.marshalOpts,
 	)
 
 	config.mux.Handle("GET /api/v1/resources/search", searchResourcesHandler)
@@ -273,9 +273,9 @@ func RegisterBackwardCompatServiceServer(server BackwardCompatServiceServer, opt
 
 	methodHeaders := getLegacyActionHeaders()
 	legacyActionHandler := BindingMiddleware[LegacyRequest](
-		genericHandler(server.LegacyAction, config.errorHandler), serviceHeaders, methodHeaders,
+		genericHandler(server.LegacyAction, config.errorHandler, config.marshalOpts), serviceHeaders, methodHeaders,
 		legacyActionPathParams, legacyActionQueryParams,
-		"POST", config.errorHandler,
+		"POST", config.errorHandler, config.marshalOpts,
 	)
 
 	config.mux.Handle("POST /generated/legacy_action", legacyActionHandler)
