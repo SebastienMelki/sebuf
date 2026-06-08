@@ -1,4 +1,4 @@
-.PHONY: demo install generate run clean test
+.PHONY: demo install generate run clean test test-path-params
 
 # Complete demo workflow - installs tools, generates code, runs server
 demo:
@@ -84,3 +84,8 @@ test:
 		| python3 -m json.tool
 	@echo ""
 	@echo "=== All tests completed ==="
+
+# Automated regression test for path param preservation (#176)
+# Starts server, runs assertions, exits with non-zero on failure.
+test-path-params:
+	@bash test_path_params.sh
