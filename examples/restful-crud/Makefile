@@ -1,4 +1,4 @@
-.PHONY: demo install generate run clean test
+.PHONY: demo install generate run clean test test-accept-header
 
 # Complete demo workflow - installs tools, generates code, runs server
 demo:
@@ -84,3 +84,8 @@ test:
 		| python3 -m json.tool
 	@echo ""
 	@echo "=== All tests completed ==="
+
+# Automated regression test for Accept header negotiation (#173)
+# Starts server, verifies Accept header controls response format.
+test-accept-header:
+	@bash test_accept_header.sh
