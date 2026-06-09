@@ -1,4 +1,4 @@
-.PHONY: demo install generate run clean test test-accept-header
+.PHONY: demo install generate run clean test test-accept-header test-path-params
 
 # Complete demo workflow - installs tools, generates code, runs server
 demo:
@@ -89,3 +89,8 @@ test:
 # Starts server, verifies Accept header controls response format.
 test-accept-header:
 	@bash test_accept_header.sh
+
+# Automated regression test for path param preservation (#176)
+# Starts server, runs assertions, exits with non-zero on failure.
+test-path-params:
+	@bash test_path_params.sh
