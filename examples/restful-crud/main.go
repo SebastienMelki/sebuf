@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/SebastienMelki/sebuf/examples/restful-crud/api/proto/models"
@@ -304,5 +305,9 @@ func main() {
 	fmt.Println("    -d '{\"name\": \"New Product\", \"price\": 29.99, \"stock_quantity\": 50}'")
 	fmt.Println("")
 
-	log.Fatal(http.ListenAndServe(":8080", mux))
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+	}
+	log.Fatal(http.ListenAndServe(":"+port, mux))
 }

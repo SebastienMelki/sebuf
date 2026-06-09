@@ -79,21 +79,10 @@ func BindingMiddleware[Req any](next http.Handler, serviceHeaders, methodHeaders
 
 		toBind := new(Req)
 
-		// Bind path parameters
-		if msg, ok := any(toBind).(proto.Message); ok {
-			if err := bindPathParams(r, msg, pathParams); err != nil {
-				writeErrorWithHandler(w, r, err, errorHandler, marshalOpts)
-				return
-			}
-
-			// Bind query parameters
-			if err := bindQueryParams(r, msg, queryParams); err != nil {
-				writeErrorWithHandler(w, r, err, errorHandler, marshalOpts)
-				return
-			}
-		}
-
-		// Bind body only for POST, PUT, PATCH methods
+		// Bind body FIRST for POST, PUT, PATCH methods.
+		// This must happen before path/query binding because protojson.Unmarshal
+		// calls proto.Reset(), which would wipe any previously-set fields.
+		// By binding body first, path and query params applied afterwards take precedence.
 		if httpMethod == "POST" || httpMethod == "PUT" || httpMethod == "PATCH" {
 			err := bindDataBasedOnContentType(r, toBind)
 			if err != nil {
@@ -107,6 +96,20 @@ func BindingMiddleware[Req any](next http.Handler, serviceHeaders, methodHeaders
 					},
 				}
 				writeErrorWithHandler(w, r, validationErr, errorHandler, marshalOpts)
+				return
+			}
+		}
+
+		// Bind path and query parameters AFTER body, so URL-stated values always win
+		if msg, ok := any(toBind).(proto.Message); ok {
+			if err := bindPathParams(r, msg, pathParams); err != nil {
+				writeErrorWithHandler(w, r, err, errorHandler, marshalOpts)
+				return
+			}
+
+			// Bind query parameters
+			if err := bindQueryParams(r, msg, queryParams); err != nil {
+				writeErrorWithHandler(w, r, err, errorHandler, marshalOpts)
 				return
 			}
 		}
@@ -131,6 +134,30 @@ func filterFlags(content string) string {
 		}
 	}
 	return content
+}
+
+// resolveResponseContentType determines the response serialization format.
+// Per HTTP semantics (RFC 9110), the Accept header governs the desired response format.
+// Falls back to request Content-Type if Accept is absent, then defaults to JSON.
+func resolveResponseContentType(r *http.Request) string {
+	accept := filterFlags(r.Header.Get("Accept"))
+	switch accept {
+	case BinaryContentType, ProtoContentType:
+		return accept
+	case JSONContentType:
+		return JSONContentType
+	case "", "*/*":
+		// No Accept or wildcard: fall back to request Content-Type
+		ct := filterFlags(r.Header.Get("Content-Type"))
+		switch ct {
+		case BinaryContentType, ProtoContentType:
+			return ct
+		default:
+			return JSONContentType
+		}
+	default:
+		return JSONContentType
+	}
 }
 
 func bindDataBasedOnContentType[Req any](r *http.Request, toBind *Req) error {
@@ -380,11 +407,8 @@ func genericHandler[Req any, Res any](serve func(context.Context, Req) (Res, err
 			return
 		}
 
-		// Set Content-Type based on request Content-Type (matching serialization format)
-		respContentType := "application/json"
-		if ct := filterFlags(r.Header.Get("Content-Type")); ct == BinaryContentType || ct == ProtoContentType {
-			respContentType = "application/x-protobuf"
-		}
+		// Set response Content-Type based on Accept header (RFC 9110)
+		respContentType := resolveResponseContentType(r)
 		w.Header().Set("Content-Type", respContentType)
 
 		_, err = w.Write(responseBytes)
@@ -399,23 +423,17 @@ func genericHandler[Req any, Res any](serve func(context.Context, Req) (Res, err
 }
 
 func marshalResponse(r *http.Request, response any, marshalOpts protojson.MarshalOptions) ([]byte, error) {
-	contentType := r.Header.Get("Content-Type")
-	if contentType == "" {
-		contentType = JSONContentType
-	}
+	contentType := resolveResponseContentType(r)
 
 	msg, ok := response.(proto.Message)
 	if !ok {
 		return nil, fmt.Errorf("response is not a protocol buffer message")
 	}
 
-	switch filterFlags(contentType) {
-	case JSONContentType:
-		return marshalJSONWithOpts(msg, marshalOpts)
+	switch contentType {
 	case BinaryContentType, ProtoContentType:
 		return proto.Marshal(msg)
 	default:
-		// Default to JSON for unrecognized content types
 		return marshalJSONWithOpts(msg, marshalOpts)
 	}
 }
@@ -453,26 +471,16 @@ func (rc *responseCapture) Write(b []byte) (int, error) {
 
 // writeProtoMessageResponse writes a protobuf message as an HTTP response
 func writeProtoMessageResponse(w http.ResponseWriter, r *http.Request, msg proto.Message, statusCode int, fallbackMsg string, marshalOpts protojson.MarshalOptions) {
-	contentType := r.Header.Get("Content-Type")
-	if contentType == "" {
-		contentType = JSONContentType
-	}
+	respContentType := resolveResponseContentType(r)
 
 	var responseBytes []byte
 	var err error
-	var respContentType string
 
-	switch filterFlags(contentType) {
-	case JSONContentType:
-		responseBytes, err = marshalJSONWithOpts(msg, marshalOpts)
-		respContentType = "application/json"
+	switch respContentType {
 	case BinaryContentType, ProtoContentType:
 		responseBytes, err = proto.Marshal(msg)
-		respContentType = "application/x-protobuf"
 	default:
-		// Default to JSON for unrecognized content types
 		responseBytes, err = marshalJSONWithOpts(msg, marshalOpts)
-		respContentType = "application/json"
 	}
 
 	if err != nil {
@@ -601,25 +609,16 @@ func writeErrorWithHandler(w http.ResponseWriter, r *http.Request, err error, ha
 
 // writeResponseBody writes the response body without setting status code
 func writeResponseBody(w http.ResponseWriter, r *http.Request, msg proto.Message, marshalOpts protojson.MarshalOptions) {
-	contentType := r.Header.Get("Content-Type")
-	if contentType == "" {
-		contentType = JSONContentType
-	}
+	respContentType := resolveResponseContentType(r)
 
 	var responseBytes []byte
 	var err error
-	var respContentType string
 
-	switch filterFlags(contentType) {
-	case JSONContentType:
-		responseBytes, err = marshalJSONWithOpts(msg, marshalOpts)
-		respContentType = "application/json"
+	switch respContentType {
 	case BinaryContentType, ProtoContentType:
 		responseBytes, err = proto.Marshal(msg)
-		respContentType = "application/x-protobuf"
 	default:
 		responseBytes, err = marshalJSONWithOpts(msg, marshalOpts)
-		respContentType = "application/json"
 	}
 
 	if err != nil {
@@ -923,18 +922,8 @@ func SSEHandler[Req any](
 		}
 
 		req := new(Req)
-		if msg, ok := any(req).(proto.Message); ok {
-			if err := bindPathParams(r, msg, pathParams); err != nil {
-				writeErrorWithHandler(w, r, err, errorHandler, marshalOpts)
-				return
-			}
-			if err := bindQueryParams(r, msg, queryParams); err != nil {
-				writeErrorWithHandler(w, r, err, errorHandler, marshalOpts)
-				return
-			}
-		}
 
-		// Bind body for POST/PUT/PATCH
+		// Bind body FIRST (protojson.Unmarshal calls proto.Reset, which would wipe path/query values)
 		if httpMethod == "POST" || httpMethod == "PUT" || httpMethod == "PATCH" {
 			if err := bindDataBasedOnContentType(r, req); err != nil {
 				validationErr := &sebufhttp.ValidationError{
@@ -946,6 +935,18 @@ func SSEHandler[Req any](
 					},
 				}
 				writeErrorWithHandler(w, r, validationErr, errorHandler, marshalOpts)
+				return
+			}
+		}
+
+		// Bind path and query parameters AFTER body, so URL-stated values always win
+		if msg, ok := any(req).(proto.Message); ok {
+			if err := bindPathParams(r, msg, pathParams); err != nil {
+				writeErrorWithHandler(w, r, err, errorHandler, marshalOpts)
+				return
+			}
+			if err := bindQueryParams(r, msg, queryParams); err != nil {
+				writeErrorWithHandler(w, r, err, errorHandler, marshalOpts)
 				return
 			}
 		}
