@@ -282,6 +282,64 @@ func TestI32_UnmarshalJSONStillPresent(t *testing.T) {
 	}
 }
 
+// TestRepeatedQueryParamsUseAddNotSet verifies that repeated fields (including
+// repeated enums) use for-range + queryParams.Add() instead of scalar zero-value
+// checks + queryParams.Set(). Regression test for #186.
+func TestRepeatedQueryParamsUseAddNotSet(t *testing.T) {
+	s := readGolden(t, "query_params_client.pb.go")
+
+	// Repeated fields must use for-range with Add()
+	repeatedFields := []struct {
+		fieldName string
+		paramName string
+	}{
+		{"Countries", "countries"},
+		{"Years", "years"},
+		{"Flags", "flags"},
+		{"Regions", "regions"},
+	}
+
+	for _, rf := range repeatedFields {
+		// Must contain for-range loop with Add()
+		addPattern := "queryParams.Add(\"" + rf.paramName + "\", fmt.Sprint(v))"
+		if !strings.Contains(s, addPattern) {
+			t.Errorf("repeated field %s: missing queryParams.Add() pattern", rf.fieldName)
+		}
+
+		rangePattern := "for _, v := range req." + rf.fieldName + " {"
+		if !strings.Contains(s, rangePattern) {
+			t.Errorf("repeated field %s: missing for-range loop", rf.fieldName)
+		}
+
+		// Must NOT contain scalar zero-value check with Set()
+		setPattern := "queryParams.Set(\"" + rf.paramName + "\""
+		if strings.Contains(s, setPattern) {
+			t.Errorf("repeated field %s: should use Add() not Set()", rf.fieldName)
+		}
+	}
+
+	// Scalar fields must still use Set() (not Add())
+	scalarChecks := []struct {
+		fieldName string
+		paramName string
+		zeroCheck string
+	}{
+		{"Region", "region", "req.Region != 0"},
+		{"Keyword", "keyword", `req.Keyword != ""`},
+	}
+
+	for _, sc := range scalarChecks {
+		setPattern := "queryParams.Set(\"" + sc.paramName + "\""
+		if !strings.Contains(s, setPattern) {
+			t.Errorf("scalar field %s: missing queryParams.Set()", sc.fieldName)
+		}
+
+		if !strings.Contains(s, sc.zeroCheck) {
+			t.Errorf("scalar field %s: missing zero-value check %q", sc.fieldName, sc.zeroCheck)
+		}
+	}
+}
+
 // TestEnumTypesNoUnmarshalJSONSebuf verifies enums don't get the new interface.
 func TestEnumTypesNoUnmarshalJSONSebuf(t *testing.T) {
 	s := readGolden(t, "enum_encoding_enum_encoding.pb.go")

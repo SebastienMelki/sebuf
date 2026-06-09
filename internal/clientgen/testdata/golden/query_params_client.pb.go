@@ -491,20 +491,20 @@ func (c *queryParamServiceClient) SearchAdvanced(ctx context.Context, req *Searc
 	if req.Region != 0 {
 		queryParams.Set("region", fmt.Sprint(req.Region))
 	}
-	if req.Countries != "" {
-		queryParams.Set("countries", fmt.Sprint(req.Countries))
+	for _, v := range req.Countries {
+		queryParams.Add("countries", fmt.Sprint(v))
 	}
 	if req.Keyword != "" {
 		queryParams.Set("keyword", fmt.Sprint(req.Keyword))
 	}
-	if req.Years != 0 {
-		queryParams.Set("years", fmt.Sprint(req.Years))
+	for _, v := range req.Years {
+		queryParams.Add("years", fmt.Sprint(v))
 	}
-	if req.Flags != false {
-		queryParams.Set("flags", fmt.Sprint(req.Flags))
+	for _, v := range req.Flags {
+		queryParams.Add("flags", fmt.Sprint(v))
 	}
-	if req.Regions != 0 {
-		queryParams.Set("regions", fmt.Sprint(req.Regions))
+	for _, v := range req.Regions {
+		queryParams.Add("regions", fmt.Sprint(v))
 	}
 	if len(queryParams) > 0 {
 		reqURL += "?" + queryParams.Encode()

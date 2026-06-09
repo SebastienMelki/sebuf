@@ -122,6 +122,60 @@ func (x *GetByAssetClassRequest) GetTimeframe() models.Timeframe {
 	return models.Timeframe(0)
 }
 
+type SearchByAssetClassesRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Repeated enum as query param - accepts multiple values: ?class=ASSET_CLASS_EQUITY&class=ASSET_CLASS_CRYPTO
+	AssetClasses []models.AssetClass `protobuf:"varint,1,rep,packed,name=asset_classes,json=assetClasses,proto3,enum=examples.enumparams.models.AssetClass" json:"asset_classes,omitempty"`
+	// Repeated string query param for keyword tags
+	Tags          []string `protobuf:"bytes,2,rep,name=tags,proto3" json:"tags,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SearchByAssetClassesRequest) Reset() {
+	*x = SearchByAssetClassesRequest{}
+	mi := &file_proto_services_portfolio_service_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SearchByAssetClassesRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SearchByAssetClassesRequest) ProtoMessage() {}
+
+func (x *SearchByAssetClassesRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_services_portfolio_service_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SearchByAssetClassesRequest.ProtoReflect.Descriptor instead.
+func (*SearchByAssetClassesRequest) Descriptor() ([]byte, []int) {
+	return file_proto_services_portfolio_service_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *SearchByAssetClassesRequest) GetAssetClasses() []models.AssetClass {
+	if x != nil {
+		return x.AssetClasses
+	}
+	return nil
+}
+
+func (x *SearchByAssetClassesRequest) GetTags() []string {
+	if x != nil {
+		return x.Tags
+	}
+	return nil
+}
+
 var File_proto_services_portfolio_service_proto protoreflect.FileDescriptor
 
 const file_proto_services_portfolio_service_proto_rawDesc = "" +
@@ -134,13 +188,20 @@ const file_proto_services_portfolio_service_proto_rawDesc = "" +
 	"\vasset_class\x18\x01 \x01(\x0e2&.examples.enumparams.models.AssetClassR\n" +
 	"assetClass\x12T\n" +
 	"\ttimeframe\x18\x02 \x01(\x0e2%.examples.enumparams.models.TimeframeB\x0fµ\x18\v\n" +
-	"\ttimeframeR\ttimeframe2\xcd\x02\n" +
+	"\ttimeframeR\ttimeframe\"\x96\x01\n" +
+	"\x1bSearchByAssetClassesRequest\x12X\n" +
+	"\rasset_classes\x18\x01 \x03(\x0e2&.examples.enumparams.models.AssetClassB\vµ\x18\a\n" +
+	"\x05classR\fassetClasses\x12\x1d\n" +
+	"\x04tags\x18\x02 \x03(\tB\tµ\x18\x05\n" +
+	"\x03tagR\x04tags2\xea\x03\n" +
 	"\x10PortfolioService\x12\x83\x01\n" +
 	"\fGetPortfolio\x121.examples.enumparams.services.GetPortfolioRequest\x1a,.examples.enumparams.models.PortfolioSummary\"\x12\x9a\xb5\x18\x0e\n" +
 	"\n" +
 	"/portfolio\x10\x01\x12\xa3\x01\n" +
 	"\x0fGetByAssetClass\x124.examples.enumparams.services.GetByAssetClassRequest\x1a,.examples.enumparams.models.PortfolioSummary\",\x9a\xb5\x18(\n" +
-	"$/portfolio/asset-class/{asset_class}\x10\x01\x1a\r\xa2\xb5\x18\t\n" +
+	"$/portfolio/asset-class/{asset_class}\x10\x01\x12\x9a\x01\n" +
+	"\x14SearchByAssetClasses\x129.examples.enumparams.services.SearchByAssetClassesRequest\x1a,.examples.enumparams.models.PortfolioSummary\"\x19\x9a\xb5\x18\x15\n" +
+	"\x11/portfolio/search\x10\x01\x1a\r\xa2\xb5\x18\t\n" +
 	"\a/api/v1B\x94\x02\n" +
 	" com.examples.enumparams.servicesB\x15PortfolioServiceProtoP\x01ZGgithub.com/SebastienMelki/sebuf/examples/enum-params/api/proto/services\xa2\x02\x03EES\xaa\x02\x1cExamples.Enumparams.Services\xca\x02\x1cExamples\\Enumparams\\Services\xe2\x02(Examples\\Enumparams\\Services\\GPBMetadata\xea\x02\x1eExamples::Enumparams::Servicesb\x06proto3"
 
@@ -156,27 +217,31 @@ func file_proto_services_portfolio_service_proto_rawDescGZIP() []byte {
 	return file_proto_services_portfolio_service_proto_rawDescData
 }
 
-var file_proto_services_portfolio_service_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
+var file_proto_services_portfolio_service_proto_msgTypes = make([]protoimpl.MessageInfo, 3)
 var file_proto_services_portfolio_service_proto_goTypes = []any{
-	(*GetPortfolioRequest)(nil),     // 0: examples.enumparams.services.GetPortfolioRequest
-	(*GetByAssetClassRequest)(nil),  // 1: examples.enumparams.services.GetByAssetClassRequest
-	(models.Timeframe)(0),           // 2: examples.enumparams.models.Timeframe
-	(models.AssetClass)(0),          // 3: examples.enumparams.models.AssetClass
-	(*models.PortfolioSummary)(nil), // 4: examples.enumparams.models.PortfolioSummary
+	(*GetPortfolioRequest)(nil),         // 0: examples.enumparams.services.GetPortfolioRequest
+	(*GetByAssetClassRequest)(nil),      // 1: examples.enumparams.services.GetByAssetClassRequest
+	(*SearchByAssetClassesRequest)(nil), // 2: examples.enumparams.services.SearchByAssetClassesRequest
+	(models.Timeframe)(0),               // 3: examples.enumparams.models.Timeframe
+	(models.AssetClass)(0),              // 4: examples.enumparams.models.AssetClass
+	(*models.PortfolioSummary)(nil),     // 5: examples.enumparams.models.PortfolioSummary
 }
 var file_proto_services_portfolio_service_proto_depIdxs = []int32{
-	2, // 0: examples.enumparams.services.GetPortfolioRequest.timeframe:type_name -> examples.enumparams.models.Timeframe
-	3, // 1: examples.enumparams.services.GetByAssetClassRequest.asset_class:type_name -> examples.enumparams.models.AssetClass
-	2, // 2: examples.enumparams.services.GetByAssetClassRequest.timeframe:type_name -> examples.enumparams.models.Timeframe
-	0, // 3: examples.enumparams.services.PortfolioService.GetPortfolio:input_type -> examples.enumparams.services.GetPortfolioRequest
-	1, // 4: examples.enumparams.services.PortfolioService.GetByAssetClass:input_type -> examples.enumparams.services.GetByAssetClassRequest
-	4, // 5: examples.enumparams.services.PortfolioService.GetPortfolio:output_type -> examples.enumparams.models.PortfolioSummary
-	4, // 6: examples.enumparams.services.PortfolioService.GetByAssetClass:output_type -> examples.enumparams.models.PortfolioSummary
-	5, // [5:7] is the sub-list for method output_type
-	3, // [3:5] is the sub-list for method input_type
-	3, // [3:3] is the sub-list for extension type_name
-	3, // [3:3] is the sub-list for extension extendee
-	0, // [0:3] is the sub-list for field type_name
+	3, // 0: examples.enumparams.services.GetPortfolioRequest.timeframe:type_name -> examples.enumparams.models.Timeframe
+	4, // 1: examples.enumparams.services.GetByAssetClassRequest.asset_class:type_name -> examples.enumparams.models.AssetClass
+	3, // 2: examples.enumparams.services.GetByAssetClassRequest.timeframe:type_name -> examples.enumparams.models.Timeframe
+	4, // 3: examples.enumparams.services.SearchByAssetClassesRequest.asset_classes:type_name -> examples.enumparams.models.AssetClass
+	0, // 4: examples.enumparams.services.PortfolioService.GetPortfolio:input_type -> examples.enumparams.services.GetPortfolioRequest
+	1, // 5: examples.enumparams.services.PortfolioService.GetByAssetClass:input_type -> examples.enumparams.services.GetByAssetClassRequest
+	2, // 6: examples.enumparams.services.PortfolioService.SearchByAssetClasses:input_type -> examples.enumparams.services.SearchByAssetClassesRequest
+	5, // 7: examples.enumparams.services.PortfolioService.GetPortfolio:output_type -> examples.enumparams.models.PortfolioSummary
+	5, // 8: examples.enumparams.services.PortfolioService.GetByAssetClass:output_type -> examples.enumparams.models.PortfolioSummary
+	5, // 9: examples.enumparams.services.PortfolioService.SearchByAssetClasses:output_type -> examples.enumparams.models.PortfolioSummary
+	7, // [7:10] is the sub-list for method output_type
+	4, // [4:7] is the sub-list for method input_type
+	4, // [4:4] is the sub-list for extension type_name
+	4, // [4:4] is the sub-list for extension extendee
+	0, // [0:4] is the sub-list for field type_name
 }
 
 func init() { file_proto_services_portfolio_service_proto_init() }
@@ -190,7 +255,7 @@ func file_proto_services_portfolio_service_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_services_portfolio_service_proto_rawDesc), len(file_proto_services_portfolio_service_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   2,
+			NumMessages:   3,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

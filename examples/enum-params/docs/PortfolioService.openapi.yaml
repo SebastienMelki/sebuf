@@ -75,6 +75,55 @@ paths:
                         application/json:
                             schema:
                                 $ref: '#/components/schemas/Error'
+    /api/v1/portfolio/search:
+        get:
+            tags:
+                - PortfolioService
+            summary: SearchByAssetClasses
+            description: |-
+                SearchByAssetClasses returns holdings matching any of the given asset classes
+                 (repeated enum query param). Regression test for #186.
+            operationId: SearchByAssetClasses
+            parameters:
+                - name: class
+                  in: query
+                  description: 'Repeated enum as query param - accepts multiple values: ?class=ASSET_CLASS_EQUITY&class=ASSET_CLASS_CRYPTO'
+                  required: false
+                  style: form
+                  explode: true
+                  schema:
+                    type: array
+                    items:
+                        type: string
+                - name: tag
+                  in: query
+                  description: Repeated string query param for keyword tags
+                  required: false
+                  style: form
+                  explode: true
+                  schema:
+                    type: array
+                    items:
+                        type: string
+            responses:
+                "200":
+                    description: Successful response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/PortfolioSummary'
+                "400":
+                    description: Validation error
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ValidationError'
+                default:
+                    description: Error response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Error'
 components:
     schemas:
         Error:
@@ -202,3 +251,22 @@ components:
                         - TIMEFRAME_1Y
                         - TIMEFRAME_ALL
                     description: Timeframe for portfolio data aggregation.
+        SearchByAssetClassesRequest:
+            type: object
+            properties:
+                assetClasses:
+                    type: array
+                    items:
+                        type: string
+                        enum:
+                            - ASSET_CLASS_UNSPECIFIED
+                            - ASSET_CLASS_EQUITY
+                            - ASSET_CLASS_FIXED_INCOME
+                            - ASSET_CLASS_COMMODITY
+                            - ASSET_CLASS_CRYPTO
+                        description: AssetClass categorizes financial instruments.
+                tags:
+                    type: array
+                    items:
+                        type: string
+                        description: Repeated string query param for keyword tags

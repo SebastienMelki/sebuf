@@ -9,7 +9,7 @@ import (
 )
 
 // TestGoGeneratorsProduceIdenticalOneofDiscriminator verifies go-http and go-client
-// produce identical oneof_discriminator encoding code.
+// produce identical oneof_discriminator MarshalJSON code.
 func TestGoGeneratorsProduceIdenticalOneofDiscriminator(t *testing.T) {
 	baseDir, baseErr := os.Getwd()
 	if baseErr != nil {
@@ -20,34 +20,10 @@ func TestGoGeneratorsProduceIdenticalOneofDiscriminator(t *testing.T) {
 		baseDir, "testdata", "golden", "oneof_discriminator_oneof_discriminator.pb.go",
 	)
 	clientgenFile := filepath.Join(
-		baseDir,
-		"..",
-		"clientgen",
-		"testdata",
-		"golden",
+		baseDir, "..", "clientgen", "testdata", "golden",
 		"oneof_discriminator_oneof_discriminator.pb.go",
 	)
-
-	httpgenContent, httpErr := os.ReadFile(httpgenFile)
-	if httpErr != nil {
-		t.Fatalf("Failed to read httpgen oneof_discriminator golden file: %v", httpErr)
-	}
-
-	clientgenContent, clientErr := os.ReadFile(clientgenFile)
-	if clientErr != nil {
-		t.Fatalf("Failed to read clientgen oneof_discriminator golden file: %v", clientErr)
-	}
-
-	// Normalize the source comment (generator name differs)
-	httpgenNormalized := normalizeGeneratorComment(string(httpgenContent), "go-http")
-	clientgenNormalized := normalizeGeneratorComment(string(clientgenContent), "go-client")
-
-	if httpgenNormalized != clientgenNormalized {
-		t.Errorf("go-http and go-client oneof_discriminator code differs after normalization")
-		t.Logf("First difference:\n%s", findFirstDifference(httpgenNormalized, clientgenNormalized))
-	} else {
-		t.Log("go-http and go-client produce identical oneof_discriminator code")
-	}
+	compareEncodingFiles(t, httpgenFile, clientgenFile, "oneof_discriminator")
 }
 
 // TestOneofDiscriminatorTypeScriptTypes verifies TypeScript types match Go serialization

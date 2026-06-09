@@ -39,6 +39,7 @@ type sebufUnmarshaler interface {
 type PortfolioServiceClient interface {
 	GetPortfolio(ctx context.Context, req *GetPortfolioRequest, opts ...PortfolioServiceCallOption) (*models.PortfolioSummary, error)
 	GetByAssetClass(ctx context.Context, req *GetByAssetClassRequest, opts ...PortfolioServiceCallOption) (*models.PortfolioSummary, error)
+	SearchByAssetClasses(ctx context.Context, req *SearchByAssetClassesRequest, opts ...PortfolioServiceCallOption) (*models.PortfolioSummary, error)
 }
 
 // portfolioServiceClient is the implementation of PortfolioServiceClient.
@@ -228,6 +229,82 @@ func (c *portfolioServiceClient) GetByAssetClass(ctx context.Context, req *GetBy
 	queryParams := url.Values{}
 	if req.Timeframe != 0 {
 		queryParams.Set("timeframe", fmt.Sprint(req.Timeframe))
+	}
+	if len(queryParams) > 0 {
+		reqURL += "?" + queryParams.Encode()
+	}
+
+	contentType := c.contentType
+	if callOpts.contentType != "" {
+		contentType = callOpts.contentType
+	}
+
+	// Create HTTP request
+	httpReq, err := http.NewRequestWithContext(ctx, "GET", reqURL, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	// Set headers
+	httpReq.Header.Set("Content-Type", contentType)
+	for k, v := range c.defaultHeaders {
+		httpReq.Header.Set(k, v)
+	}
+	for k, v := range callOpts.headers {
+		httpReq.Header.Set(k, v)
+	}
+
+	// Execute request
+	resp, err := c.httpClient.Do(httpReq)
+	if err != nil {
+		return nil, fmt.Errorf("failed to execute request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	// Read response body
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response body: %w", err)
+	}
+
+	// Check for error status codes
+	if resp.StatusCode >= 400 {
+		return nil, c.handleErrorResponse(resp.StatusCode, respBody, contentType)
+	}
+
+	// Resolve discardUnknownFields: per-call option overrides client default
+	discardUnknown := c.discardUnknownFields
+	if callOpts.discardUnknownFields != nil {
+		discardUnknown = *callOpts.discardUnknownFields
+	}
+
+	// Unmarshal response
+	result := &models.PortfolioSummary{}
+	if err := c.unmarshalResponse(respBody, result, contentType, discardUnknown); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal response: %w", err)
+	}
+
+	return result, nil
+}
+
+// SearchByAssetClasses calls the SearchByAssetClasses RPC.
+func (c *portfolioServiceClient) SearchByAssetClasses(ctx context.Context, req *SearchByAssetClassesRequest, opts ...PortfolioServiceCallOption) (*models.PortfolioSummary, error) {
+	callOpts := &portfolioServiceCallOptions{}
+	for _, opt := range opts {
+		opt(callOpts)
+	}
+
+	// Build URL
+	path := "/api/v1/portfolio/search"
+	reqURL := c.baseURL + path
+
+	// Add query parameters
+	queryParams := url.Values{}
+	for _, v := range req.AssetClasses {
+		queryParams.Add("class", fmt.Sprint(v))
+	}
+	for _, v := range req.Tags {
+		queryParams.Add("tag", fmt.Sprint(v))
 	}
 	if len(queryParams) > 0 {
 		reqURL += "?" + queryParams.Encode()

@@ -89,6 +89,47 @@ STATUS=$(curl -s -o /dev/null -w '%{http_code}' \
 check "GET /portfolio?timeframe= -> 200 (empty = unset)" "$STATUS" "200"
 
 echo ""
+echo "=== #186 Regression: Repeated enum query parameters ==="
+echo ""
+
+# Test 9: Repeated enum query param - single value
+echo "Test 9: Repeated enum query param - single value"
+BODY=$(curl -s "http://localhost:$PORT/api/v1/portfolio/search?class=ASSET_CLASS_EQUITY")
+STATUS=$(curl -s -o /dev/null -w '%{http_code}' \
+    "http://localhost:$PORT/api/v1/portfolio/search?class=ASSET_CLASS_EQUITY")
+check "GET /portfolio/search?class=ASSET_CLASS_EQUITY -> 200" "$STATUS" "200"
+check_contains "Response contains AAPL" "$BODY" "AAPL"
+
+# Test 10: Repeated enum query param - multiple values
+echo "Test 10: Repeated enum query param - multiple values"
+BODY=$(curl -s "http://localhost:$PORT/api/v1/portfolio/search?class=ASSET_CLASS_EQUITY&class=ASSET_CLASS_CRYPTO")
+STATUS=$(curl -s -o /dev/null -w '%{http_code}' \
+    "http://localhost:$PORT/api/v1/portfolio/search?class=ASSET_CLASS_EQUITY&class=ASSET_CLASS_CRYPTO")
+check "GET /portfolio/search?class=...EQUITY&class=...CRYPTO -> 200" "$STATUS" "200"
+check_contains "Response contains equity holding (AAPL)" "$BODY" "AAPL"
+check_contains "Response contains crypto holding (BTC)" "$BODY" "BTC"
+
+# Test 11: Repeated enum query param by number
+echo "Test 11: Repeated enum query param by number"
+STATUS=$(curl -s -o /dev/null -w '%{http_code}' \
+    "http://localhost:$PORT/api/v1/portfolio/search?class=1&class=4")
+check "GET /portfolio/search?class=1&class=4 -> 200" "$STATUS" "200"
+
+# Test 12: Repeated enum query param - no values returns all
+echo "Test 12: No class param returns all holdings"
+BODY=$(curl -s "http://localhost:$PORT/api/v1/portfolio/search")
+STATUS=$(curl -s -o /dev/null -w '%{http_code}' \
+    "http://localhost:$PORT/api/v1/portfolio/search")
+check "GET /portfolio/search -> 200" "$STATUS" "200"
+check_contains "Response contains count of all holdings" "$BODY" '"count":5'
+
+# Test 13: Repeated enum query param - invalid value
+echo "Test 13: Repeated enum query param - invalid value"
+STATUS=$(curl -s -o /dev/null -w '%{http_code}' \
+    "http://localhost:$PORT/api/v1/portfolio/search?class=BOGUS")
+check "GET /portfolio/search?class=BOGUS -> 400" "$STATUS" "400"
+
+echo ""
 if [ $FAIL -eq 0 ]; then
     echo "All tests passed."
 else
