@@ -1,0 +1,204 @@
+openapi: 3.1.0
+info:
+    title: PortfolioService API
+    version: 1.0.0
+paths:
+    /api/v1/portfolio:
+        get:
+            tags:
+                - PortfolioService
+            summary: GetPortfolio
+            description: GetPortfolio returns the portfolio filtered by timeframe (enum query param).
+            operationId: GetPortfolio
+            parameters:
+                - name: timeframe
+                  in: query
+                  description: Enum as query parameter - accepts name (TIMEFRAME_1D) or number (1)
+                  required: false
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    description: Successful response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/PortfolioSummary'
+                "400":
+                    description: Validation error
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ValidationError'
+                default:
+                    description: Error response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Error'
+    /api/v1/portfolio/asset-class/{asset_class}:
+        get:
+            tags:
+                - PortfolioService
+            summary: GetByAssetClass
+            description: GetByAssetClass returns holdings for a specific asset class (enum path param).
+            operationId: GetByAssetClass
+            parameters:
+                - name: asset_class
+                  in: path
+                  description: Enum as path parameter - accepts name (ASSET_CLASS_EQUITY) or number (1)
+                  required: true
+                  schema:
+                    type: string
+                - name: timeframe
+                  in: query
+                  description: Additional query filter alongside the enum path param
+                  required: false
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    description: Successful response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/PortfolioSummary'
+                "400":
+                    description: Validation error
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ValidationError'
+                default:
+                    description: Error response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Error'
+components:
+    schemas:
+        Error:
+            type: object
+            properties:
+                message:
+                    type: string
+                    description: Error message (e.g., 'user not found', 'database connection failed')
+            description: Error is returned when a handler encounters an error. It contains a simple error message that the developer can customize.
+        FieldViolation:
+            type: object
+            properties:
+                field:
+                    type: string
+                    description: The field path that failed validation (e.g., 'user.email' for nested fields). For header validation, this will be the header name (e.g., 'X-API-Key')
+                description:
+                    type: string
+                    description: Human-readable description of the validation violation (e.g., 'must be a valid email address', 'required field missing')
+            required:
+                - field
+                - description
+            description: FieldViolation describes a single validation error for a specific field.
+        ValidationError:
+            type: object
+            properties:
+                violations:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/FieldViolation'
+                    description: List of validation violations
+            required:
+                - violations
+            description: ValidationError is returned when request validation fails. It contains a list of field violations describing what went wrong.
+        GetPortfolioRequest:
+            type: object
+            properties:
+                timeframe:
+                    type: string
+                    enum:
+                        - TIMEFRAME_UNSPECIFIED
+                        - TIMEFRAME_1D
+                        - TIMEFRAME_1W
+                        - TIMEFRAME_1M
+                        - TIMEFRAME_3M
+                        - TIMEFRAME_1Y
+                        - TIMEFRAME_ALL
+                    description: Timeframe for portfolio data aggregation.
+        PortfolioSummary:
+            type: object
+            properties:
+                holdings:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/Holding'
+                totalValue:
+                    type: number
+                    format: double
+                timeframe:
+                    type: string
+                    enum:
+                        - TIMEFRAME_UNSPECIFIED
+                        - TIMEFRAME_1D
+                        - TIMEFRAME_1W
+                        - TIMEFRAME_1M
+                        - TIMEFRAME_3M
+                        - TIMEFRAME_1Y
+                        - TIMEFRAME_ALL
+                    description: Timeframe for portfolio data aggregation.
+                count:
+                    type: integer
+                    format: int32
+            description: PortfolioSummary is the response for portfolio queries.
+        Holding:
+            type: object
+            properties:
+                symbol:
+                    type: string
+                    examples:
+                        - AAPL
+                    example: AAPL
+                name:
+                    type: string
+                    examples:
+                        - Apple Inc.
+                    example: Apple Inc.
+                assetClass:
+                    type: string
+                    enum:
+                        - ASSET_CLASS_UNSPECIFIED
+                        - ASSET_CLASS_EQUITY
+                        - ASSET_CLASS_FIXED_INCOME
+                        - ASSET_CLASS_COMMODITY
+                        - ASSET_CLASS_CRYPTO
+                    description: AssetClass categorizes financial instruments.
+                quantity:
+                    type: number
+                    format: double
+                currentPrice:
+                    type: number
+                    format: double
+                totalValue:
+                    type: number
+                    format: double
+            description: Holding represents a single portfolio holding.
+        GetByAssetClassRequest:
+            type: object
+            properties:
+                assetClass:
+                    type: string
+                    enum:
+                        - ASSET_CLASS_UNSPECIFIED
+                        - ASSET_CLASS_EQUITY
+                        - ASSET_CLASS_FIXED_INCOME
+                        - ASSET_CLASS_COMMODITY
+                        - ASSET_CLASS_CRYPTO
+                    description: AssetClass categorizes financial instruments.
+                timeframe:
+                    type: string
+                    enum:
+                        - TIMEFRAME_UNSPECIFIED
+                        - TIMEFRAME_1D
+                        - TIMEFRAME_1W
+                        - TIMEFRAME_1M
+                        - TIMEFRAME_3M
+                        - TIMEFRAME_1Y
+                        - TIMEFRAME_ALL
+                    description: Timeframe for portfolio data aggregation.

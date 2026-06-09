@@ -16,6 +16,7 @@ type QueryParamServiceServer interface {
 	SearchCustomNames(context.Context, *SearchCustomNamesRequest) (*SearchResponse, error)
 	GetWithFilters(context.Context, *GetWithFiltersRequest) (*SearchResponse, error)
 	SearchAdvanced(context.Context, *SearchAdvancedRequest) (*SearchResponse, error)
+	GetByRegion(context.Context, *GetByRegionRequest) (*SearchResponse, error)
 	GetDefaults(context.Context, *EmptyRequest) (*SearchResponse, error)
 }
 
@@ -70,6 +71,15 @@ func RegisterQueryParamServiceServer(server QueryParamServiceServer, opts ...Ser
 
 	config.mux.Handle("GET /api/search/advanced", searchAdvancedHandler)
 
+	methodHeaders = getGetByRegionHeaders()
+	getByRegionHandler := BindingMiddleware[GetByRegionRequest](
+		genericHandler(server.GetByRegion, config.errorHandler, config.marshalOpts), serviceHeaders, methodHeaders,
+		getByRegionPathParams, getByRegionQueryParams,
+		"GET", config.errorHandler, config.marshalOpts,
+	)
+
+	config.mux.Handle("GET /api/regions/{region}", getByRegionHandler)
+
 	methodHeaders = getGetDefaultsHeaders()
 	getDefaultsHandler := BindingMiddleware[EmptyRequest](
 		genericHandler(server.GetDefaults, config.errorHandler, config.marshalOpts), serviceHeaders, methodHeaders,
@@ -109,6 +119,11 @@ func getGetWithFiltersHeaders() []*sebufhttp.Header {
 
 // getSearchAdvancedHeaders returns the method-level required headers for SearchAdvanced
 func getSearchAdvancedHeaders() []*sebufhttp.Header {
+	return nil
+}
+
+// getGetByRegionHeaders returns the method-level required headers for GetByRegion
+func getGetByRegionHeaders() []*sebufhttp.Header {
 	return nil
 }
 
@@ -175,6 +190,17 @@ var searchAdvancedQueryParams = []QueryParamConfig{
 	{QueryName: "keyword", FieldName: "keyword", Required: false},
 	{QueryName: "years", FieldName: "years", Required: false},
 	{QueryName: "flags", FieldName: "flags", Required: false},
+	{QueryName: "regions", FieldName: "regions", Required: false},
+}
+
+// getByRegionPathParams contains path parameter configuration for GetByRegion
+var getByRegionPathParams = []PathParamConfig{
+	{URLParam: "region", FieldName: "region"},
+}
+
+// getByRegionQueryParams contains query parameter configuration for GetByRegion
+var getByRegionQueryParams = []QueryParamConfig{
+	{QueryName: "keyword", FieldName: "keyword", Required: false},
 }
 
 // getDefaultsPathParams contains path parameter configuration for GetDefaults

@@ -1030,6 +1030,8 @@ func getZeroValue(qp annotations.QueryParam) string {
 		return "0"
 	case "float", "double":
 		return "0"
+	case "enum":
+		return "0"
 	default:
 		return `""`
 	}

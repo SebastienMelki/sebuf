@@ -342,6 +342,68 @@ The final HTTP path is determined by:
    // Results in: POST /userapi/create_user (no annotations)
    ```
 
+## Supported Query & Path Parameter Types
+
+Query and path parameters support the following scalar types:
+
+| Proto Type | Example | Notes |
+|-----------|---------|-------|
+| `string` | `?name=alice` | |
+| `int32`, `sint32`, `sfixed32` | `?page=2` | |
+| `int64`, `sint64`, `sfixed64` | `?offset=100` | |
+| `uint32`, `fixed32` | `?limit=50` | |
+| `uint64`, `fixed64` | `?ts=1700000000` | |
+| `bool` | `?active=true` | |
+| `float`, `double` | `?min_score=3.5` | |
+| `enum` | `?region=REGION_AMERICAS` or `?region=1` | Accepts proto enum name (case-sensitive) or numeric value |
+
+Repeated fields are supported for query parameters (`?tags=a&tags=b`).
+
+### Enum Parameters
+
+Enum fields work as both query and path parameters. They accept:
+
+- **Proto enum name** (case-sensitive): `REGION_AMERICAS`, `STATUS_ACTIVE`
+- **Numeric value**: `1`, `2` — unknown numbers are accepted for proto3 forward-compatibility
+- **Empty string**: treated as unset (field keeps its zero value)
+
+Invalid enum names return a 400 validation error mentioning the enum type.
+
+```protobuf
+enum Region {
+  REGION_UNSPECIFIED = 0;
+  REGION_AMERICAS = 1;
+  REGION_EUROPE = 2;
+  REGION_ASIA = 3;
+}
+
+service SearchService {
+  // Enum as query parameter
+  rpc Search(SearchRequest) returns (SearchResponse) {
+    option (sebuf.http.config) = {
+      path: "/search"
+      method: HTTP_METHOD_GET
+    };
+  }
+  // Enum as path parameter
+  rpc GetByRegion(GetByRegionRequest) returns (SearchResponse) {
+    option (sebuf.http.config) = {
+      path: "/regions/{region}"
+      method: HTTP_METHOD_GET
+    };
+  }
+}
+
+message SearchRequest {
+  Region region = 1 [(sebuf.http.query) = { name: "region" }];
+  repeated Region regions = 2 [(sebuf.http.query) = { name: "regions" }];
+}
+
+message GetByRegionRequest {
+  Region region = 1;
+}
+```
+
 ## Field Examples
 
 Add example values to protobuf fields using the `field_examples` annotation. These examples are used in OpenAPI documentation and mock server generation.

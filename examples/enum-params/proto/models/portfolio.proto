@@ -1,0 +1,43 @@
+syntax = "proto3";
+
+package examples.enumparams.models;
+
+import "sebuf/http/annotations.proto";
+
+// Timeframe for portfolio data aggregation.
+enum Timeframe {
+  TIMEFRAME_UNSPECIFIED = 0;
+  TIMEFRAME_1D = 1;
+  TIMEFRAME_1W = 2;
+  TIMEFRAME_1M = 3;
+  TIMEFRAME_3M = 4;
+  TIMEFRAME_1Y = 5;
+  TIMEFRAME_ALL = 6;
+}
+
+// AssetClass categorizes financial instruments.
+enum AssetClass {
+  ASSET_CLASS_UNSPECIFIED = 0;
+  ASSET_CLASS_EQUITY = 1;
+  ASSET_CLASS_FIXED_INCOME = 2;
+  ASSET_CLASS_COMMODITY = 3;
+  ASSET_CLASS_CRYPTO = 4;
+}
+
+// Holding represents a single portfolio holding.
+message Holding {
+  string symbol = 1 [(sebuf.http.field_examples) = { values: ["AAPL"] }];
+  string name = 2 [(sebuf.http.field_examples) = { values: ["Apple Inc."] }];
+  AssetClass asset_class = 3;
+  double quantity = 4;
+  double current_price = 5;
+  double total_value = 6;
+}
+
+// PortfolioSummary is the response for portfolio queries.
+message PortfolioSummary {
+  repeated Holding holdings = 1;
+  double total_value = 2;
+  Timeframe timeframe = 3;
+  int32 count = 4;
+}
