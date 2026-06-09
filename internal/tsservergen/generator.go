@@ -637,7 +637,11 @@ func (g *Generator) generatePathParamMerge(p tscommon.Printer, cfg *rpcRouteConf
 	}
 	for _, ppf := range cfg.pathParamFields {
 		if ppf.field != nil && ppf.field.Desc.Kind() == protoreflect.EnumKind && ppf.field.Enum != nil {
-			p("          body.%s = pathParams[\"%s\"] as %s;", ppf.jsonName, ppf.protoName, string(ppf.field.Enum.Desc.Name()))
+			enumName := string(ppf.field.Enum.Desc.Name())
+			p(
+				"          body.%s = pathParams[\"%s\"] as %s;",
+				ppf.jsonName, ppf.protoName, enumName,
+			)
 		} else {
 			p("          body.%s = pathParams[\"%s\"];", ppf.jsonName, ppf.protoName)
 		}
