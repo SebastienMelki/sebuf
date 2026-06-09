@@ -283,9 +283,9 @@ func (g *Generator) resolveOutputType(method *protogen.Method) string {
 
 // pathParamField maps a URL path parameter to its corresponding request message field.
 type pathParamField struct {
-	protoName string         // proto field name, e.g. "resource_id"
-	jsonName  string         // JSON/TS field name, e.g. "resourceId"
-	field     *protogen.Field // protogen field for type information (e.g., enum casting)
+	protoName string // proto field name, e.g. "resource_id"
+	jsonName  string // JSON/TS field name, e.g. "resourceId"
+	field     *protogen.Field
 }
 
 // rpcRouteConfig holds config for generating a route handler.
@@ -612,9 +612,18 @@ func (g *Generator) generateSSERouteEntry(
 }
 
 // emitPathParamAssignment emits a single path param assignment with enum casting if needed.
-func emitPathParamAssignment(p tscommon.Printer, ppf pathParamField, prefix string, suffix string) {
+func emitPathParamAssignment(
+	p tscommon.Printer,
+	ppf pathParamField,
+	prefix string,
+	suffix string,
+) {
 	if ppf.field != nil && ppf.field.Desc.Kind() == protoreflect.EnumKind && ppf.field.Enum != nil {
-		p("%s%s: pathParams[\"%s\"] as %s%s", prefix, ppf.jsonName, ppf.protoName, string(ppf.field.Enum.Desc.Name()), suffix)
+		enumName := string(ppf.field.Enum.Desc.Name())
+		p(
+			"%s%s: pathParams[\"%s\"] as %s%s",
+			prefix, ppf.jsonName, ppf.protoName, enumName, suffix,
+		)
 	} else {
 		p("%s%s: pathParams[\"%s\"]%s", prefix, ppf.jsonName, ppf.protoName, suffix)
 	}

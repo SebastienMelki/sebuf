@@ -669,7 +669,9 @@ func (g *Generator) generateBindingFile(file *protogen.File) error {
 
 	// convertStringToFieldValue function - converts string values to protoreflect.Value
 	gf.P("// convertStringToFieldValue converts a string value to the appropriate protoreflect.Value.")
-	gf.P("func convertStringToFieldValue(value string, field protoreflect.FieldDescriptor) (protoreflect.Value, error) {")
+	gf.P(
+		"func convertStringToFieldValue(value string, field protoreflect.FieldDescriptor) (protoreflect.Value, error) {",
+	)
 	gf.P("switch field.Kind() {")
 	gf.P("case protoreflect.EnumKind:")
 	gf.P("// Try numeric value first — accept unknown numbers for proto3 forward-compat")
