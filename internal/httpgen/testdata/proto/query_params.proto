@@ -53,6 +53,14 @@ service QueryParamService {
     };
   }
 
+  // Enum as path parameter
+  rpc GetByRegion(GetByRegionRequest) returns (SearchResponse) {
+    option (sebuf.http.config) = {
+      path: "/regions/{region}"
+      method: HTTP_METHOD_GET
+    };
+  }
+
   // RPC with empty request message
   rpc GetDefaults(EmptyRequest) returns (SearchResponse) {
     option (sebuf.http.config) = {
@@ -117,6 +125,15 @@ message SearchAdvancedRequest {
   repeated int32 years = 4 [(sebuf.http.query) = { name: "years" }];
   // Repeated bool query param (issue #161 scope audit)
   repeated bool flags = 5 [(sebuf.http.query) = { name: "flags" }];
+  // Repeated enum query param
+  repeated Region regions = 6 [(sebuf.http.query) = { name: "regions" }];
+}
+
+message GetByRegionRequest {
+  // Enum as path parameter
+  Region region = 1;
+  // Query parameter alongside enum path param
+  string keyword = 2 [(sebuf.http.query) = { name: "keyword" }];
 }
 
 // Empty request message (bug #6)

@@ -744,7 +744,7 @@ func (c *rESTfulAPIServiceClient) SearchResources(ctx context.Context, req *Sear
 
 	// Add query parameters
 	queryParams := url.Values{}
-	if req.StatusFilter != "" {
+	if req.StatusFilter != 0 {
 		queryParams.Set("status", fmt.Sprint(req.StatusFilter))
 	}
 	if req.Query != "" {

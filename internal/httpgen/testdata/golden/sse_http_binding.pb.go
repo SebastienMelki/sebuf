@@ -79,21 +79,10 @@ func BindingMiddleware[Req any](next http.Handler, serviceHeaders, methodHeaders
 
 		toBind := new(Req)
 
-		// Bind path parameters
-		if msg, ok := any(toBind).(proto.Message); ok {
-			if err := bindPathParams(r, msg, pathParams); err != nil {
-				writeErrorWithHandler(w, r, err, errorHandler, marshalOpts)
-				return
-			}
-
-			// Bind query parameters
-			if err := bindQueryParams(r, msg, queryParams); err != nil {
-				writeErrorWithHandler(w, r, err, errorHandler, marshalOpts)
-				return
-			}
-		}
-
-		// Bind body only for POST, PUT, PATCH methods
+		// Bind body FIRST for POST, PUT, PATCH methods.
+		// This must happen before path/query binding because protojson.Unmarshal
+		// calls proto.Reset(), which would wipe any previously-set fields.
+		// By binding body first, path and query params applied afterwards take precedence.
 		if httpMethod == "POST" || httpMethod == "PUT" || httpMethod == "PATCH" {
 			err := bindDataBasedOnContentType(r, toBind)
 			if err != nil {
@@ -107,6 +96,20 @@ func BindingMiddleware[Req any](next http.Handler, serviceHeaders, methodHeaders
 					},
 				}
 				writeErrorWithHandler(w, r, validationErr, errorHandler, marshalOpts)
+				return
+			}
+		}
+
+		// Bind path and query parameters AFTER body, so URL-stated values always win
+		if msg, ok := any(toBind).(proto.Message); ok {
+			if err := bindPathParams(r, msg, pathParams); err != nil {
+				writeErrorWithHandler(w, r, err, errorHandler, marshalOpts)
+				return
+			}
+
+			// Bind query parameters
+			if err := bindQueryParams(r, msg, queryParams); err != nil {
+				writeErrorWithHandler(w, r, err, errorHandler, marshalOpts)
 				return
 			}
 		}
@@ -247,7 +250,7 @@ func bindPathParams(r *http.Request, msg proto.Message, params []PathParamConfig
 			continue // Field not found, skip
 		}
 
-		convertedValue, err := convertStringToFieldValue(value, field.Kind())
+		convertedValue, err := convertStringToFieldValue(value, field)
 		if err != nil {
 			return &sebufhttp.ValidationError{
 				Violations: []*sebufhttp.FieldViolation{{
@@ -275,6 +278,14 @@ func bindQueryParams(r *http.Request, msg proto.Message, params []QueryParamConf
 
 	for _, param := range params {
 		values := query[param.QueryName]
+		// Filter empty values (e.g., ?param= treated as unset)
+		var filtered []string
+		for _, v := range values {
+			if v != "" {
+				filtered = append(filtered, v)
+			}
+		}
+		values = filtered
 		if len(values) == 0 {
 			if param.Required {
 				return &sebufhttp.ValidationError{
@@ -296,7 +307,7 @@ func bindQueryParams(r *http.Request, msg proto.Message, params []QueryParamConf
 		if field.IsList() {
 			list := reflectMsg.Mutable(field).List()
 			for _, v := range values {
-				converted, err := convertStringToFieldValue(v, field.Kind())
+				converted, err := convertStringToFieldValue(v, field)
 				if err != nil {
 					return &sebufhttp.ValidationError{
 						Violations: []*sebufhttp.FieldViolation{{
@@ -308,7 +319,7 @@ func bindQueryParams(r *http.Request, msg proto.Message, params []QueryParamConf
 				list.Append(converted)
 			}
 		} else {
-			converted, err := convertStringToFieldValue(values[0], field.Kind())
+			converted, err := convertStringToFieldValue(values[0], field)
 			if err != nil {
 				return &sebufhttp.ValidationError{
 					Violations: []*sebufhttp.FieldViolation{{
@@ -325,8 +336,20 @@ func bindQueryParams(r *http.Request, msg proto.Message, params []QueryParamConf
 }
 
 // convertStringToFieldValue converts a string value to the appropriate protoreflect.Value.
-func convertStringToFieldValue(value string, kind protoreflect.Kind) (protoreflect.Value, error) {
-	switch kind {
+func convertStringToFieldValue(value string, field protoreflect.FieldDescriptor) (protoreflect.Value, error) {
+	switch field.Kind() {
+	case protoreflect.EnumKind:
+		// Try numeric value first — accept unknown numbers for proto3 forward-compat
+		if v, err := strconv.ParseInt(value, 10, 32); err == nil {
+			return protoreflect.ValueOfEnum(protoreflect.EnumNumber(v)), nil
+		}
+		// Fall back to enum name lookup
+		enumDesc := field.Enum()
+		enumVal := enumDesc.Values().ByName(protoreflect.Name(value))
+		if enumVal != nil {
+			return protoreflect.ValueOfEnum(enumVal.Number()), nil
+		}
+		return protoreflect.Value{}, fmt.Errorf("invalid value %q for enum %s", value, enumDesc.Name())
 	case protoreflect.StringKind:
 		return protoreflect.ValueOfString(value), nil
 	case protoreflect.Int32Kind, protoreflect.Sint32Kind, protoreflect.Sfixed32Kind:
@@ -372,7 +395,7 @@ func convertStringToFieldValue(value string, kind protoreflect.Kind) (protorefle
 		}
 		return protoreflect.ValueOfFloat64(v), nil
 	default:
-		return protoreflect.Value{}, fmt.Errorf("unsupported field type: %v", kind)
+		return protoreflect.Value{}, fmt.Errorf("unsupported field type: %v", field.Kind())
 	}
 }
 
@@ -919,18 +942,8 @@ func SSEHandler[Req any](
 		}
 
 		req := new(Req)
-		if msg, ok := any(req).(proto.Message); ok {
-			if err := bindPathParams(r, msg, pathParams); err != nil {
-				writeErrorWithHandler(w, r, err, errorHandler, marshalOpts)
-				return
-			}
-			if err := bindQueryParams(r, msg, queryParams); err != nil {
-				writeErrorWithHandler(w, r, err, errorHandler, marshalOpts)
-				return
-			}
-		}
 
-		// Bind body for POST/PUT/PATCH
+		// Bind body FIRST (protojson.Unmarshal calls proto.Reset, which would wipe path/query values)
 		if httpMethod == "POST" || httpMethod == "PUT" || httpMethod == "PATCH" {
 			if err := bindDataBasedOnContentType(r, req); err != nil {
 				validationErr := &sebufhttp.ValidationError{
@@ -942,6 +955,18 @@ func SSEHandler[Req any](
 					},
 				}
 				writeErrorWithHandler(w, r, validationErr, errorHandler, marshalOpts)
+				return
+			}
+		}
+
+		// Bind path and query parameters AFTER body, so URL-stated values always win
+		if msg, ok := any(req).(proto.Message); ok {
+			if err := bindPathParams(r, msg, pathParams); err != nil {
+				writeErrorWithHandler(w, r, err, errorHandler, marshalOpts)
+				return
+			}
+			if err := bindQueryParams(r, msg, queryParams); err != nil {
+				writeErrorWithHandler(w, r, err, errorHandler, marshalOpts)
 				return
 			}
 		}

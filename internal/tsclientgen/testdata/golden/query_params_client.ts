@@ -43,6 +43,12 @@ export interface SearchAdvancedRequest {
   keyword: string;
   years: number[];
   flags: boolean[];
+  regions: Region[];
+}
+
+export interface GetByRegionRequest {
+  region: Region;
+  keyword: string;
 }
 
 export interface EmptyRequest {
@@ -221,6 +227,33 @@ export class QueryParamServiceClient {
     if (req.keyword != null && req.keyword !== "") params.set("keyword", String(req.keyword));
     if (req.years && req.years.length > 0) req.years.forEach(v => params.append("years", v));
     if (req.flags && req.flags.length > 0) req.flags.forEach(v => params.append("flags", v));
+    if (req.regions && req.regions.length > 0) req.regions.forEach(v => params.append("regions", v));
+    const url = this.baseURL + path + (params.toString() ? "?" + params.toString() : "");
+
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+      ...this.defaultHeaders,
+      ...options?.headers,
+    };
+
+    const resp = await this.fetchFn(url, {
+      method: "GET",
+      headers,
+      signal: options?.signal,
+    });
+
+    if (!resp.ok) {
+      return this.handleError(resp);
+    }
+
+    return await resp.json() as SearchResponse;
+  }
+
+  async getByRegion(req: GetByRegionRequest, options?: QueryParamServiceCallOptions): Promise<SearchResponse> {
+    let path = "/api/regions/{region}";
+    path = path.replace("{region}", encodeURIComponent(String(req.region)));
+    const params = new URLSearchParams();
+    if (req.keyword != null && req.keyword !== "") params.set("keyword", String(req.keyword));
     const url = this.baseURL + path + (params.toString() ? "?" + params.toString() : "");
 
     const headers: Record<string, string> = {

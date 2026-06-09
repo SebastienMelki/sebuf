@@ -52,7 +52,7 @@ func ValidateMethodConfig(service *protogen.Service, method *protogen.Method) []
 				Method:  methodName,
 				Message: fmt.Sprintf(
 					"path variable '{%s}' is bound to field '%s' of type '%s', but path parameters must be scalar types "+
-						"(string, int32, int64, uint32, uint64, bool, float, double). "+
+						"(string, int32, int64, uint32, uint64, bool, float, double, enum). "+
 						"Change the field type or remove it from the path.",
 					param,
 					param,
@@ -128,9 +128,10 @@ func isPathParamCompatible(field *protogen.Field) bool {
 		protoreflect.Uint32Kind, protoreflect.Fixed32Kind,
 		protoreflect.Uint64Kind, protoreflect.Fixed64Kind,
 		protoreflect.BoolKind,
-		protoreflect.FloatKind, protoreflect.DoubleKind:
+		protoreflect.FloatKind, protoreflect.DoubleKind,
+		protoreflect.EnumKind:
 		return true
-	case protoreflect.EnumKind, protoreflect.BytesKind, protoreflect.MessageKind, protoreflect.GroupKind:
+	case protoreflect.BytesKind, protoreflect.MessageKind, protoreflect.GroupKind:
 		return false
 	}
 	return false
