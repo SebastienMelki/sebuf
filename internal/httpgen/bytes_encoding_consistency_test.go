@@ -9,43 +9,18 @@ import (
 )
 
 // TestGoGeneratorsProduceIdenticalBytesEncoding verifies go-http and go-client
-// produce identical bytes_encoding code.
+// produce identical bytes_encoding MarshalJSON code.
 func TestGoGeneratorsProduceIdenticalBytesEncoding(t *testing.T) {
 	baseDir, baseErr := os.Getwd()
 	if baseErr != nil {
 		t.Fatalf("Failed to get working directory: %v", baseErr)
 	}
 
-	httpgenFile := filepath.Join(baseDir, "testdata", "golden", "bytes_encoding_bytes_encoding.pb.go")
-	clientgenFile := filepath.Join(
-		baseDir,
-		"..",
-		"clientgen",
-		"testdata",
-		"golden",
-		"bytes_encoding_bytes_encoding.pb.go",
+	compareEncodingFiles(t,
+		filepath.Join(baseDir, "testdata", "golden", "bytes_encoding_bytes_encoding.pb.go"),
+		filepath.Join(baseDir, "..", "clientgen", "testdata", "golden", "bytes_encoding_bytes_encoding.pb.go"),
+		"bytes_encoding",
 	)
-
-	httpgenContent, httpErr := os.ReadFile(httpgenFile)
-	if httpErr != nil {
-		t.Fatalf("Failed to read httpgen bytes_encoding golden file: %v", httpErr)
-	}
-
-	clientgenContent, clientErr := os.ReadFile(clientgenFile)
-	if clientErr != nil {
-		t.Fatalf("Failed to read clientgen bytes_encoding golden file: %v", clientErr)
-	}
-
-	// Normalize the source comment (generator name differs)
-	httpgenNormalized := normalizeGeneratorComment(string(httpgenContent), "go-http")
-	clientgenNormalized := normalizeGeneratorComment(string(clientgenContent), "go-client")
-
-	if httpgenNormalized != clientgenNormalized {
-		t.Errorf("go-http and go-client bytes_encoding code differs after normalization")
-		t.Logf("First difference:\n%s", findFirstDifference(httpgenNormalized, clientgenNormalized))
-	} else {
-		t.Log("go-http and go-client produce identical bytes_encoding code")
-	}
 }
 
 // TestBytesEncodingTypeScriptTypes verifies all bytes encoding variants produce

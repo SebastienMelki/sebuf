@@ -9,43 +9,18 @@ import (
 )
 
 // TestGoGeneratorsProduceIdenticalFlatten verifies go-http and go-client
-// produce identical flatten encoding code.
+// produce identical flatten MarshalJSON code.
 func TestGoGeneratorsProduceIdenticalFlatten(t *testing.T) {
 	baseDir, baseErr := os.Getwd()
 	if baseErr != nil {
 		t.Fatalf("Failed to get working directory: %v", baseErr)
 	}
 
-	httpgenFile := filepath.Join(baseDir, "testdata", "golden", "flatten_flatten.pb.go")
-	clientgenFile := filepath.Join(
-		baseDir,
-		"..",
-		"clientgen",
-		"testdata",
-		"golden",
-		"flatten_flatten.pb.go",
+	compareEncodingFiles(t,
+		filepath.Join(baseDir, "testdata", "golden", "flatten_flatten.pb.go"),
+		filepath.Join(baseDir, "..", "clientgen", "testdata", "golden", "flatten_flatten.pb.go"),
+		"flatten",
 	)
-
-	httpgenContent, httpErr := os.ReadFile(httpgenFile)
-	if httpErr != nil {
-		t.Fatalf("Failed to read httpgen flatten golden file: %v", httpErr)
-	}
-
-	clientgenContent, clientErr := os.ReadFile(clientgenFile)
-	if clientErr != nil {
-		t.Fatalf("Failed to read clientgen flatten golden file: %v", clientErr)
-	}
-
-	// Normalize the source comment (generator name differs)
-	httpgenNormalized := normalizeGeneratorComment(string(httpgenContent), "go-http")
-	clientgenNormalized := normalizeGeneratorComment(string(clientgenContent), "go-client")
-
-	if httpgenNormalized != clientgenNormalized {
-		t.Errorf("go-http and go-client flatten code differs after normalization")
-		t.Logf("First difference:\n%s", findFirstDifference(httpgenNormalized, clientgenNormalized))
-	} else {
-		t.Log("go-http and go-client produce identical flatten code")
-	}
 }
 
 // TestFlattenTypeScriptTypes verifies TypeScript types match Go serialization

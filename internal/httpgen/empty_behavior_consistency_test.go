@@ -8,43 +8,18 @@ import (
 )
 
 // TestEmptyBehaviorConsistencyGoHTTPvsGoClient verifies go-http and go-client
-// produce identical empty_behavior encoding code.
+// produce identical empty_behavior MarshalJSON code.
 func TestEmptyBehaviorConsistencyGoHTTPvsGoClient(t *testing.T) {
 	baseDir, baseErr := os.Getwd()
 	if baseErr != nil {
 		t.Fatalf("Failed to get working directory: %v", baseErr)
 	}
 
-	httpgenFile := filepath.Join(baseDir, "testdata", "golden", "empty_behavior_empty_behavior.pb.go")
-	clientgenFile := filepath.Join(
-		baseDir,
-		"..",
-		"clientgen",
-		"testdata",
-		"golden",
-		"empty_behavior_empty_behavior.pb.go",
+	compareEncodingFiles(t,
+		filepath.Join(baseDir, "testdata", "golden", "empty_behavior_empty_behavior.pb.go"),
+		filepath.Join(baseDir, "..", "clientgen", "testdata", "golden", "empty_behavior_empty_behavior.pb.go"),
+		"empty_behavior",
 	)
-
-	httpgenContent, httpErr := os.ReadFile(httpgenFile)
-	if httpErr != nil {
-		t.Fatalf("Failed to read httpgen empty_behavior golden file: %v", httpErr)
-	}
-
-	clientgenContent, clientErr := os.ReadFile(clientgenFile)
-	if clientErr != nil {
-		t.Fatalf("Failed to read clientgen empty_behavior golden file: %v", clientErr)
-	}
-
-	// Normalize the source comment (generator name differs)
-	httpgenNormalized := normalizeGeneratorComment(string(httpgenContent), "go-http")
-	clientgenNormalized := normalizeGeneratorComment(string(clientgenContent), "go-client")
-
-	if httpgenNormalized != clientgenNormalized {
-		t.Errorf("go-http and go-client empty_behavior encoding code differs after normalization")
-		t.Logf("First difference:\n%s", findFirstDifference(httpgenNormalized, clientgenNormalized))
-	} else {
-		t.Log("go-http and go-client produce identical empty_behavior encoding code")
-	}
 }
 
 // TestEmptyBehaviorConsistencyOpenAPI verifies OpenAPI uses oneOf for empty_behavior=NULL fields.
