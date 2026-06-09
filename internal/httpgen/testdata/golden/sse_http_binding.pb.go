@@ -79,10 +79,21 @@ func BindingMiddleware[Req any](next http.Handler, serviceHeaders, methodHeaders
 
 		toBind := new(Req)
 
-		// Bind body FIRST for POST, PUT, PATCH methods.
-		// This must happen before path/query binding because protojson.Unmarshal
-		// calls proto.Reset(), which would wipe any previously-set fields.
-		// By binding body first, path and query params applied afterwards take precedence.
+		// Bind path parameters
+		if msg, ok := any(toBind).(proto.Message); ok {
+			if err := bindPathParams(r, msg, pathParams); err != nil {
+				writeErrorWithHandler(w, r, err, errorHandler, marshalOpts)
+				return
+			}
+
+			// Bind query parameters
+			if err := bindQueryParams(r, msg, queryParams); err != nil {
+				writeErrorWithHandler(w, r, err, errorHandler, marshalOpts)
+				return
+			}
+		}
+
+		// Bind body only for POST, PUT, PATCH methods
 		if httpMethod == "POST" || httpMethod == "PUT" || httpMethod == "PATCH" {
 			err := bindDataBasedOnContentType(r, toBind)
 			if err != nil {
@@ -96,20 +107,6 @@ func BindingMiddleware[Req any](next http.Handler, serviceHeaders, methodHeaders
 					},
 				}
 				writeErrorWithHandler(w, r, validationErr, errorHandler, marshalOpts)
-				return
-			}
-		}
-
-		// Bind path and query parameters AFTER body, so URL-stated values always win
-		if msg, ok := any(toBind).(proto.Message); ok {
-			if err := bindPathParams(r, msg, pathParams); err != nil {
-				writeErrorWithHandler(w, r, err, errorHandler, marshalOpts)
-				return
-			}
-
-			// Bind query parameters
-			if err := bindQueryParams(r, msg, queryParams); err != nil {
-				writeErrorWithHandler(w, r, err, errorHandler, marshalOpts)
 				return
 			}
 		}
@@ -922,8 +919,18 @@ func SSEHandler[Req any](
 		}
 
 		req := new(Req)
+		if msg, ok := any(req).(proto.Message); ok {
+			if err := bindPathParams(r, msg, pathParams); err != nil {
+				writeErrorWithHandler(w, r, err, errorHandler, marshalOpts)
+				return
+			}
+			if err := bindQueryParams(r, msg, queryParams); err != nil {
+				writeErrorWithHandler(w, r, err, errorHandler, marshalOpts)
+				return
+			}
+		}
 
-		// Bind body FIRST (protojson.Unmarshal calls proto.Reset, which would wipe path/query values)
+		// Bind body for POST/PUT/PATCH
 		if httpMethod == "POST" || httpMethod == "PUT" || httpMethod == "PATCH" {
 			if err := bindDataBasedOnContentType(r, req); err != nil {
 				validationErr := &sebufhttp.ValidationError{
@@ -935,18 +942,6 @@ func SSEHandler[Req any](
 					},
 				}
 				writeErrorWithHandler(w, r, validationErr, errorHandler, marshalOpts)
-				return
-			}
-		}
-
-		// Bind path and query parameters AFTER body, so URL-stated values always win
-		if msg, ok := any(req).(proto.Message); ok {
-			if err := bindPathParams(r, msg, pathParams); err != nil {
-				writeErrorWithHandler(w, r, err, errorHandler, marshalOpts)
-				return
-			}
-			if err := bindQueryParams(r, msg, queryParams); err != nil {
-				writeErrorWithHandler(w, r, err, errorHandler, marshalOpts)
 				return
 			}
 		}
