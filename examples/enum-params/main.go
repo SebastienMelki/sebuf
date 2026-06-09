@@ -52,6 +52,28 @@ func (s *server) GetByAssetClass(_ context.Context, req *services.GetByAssetClas
 	}, nil
 }
 
+func (s *server) SearchByAssetClasses(_ context.Context, req *services.SearchByAssetClassesRequest) (*models.PortfolioSummary, error) {
+	// Build a set of requested asset classes for O(1) lookup
+	wanted := make(map[models.AssetClass]bool, len(req.AssetClasses))
+	for _, ac := range req.AssetClasses {
+		wanted[ac] = true
+	}
+
+	var filtered []*models.Holding
+	var total float64
+	for _, h := range sampleHoldings {
+		if len(wanted) == 0 || wanted[h.AssetClass] {
+			filtered = append(filtered, h)
+			total += h.TotalValue
+		}
+	}
+	return &models.PortfolioSummary{
+		Holdings:   filtered,
+		TotalValue: total,
+		Count:      int32(len(filtered)),
+	}, nil
+}
+
 func main() {
 	mux := http.NewServeMux()
 
@@ -76,6 +98,10 @@ func main() {
 	fmt.Printf("    curl http://localhost:%s/api/v1/portfolio/asset-class/ASSET_CLASS_EQUITY\n", port)
 	fmt.Println("  Enum path + query param:")
 	fmt.Printf("    curl http://localhost:%s/api/v1/portfolio/asset-class/ASSET_CLASS_CRYPTO?timeframe=TIMEFRAME_ALL\n", port)
+	fmt.Println("  Repeated enum query param (#186):")
+	fmt.Printf("    curl 'http://localhost:%s/api/v1/portfolio/search?class=ASSET_CLASS_EQUITY&class=ASSET_CLASS_CRYPTO'\n", port)
+	fmt.Println("  Repeated enum + repeated string query params:")
+	fmt.Printf("    curl 'http://localhost:%s/api/v1/portfolio/search?class=ASSET_CLASS_EQUITY&tag=tech&tag=finance'\n", port)
 	fmt.Println("")
 
 	log.Fatal(http.ListenAndServe(":"+port, mux))

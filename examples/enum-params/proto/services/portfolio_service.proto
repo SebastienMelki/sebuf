@@ -26,6 +26,15 @@ service PortfolioService {
       method: HTTP_METHOD_GET
     };
   }
+
+  // SearchByAssetClasses returns holdings matching any of the given asset classes
+  // (repeated enum query param). Regression test for #186.
+  rpc SearchByAssetClasses(SearchByAssetClassesRequest) returns (examples.enumparams.models.PortfolioSummary) {
+    option (sebuf.http.config) = {
+      path: "/portfolio/search"
+      method: HTTP_METHOD_GET
+    };
+  }
 }
 
 message GetPortfolioRequest {
@@ -38,4 +47,11 @@ message GetByAssetClassRequest {
   examples.enumparams.models.AssetClass asset_class = 1;
   // Additional query filter alongside the enum path param
   examples.enumparams.models.Timeframe timeframe = 2 [(sebuf.http.query) = { name: "timeframe" }];
+}
+
+message SearchByAssetClassesRequest {
+  // Repeated enum as query param - accepts multiple values: ?class=ASSET_CLASS_EQUITY&class=ASSET_CLASS_CRYPTO
+  repeated examples.enumparams.models.AssetClass asset_classes = 1 [(sebuf.http.query) = { name: "class" }];
+  // Repeated string query param for keyword tags
+  repeated string tags = 2 [(sebuf.http.query) = { name: "tag" }];
 }

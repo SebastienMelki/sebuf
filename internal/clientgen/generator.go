@@ -827,8 +827,15 @@ func (g *Generator) generateQueryParamEncoding(gf *protogen.GeneratedFile, qp an
 	fieldGoName := qp.FieldGoName
 	paramName := qp.ParamName
 
-	// For simplicity, we generate code that handles common types
-	// In practice, the field type would determine the encoding
+	// Handle repeated fields: iterate and Add() each value individually
+	if qp.Field != nil && qp.Field.Desc.IsList() {
+		gf.P("for _, v := range req.", fieldGoName, " {")
+		gf.P("queryParams.Add(\"", paramName, "\", fmt.Sprint(v))")
+		gf.P("}")
+		return
+	}
+
+	// Scalar fields: zero-value check + Set()
 	gf.P("if req.", fieldGoName, " != ", getZeroValue(qp), " {")
 	gf.P("queryParams.Set(\"", paramName, "\", fmt.Sprint(req.", fieldGoName, "))")
 	gf.P("}")

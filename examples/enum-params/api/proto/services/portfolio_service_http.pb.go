@@ -17,6 +17,7 @@ import (
 type PortfolioServiceServer interface {
 	GetPortfolio(context.Context, *GetPortfolioRequest) (*models.PortfolioSummary, error)
 	GetByAssetClass(context.Context, *GetByAssetClassRequest) (*models.PortfolioSummary, error)
+	SearchByAssetClasses(context.Context, *SearchByAssetClassesRequest) (*models.PortfolioSummary, error)
 }
 
 // RegisterPortfolioServiceServer registers the HTTP handlers for service PortfolioService to the given mux.
@@ -43,6 +44,15 @@ func RegisterPortfolioServiceServer(server PortfolioServiceServer, opts ...Serve
 
 	config.mux.Handle("GET /api/v1/portfolio/asset-class/{asset_class}", getByAssetClassHandler)
 
+	methodHeaders = getSearchByAssetClassesHeaders()
+	searchByAssetClassesHandler := BindingMiddleware[SearchByAssetClassesRequest](
+		genericHandler(server.SearchByAssetClasses, config.errorHandler, config.marshalOpts), serviceHeaders, methodHeaders,
+		searchByAssetClassesPathParams, searchByAssetClassesQueryParams,
+		"GET", config.errorHandler, config.marshalOpts,
+	)
+
+	config.mux.Handle("GET /api/v1/portfolio/search", searchByAssetClassesHandler)
+
 	return nil
 }
 
@@ -58,6 +68,11 @@ func getGetPortfolioHeaders() []*sebufhttp.Header {
 
 // getGetByAssetClassHeaders returns the method-level required headers for GetByAssetClass
 func getGetByAssetClassHeaders() []*sebufhttp.Header {
+	return nil
+}
+
+// getSearchByAssetClassesHeaders returns the method-level required headers for SearchByAssetClasses
+func getSearchByAssetClassesHeaders() []*sebufhttp.Header {
 	return nil
 }
 
@@ -77,4 +92,13 @@ var getByAssetClassPathParams = []PathParamConfig{
 // getByAssetClassQueryParams contains query parameter configuration for GetByAssetClass
 var getByAssetClassQueryParams = []QueryParamConfig{
 	{QueryName: "timeframe", FieldName: "timeframe", Required: false},
+}
+
+// searchByAssetClassesPathParams contains path parameter configuration for SearchByAssetClasses
+var searchByAssetClassesPathParams = []PathParamConfig{}
+
+// searchByAssetClassesQueryParams contains query parameter configuration for SearchByAssetClasses
+var searchByAssetClassesQueryParams = []QueryParamConfig{
+	{QueryName: "class", FieldName: "asset_classes", Required: false},
+	{QueryName: "tag", FieldName: "tags", Required: false},
 }
