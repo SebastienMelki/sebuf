@@ -16,11 +16,14 @@ func TestGoGeneratorsProduceIdenticalOneofDiscriminator(t *testing.T) {
 		t.Fatalf("Failed to get working directory: %v", baseErr)
 	}
 
-	compareEncodingFiles(t,
-		filepath.Join(baseDir, "testdata", "golden", "oneof_discriminator_oneof_discriminator.pb.go"),
-		filepath.Join(baseDir, "..", "clientgen", "testdata", "golden", "oneof_discriminator_oneof_discriminator.pb.go"),
-		"oneof_discriminator",
+	httpgenFile := filepath.Join(
+		baseDir, "testdata", "golden", "oneof_discriminator_oneof_discriminator.pb.go",
 	)
+	clientgenFile := filepath.Join(
+		baseDir, "..", "clientgen", "testdata", "golden",
+		"oneof_discriminator_oneof_discriminator.pb.go",
+	)
+	compareEncodingFiles(t, httpgenFile, clientgenFile, "oneof_discriminator")
 }
 
 // TestOneofDiscriminatorTypeScriptTypes verifies TypeScript types match Go serialization
