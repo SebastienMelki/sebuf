@@ -46,9 +46,9 @@ func (x *Stock) MarshalJSON() ([]byte, error) {
 	return x.MarshalJSONSebuf(protojson.MarshalOptions{})
 }
 
-// UnmarshalJSON implements json.Unmarshaler for Stock.
+// UnmarshalJSONSebuf implements sebufUnmarshaler for Stock.
 // This method handles int64_encoding=NUMBER fields: volume
-func (x *Stock) UnmarshalJSON(data []byte) error {
+func (x *Stock) UnmarshalJSONSebuf(data []byte, opts protojson.UnmarshalOptions) error {
 	// First, parse the raw JSON to extract NUMBER-encoded fields
 	var raw map[string]json.RawMessage
 	if err := json.Unmarshal(data, &raw); err != nil {
@@ -70,7 +70,12 @@ func (x *Stock) UnmarshalJSON(data []byte) error {
 	}
 
 	// Use protojson to unmarshal the rest
-	return protojson.Unmarshal(modified, x)
+	return opts.Unmarshal(modified, x)
+}
+
+// UnmarshalJSON implements json.Unmarshaler for Stock.
+func (x *Stock) UnmarshalJSON(data []byte) error {
+	return x.UnmarshalJSONSebuf(data, protojson.UnmarshalOptions{})
 }
 
 // MarshalJSONSebuf implements sebufMarshaler for GetStocksResponse.
@@ -126,27 +131,33 @@ func (x *GetStocksResponse) MarshalJSON() ([]byte, error) {
 	return x.MarshalJSONSebuf(protojson.MarshalOptions{})
 }
 
-// UnmarshalJSON implements json.Unmarshaler for GetStocksResponse.
+// UnmarshalJSONSebuf implements sebufUnmarshaler for GetStocksResponse.
 // This method handles nested messages that have int64_encoding=NUMBER fields: stocks
-func (x *GetStocksResponse) UnmarshalJSON(data []byte) error {
+func (x *GetStocksResponse) UnmarshalJSONSebuf(data []byte, opts protojson.UnmarshalOptions) error {
 	var raw map[string]json.RawMessage
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return err
 	}
 
-	// Handle repeated "stocks" using its custom UnmarshalJSON
+	// Handle repeated "stocks" using its custom unmarshaler
 	if rawVal, ok := raw["stocks"]; ok {
-		var innerList []*Stock
-		if err := json.Unmarshal(rawVal, &innerList); err != nil {
+		var rawItems []json.RawMessage
+		if err := json.Unmarshal(rawVal, &rawItems); err != nil {
 			return err
 		}
-		protoItems := make([]json.RawMessage, len(innerList))
-		for i, item := range innerList {
-			if item == nil {
-				protoItems[i] = json.RawMessage("null")
-				continue
+		protoItems := make([]json.RawMessage, len(rawItems))
+		for i, itemRaw := range rawItems {
+			inner := &Stock{}
+			if u, ok := any(inner).(interface {
+				UnmarshalJSONSebuf([]byte, protojson.UnmarshalOptions) error
+			}); ok {
+				if err := u.UnmarshalJSONSebuf(itemRaw, opts); err != nil {
+					return err
+				}
+			} else if err := json.Unmarshal(itemRaw, inner); err != nil {
+				return err
 			}
-			itemJSON, marshalErr := protojson.Marshal(item)
+			itemJSON, marshalErr := protojson.Marshal(inner)
 			if marshalErr != nil {
 				return marshalErr
 			}
@@ -164,5 +175,10 @@ func (x *GetStocksResponse) UnmarshalJSON(data []byte) error {
 		return err
 	}
 
-	return protojson.Unmarshal(modified, x)
+	return opts.Unmarshal(modified, x)
+}
+
+// UnmarshalJSON implements json.Unmarshaler for GetStocksResponse.
+func (x *GetStocksResponse) UnmarshalJSON(data []byte) error {
+	return x.UnmarshalJSONSebuf(data, protojson.UnmarshalOptions{})
 }

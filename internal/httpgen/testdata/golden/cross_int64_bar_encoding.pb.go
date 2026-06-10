@@ -46,9 +46,9 @@ func (x *Bar) MarshalJSON() ([]byte, error) {
 	return x.MarshalJSONSebuf(protojson.MarshalOptions{})
 }
 
-// UnmarshalJSON implements json.Unmarshaler for Bar.
+// UnmarshalJSONSebuf implements sebufUnmarshaler for Bar.
 // This method handles int64_encoding=NUMBER fields: volume
-func (x *Bar) UnmarshalJSON(data []byte) error {
+func (x *Bar) UnmarshalJSONSebuf(data []byte, opts protojson.UnmarshalOptions) error {
 	// First, parse the raw JSON to extract NUMBER-encoded fields
 	var raw map[string]json.RawMessage
 	if err := json.Unmarshal(data, &raw); err != nil {
@@ -70,5 +70,10 @@ func (x *Bar) UnmarshalJSON(data []byte) error {
 	}
 
 	// Use protojson to unmarshal the rest
-	return protojson.Unmarshal(modified, x)
+	return opts.Unmarshal(modified, x)
+}
+
+// UnmarshalJSON implements json.Unmarshaler for Bar.
+func (x *Bar) UnmarshalJSON(data []byte) error {
+	return x.UnmarshalJSONSebuf(data, protojson.UnmarshalOptions{})
 }
