@@ -325,9 +325,9 @@ func (g *Generator) generateInt64UnmarshalJSON(gf *protogen.GeneratedFile, ctx *
 		numberFieldNames = append(numberFieldNames, string(f.Desc.Name()))
 	}
 
-	gf.P("// UnmarshalJSON implements json.Unmarshaler for ", msgName, ".")
+	gf.P("// UnmarshalJSONSebuf implements sebufUnmarshaler for ", msgName, ".")
 	gf.P("// This method handles int64_encoding=NUMBER fields: ", strings.Join(numberFieldNames, ", "))
-	gf.P("func (x *", msgName, ") UnmarshalJSON(data []byte) error {")
+	gf.P("func (x *", msgName, ") UnmarshalJSONSebuf(data []byte, opts protojson.UnmarshalOptions) error {")
 	gf.P("// First, parse the raw JSON to extract NUMBER-encoded fields")
 	gf.P("var raw map[string]json.RawMessage")
 	gf.P("if err := json.Unmarshal(data, &raw); err != nil {")
@@ -347,7 +347,14 @@ func (g *Generator) generateInt64UnmarshalJSON(gf *protogen.GeneratedFile, ctx *
 	gf.P("}")
 	gf.P()
 	gf.P("// Use protojson to unmarshal the rest")
-	gf.P("return protojson.Unmarshal(modified, x)")
+	gf.P("return opts.Unmarshal(modified, x)")
+	gf.P("}")
+	gf.P()
+
+	// Backward-compatible UnmarshalJSON wrapper for stdlib encoding/json
+	gf.P("// UnmarshalJSON implements json.Unmarshaler for ", msgName, ".")
+	gf.P("func (x *", msgName, ") UnmarshalJSON(data []byte) error {")
+	gf.P("return x.UnmarshalJSONSebuf(data, protojson.UnmarshalOptions{})")
 	gf.P("}")
 	gf.P()
 }
@@ -529,8 +536,9 @@ func (g *Generator) generateWrapperMarshalJSON(gf *protogen.GeneratedFile, ctx *
 	gf.P()
 }
 
-// generateWrapperUnmarshalJSON generates an UnmarshalJSON that delegates nested
-// message parsing to their custom UnmarshalJSON, then converts back for protojson.
+// generateWrapperUnmarshalJSON generates an UnmarshalJSONSebuf that delegates nested
+// message parsing via the sebufUnmarshaler interface (propagating opts), then converts
+// back for protojson. Also emits a backward-compatible UnmarshalJSON wrapper.
 func (g *Generator) generateWrapperUnmarshalJSON(gf *protogen.GeneratedFile, ctx *Int64WrapperContext) {
 	msgName := ctx.Message.GoIdent.GoName
 
@@ -539,12 +547,12 @@ func (g *Generator) generateWrapperUnmarshalJSON(gf *protogen.GeneratedFile, ctx
 		nestedFieldNames = append(nestedFieldNames, string(f.Desc.Name()))
 	}
 
-	gf.P("// UnmarshalJSON implements json.Unmarshaler for ", msgName, ".")
+	gf.P("// UnmarshalJSONSebuf implements sebufUnmarshaler for ", msgName, ".")
 	gf.P(
 		"// This method handles nested messages that have int64_encoding=NUMBER fields: ",
 		strings.Join(nestedFieldNames, ", "),
 	)
-	gf.P("func (x *", msgName, ") UnmarshalJSON(data []byte) error {")
+	gf.P("func (x *", msgName, ") UnmarshalJSONSebuf(data []byte, opts protojson.UnmarshalOptions) error {")
 	gf.P("var raw map[string]json.RawMessage")
 	gf.P("if err := json.Unmarshal(data, &raw); err != nil {")
 	gf.P("return err")
@@ -554,22 +562,27 @@ func (g *Generator) generateWrapperUnmarshalJSON(gf *protogen.GeneratedFile, ctx
 	for _, field := range ctx.NestedFields {
 		jsonName := field.Desc.JSONName()
 		if field.Desc.IsList() {
-			// Repeated field: the JSON value is an array. Unmarshal as a slice so each
-			// element's custom UnmarshalJSON is called, then re-marshal each element
-			// back to protojson format for the final protojson.Unmarshal call.
-			gf.P("// Handle repeated \"", jsonName, "\" using its custom UnmarshalJSON")
+			// Repeated field: decode as raw items so we can dispatch each element
+			// through UnmarshalJSONSebuf (opts propagation) or json.Unmarshaler fallback.
+			gf.P("// Handle repeated \"", jsonName, "\" using its custom unmarshaler")
 			gf.P("if rawVal, ok := raw[\"", jsonName, "\"]; ok {")
-			gf.P("var innerList []*", gf.QualifiedGoIdent(field.Message.GoIdent))
-			gf.P("if err := json.Unmarshal(rawVal, &innerList); err != nil {")
+			gf.P("var rawItems []json.RawMessage")
+			gf.P("if err := json.Unmarshal(rawVal, &rawItems); err != nil {")
 			gf.P("return err")
 			gf.P("}")
-			gf.P("protoItems := make([]json.RawMessage, len(innerList))")
-			gf.P("for i, item := range innerList {")
-			gf.P("if item == nil {")
-			gf.P("protoItems[i] = json.RawMessage(\"null\")")
-			gf.P("continue")
+			gf.P("protoItems := make([]json.RawMessage, len(rawItems))")
+			gf.P("for i, itemRaw := range rawItems {")
+			gf.P("inner := &", gf.QualifiedGoIdent(field.Message.GoIdent), "{}")
+			gf.P(
+				"if u, ok := any(inner).(interface{ UnmarshalJSONSebuf([]byte, protojson.UnmarshalOptions) error }); ok {",
+			)
+			gf.P("if err := u.UnmarshalJSONSebuf(itemRaw, opts); err != nil {")
+			gf.P("return err")
 			gf.P("}")
-			gf.P("itemJSON, marshalErr := protojson.Marshal(item)")
+			gf.P("} else if err := json.Unmarshal(itemRaw, inner); err != nil {")
+			gf.P("return err")
+			gf.P("}")
+			gf.P("itemJSON, marshalErr := protojson.Marshal(inner)")
 			gf.P("if marshalErr != nil {")
 			gf.P("return marshalErr")
 			gf.P("}")
@@ -583,11 +596,17 @@ func (g *Generator) generateWrapperUnmarshalJSON(gf *protogen.GeneratedFile, ctx
 			gf.P("}")
 			gf.P()
 		} else {
-			// Singular field: unmarshal as a single pointer, re-marshal with protojson.
-			gf.P("// Handle \"", jsonName, "\" using its custom UnmarshalJSON")
+			// Singular field: dispatch through UnmarshalJSONSebuf or json.Unmarshaler fallback.
+			gf.P("// Handle \"", jsonName, "\" using its custom unmarshaler")
 			gf.P("if rawVal, ok := raw[\"", jsonName, "\"]; ok {")
 			gf.P("inner := &", gf.QualifiedGoIdent(field.Message.GoIdent), "{}")
-			gf.P("if err := json.Unmarshal(rawVal, inner); err != nil {")
+			gf.P(
+				"if u, ok := any(inner).(interface{ UnmarshalJSONSebuf([]byte, protojson.UnmarshalOptions) error }); ok {",
+			)
+			gf.P("if err := u.UnmarshalJSONSebuf(rawVal, opts); err != nil {")
+			gf.P("return err")
+			gf.P("}")
+			gf.P("} else if err := json.Unmarshal(rawVal, inner); err != nil {")
 			gf.P("return err")
 			gf.P("}")
 			gf.P("innerJSON, err := protojson.Marshal(inner)")
@@ -605,7 +624,14 @@ func (g *Generator) generateWrapperUnmarshalJSON(gf *protogen.GeneratedFile, ctx
 	gf.P("return err")
 	gf.P("}")
 	gf.P()
-	gf.P("return protojson.Unmarshal(modified, x)")
+	gf.P("return opts.Unmarshal(modified, x)")
+	gf.P("}")
+	gf.P()
+
+	// Backward-compatible UnmarshalJSON wrapper for stdlib encoding/json
+	gf.P("// UnmarshalJSON implements json.Unmarshaler for ", msgName, ".")
+	gf.P("func (x *", msgName, ") UnmarshalJSON(data []byte) error {")
+	gf.P("return x.UnmarshalJSONSebuf(data, protojson.UnmarshalOptions{})")
 	gf.P("}")
 	gf.P()
 }
