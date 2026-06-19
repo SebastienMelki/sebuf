@@ -1,0 +1,51 @@
+syntax = "proto3";
+
+package testdata.empty_request_body;
+
+option go_package = "github.com/SebastienMelki/sebuf/internal/tsclientgen/testdata/emptyrequestbody;emptyrequestbody";
+
+import "sebuf/http/annotations.proto";
+
+// PingRequest has no fields. It is still serialized as a POST body, so the
+// generated request parameter must be named "req" (not "_req") for the
+// JSON.stringify(req) reference to resolve.
+message PingRequest {}
+
+// PingResponse is the response for Ping.
+message PingResponse {
+  string status = 1;
+}
+
+// NoArgsRequest has no fields and its RPC has no body and no path/query
+// parameters, so the request value is genuinely unused and the parameter is
+// correctly named "_req".
+message NoArgsRequest {}
+
+// NoArgsResponse is the response for NoArgs.
+message NoArgsResponse {
+  string value = 1;
+}
+
+// EmptyRequestBodyService exercises request-parameter naming for messages with
+// no fields.
+service EmptyRequestBodyService {
+  option (sebuf.http.service_config) = {base_path: "/api/v1"};
+
+  // POST with an empty body: the parameter must be "req" because the body
+  // references it.
+  rpc Ping(PingRequest) returns (PingResponse) {
+    option (sebuf.http.config) = {
+      path: "/ping"
+      method: HTTP_METHOD_POST
+    };
+  }
+
+  // GET with no path or query parameters: the parameter is genuinely unused and
+  // must be "_req".
+  rpc NoArgs(NoArgsRequest) returns (NoArgsResponse) {
+    option (sebuf.http.config) = {
+      path: "/no-args"
+      method: HTTP_METHOD_GET
+    };
+  }
+}

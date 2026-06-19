@@ -225,6 +225,17 @@ type rpcMethodConfig struct {
 	isSSE       bool
 }
 
+// Empty protobuf messages can still be meaningful request values, such as
+// JSON bodies for POST/PUT/PATCH, so don't infer usage from field count alone.
+func (cfg *rpcMethodConfig) requestParamName() string {
+	usesQueryParams := (cfg.httpMethod == http.MethodGet || cfg.httpMethod == http.MethodDelete) &&
+		len(cfg.queryParams) > 0
+	if cfg.hasBody || len(cfg.pathParams) > 0 || usesQueryParams {
+		return "req"
+	}
+	return "_req"
+}
+
 func (g *Generator) buildRPCMethodConfig(service *protogen.Service, method *protogen.Method) *rpcMethodConfig {
 	serviceName := service.GoName
 	methodName := method.GoName
@@ -278,10 +289,7 @@ func (g *Generator) generateRPCMethod(p printer, service *protogen.Service, meth
 
 	tsMethodName := annotations.LowerFirst(cfg.methodName)
 
-	reqParam := "req"
-	if len(method.Input.Fields) == 0 {
-		reqParam = "_req"
-	}
+	reqParam := cfg.requestParamName()
 	p("  async %s(%s: %s, options?: %sCallOptions): Promise<%s> {",
 		tsMethodName, reqParam, inputType, cfg.serviceName, outputType)
 
@@ -312,10 +320,7 @@ func (g *Generator) generateSSERPCMethod(
 	outputType := g.resolveOutputType(method)
 	tsMethodName := annotations.LowerFirst(cfg.methodName)
 
-	reqParam := "req"
-	if len(method.Input.Fields) == 0 {
-		reqParam = "_req"
-	}
+	reqParam := cfg.requestParamName()
 	p("  async *%s(%s: %s, options?: %sCallOptions): AsyncGenerator<%s> {",
 		tsMethodName, reqParam, inputType, cfg.serviceName, outputType)
 
