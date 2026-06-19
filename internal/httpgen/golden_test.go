@@ -121,6 +121,15 @@ func TestHTTPGenGoldenFiles(t *testing.T) {
 			},
 		},
 		{
+			name:      "empty request body",
+			protoFile: "empty_request_body.proto",
+			expectedFiles: []string{
+				"empty_request_body_http.pb.go",
+				"empty_request_body_http_binding.pb.go",
+				"empty_request_body_http_config.pb.go",
+			},
+		},
+		{
 			name:      "timestamp format",
 			protoFile: "timestamp_format.proto",
 			expectedFiles: []string{

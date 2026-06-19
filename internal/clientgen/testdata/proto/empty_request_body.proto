@@ -1,0 +1,46 @@
+syntax = "proto3";
+
+package testdata.empty_request_body;
+
+option go_package = "github.com/SebastienMelki/sebuf/internal/httpgen/testdata/emptyrequestbody;emptyrequestbody";
+
+import "sebuf/http/annotations.proto";
+
+// PingRequest carries no fields. It is still sent as a JSON request body.
+message PingRequest {}
+
+// PingResponse is returned by Ping.
+message PingResponse {
+  string status = 1;
+}
+
+// NoArgsRequest carries no fields and is used by a GET endpoint that takes no
+// input.
+message NoArgsRequest {}
+
+// NoArgsResponse is returned by NoArgs.
+message NoArgsResponse {
+  string value = 1;
+}
+
+// EmptyRequestBodyService exercises requests whose message has no fields, across
+// a verb that sends a body (POST) and one that does not (GET).
+service EmptyRequestBodyService {
+  option (sebuf.http.service_config) = {base_path: "/api/v1"};
+
+  // Ping sends an empty JSON body over POST.
+  rpc Ping(PingRequest) returns (PingResponse) {
+    option (sebuf.http.config) = {
+      path: "/ping"
+      method: HTTP_METHOD_POST
+    };
+  }
+
+  // NoArgs is a GET endpoint that takes no parameters.
+  rpc NoArgs(NoArgsRequest) returns (NoArgsResponse) {
+    option (sebuf.http.config) = {
+      path: "/no-args"
+      method: HTTP_METHOD_GET
+    };
+  }
+}

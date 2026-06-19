@@ -123,6 +123,13 @@ func TestTSClientGenGoldenFiles(t *testing.T) {
 				"sse_client.ts",
 			},
 		},
+		{
+			name:      "empty request body",
+			protoFile: "empty_request_body.proto",
+			expectedFiles: []string{
+				"empty_request_body_client.ts",
+			},
+		},
 	}
 
 	baseDir, err := os.Getwd()

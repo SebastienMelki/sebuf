@@ -103,6 +103,13 @@ func TestClientGenGoldenFiles(t *testing.T) {
 			},
 		},
 		{
+			name:      "empty request body",
+			protoFile: "empty_request_body.proto",
+			expectedFiles: []string{
+				"empty_request_body_client.pb.go",
+			},
+		},
+		{
 			name:      "timestamp format",
 			protoFile: "timestamp_format.proto",
 			expectedFiles: []string{

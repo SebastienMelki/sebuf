@@ -580,6 +580,21 @@ func TestExhaustiveGoldenFiles(t *testing.T) {
 			goldenFile:  "testdata/golden/json/SSEService.openapi.json",
 			format:      "json",
 		},
+		// empty_request_body.proto -> EmptyRequestBodyService (empty-field requests)
+		{
+			name:        "empty_request_body_service_yaml",
+			protoFile:   "testdata/proto/empty_request_body.proto",
+			serviceName: "EmptyRequestBodyService",
+			goldenFile:  "testdata/golden/yaml/EmptyRequestBodyService.openapi.yaml",
+			format:      "yaml",
+		},
+		{
+			name:        "empty_request_body_service_json",
+			protoFile:   "testdata/proto/empty_request_body.proto",
+			serviceName: "EmptyRequestBodyService",
+			goldenFile:  "testdata/golden/json/EmptyRequestBodyService.openapi.json",
+			format:      "json",
+		},
 	}
 
 	for _, tc := range testCases {
