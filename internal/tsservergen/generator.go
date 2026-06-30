@@ -57,6 +57,12 @@ func (g *Generator) generateServerFile(file *protogen.File) error {
 	filename := file.GeneratedFilenamePrefix + "_server.ts"
 	gf := g.plugin.NewGeneratedFile(filename, "")
 
+	// Inline-mode context: no imports (bare names), but carries oneof_style so
+	// oneof_style=discriminated works without import_style=modules. With the
+	// default flatten style this is byte-identical to the historical output.
+	g.ctx = &tscommon.EmitContext{Options: g.opts}
+	defer func() { g.ctx = nil }()
+
 	// Collect all referenced messages and enums
 	ms := tscommon.CollectServiceMessages(file)
 
@@ -73,7 +79,7 @@ func (g *Generator) generateServerFile(file *protogen.File) error {
 
 	// 2. Message interfaces (shared types via tscommon)
 	for _, msg := range ms.OrderedMessages() {
-		tscommon.GenerateInterface(tscommon.Printer(p), msg)
+		tscommon.GenerateInterfaceCtx(g.ctx, tscommon.Printer(p), msg)
 	}
 
 	// 3. Enum types (shared via tscommon)
