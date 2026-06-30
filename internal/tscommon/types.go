@@ -230,6 +230,28 @@ func (ms *MessageSet) OrderedEnums() []*protogen.Enum {
 	return result
 }
 
+// MessagesBySourceFile groups the collected messages by their source proto file
+// path, preserving discovery order within each group. Used by modules mode to
+// emit one type module per proto file.
+func (ms *MessageSet) MessagesBySourceFile() map[string][]*protogen.Message {
+	out := make(map[string][]*protogen.Message)
+	for _, msg := range ms.OrderedMessages() {
+		src := msg.Desc.ParentFile().Path()
+		out[src] = append(out[src], msg)
+	}
+	return out
+}
+
+// EnumsBySourceFile groups the collected enums by their source proto file path.
+func (ms *MessageSet) EnumsBySourceFile() map[string][]*protogen.Enum {
+	out := make(map[string][]*protogen.Enum)
+	for _, enum := range ms.OrderedEnums() {
+		src := enum.Desc.ParentFile().Path()
+		out[src] = append(out[src], enum)
+	}
+	return out
+}
+
 // CollectServiceMessages collects all messages transitively referenced by services in a file.
 // It also includes messages whose names end with "Error" (convention for proto-defined custom errors).
 func CollectServiceMessages(file *protogen.File) *MessageSet {
@@ -251,20 +273,27 @@ func CollectServiceMessages(file *protogen.File) *MessageSet {
 	return ms
 }
 
-// TSFieldType returns the TypeScript type string for a protobuf field.
+// TSFieldType returns the TypeScript type string for a protobuf field
+// (inline mode — bare names, no imports).
 func TSFieldType(field *protogen.Field) string {
+	return TSFieldTypeCtx(nil, field)
+}
+
+// TSFieldTypeCtx is the import-aware variant of TSFieldType. A nil ctx (or a ctx
+// in inline mode) returns bare type names byte-identical to the historical
+// output; in modules mode it records cross-module imports via ctx.
+func TSFieldTypeCtx(ctx *EmitContext, field *protogen.Field) string {
 	// Handle map fields
 	if field.Desc.IsMap() {
 		valueField := field.Message.Fields[1] // map value is always second field of map entry
-		valueType := TSFieldType(valueField)
+		valueType := TSFieldTypeCtx(ctx, valueField)
 
 		// Check if the map value is a message with unwrap annotation
 		if valueField.Desc.Kind() == protoreflect.MessageKind && valueField.Message != nil {
 			unwrapField := annotations.FindUnwrapField(valueField.Message)
 			if unwrapField != nil && !unwrapField.Desc.IsMap() {
 				// Map-value unwrap: collapse wrapper to inner type array
-				// Use TSElementType since unwrapField is always repeated
-				valueType = TSElementType(unwrapField) + "[]"
+				valueType = TSElementTypeCtx(ctx, unwrapField) + "[]"
 			}
 		}
 
@@ -273,8 +302,7 @@ func TSFieldType(field *protogen.Field) string {
 
 	// Handle repeated fields
 	if field.Desc.IsList() {
-		elemType := TSElementType(field)
-		return elemType + "[]"
+		return TSElementTypeCtx(ctx, field) + "[]"
 	}
 
 	// Handle google.protobuf.Timestamp fields (serialized as primitive, not as nested object)
@@ -284,7 +312,7 @@ func TSFieldType(field *protogen.Field) string {
 
 	// Handle message fields
 	if field.Desc.Kind() == protoreflect.MessageKind && field.Message != nil {
-		return string(field.Message.Desc.Name())
+		return ctx.RefMessage(field.Message)
 	}
 
 	// Handle enum fields
@@ -294,7 +322,7 @@ func TSFieldType(field *protogen.Field) string {
 		if encoding == http.EnumEncoding_ENUM_ENCODING_NUMBER {
 			return TSNumber
 		}
-		return string(field.Enum.Desc.Name())
+		return ctx.RefEnum(field.Enum)
 	}
 
 	// Scalar types (use field-aware function for encoding annotations)
@@ -303,12 +331,17 @@ func TSFieldType(field *protogen.Field) string {
 
 // TSElementType returns the TypeScript type for the element of a repeated field.
 func TSElementType(field *protogen.Field) string {
+	return TSElementTypeCtx(nil, field)
+}
+
+// TSElementTypeCtx is the import-aware variant of TSElementType.
+func TSElementTypeCtx(ctx *EmitContext, field *protogen.Field) string {
 	// Handle google.protobuf.Timestamp (serialized as primitive, not as nested object)
 	if annotations.IsTimestampField(field) {
 		return TSTimestampType(field)
 	}
 	if field.Desc.Kind() == protoreflect.MessageKind && field.Message != nil {
-		return string(field.Message.Desc.Name())
+		return ctx.RefMessage(field.Message)
 	}
 	if field.Desc.Kind() == protoreflect.EnumKind && field.Enum != nil {
 		// Check for NUMBER encoding - return number type instead of enum name
@@ -316,7 +349,7 @@ func TSElementType(field *protogen.Field) string {
 		if encoding == http.EnumEncoding_ENUM_ENCODING_NUMBER {
 			return TSNumber
 		}
-		return string(field.Enum.Desc.Name())
+		return ctx.RefEnum(field.Enum)
 	}
 	// Use field-aware function for encoding annotations
 	return TSScalarTypeForField(field)
@@ -324,18 +357,22 @@ func TSElementType(field *protogen.Field) string {
 
 // RootUnwrapTSType returns the TypeScript type for a root-unwrapped message.
 func RootUnwrapTSType(msg *protogen.Message) string {
+	return RootUnwrapTSTypeCtx(nil, msg)
+}
+
+// RootUnwrapTSTypeCtx is the import-aware variant of RootUnwrapTSType.
+func RootUnwrapTSTypeCtx(ctx *EmitContext, msg *protogen.Message) string {
 	field := msg.Fields[0]
 
 	if field.Desc.IsMap() {
 		valueField := field.Message.Fields[1]
-		valueType := TSFieldType(valueField)
+		valueType := TSFieldTypeCtx(ctx, valueField)
 
 		// Check for combined unwrap: root map + value unwrap
 		if valueField.Desc.Kind() == protoreflect.MessageKind && valueField.Message != nil {
 			unwrapField := annotations.FindUnwrapField(valueField.Message)
 			if unwrapField != nil {
-				// Use TSElementType since unwrapField is always repeated
-				valueType = TSElementType(unwrapField) + "[]"
+				valueType = TSElementTypeCtx(ctx, unwrapField) + "[]"
 			}
 		}
 
@@ -343,10 +380,10 @@ func RootUnwrapTSType(msg *protogen.Message) string {
 	}
 
 	if field.Desc.IsList() {
-		return TSElementType(field) + "[]"
+		return TSElementTypeCtx(ctx, field) + "[]"
 	}
 
-	return TSFieldType(field)
+	return TSFieldTypeCtx(ctx, field)
 }
 
 // GenerateEnumType writes a TypeScript string union type for a protobuf enum.
@@ -376,15 +413,28 @@ func GenerateEnumType(p Printer, enum *protogen.Enum) {
 	p("")
 }
 
-// GenerateInterface writes a TypeScript interface for a protobuf message.
-// If the message has discriminated oneofs, it generates appropriate union types.
+// GenerateInterface writes a TypeScript interface for a protobuf message
+// (inline mode).
 func GenerateInterface(p Printer, msg *protogen.Message) {
+	GenerateInterfaceCtx(nil, p, msg)
+}
+
+// GenerateInterfaceCtx is the import-aware variant of GenerateInterface. In
+// modules mode it records cross-module imports via ctx; when ctx requests the
+// discriminated oneof style, un-annotated (non-synthetic) oneofs are rendered as
+// discriminated unions instead of flattened optional fields.
+func GenerateInterfaceCtx(ctx *EmitContext, p Printer, msg *protogen.Message) {
 	name := string(msg.Desc.Name())
 
 	// Collect discriminated oneof info
 	var discriminatedOneofs []*annotations.OneofDiscriminatorInfo
 	for _, oneof := range msg.Oneofs {
 		info := annotations.GetOneofDiscriminatorInfo(oneof)
+		// oneof_style=discriminated: synthesize info for real oneofs that lack an
+		// explicit annotation. Synthetic oneofs (proto3 `optional`) are left alone.
+		if info == nil && ctx.oneofDiscriminated() && !oneof.Desc.IsSynthetic() {
+			info = SynthesizeOneofInfo(oneof)
+		}
 		if info != nil {
 			discriminatedOneofs = append(discriminatedOneofs, info)
 		}
@@ -401,18 +451,48 @@ func GenerateInterface(p Printer, msg *protogen.Message) {
 
 	// Generate discriminated union types before the message
 	for _, info := range discriminatedOneofs {
-		GenerateOneofDiscriminatedUnionType(p, name, info)
+		GenerateOneofDiscriminatedUnionTypeCtx(ctx, p, name, info)
 	}
 
 	if hasFlattenedOneof {
-		GenerateFlattenedOneofInterface(p, msg, name, discriminatedOneofs)
+		GenerateFlattenedOneofInterfaceCtx(ctx, p, msg, name, discriminatedOneofs)
 	} else {
-		GenerateStandardInterface(p, msg, name, discriminatedOneofs)
+		GenerateStandardInterfaceCtx(ctx, p, msg, name, discriminatedOneofs)
 	}
 }
 
-// GenerateOneofDiscriminatedUnionType generates a TypeScript discriminated union type for a oneof.
+// SynthesizeOneofInfo builds discriminator info for a oneof that has no explicit
+// sebuf.http oneof_config annotation, using "$case" as the discriminator and
+// each field's JSON name as the discriminator value. Used by oneof_style=discriminated.
+func SynthesizeOneofInfo(oneof *protogen.Oneof) *annotations.OneofDiscriminatorInfo {
+	info := &annotations.OneofDiscriminatorInfo{
+		Oneof:         oneof,
+		Discriminator: "$case",
+		Flatten:       false,
+	}
+	for _, field := range oneof.Fields {
+		info.Variants = append(info.Variants, annotations.OneofVariant{
+			Field:            field,
+			DiscriminatorVal: field.Desc.JSONName(),
+			IsMessage:        field.Message != nil,
+		})
+	}
+	return info
+}
+
+// GenerateOneofDiscriminatedUnionType generates a TypeScript discriminated union type for a oneof
+// (inline mode).
 func GenerateOneofDiscriminatedUnionType(p Printer, msgName string, info *annotations.OneofDiscriminatorInfo) {
+	GenerateOneofDiscriminatedUnionTypeCtx(nil, p, msgName, info)
+}
+
+// GenerateOneofDiscriminatedUnionTypeCtx is the import-aware variant.
+func GenerateOneofDiscriminatedUnionTypeCtx(
+	ctx *EmitContext,
+	p Printer,
+	msgName string,
+	info *annotations.OneofDiscriminatorInfo,
+) {
 	unionName := msgName + SnakeToUpperCamel(string(info.Oneof.Desc.Name()))
 
 	var branches []string
@@ -425,7 +505,7 @@ func GenerateOneofDiscriminatedUnionType(p Printer, msgName string, info *annota
 			var sb strings.Builder
 			for _, childField := range variant.Field.Message.Fields {
 				jsonName := childField.Desc.JSONName()
-				tsType := TSFieldType(childField)
+				tsType := TSFieldTypeCtx(ctx, childField)
 				fmt.Fprintf(&sb, "; %s: %s", jsonName, tsType)
 			}
 			branch += sb.String()
@@ -433,7 +513,7 @@ func GenerateOneofDiscriminatedUnionType(p Printer, msgName string, info *annota
 		case variant.IsMessage:
 			// Non-flattened message: { discriminator: "value", fieldName?: MessageType }
 			fieldJSONName := variant.Field.Desc.JSONName()
-			msgType := string(variant.Field.Message.Desc.Name())
+			msgType := ctx.RefMessage(variant.Field.Message)
 			branch = fmt.Sprintf(
 				"{ %s: \"%s\"; %s?: %s }",
 				info.Discriminator,
@@ -468,8 +548,19 @@ func GenerateOneofDiscriminatedUnionType(p Printer, msgName string, info *annota
 }
 
 // GenerateFlattenedOneofInterface generates a type alias with intersection for messages
-// with flattened discriminated oneofs.
+// with flattened discriminated oneofs (inline mode).
 func GenerateFlattenedOneofInterface(
+	p Printer,
+	msg *protogen.Message,
+	name string,
+	discriminatedOneofs []*annotations.OneofDiscriminatorInfo,
+) {
+	GenerateFlattenedOneofInterfaceCtx(nil, p, msg, name, discriminatedOneofs)
+}
+
+// GenerateFlattenedOneofInterfaceCtx is the import-aware variant.
+func GenerateFlattenedOneofInterfaceCtx(
+	ctx *EmitContext,
 	p Printer,
 	msg *protogen.Message,
 	name string,
@@ -486,10 +577,10 @@ func GenerateFlattenedOneofInterface(
 		}
 		if annotations.IsFlattenField(field) && field.Message != nil {
 			prefix := annotations.GetFlattenPrefix(field)
-			GenerateFlattenedFields(p, field.Message, prefix)
+			GenerateFlattenedFieldsCtx(ctx, p, field.Message, prefix)
 			continue
 		}
-		GenerateFieldDeclaration(p, field)
+		GenerateFieldDeclarationCtx(ctx, p, field)
 	}
 	p("}")
 	p("")
@@ -505,8 +596,19 @@ func GenerateFlattenedOneofInterface(
 }
 
 // GenerateStandardInterface generates a standard interface, handling non-flattened
-// discriminated oneofs as optional union properties.
+// discriminated oneofs as optional union properties (inline mode).
 func GenerateStandardInterface(
+	p Printer,
+	msg *protogen.Message,
+	name string,
+	discriminatedOneofs []*annotations.OneofDiscriminatorInfo,
+) {
+	GenerateStandardInterfaceCtx(nil, p, msg, name, discriminatedOneofs)
+}
+
+// GenerateStandardInterfaceCtx is the import-aware variant.
+func GenerateStandardInterfaceCtx(
+	ctx *EmitContext,
 	p Printer,
 	msg *protogen.Message,
 	name string,
@@ -541,11 +643,11 @@ func GenerateStandardInterface(
 
 		if annotations.IsFlattenField(field) && field.Message != nil {
 			prefix := annotations.GetFlattenPrefix(field)
-			GenerateFlattenedFields(p, field.Message, prefix)
+			GenerateFlattenedFieldsCtx(ctx, p, field.Message, prefix)
 			continue
 		}
 
-		GenerateFieldDeclaration(p, field)
+		GenerateFieldDeclarationCtx(ctx, p, field)
 	}
 	p("}")
 	p("")
@@ -562,10 +664,16 @@ func BuildOneofFieldSet(discriminatedOneofs []*annotations.OneofDiscriminatorInf
 	return oneofFields
 }
 
-// GenerateFieldDeclaration generates a single TypeScript field declaration line.
+// GenerateFieldDeclaration generates a single TypeScript field declaration line
+// (inline mode).
 func GenerateFieldDeclaration(p Printer, field *protogen.Field) {
+	GenerateFieldDeclarationCtx(nil, p, field)
+}
+
+// GenerateFieldDeclarationCtx is the import-aware variant.
+func GenerateFieldDeclarationCtx(ctx *EmitContext, p Printer, field *protogen.Field) {
 	jsonName := field.Desc.JSONName()
-	tsType := TSFieldType(field)
+	tsType := TSFieldTypeCtx(ctx, field)
 
 	//nolint:gocritic // if-else chain is clearer than switch for distinct boolean checks
 	if annotations.IsNullableField(field) {
@@ -588,11 +696,17 @@ func SnakeToUpperCamel(s string) string {
 	return strings.Join(parts, "")
 }
 
-// GenerateFlattenedFields inlines child message fields at the parent level with optional prefix.
+// GenerateFlattenedFields inlines child message fields at the parent level with optional prefix
+// (inline mode).
 func GenerateFlattenedFields(p Printer, childMsg *protogen.Message, prefix string) {
+	GenerateFlattenedFieldsCtx(nil, p, childMsg, prefix)
+}
+
+// GenerateFlattenedFieldsCtx is the import-aware variant.
+func GenerateFlattenedFieldsCtx(ctx *EmitContext, p Printer, childMsg *protogen.Message, prefix string) {
 	for _, childField := range childMsg.Fields {
 		jsonName := prefix + childField.Desc.JSONName()
-		tsType := TSFieldType(childField)
+		tsType := TSFieldTypeCtx(ctx, childField)
 
 		//nolint:gocritic // if-else chain is clearer than switch for distinct boolean checks
 		if annotations.IsNullableField(childField) {

@@ -13,17 +13,26 @@ import (
 // Generator handles TypeScript HTTP client code generation for protobuf services.
 type Generator struct {
 	plugin *protogen.Plugin
+	opts   tscommon.Options
+	// ctx carries modules-mode emission state for the file currently being
+	// written. It is nil in inline mode (and during type-module emission), which
+	// makes every type reference resolve to its bare name with no import.
+	ctx *tscommon.EmitContext
 }
 
 // New creates a new TypeScript client generator.
-func New(plugin *protogen.Plugin) *Generator {
+func New(plugin *protogen.Plugin, opts tscommon.Options) *Generator {
 	return &Generator{
 		plugin: plugin,
+		opts:   opts,
 	}
 }
 
 // Generate processes all files and generates TypeScript clients.
 func (g *Generator) Generate() error {
+	if g.opts.ImportStyle == tscommon.ImportStyleModules {
+		return g.generateModules()
+	}
 	for _, file := range g.plugin.Files {
 		if !file.Generate {
 			continue
@@ -284,7 +293,7 @@ func (g *Generator) generateRPCMethod(p printer, service *protogen.Service, meth
 		return
 	}
 
-	inputType := string(method.Input.Desc.Name())
+	inputType := g.ctx.RefMessage(method.Input)
 	outputType := g.resolveOutputType(method)
 
 	tsMethodName := annotations.LowerFirst(cfg.methodName)
@@ -316,7 +325,7 @@ func (g *Generator) generateSSERPCMethod(
 	method *protogen.Method,
 	cfg *rpcMethodConfig,
 ) {
-	inputType := string(method.Input.Desc.Name())
+	inputType := g.ctx.RefMessage(method.Input)
 	outputType := g.resolveOutputType(method)
 	tsMethodName := annotations.LowerFirst(cfg.methodName)
 
@@ -420,9 +429,9 @@ func (g *Generator) generateSSEStreamParsing(p printer, outputType string) {
 func (g *Generator) resolveOutputType(method *protogen.Method) string {
 	msg := method.Output
 	if annotations.IsRootUnwrap(msg) {
-		return rootUnwrapTSType(msg)
+		return tscommon.RootUnwrapTSTypeCtx(g.ctx, msg)
 	}
-	return string(msg.Desc.Name())
+	return g.ctx.RefMessage(msg)
 }
 
 // generateURLBuilding generates URL construction with path and query params.
@@ -531,6 +540,9 @@ func (g *Generator) generateResponseHandling(p printer, method *protogen.Method)
 
 // generateHandleError generates the private error handler method.
 func (g *Generator) generateHandleError(p printer) {
+	// In modules mode this method references the shared ValidationError/ApiError
+	// helpers; record the import. No-op in inline mode.
+	g.ctx.NeedErrors()
 	p("  private async handleError(resp: Response): Promise<never> {")
 	p("    const body = await resp.text();")
 	p("    if (resp.status === 400) {")
