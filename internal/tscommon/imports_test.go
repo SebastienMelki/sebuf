@@ -63,7 +63,7 @@ func TestImportTracker_CollisionAliasing(t *testing.T) {
 
 func TestImportTracker_RenderOrdering(t *testing.T) {
 	tr := NewImportTracker()
-	tr.NeedErrors("./errors")
+	tr.NeedErrors("./errors", "ApiError", "ValidationError")
 	tr.NeedType("../../core/v1/identifiers", "ArtistID")
 	tr.NeedType("../../core/v1/identifiers", "AlbumID")
 	tr.NeedType("./album", "Album")
@@ -77,7 +77,7 @@ func TestImportTracker_RenderOrdering(t *testing.T) {
 	got := b.String()
 
 	want := strings.Join([]string{
-		`import { ApiError, FieldViolation, ValidationError } from "./errors";`,
+		`import { ApiError, ValidationError } from "./errors";`,
 		`import type { AlbumID, ArtistID } from "../../core/v1/identifiers";`,
 		`import type { Album } from "./album";`,
 		``,

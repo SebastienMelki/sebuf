@@ -64,7 +64,7 @@ type ImportTracker struct {
 	typeImports map[string][]importedSymbol // specifier -> imported type symbols
 	aliasOf     map[string]string           // "spec\x00symbol" -> local alias
 	usedAlias   map[string]string           // local alias -> owning "spec\x00symbol"
-	needErrors  bool
+	errorSyms   map[string]bool             // error helpers referenced (value import)
 	errorsSpec  string
 }
 
@@ -74,6 +74,7 @@ func NewImportTracker() *ImportTracker {
 		typeImports: map[string][]importedSymbol{},
 		aliasOf:     map[string]string{},
 		usedAlias:   map[string]string{},
+		errorSyms:   map[string]bool{},
 	}
 }
 
@@ -100,16 +101,18 @@ func (t *ImportTracker) NeedType(spec, symbol string) string {
 	return alias
 }
 
-// NeedErrors records that the shared error helpers are referenced, importing
-// them relative to the given module specifier.
-func (t *ImportTracker) NeedErrors(spec string) {
-	t.needErrors = true
+// NeedErrors records that the given shared error helpers are referenced,
+// importing them (as a value import) relative to the given module specifier.
+func (t *ImportTracker) NeedErrors(spec string, symbols ...string) {
 	t.errorsSpec = spec
+	for _, s := range symbols {
+		t.errorSyms[s] = true
+	}
 }
 
 // Empty reports whether no imports were recorded.
 func (t *ImportTracker) Empty() bool {
-	return !t.needErrors && len(t.typeImports) == 0
+	return len(t.errorSyms) == 0 && len(t.typeImports) == 0
 }
 
 // Render writes the import block (value import for error helpers, then sorted
@@ -118,8 +121,13 @@ func (t *ImportTracker) Render(p Printer) {
 	if t.Empty() {
 		return
 	}
-	if t.needErrors {
-		p(`import { ApiError, FieldViolation, ValidationError } from "%s";`, t.errorsSpec)
+	if len(t.errorSyms) > 0 {
+		syms := make([]string, 0, len(t.errorSyms))
+		for s := range t.errorSyms {
+			syms = append(syms, s)
+		}
+		sort.Strings(syms)
+		p(`import { %s } from "%s";`, strings.Join(syms, ", "), t.errorsSpec)
 	}
 	specs := make([]string, 0, len(t.typeImports))
 	for s := range t.typeImports {
@@ -191,10 +199,29 @@ func (c *EmitContext) ref(symbol string, file protoreflect.FileDescriptor) strin
 	return c.Imports.NeedType(RelativeImportSpecifier(c.SelfModule, mod), symbol)
 }
 
-// NeedErrors records that this file references the shared error helpers.
-func (c *EmitContext) NeedErrors() {
-	if !c.modules() {
+// NeedErrors records that this file references the given shared error helpers.
+func (c *EmitContext) NeedErrors(symbols ...string) {
+	if !c.modules() || len(symbols) == 0 {
 		return
 	}
-	c.Imports.NeedErrors(RelativeImportSpecifier(c.SelfModule, errorsModule))
+	c.Imports.NeedErrors(RelativeImportSpecifier(c.SelfModule, errorsModule), symbols...)
+}
+
+// errorHelperSymbols are the value exports of the shared errors module.
+var errorHelperSymbols = []string{"ApiError", "FieldViolation", "ValidationError"}
+
+// UsedErrorSymbols returns the error-helper symbols referenced anywhere in the
+// given body lines, so a generated file imports only what it uses (these
+// symbols are distinct, none a substring of another).
+func UsedErrorSymbols(lines []string) []string {
+	var used []string
+	for _, sym := range errorHelperSymbols {
+		for _, line := range lines {
+			if strings.Contains(line, sym) {
+				used = append(used, sym)
+				break
+			}
+		}
+	}
+	return used
 }

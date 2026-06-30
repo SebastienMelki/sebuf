@@ -546,9 +546,6 @@ func (g *Generator) generateResponseHandling(p printer, method *protogen.Method)
 
 // generateHandleError generates the private error handler method.
 func (g *Generator) generateHandleError(p printer) {
-	// In modules mode this method references the shared ValidationError/ApiError
-	// helpers; record the import. No-op in inline mode.
-	g.ctx.NeedErrors()
 	p("  private async handleError(resp: Response): Promise<never> {")
 	p("    const body = await resp.text();")
 	p("    if (resp.status === 400) {")
