@@ -5,6 +5,7 @@ import (
 	"google.golang.org/protobuf/types/pluginpb"
 
 	"github.com/SebastienMelki/sebuf/internal/tsservergen"
+	"github.com/SebastienMelki/sebuf/internal/tscommon"
 )
 
 func main() {
@@ -12,7 +13,11 @@ func main() {
 
 	options.Run(func(plugin *protogen.Plugin) error {
 		plugin.SupportedFeatures = uint64(pluginpb.CodeGeneratorResponse_FEATURE_PROTO3_OPTIONAL)
-		gen := tsservergen.New(plugin)
+		opts, err := tscommon.ParseOptions(plugin.Request.GetParameter())
+		if err != nil {
+			return err
+		}
+		gen := tsservergen.New(plugin, opts)
 		return gen.Generate()
 	})
 }
