@@ -29,14 +29,7 @@ func TestNullableConsistencyTypeScript(t *testing.T) {
 		t.Fatalf("Failed to get working directory: %v", baseErr)
 	}
 
-	tsFile := filepath.Join(baseDir, "..", "tsclientgen", "testdata", "golden", "nullable_client.ts")
-
-	content, readErr := os.ReadFile(tsFile)
-	if readErr != nil {
-		t.Fatalf("Failed to read TypeScript nullable golden file: %v", readErr)
-	}
-
-	tsContent := string(content)
+	tsContent := readCombinedTSGolden(t, baseDir, "nullable")
 
 	// Verify nullable fields use T | null syntax (not optional ?)
 	nullableFields := []struct {

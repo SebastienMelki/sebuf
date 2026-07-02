@@ -2,15 +2,19 @@ package tsservergen
 
 import (
 	"bytes"
+	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strings"
 	"testing"
 )
 
 // TestTSServerGenGoldenFiles tests TypeScript server generation against golden files.
-// This ensures any changes to code generation are intentional and reviewed.
+// Each fixture is generated into its own temp directory; every emitted .ts file
+// (type modules, the slimmed server module, and errors.ts) is compared against
+// testdata/golden/<relative path>.
 //
 // To update golden files after intentional changes:
 //
@@ -21,115 +25,24 @@ func TestTSServerGenGoldenFiles(t *testing.T) {
 	}
 
 	testCases := []struct {
-		name          string
-		protoFile     string
-		expectedFiles []string
+		name      string
+		protoFile string
 	}{
-		{
-			name:      "comprehensive HTTP verbs",
-			protoFile: "http_verbs_comprehensive.proto",
-			expectedFiles: []string{
-				"http_verbs_comprehensive_server.ts",
-			},
-		},
-		{
-			name:      "query parameters",
-			protoFile: "query_params.proto",
-			expectedFiles: []string{
-				"query_params_server.ts",
-			},
-		},
-		{
-			name:      "backward compatibility",
-			protoFile: "backward_compat.proto",
-			expectedFiles: []string{
-				"backward_compat_server.ts",
-			},
-		},
-		{
-			name:      "complex features",
-			protoFile: "complex_features.proto",
-			expectedFiles: []string{
-				"complex_features_server.ts",
-			},
-		},
-		{
-			name:      "unwrap variants",
-			protoFile: "unwrap.proto",
-			expectedFiles: []string{
-				"unwrap_server.ts",
-			},
-		},
-		{
-			name:      "int64 encoding",
-			protoFile: "int64_encoding.proto",
-			expectedFiles: []string{
-				"int64_encoding_server.ts",
-			},
-		},
-		{
-			name:      "enum encoding",
-			protoFile: "enum_encoding.proto",
-			expectedFiles: []string{
-				"enum_encoding_server.ts",
-			},
-		},
-		{
-			name:      "nullable fields",
-			protoFile: "nullable.proto",
-			expectedFiles: []string{
-				"nullable_server.ts",
-			},
-		},
-		{
-			name:      "empty behavior",
-			protoFile: "empty_behavior.proto",
-			expectedFiles: []string{
-				"empty_behavior_server.ts",
-			},
-		},
-		{
-			name:      "empty request body",
-			protoFile: "empty_request_body.proto",
-			expectedFiles: []string{
-				"empty_request_body_server.ts",
-			},
-		},
-		{
-			name:      "timestamp format",
-			protoFile: "timestamp_format.proto",
-			expectedFiles: []string{
-				"timestamp_format_server.ts",
-			},
-		},
-		{
-			name:      "bytes encoding",
-			protoFile: "bytes_encoding.proto",
-			expectedFiles: []string{
-				"bytes_encoding_server.ts",
-			},
-		},
-		{
-			name:      "flatten",
-			protoFile: "flatten.proto",
-			expectedFiles: []string{
-				"flatten_server.ts",
-			},
-		},
-		{
-			name:      "oneof discriminator",
-			protoFile: "oneof_discriminator.proto",
-			expectedFiles: []string{
-				"oneof_discriminator_server.ts",
-			},
-		},
-		{
-			name:      "SSE streaming",
-			protoFile: "sse.proto",
-			expectedFiles: []string{
-				"sse_server.ts",
-			},
-		},
+		{"comprehensive HTTP verbs", "http_verbs_comprehensive.proto"},
+		{"query parameters", "query_params.proto"},
+		{"backward compatibility", "backward_compat.proto"},
+		{"complex features", "complex_features.proto"},
+		{"unwrap variants", "unwrap.proto"},
+		{"int64 encoding", "int64_encoding.proto"},
+		{"enum encoding", "enum_encoding.proto"},
+		{"nullable fields", "nullable.proto"},
+		{"empty behavior", "empty_behavior.proto"},
+		{"timestamp format", "timestamp_format.proto"},
+		{"bytes encoding", "bytes_encoding.proto"},
+		{"flatten", "flatten.proto"},
+		{"oneof discriminator", "oneof_discriminator.proto"},
+		{"SSE streaming", "sse.proto"},
+		{"empty request body", "empty_request_body.proto"},
 	}
 
 	baseDir, err := os.Getwd()
@@ -141,14 +54,11 @@ func TestTSServerGenGoldenFiles(t *testing.T) {
 	protoDir := filepath.Join(baseDir, "testdata", "proto")
 	goldenDir := filepath.Join(baseDir, "testdata", "golden")
 
-	mkdirErr := os.MkdirAll(goldenDir, 0o755)
-	if mkdirErr != nil {
+	if mkdirErr := os.MkdirAll(goldenDir, 0o755); mkdirErr != nil {
 		t.Fatalf("Failed to create golden directory: %v", mkdirErr)
 	}
 
 	pluginPath := filepath.Join(projectRoot, "bin", "protoc-gen-ts-server")
-
-	// Build the plugin if it doesn't exist
 	if _, buildStatErr := os.Stat(pluginPath); os.IsNotExist(buildStatErr) {
 		buildCmd := exec.Command("make", "build")
 		buildCmd.Dir = projectRoot
@@ -157,67 +67,82 @@ func TestTSServerGenGoldenFiles(t *testing.T) {
 		}
 	}
 
-	tempDir := t.TempDir()
-
 	updateGolden := os.Getenv("UPDATE_GOLDEN") == "1"
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			protoPath := filepath.Join(protoDir, tc.protoFile)
-
-			_, statErr := os.Stat(protoPath)
-			if os.IsNotExist(statErr) {
-				t.Fatalf("Proto file not found: %s", protoPath)
+			if _, statErr := os.Stat(filepath.Join(protoDir, tc.protoFile)); os.IsNotExist(statErr) {
+				t.Fatalf("Proto file not found: %s", tc.protoFile)
 			}
 
-			// Run protoc with ts-server plugin
+			outDir := t.TempDir()
 			cmd := exec.Command("protoc",
 				"--plugin=protoc-gen-ts-server="+pluginPath,
-				"--ts-server_out="+tempDir,
+				"--ts-server_out="+outDir,
 				"--ts-server_opt=paths=source_relative",
 				"--proto_path="+protoDir,
 				"--proto_path="+filepath.Join(projectRoot, "proto"),
 				tc.protoFile,
 			)
 			cmd.Dir = protoDir
-
 			var stderr bytes.Buffer
 			cmd.Stderr = &stderr
-
-			runErr := cmd.Run()
-			if runErr != nil {
+			if runErr := cmd.Run(); runErr != nil {
 				t.Fatalf("protoc failed: %v\nstderr: %s", runErr, stderr.String())
 			}
 
-			for _, expectedFile := range tc.expectedFiles {
-				generatedPath := filepath.Join(tempDir, expectedFile)
-				goldenPath := filepath.Join(goldenDir, expectedFile)
-
-				generatedContent, readErr := os.ReadFile(generatedPath)
+			for _, rel := range generatedTSFiles(t, outDir) {
+				generatedContent, readErr := os.ReadFile(filepath.Join(outDir, rel))
 				if readErr != nil {
-					t.Fatalf("Failed to read generated file %s: %v", generatedPath, readErr)
+					t.Fatalf("Failed to read generated file %s: %v", rel, readErr)
 				}
-
+				goldenPath := filepath.Join(goldenDir, rel)
 				if updateGolden {
 					updateGoldenFile(t, goldenPath, generatedContent)
 					continue
 				}
-				compareGoldenFile(t, expectedFile, goldenPath, generatedContent)
+				compareGoldenFile(t, rel, goldenPath, generatedContent)
 			}
 		})
 	}
 }
 
+// generatedTSFiles returns the relative paths of every .ts file under dir, sorted.
+func generatedTSFiles(t *testing.T, dir string) []string {
+	t.Helper()
+	var files []string
+	walkErr := filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if !d.IsDir() && strings.HasSuffix(path, ".ts") {
+			rel, relErr := filepath.Rel(dir, path)
+			if relErr != nil {
+				return relErr
+			}
+			files = append(files, rel)
+		}
+		return nil
+	})
+	if walkErr != nil {
+		t.Fatalf("Failed to walk generated dir: %v", walkErr)
+	}
+	sort.Strings(files)
+	return files
+}
+
 func updateGoldenFile(t *testing.T, goldenPath string, content []byte) {
 	t.Helper()
-	writeErr := os.WriteFile(goldenPath, content, 0o644)
-	if writeErr != nil {
+	if mkErr := os.MkdirAll(filepath.Dir(goldenPath), 0o755); mkErr != nil {
+		t.Fatalf("Failed to create golden dir for %s: %v", goldenPath, mkErr)
+	}
+	if writeErr := os.WriteFile(goldenPath, content, 0o644); writeErr != nil {
 		t.Fatalf("Failed to write golden file %s: %v", goldenPath, writeErr)
 	}
 	t.Logf("Updated golden file: %s", goldenPath)
 }
 
-func compareGoldenFile(t *testing.T, expectedFile, goldenPath string, generatedContent []byte) {
+func compareGoldenFile(t *testing.T, name, goldenPath string, generatedContent []byte) {
 	t.Helper()
 	goldenContent, goldenReadErr := os.ReadFile(goldenPath)
 	if goldenReadErr != nil {
@@ -231,7 +156,7 @@ func compareGoldenFile(t *testing.T, expectedFile, goldenPath string, generatedC
 		t.Errorf("Generated file %s does not match golden file.\n"+
 			"Run with UPDATE_GOLDEN=1 to update golden files after reviewing changes.\n"+
 			"Diff:\n%s",
-			expectedFile,
+			name,
 			diffStrings(string(goldenContent), string(generatedContent)))
 	}
 }

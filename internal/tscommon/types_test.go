@@ -105,7 +105,7 @@ func TestTSEnumUnspecifiedValue_ViaGoldenOutput(t *testing.T) {
 	t.Run("custom_enum_value_Status", func(t *testing.T) {
 		s := readGoldenFile(
 			t, projectRoot,
-			"internal/tsclientgen/testdata/golden/enum_encoding_client.ts",
+			"internal/tsclientgen/testdata/golden/enum_encoding.ts",
 		)
 
 		// Status enum has custom enum_value annotations: "unknown", "active", "inactive"
@@ -119,7 +119,7 @@ func TestTSEnumUnspecifiedValue_ViaGoldenOutput(t *testing.T) {
 	t.Run("default_enum_value_Priority", func(t *testing.T) {
 		s := readGoldenFile(
 			t, projectRoot,
-			"internal/tsclientgen/testdata/golden/enum_encoding_client.ts",
+			"internal/tsclientgen/testdata/golden/enum_encoding.ts",
 		)
 
 		// Priority enum has NO custom enum_value annotations
@@ -131,19 +131,26 @@ func TestTSEnumUnspecifiedValue_ViaGoldenOutput(t *testing.T) {
 	})
 
 	t.Run("custom_enum_value_Region_query_params", func(t *testing.T) {
-		s := readGoldenFile(
+		// The Region enum type now lives in the canonical type module...
+		types := readGoldenFile(
 			t, projectRoot,
-			"internal/tsclientgen/testdata/golden/query_params_client.ts",
+			"internal/tsclientgen/testdata/golden/query_params.ts",
 		)
 
 		// Region enum has custom enum_value annotations
 		expected := `export type Region = "unspecified" | "americas" | "europe" | "asia";`
-		if !strings.Contains(s, expected) {
+		if !strings.Contains(types, expected) {
 			t.Errorf("Expected Region type with custom enum_value annotations:\n  %s", expected)
 		}
 
+		// ...while the zero check lives in the service module.
+		client := readGoldenFile(
+			t, projectRoot,
+			"internal/tsclientgen/testdata/golden/query_params_client.ts",
+		)
+
 		// TSZeroCheckForField for enum query params should use custom unspecified value
-		if !strings.Contains(s, `req.region !== "unspecified"`) {
+		if !strings.Contains(client, `req.region !== "unspecified"`) {
 			t.Error(
 				`Expected zero check to use custom enum_value "unspecified" for Region query param`,
 			)

@@ -31,14 +31,7 @@ func TestFlattenTypeScriptTypes(t *testing.T) {
 		t.Fatalf("Failed to get working directory: %v", baseErr)
 	}
 
-	tsFile := filepath.Join(baseDir, "..", "tsclientgen", "testdata", "golden", "flatten_client.ts")
-
-	content, readErr := os.ReadFile(tsFile)
-	if readErr != nil {
-		t.Fatalf("Failed to read TypeScript flatten golden file: %v", readErr)
-	}
-
-	tsContent := string(content)
+	tsContent := readCombinedTSGolden(t, baseDir, "flatten")
 
 	// SimpleFlatten: street, city, zip at top level (no nested address)
 	simpleFlattenFields := []string{"street: string", "city: string", "zip: string"}
@@ -177,7 +170,6 @@ func TestFlattenCrossGeneratorAgreement(t *testing.T) {
 
 	// Read all golden files
 	goFile := filepath.Join(baseDir, "testdata", "golden", "flatten_flatten.pb.go")
-	tsFile := filepath.Join(baseDir, "..", "tsclientgen", "testdata", "golden", "flatten_client.ts")
 	yamlFile := filepath.Join(
 		baseDir, "..", "openapiv3", "testdata", "golden", "yaml", "FlattenService.openapi.yaml",
 	)
@@ -186,17 +178,13 @@ func TestFlattenCrossGeneratorAgreement(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to read Go golden file: %v", err)
 	}
-	tsContent, err := os.ReadFile(tsFile)
-	if err != nil {
-		t.Fatalf("Failed to read TypeScript golden file: %v", err)
-	}
 	yamlContent, err := os.ReadFile(yamlFile)
 	if err != nil {
 		t.Fatalf("Failed to read OpenAPI golden file: %v", err)
 	}
 
 	goStr := string(goContent)
-	tsStr := string(tsContent)
+	tsStr := readCombinedTSGolden(t, baseDir, "flatten")
 	yamlStr := string(yamlContent)
 
 	testCases := []struct {
