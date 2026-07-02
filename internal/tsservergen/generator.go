@@ -16,12 +16,17 @@ import (
 // Generator handles TypeScript server code generation for protobuf services.
 type Generator struct {
 	plugin *protogen.Plugin
+	opts   tscommon.Options
+	// ctx carries the parsed options into the emitters (e.g. oneof_style) for
+	// the file currently being written.
+	ctx *tscommon.EmitContext
 }
 
 // New creates a new TypeScript server generator.
-func New(plugin *protogen.Plugin) *Generator {
+func New(plugin *protogen.Plugin, opts tscommon.Options) *Generator {
 	return &Generator{
 		plugin: plugin,
+		opts:   opts,
 	}
 }
 
@@ -49,6 +54,12 @@ func (g *Generator) generateServerFile(file *protogen.File) error {
 	filename := file.GeneratedFilenamePrefix + "_server.ts"
 	gf := g.plugin.NewGeneratedFile(filename, "")
 
+	// Inline-mode context: no imports (bare names), but carries oneof_style so
+	// oneof_style=discriminated works without import_style=modules. With the
+	// default flatten style this is byte-identical to the historical output.
+	g.ctx = &tscommon.EmitContext{Options: g.opts}
+	defer func() { g.ctx = nil }()
+
 	// Collect all referenced messages and enums
 	ms := tscommon.CollectServiceMessages(file)
 
@@ -65,7 +76,7 @@ func (g *Generator) generateServerFile(file *protogen.File) error {
 
 	// 2. Message interfaces (shared types via tscommon)
 	for _, msg := range ms.OrderedMessages() {
-		tscommon.GenerateInterface(tscommon.Printer(p), msg)
+		tscommon.GenerateInterfaceCtx(g.ctx, tscommon.Printer(p), msg)
 	}
 
 	// 3. Enum types (shared via tscommon)
@@ -612,7 +623,7 @@ func (g *Generator) generateSSERouteEntry(
 }
 
 // emitPathParamAssignment emits a single path param assignment with enum casting if needed.
-func emitPathParamAssignment(
+func (g *Generator) emitPathParamAssignment(
 	p tscommon.Printer,
 	ppf pathParamField,
 	prefix string,
@@ -736,7 +747,7 @@ func (g *Generator) generateQueryParamParsing(
 		if len(cfg.pathParamFields) > 0 {
 			p("          const body: %s = {", inputType)
 			for _, ppf := range cfg.pathParamFields {
-				emitPathParamAssignment(p, ppf, "            ", ",")
+				g.emitPathParamAssignment(p, ppf, "            ", ",")
 			}
 			p("          };")
 		} else {
@@ -756,7 +767,7 @@ func (g *Generator) generateQueryParamParsing(
 	p("          const body: %s = {", inputType)
 	// Include path param fields in the literal so TS sees all required properties
 	for _, ppf := range cfg.pathParamFields {
-		emitPathParamAssignment(p, ppf, "            ", ",")
+		g.emitPathParamAssignment(p, ppf, "            ", ",")
 	}
 	for _, qp := range cfg.queryParams {
 		g.generateQueryParamField(p, qp)

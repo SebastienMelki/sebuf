@@ -24,6 +24,8 @@ func TestTSClientGenGoldenFiles(t *testing.T) {
 		name          string
 		protoFile     string
 		expectedFiles []string
+		opts          []string // extra --ts-client_opt values (beyond paths=source_relative)
+		subdir        string   // golden subdirectory for opt variants (avoids filename clashes)
 	}{
 		{
 			name:      "comprehensive HTTP verbs",
@@ -130,6 +132,15 @@ func TestTSClientGenGoldenFiles(t *testing.T) {
 				"empty_request_body_client.ts",
 			},
 		},
+		{
+			name:      "oneof_style=discriminated",
+			protoFile: "oneof_discriminator.proto",
+			opts:      []string{"oneof_style=discriminated"},
+			subdir:    "oneof_discriminated",
+			expectedFiles: []string{
+				"oneof_discriminator_client.ts",
+			},
+		},
 	}
 
 	baseDir, err := os.Getwd()
@@ -171,14 +182,20 @@ func TestTSClientGenGoldenFiles(t *testing.T) {
 			}
 
 			// Run protoc with ts-client plugin
-			cmd := exec.Command("protoc",
-				"--plugin=protoc-gen-ts-client="+pluginPath,
-				"--ts-client_out="+tempDir,
+			args := []string{
+				"--plugin=protoc-gen-ts-client=" + pluginPath,
+				"--ts-client_out=" + tempDir,
 				"--ts-client_opt=paths=source_relative",
+			}
+			for _, opt := range tc.opts {
+				args = append(args, "--ts-client_opt="+opt)
+			}
+			args = append(args,
 				"--proto_path="+protoDir,
 				"--proto_path="+filepath.Join(projectRoot, "proto"),
 				tc.protoFile,
 			)
+			cmd := exec.Command("protoc", args...)
 			cmd.Dir = protoDir
 
 			var stderr bytes.Buffer
@@ -191,7 +208,7 @@ func TestTSClientGenGoldenFiles(t *testing.T) {
 
 			for _, expectedFile := range tc.expectedFiles {
 				generatedPath := filepath.Join(tempDir, expectedFile)
-				goldenPath := filepath.Join(goldenDir, expectedFile)
+				goldenPath := filepath.Join(goldenDir, tc.subdir, expectedFile)
 
 				generatedContent, readErr := os.ReadFile(generatedPath)
 				if readErr != nil {
@@ -210,6 +227,9 @@ func TestTSClientGenGoldenFiles(t *testing.T) {
 
 func updateGoldenFile(t *testing.T, goldenPath string, content []byte) {
 	t.Helper()
+	if mkErr := os.MkdirAll(filepath.Dir(goldenPath), 0o755); mkErr != nil {
+		t.Fatalf("Failed to create golden dir for %s: %v", goldenPath, mkErr)
+	}
 	writeErr := os.WriteFile(goldenPath, content, 0o644)
 	if writeErr != nil {
 		t.Fatalf("Failed to write golden file %s: %v", goldenPath, writeErr)

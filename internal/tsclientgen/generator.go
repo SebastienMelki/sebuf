@@ -13,12 +13,17 @@ import (
 // Generator handles TypeScript HTTP client code generation for protobuf services.
 type Generator struct {
 	plugin *protogen.Plugin
+	opts   tscommon.Options
+	// ctx carries the parsed options into the emitters (e.g. oneof_style) for
+	// the file currently being written.
+	ctx *tscommon.EmitContext
 }
 
 // New creates a new TypeScript client generator.
-func New(plugin *protogen.Plugin) *Generator {
+func New(plugin *protogen.Plugin, opts tscommon.Options) *Generator {
 	return &Generator{
 		plugin: plugin,
+		opts:   opts,
 	}
 }
 
@@ -47,6 +52,12 @@ func (g *Generator) generateClientFile(file *protogen.File) error {
 	filename := file.GeneratedFilenamePrefix + "_client.ts"
 	gf := g.plugin.NewGeneratedFile(filename, "")
 
+	// Inline-mode context: no imports (bare names), but carries oneof_style so
+	// oneof_style=discriminated works without import_style=modules. With the
+	// default flatten style this is byte-identical to the historical output.
+	g.ctx = &tscommon.EmitContext{Options: g.opts}
+	defer func() { g.ctx = nil }()
+
 	// Collect all referenced messages and enums
 	ms := collectServiceMessages(file)
 
@@ -64,7 +75,7 @@ func (g *Generator) generateClientFile(file *protogen.File) error {
 
 	// 2. Message interfaces
 	for _, msg := range ms.OrderedMessages() {
-		generateInterface(p, msg)
+		tscommon.GenerateInterfaceCtx(g.ctx, tscommon.Printer(p), msg)
 	}
 
 	// 3. Enum types
