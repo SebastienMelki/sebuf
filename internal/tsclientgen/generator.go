@@ -13,17 +13,26 @@ import (
 // Generator handles TypeScript HTTP client code generation for protobuf services.
 type Generator struct {
 	plugin *protogen.Plugin
+	opts   tscommon.Options
+	// ctx carries modules-mode emission state for the file currently being
+	// written. It is nil in inline mode (and during type-module emission), which
+	// makes every type reference resolve to its bare name with no import.
+	ctx *tscommon.EmitContext
 }
 
 // New creates a new TypeScript client generator.
-func New(plugin *protogen.Plugin) *Generator {
+func New(plugin *protogen.Plugin, opts tscommon.Options) *Generator {
 	return &Generator{
 		plugin: plugin,
+		opts:   opts,
 	}
 }
 
 // Generate processes all files and generates TypeScript clients.
 func (g *Generator) Generate() error {
+	if g.opts.ImportStyle == tscommon.ImportStyleModules {
+		return g.generateModules()
+	}
 	for _, file := range g.plugin.Files {
 		if !file.Generate {
 			continue
@@ -47,6 +56,12 @@ func (g *Generator) generateClientFile(file *protogen.File) error {
 	filename := file.GeneratedFilenamePrefix + "_client.ts"
 	gf := g.plugin.NewGeneratedFile(filename, "")
 
+	// Inline-mode context: no imports (bare names), but carries oneof_style so
+	// oneof_style=discriminated works without import_style=modules. With the
+	// default flatten style this is byte-identical to the historical output.
+	g.ctx = &tscommon.EmitContext{Options: g.opts}
+	defer func() { g.ctx = nil }()
+
 	// Collect all referenced messages and enums
 	ms := collectServiceMessages(file)
 
@@ -64,7 +79,7 @@ func (g *Generator) generateClientFile(file *protogen.File) error {
 
 	// 2. Message interfaces
 	for _, msg := range ms.OrderedMessages() {
-		generateInterface(p, msg)
+		tscommon.GenerateInterfaceCtx(g.ctx, tscommon.Printer(p), msg)
 	}
 
 	// 3. Enum types
@@ -284,7 +299,7 @@ func (g *Generator) generateRPCMethod(p printer, service *protogen.Service, meth
 		return
 	}
 
-	inputType := string(method.Input.Desc.Name())
+	inputType := g.ctx.RefMessage(method.Input)
 	outputType := g.resolveOutputType(method)
 
 	tsMethodName := annotations.LowerFirst(cfg.methodName)
@@ -316,7 +331,7 @@ func (g *Generator) generateSSERPCMethod(
 	method *protogen.Method,
 	cfg *rpcMethodConfig,
 ) {
-	inputType := string(method.Input.Desc.Name())
+	inputType := g.ctx.RefMessage(method.Input)
 	outputType := g.resolveOutputType(method)
 	tsMethodName := annotations.LowerFirst(cfg.methodName)
 
@@ -420,9 +435,9 @@ func (g *Generator) generateSSEStreamParsing(p printer, outputType string) {
 func (g *Generator) resolveOutputType(method *protogen.Method) string {
 	msg := method.Output
 	if annotations.IsRootUnwrap(msg) {
-		return rootUnwrapTSType(msg)
+		return tscommon.RootUnwrapTSTypeCtx(g.ctx, msg)
 	}
-	return string(msg.Desc.Name())
+	return g.ctx.RefMessage(msg)
 }
 
 // generateURLBuilding generates URL construction with path and query params.

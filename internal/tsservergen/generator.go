@@ -16,17 +16,25 @@ import (
 // Generator handles TypeScript server code generation for protobuf services.
 type Generator struct {
 	plugin *protogen.Plugin
+	opts   tscommon.Options
+	// ctx carries modules-mode emission state for the file currently being
+	// written; nil in inline mode (bare names, no imports).
+	ctx *tscommon.EmitContext
 }
 
 // New creates a new TypeScript server generator.
-func New(plugin *protogen.Plugin) *Generator {
+func New(plugin *protogen.Plugin, opts tscommon.Options) *Generator {
 	return &Generator{
 		plugin: plugin,
+		opts:   opts,
 	}
 }
 
 // Generate processes all files and generates TypeScript server files.
 func (g *Generator) Generate() error {
+	if g.opts.ImportStyle == tscommon.ImportStyleModules {
+		return g.generateModules()
+	}
 	for _, file := range g.plugin.Files {
 		if !file.Generate {
 			continue
@@ -49,6 +57,12 @@ func (g *Generator) generateServerFile(file *protogen.File) error {
 	filename := file.GeneratedFilenamePrefix + "_server.ts"
 	gf := g.plugin.NewGeneratedFile(filename, "")
 
+	// Inline-mode context: no imports (bare names), but carries oneof_style so
+	// oneof_style=discriminated works without import_style=modules. With the
+	// default flatten style this is byte-identical to the historical output.
+	g.ctx = &tscommon.EmitContext{Options: g.opts}
+	defer func() { g.ctx = nil }()
+
 	// Collect all referenced messages and enums
 	ms := tscommon.CollectServiceMessages(file)
 
@@ -65,7 +79,7 @@ func (g *Generator) generateServerFile(file *protogen.File) error {
 
 	// 2. Message interfaces (shared types via tscommon)
 	for _, msg := range ms.OrderedMessages() {
-		tscommon.GenerateInterface(tscommon.Printer(p), msg)
+		tscommon.GenerateInterfaceCtx(g.ctx, tscommon.Printer(p), msg)
 	}
 
 	// 3. Enum types (shared via tscommon)
@@ -260,7 +274,7 @@ func (g *Generator) generateHandlerInterface(p tscommon.Printer, service *protog
 	p("export interface %sHandler {", serviceName)
 	for _, method := range service.Methods {
 		methodName := annotations.LowerFirst(method.GoName)
-		inputType := string(method.Input.Desc.Name())
+		inputType := g.ctx.RefMessage(method.Input)
 		outputType := g.resolveOutputType(method)
 		if g.isSSEMethod(method) {
 			p("  %s(ctx: ServerContext, req: %s): ReadableStream<%s>;", methodName, inputType, outputType)
@@ -276,9 +290,9 @@ func (g *Generator) generateHandlerInterface(p tscommon.Printer, service *protog
 func (g *Generator) resolveOutputType(method *protogen.Method) string {
 	msg := method.Output
 	if annotations.IsRootUnwrap(msg) {
-		return tscommon.RootUnwrapTSType(msg)
+		return tscommon.RootUnwrapTSTypeCtx(g.ctx, msg)
 	}
-	return string(msg.Desc.Name())
+	return g.ctx.RefMessage(msg)
 }
 
 // pathParamField maps a URL path parameter to its corresponding request message field.
@@ -612,14 +626,14 @@ func (g *Generator) generateSSERouteEntry(
 }
 
 // emitPathParamAssignment emits a single path param assignment with enum casting if needed.
-func emitPathParamAssignment(
+func (g *Generator) emitPathParamAssignment(
 	p tscommon.Printer,
 	ppf pathParamField,
 	prefix string,
 	suffix string,
 ) {
 	if ppf.field != nil && ppf.field.Desc.Kind() == protoreflect.EnumKind && ppf.field.Enum != nil {
-		enumName := string(ppf.field.Enum.Desc.Name())
+		enumName := g.ctx.RefEnum(ppf.field.Enum)
 		p(
 			"%s%s: pathParams[\"%s\"] as %s%s",
 			prefix, ppf.jsonName, ppf.protoName, enumName, suffix,
@@ -637,7 +651,7 @@ func (g *Generator) generatePathParamMerge(p tscommon.Printer, cfg *rpcRouteConf
 	}
 	for _, ppf := range cfg.pathParamFields {
 		if ppf.field != nil && ppf.field.Desc.Kind() == protoreflect.EnumKind && ppf.field.Enum != nil {
-			enumName := string(ppf.field.Enum.Desc.Name())
+			enumName := g.ctx.RefEnum(ppf.field.Enum)
 			p(
 				"          body.%s = pathParams[\"%s\"] as %s;",
 				ppf.jsonName, ppf.protoName, enumName,
@@ -710,7 +724,7 @@ func (g *Generator) generatePathParamExtraction(p tscommon.Printer, cfg *rpcRout
 
 // generateBodyParsing generates code to parse JSON request body.
 func (g *Generator) generateBodyParsing(p tscommon.Printer, method *protogen.Method, tsMethodName string) {
-	inputType := string(method.Input.Desc.Name())
+	inputType := g.ctx.RefMessage(method.Input)
 	p("          const body = await req.json() as %s;", inputType)
 
 	// Optional validation hook
@@ -730,13 +744,13 @@ func (g *Generator) generateQueryParamParsing(
 	method *protogen.Method,
 	tsMethodName string,
 ) {
-	inputType := string(method.Input.Desc.Name())
+	inputType := g.ctx.RefMessage(method.Input)
 
 	if len(cfg.queryParams) == 0 {
 		if len(cfg.pathParamFields) > 0 {
 			p("          const body: %s = {", inputType)
 			for _, ppf := range cfg.pathParamFields {
-				emitPathParamAssignment(p, ppf, "            ", ",")
+				g.emitPathParamAssignment(p, ppf, "            ", ",")
 			}
 			p("          };")
 		} else {
@@ -756,7 +770,7 @@ func (g *Generator) generateQueryParamParsing(
 	p("          const body: %s = {", inputType)
 	// Include path param fields in the literal so TS sees all required properties
 	for _, ppf := range cfg.pathParamFields {
-		emitPathParamAssignment(p, ppf, "            ", ",")
+		g.emitPathParamAssignment(p, ppf, "            ", ",")
 	}
 	for _, qp := range cfg.queryParams {
 		g.generateQueryParamField(p, qp)
@@ -781,7 +795,7 @@ func (g *Generator) generateQueryParamField(p tscommon.Printer, qp annotations.Q
 	// Handle repeated fields: use getAll() for multi-value params
 	if qp.Field != nil && qp.Field.Desc.IsList() {
 		if qp.Field.Desc.Kind() == protoreflect.EnumKind && qp.Field.Enum != nil {
-			p(`            %s: params.getAll("%s") as %s[],`, jsonName, paramName, string(qp.Field.Enum.Desc.Name()))
+			p(`            %s: params.getAll("%s") as %s[],`, jsonName, paramName, g.ctx.RefEnum(qp.Field.Enum))
 		} else {
 			p(`            %s: params.getAll("%s"),`, jsonName, paramName)
 		}
@@ -797,7 +811,7 @@ func (g *Generator) generateQueryParamField(p tscommon.Printer, qp annotations.Q
 				jsonName,
 				paramName,
 				unspecified,
-				string(qp.Field.Enum.Desc.Name()),
+				g.ctx.RefEnum(qp.Field.Enum),
 			)
 			return
 		}
