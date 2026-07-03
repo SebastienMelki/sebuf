@@ -381,10 +381,15 @@ func GenerateEnumType(p Printer, enum *protogen.Enum) {
 func GenerateInterface(p Printer, msg *protogen.Message) {
 	name := string(msg.Desc.Name())
 
-	// Collect discriminated oneof info
+	// Collect discriminated oneof info. Oneofs without an explicit oneof_config
+	// annotation render as discriminated unions by default; synthetic oneofs
+	// (proto3 `optional`) are left as plain optional fields.
 	var discriminatedOneofs []*annotations.OneofDiscriminatorInfo
 	for _, oneof := range msg.Oneofs {
 		info := annotations.GetOneofDiscriminatorInfo(oneof)
+		if info == nil && !oneof.Desc.IsSynthetic() {
+			info = synthesizeOneofInfo(oneof)
+		}
 		if info != nil {
 			discriminatedOneofs = append(discriminatedOneofs, info)
 		}
@@ -409,6 +414,25 @@ func GenerateInterface(p Printer, msg *protogen.Message) {
 	} else {
 		GenerateStandardInterface(p, msg, name, discriminatedOneofs)
 	}
+}
+
+// synthesizeOneofInfo builds discriminator info for a oneof that has no explicit
+// sebuf.http oneof_config annotation, using "$case" as the discriminator and
+// each field's JSON name as the discriminator value.
+func synthesizeOneofInfo(oneof *protogen.Oneof) *annotations.OneofDiscriminatorInfo {
+	info := &annotations.OneofDiscriminatorInfo{
+		Oneof:         oneof,
+		Discriminator: "$case",
+		Flatten:       false,
+	}
+	for _, field := range oneof.Fields {
+		info.Variants = append(info.Variants, annotations.OneofVariant{
+			Field:            field,
+			DiscriminatorVal: field.Desc.JSONName(),
+			IsMessage:        field.Message != nil,
+		})
+	}
+	return info
 }
 
 // GenerateOneofDiscriminatedUnionType generates a TypeScript discriminated union type for a oneof.

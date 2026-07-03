@@ -36,10 +36,13 @@ export interface VideoContent {
   duration: number;
 }
 
+export type PlainEventContent =
+  | { $case: "text"; text?: TextContent }
+  | { $case: "image"; image?: ImageContent };
+
 export interface PlainEvent {
   id: string;
-  text?: TextContent;
-  image?: ImageContent;
+  content?: PlainEventContent;
 }
 
 export interface FieldViolation {
