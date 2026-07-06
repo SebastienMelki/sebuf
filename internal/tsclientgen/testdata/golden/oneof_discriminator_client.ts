@@ -37,13 +37,15 @@ export interface VideoContent {
 }
 
 export type PlainEventContent =
-  | { $case: "text"; text?: TextContent }
-  | { $case: "image"; image?: ImageContent };
+  | { text: TextContent; image?: never }
+  | { image: ImageContent; text?: never }
+  | { text?: never; image?: never };
 
-export interface PlainEvent {
+export interface PlainEventBase {
   id: string;
-  content?: PlainEventContent;
 }
+
+export type PlainEvent = PlainEventBase & PlainEventContent;
 
 export interface FieldViolation {
   field: string;

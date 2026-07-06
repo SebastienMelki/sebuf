@@ -395,11 +395,13 @@ func GenerateInterface(p Printer, msg *protogen.Message) {
 		}
 	}
 
-	// Check if any are flattened (requires type alias with intersection)
-	hasFlattenedOneof := false
+	// Flattened and presence-discriminated (un-annotated) oneofs render their
+	// members flat on the parent object, which requires the intersection type
+	// alias instead of a wrapper property.
+	hasIntersectionOneof := false
 	for _, info := range discriminatedOneofs {
-		if info.Flatten {
-			hasFlattenedOneof = true
+		if info.Flatten || info.Discriminator == "" {
+			hasIntersectionOneof = true
 			break
 		}
 	}
@@ -409,20 +411,23 @@ func GenerateInterface(p Printer, msg *protogen.Message) {
 		GenerateOneofDiscriminatedUnionType(p, name, info)
 	}
 
-	if hasFlattenedOneof {
+	if hasIntersectionOneof {
 		GenerateFlattenedOneofInterface(p, msg, name, discriminatedOneofs)
 	} else {
 		GenerateStandardInterface(p, msg, name, discriminatedOneofs)
 	}
 }
 
-// synthesizeOneofInfo builds discriminator info for a oneof that has no explicit
-// sebuf.http oneof_config annotation, using "$case" as the discriminator and
-// each field's JSON name as the discriminator value.
+// synthesizeOneofInfo builds oneof info for a oneof that has no explicit
+// sebuf.http oneof_config annotation. Such oneofs serialize as plain protojson:
+// the set member's JSON key appears directly on the parent object and no
+// discriminator field exists on the wire. The synthesized info therefore
+// carries an empty Discriminator, and the union is discriminated by key
+// presence instead of a discriminator field.
 func synthesizeOneofInfo(oneof *protogen.Oneof) *annotations.OneofDiscriminatorInfo {
 	info := &annotations.OneofDiscriminatorInfo{
 		Oneof:         oneof,
-		Discriminator: "$case",
+		Discriminator: "",
 		Flatten:       false,
 	}
 	for _, field := range oneof.Fields {
@@ -438,6 +443,11 @@ func synthesizeOneofInfo(oneof *protogen.Oneof) *annotations.OneofDiscriminatorI
 // GenerateOneofDiscriminatedUnionType generates a TypeScript discriminated union type for a oneof.
 func GenerateOneofDiscriminatedUnionType(p Printer, msgName string, info *annotations.OneofDiscriminatorInfo) {
 	unionName := msgName + SnakeToUpperCamel(string(info.Oneof.Desc.Name()))
+
+	if info.Discriminator == "" {
+		generatePresenceOneofUnionType(p, unionName, info)
+		return
+	}
 
 	var branches []string
 	for _, variant := range info.Variants {
@@ -491,8 +501,64 @@ func GenerateOneofDiscriminatedUnionType(p Printer, msgName string, info *annota
 	p("")
 }
 
-// GenerateFlattenedOneofInterface generates a type alias with intersection for messages
-// with flattened discriminated oneofs.
+// generatePresenceOneofUnionType renders a oneof that has no wire discriminator
+// (no oneof_config annotation) as a union discriminated by key presence, matching
+// protojson serialization: exactly the set member's JSON key appears on the parent
+// object. Sibling members are typed `?: never` so TypeScript narrows on presence
+// and rejects construction with more than one member set; a final all-never arm
+// models the unset oneof.
+func generatePresenceOneofUnionType(p Printer, unionName string, info *annotations.OneofDiscriminatorInfo) {
+	jsonNames := make([]string, len(info.Variants))
+	tsTypes := make([]string, len(info.Variants))
+	for i, variant := range info.Variants {
+		jsonNames[i] = variant.Field.Desc.JSONName()
+		if variant.IsMessage {
+			tsTypes[i] = string(variant.Field.Message.Desc.Name())
+		} else {
+			tsTypes[i] = TSScalarTypeForField(variant.Field)
+		}
+	}
+
+	var branches []string
+	for i := range info.Variants {
+		var sb strings.Builder
+		fmt.Fprintf(&sb, "{ %s: %s", jsonNames[i], tsTypes[i])
+		for j := range info.Variants {
+			if j == i {
+				continue
+			}
+			fmt.Fprintf(&sb, "; %s?: never", jsonNames[j])
+		}
+		sb.WriteString(" }")
+		branches = append(branches, sb.String())
+	}
+
+	// Unset arm: proto3 oneofs may have no member set at all.
+	var sb strings.Builder
+	sb.WriteString("{ ")
+	for j, jsonName := range jsonNames {
+		if j > 0 {
+			sb.WriteString("; ")
+		}
+		fmt.Fprintf(&sb, "%s?: never", jsonName)
+	}
+	sb.WriteString(" }")
+	branches = append(branches, sb.String())
+
+	p("export type %s =", unionName)
+	for i, branch := range branches {
+		if i < len(branches)-1 {
+			p("  | %s", branch)
+		} else {
+			p("  | %s;", branch)
+		}
+	}
+	p("")
+}
+
+// GenerateFlattenedOneofInterface generates a type alias with intersection for
+// messages whose oneofs render flat on the parent object (flattened annotated
+// oneofs and presence-discriminated un-annotated oneofs).
 func GenerateFlattenedOneofInterface(
 	p Printer,
 	msg *protogen.Message,
@@ -502,24 +568,35 @@ func GenerateFlattenedOneofInterface(
 	// Build set of fields that belong to discriminated oneofs
 	oneofFields := BuildOneofFieldSet(discriminatedOneofs)
 
-	// Generate base fields interface
-	p("export interface %sBase {", name)
+	// Generate base fields interface, unless every field belongs to a oneof.
+	hasBaseFields := false
 	for _, field := range msg.Fields {
-		if oneofFields[field] {
-			continue
+		if !oneofFields[field] {
+			hasBaseFields = true
+			break
 		}
-		if annotations.IsFlattenField(field) && field.Message != nil {
-			prefix := annotations.GetFlattenPrefix(field)
-			GenerateFlattenedFields(p, field.Message, prefix)
-			continue
-		}
-		GenerateFieldDeclaration(p, field)
 	}
-	p("}")
-	p("")
+
+	var parts []string
+	if hasBaseFields {
+		p("export interface %sBase {", name)
+		for _, field := range msg.Fields {
+			if oneofFields[field] {
+				continue
+			}
+			if annotations.IsFlattenField(field) && field.Message != nil {
+				prefix := annotations.GetFlattenPrefix(field)
+				GenerateFlattenedFields(p, field.Message, prefix)
+				continue
+			}
+			GenerateFieldDeclaration(p, field)
+		}
+		p("}")
+		p("")
+		parts = append(parts, fmt.Sprintf("%sBase", name))
+	}
 
 	// Generate type alias as intersection of base and all discriminated union types
-	parts := []string{fmt.Sprintf("%sBase", name)}
 	for _, info := range discriminatedOneofs {
 		unionName := name + SnakeToUpperCamel(string(info.Oneof.Desc.Name()))
 		parts = append(parts, unionName)

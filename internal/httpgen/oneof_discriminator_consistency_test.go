@@ -75,14 +75,28 @@ func TestOneofDiscriminatorTypeScriptTypes(t *testing.T) {
 		t.Error("TypeScript NestedEvent should have vid variant with kind: \"vid\" (custom oneof_value)")
 	}
 
-	// PlainEvent: standard interface (no discriminated union)
-	if !strings.Contains(tsContent, "export interface PlainEvent") {
-		t.Error("TypeScript PlainEvent should be a standard interface (no discriminated union)")
+	// PlainEvent: un-annotated oneof renders as a presence-discriminated flat
+	// union intersected with the base fields, matching plain protojson (the set
+	// member's key appears directly on the parent; no discriminator on the wire).
+	if !strings.Contains(tsContent, "export type PlainEvent = PlainEventBase & PlainEventContent") {
+		t.Error("TypeScript PlainEvent should intersect its base fields with the presence union")
 	}
 
-	// PlainEvent should NOT have a discriminator field
+	if !strings.Contains(tsContent, `{ text: TextContent; image?: never }`) {
+		t.Error("TypeScript PlainEventContent should have a presence-discriminated text variant")
+	}
+
+	if !strings.Contains(tsContent, `{ text?: never; image?: never }`) {
+		t.Error("TypeScript PlainEventContent should include an all-never arm for the unset oneof")
+	}
+
+	// PlainEvent should NOT have a discriminator field — protojson emits none
+	// for oneofs without an oneof_config annotation.
+	if strings.Contains(tsContent, "$case") {
+		t.Error("TypeScript PlainEvent should NOT have a synthesized discriminator field")
+	}
 	plainEventPattern := regexp.MustCompile(
-		`interface PlainEvent \{[^}]*(?:type|kind)\s*:`,
+		`PlainEventContent =[^;]*(?:type|kind)\s*:`,
 	)
 	if plainEventPattern.MatchString(tsContent) {
 		t.Error("TypeScript PlainEvent should NOT have a discriminator field (type or kind)")
@@ -347,10 +361,16 @@ func verifyOneofDiscriminatorAbsent(
 		t.Errorf("Go should NOT generate MarshalJSON for %s (no discriminator)", message)
 	}
 
-	// TypeScript: should be a standard interface
-	tsInterfacePattern := regexp.MustCompile(`export interface ` + message + ` \{`)
-	if !tsInterfacePattern.MatchString(tsStr) {
-		t.Errorf("TypeScript %s should be a standard interface", message)
+	// TypeScript: presence-discriminated union intersected with base fields,
+	// with no discriminator field (matches plain protojson serialization).
+	tsAliasPattern := regexp.MustCompile(
+		`export type ` + message + ` = ` + message + `Base & ` + message + `\w+;`,
+	)
+	if !tsAliasPattern.MatchString(tsStr) {
+		t.Errorf("TypeScript %s should intersect its base fields with the presence union", message)
+	}
+	if strings.Contains(tsStr, "$case") {
+		t.Errorf("TypeScript %s should NOT have a synthesized discriminator field", message)
 	}
 
 	// OpenAPI: should NOT have discriminator
