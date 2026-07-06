@@ -75,6 +75,19 @@ func TestOneofDiscriminatorTypeScriptTypes(t *testing.T) {
 		t.Error("TypeScript NestedEvent should have vid variant with kind: \"vid\" (custom oneof_value)")
 	}
 
+	// NestedEvent variants sit flat on the parent, matching the generated
+	// MarshalJSON: discriminator and the set variant's key are both emitted
+	// directly on the parent object, with no wrapper property for the oneof.
+	if !strings.Contains(tsContent, "export type NestedEvent = NestedEventBase & NestedEventContent") {
+		t.Error("TypeScript NestedEvent should intersect its base fields with the oneof union")
+	}
+	if !strings.Contains(tsContent, `{ kind: "text"; text: TextContent; image?: never; video?: never }`) {
+		t.Error("TypeScript NestedEvent text variant should carry a non-optional payload with never guards")
+	}
+	if !strings.Contains(tsContent, `{ kind?: never; text?: never; image?: never; video?: never }`) {
+		t.Error("TypeScript NestedEventContent should include an all-never arm for the unset oneof")
+	}
+
 	// PlainEvent: un-annotated oneof renders as a presence-discriminated flat
 	// union intersected with the base fields, matching plain protojson (the set
 	// member's key appears directly on the parent; no discriminator on the wire).
