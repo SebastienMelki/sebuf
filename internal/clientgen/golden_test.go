@@ -26,6 +26,8 @@ func TestClientGenGoldenFiles(t *testing.T) {
 		protoFile string
 		// Expected generated files (without path prefix)
 		expectedFiles []string
+		// pluginOpts are extra `--go-client_opt=` args; nil means defaults.
+		pluginOpts []string
 	}{
 		{
 			name:      "comprehensive HTTP verbs",
@@ -148,6 +150,14 @@ func TestClientGenGoldenFiles(t *testing.T) {
 				"sse_client.pb.go",
 			},
 		},
+		{
+			name:      "json_naming snake_case",
+			protoFile: "json_naming_snake_case.proto",
+			expectedFiles: []string{
+				"json_naming_snake_case_client.pb.go",
+			},
+			pluginOpts: []string{"json_naming=snake_case"},
+		},
 	}
 
 	// Get paths
@@ -195,16 +205,20 @@ func TestClientGenGoldenFiles(t *testing.T) {
 			}
 
 			// Run protoc with go-client plugin (using explicit plugin path)
-			cmd := exec.Command("protoc",
-				"--plugin=protoc-gen-go-client="+pluginPath,
-				"--go_out="+tempDir,
+			args := []string{
+				"--plugin=protoc-gen-go-client=" + pluginPath,
+				"--go_out=" + tempDir,
 				"--go_opt=paths=source_relative",
-				"--go-client_out="+tempDir,
+				"--go-client_out=" + tempDir,
 				"--go-client_opt=paths=source_relative",
-				"--proto_path="+protoDir,
-				"--proto_path="+filepath.Join(projectRoot, "proto"),
-				tc.protoFile,
-			)
+				"--proto_path=" + protoDir,
+				"--proto_path=" + filepath.Join(projectRoot, "proto"),
+			}
+			for _, opt := range tc.pluginOpts {
+				args = append(args, "--go-client_opt="+opt)
+			}
+			args = append(args, tc.protoFile)
+			cmd := exec.Command("protoc", args...)
 			cmd.Dir = protoDir
 
 			var stderr bytes.Buffer

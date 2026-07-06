@@ -15,17 +15,30 @@ import (
 type Generator struct {
 	plugin       *protogen.Plugin
 	fileNeedsSSE *bool // set per-file before writeImports
+	opts         Options
 }
 
 // New creates a new HTTP client generator.
 func New(plugin *protogen.Plugin) *Generator {
+	return NewWithOptions(plugin, Options{})
+}
+
+// NewWithOptions creates a new HTTP client generator with options.
+func NewWithOptions(plugin *protogen.Plugin, opts Options) *Generator {
+	if opts.JSONNaming == "" {
+		opts.JSONNaming = JSONNamingCamelCase
+	}
 	return &Generator{
 		plugin: plugin,
+		opts:   opts,
 	}
 }
 
 // Generate processes all files and generates HTTP clients.
 func (g *Generator) Generate() error {
+	if err := g.opts.validate(); err != nil {
+		return err
+	}
 	for _, file := range g.plugin.Files {
 		if !file.Generate {
 			continue
@@ -849,6 +862,11 @@ func (g *Generator) generateHelperMethods(gf *protogen.GeneratedFile, serviceNam
 }
 
 func (g *Generator) generateMarshalRequestMethod(gf *protogen.GeneratedFile, lowerName string) {
+	marshalCall := "protojson.Marshal(req)"
+	if g.opts.JSONNaming == JSONNamingSnakeCase {
+		marshalCall = "protojson.MarshalOptions{UseProtoNames: true}.Marshal(req)"
+	}
+
 	gf.P("func (c *", lowerName, "Client) marshalRequest(req proto.Message, contentType string) ([]byte, error) {")
 	gf.P("switch contentType {")
 	gf.P("case ContentTypeJSON:")
@@ -856,11 +874,11 @@ func (g *Generator) generateMarshalRequestMethod(gf *protogen.GeneratedFile, low
 	gf.P("if marshaler, ok := req.(json.Marshaler); ok {")
 	gf.P("return marshaler.MarshalJSON()")
 	gf.P("}")
-	gf.P("return protojson.Marshal(req)")
+	gf.P("return ", marshalCall)
 	gf.P("case ContentTypeProto:")
 	gf.P("return proto.Marshal(req)")
 	gf.P("default:")
-	gf.P("return protojson.Marshal(req)")
+	gf.P("return ", marshalCall)
 	gf.P("}")
 	gf.P("}")
 	gf.P()

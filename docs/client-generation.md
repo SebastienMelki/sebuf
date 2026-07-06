@@ -200,6 +200,34 @@ user, err := client.GetUser(ctx, req,
 )
 ```
 
+## Generator Options
+
+### JSON Field Naming (`json_naming`)
+
+By default, generated clients marshal JSON request bodies using protojson's lowerCamelCase field names (the Google JSON convention). Some REST APIs expect proto3 snake_case field names on the wire. Set `json_naming=snake_case` to preserve proto field names verbatim via protojson's `UseProtoNames` option.
+
+| Value | Marshal call | Wire example |
+|---|---|---|
+| `camel_case` (default) | `protojson.Marshal(req)` | `{"customerId": "..."}` |
+| `snake_case` | `protojson.MarshalOptions{UseProtoNames: true}.Marshal(req)` | `{"customer_id": "..."}` |
+
+#### Using Buf
+
+```yaml
+# buf.gen.yaml
+version: v2
+plugins:
+  - local: protoc-gen-go-client
+    out: api
+    opt: json_naming=snake_case
+```
+
+#### Using protoc
+
+```bash
+protoc --go-client_out=. --go-client_opt=json_naming=snake_case user_service.proto
+```
+
 ## URL Building
 
 ### Path Parameters

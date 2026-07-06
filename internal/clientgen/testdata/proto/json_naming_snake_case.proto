@@ -1,0 +1,27 @@
+// Test proto for the json_naming=snake_case generator option.
+syntax = "proto3";
+
+package test.clientgen.jsonnaming;
+
+option go_package = "github.com/SebastienMelki/sebuf/internal/clientgen/testdata/generated;generated";
+
+import "sebuf/http/annotations.proto";
+
+service SampleService {
+  rpc SubmitRequest(SampleRequest) returns (SampleResponse) {
+    option (sebuf.http.config) = {
+      path: "/samples"
+    };
+  }
+}
+
+message SampleRequest {
+  string customer_id = 1;
+  string request_type = 2;
+  int64 max_amount = 3;
+}
+
+message SampleResponse {
+  string request_id = 1;
+  string status = 2;
+}
