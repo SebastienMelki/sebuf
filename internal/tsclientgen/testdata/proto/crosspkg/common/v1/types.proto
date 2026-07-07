@@ -1,0 +1,19 @@
+syntax = "proto3";
+
+package crosspkg.common.v1;
+
+option go_package = "github.com/SebastienMelki/sebuf/internal/tsclientgen/testdata/crosspkg/common/v1;commonv1";
+
+// ItemID identifies an item across the shop APIs. It lives in a separate proto
+// package so that generated modules referencing it must emit a cross-package
+// relative import.
+message ItemID {
+  string value = 1;
+}
+
+// Category enumerates the kinds of items the shop sells.
+enum Category {
+  CATEGORY_UNSPECIFIED = 0;
+  CATEGORY_BOOK = 1;
+  CATEGORY_MOVIE = 2;
+}

@@ -25,24 +25,35 @@ func TestTSServerGenGoldenFiles(t *testing.T) {
 	}
 
 	testCases := []struct {
-		name      string
-		protoFile string
+		name       string
+		protoFiles []string
+		// assertImportFile/assertImport, when set, require the generated file at
+		// assertImportFile (relative to the output dir) to contain assertImport.
+		// Used to lock in cross-package relative imports in the modules layout.
+		assertImportFile string
+		assertImport     string
 	}{
-		{"comprehensive HTTP verbs", "http_verbs_comprehensive.proto"},
-		{"query parameters", "query_params.proto"},
-		{"backward compatibility", "backward_compat.proto"},
-		{"complex features", "complex_features.proto"},
-		{"unwrap variants", "unwrap.proto"},
-		{"int64 encoding", "int64_encoding.proto"},
-		{"enum encoding", "enum_encoding.proto"},
-		{"nullable fields", "nullable.proto"},
-		{"empty behavior", "empty_behavior.proto"},
-		{"timestamp format", "timestamp_format.proto"},
-		{"bytes encoding", "bytes_encoding.proto"},
-		{"flatten", "flatten.proto"},
-		{"oneof discriminator", "oneof_discriminator.proto"},
-		{"SSE streaming", "sse.proto"},
-		{"empty request body", "empty_request_body.proto"},
+		{name: "comprehensive HTTP verbs", protoFiles: []string{"http_verbs_comprehensive.proto"}},
+		{name: "query parameters", protoFiles: []string{"query_params.proto"}},
+		{name: "backward compatibility", protoFiles: []string{"backward_compat.proto"}},
+		{name: "complex features", protoFiles: []string{"complex_features.proto"}},
+		{name: "unwrap variants", protoFiles: []string{"unwrap.proto"}},
+		{name: "int64 encoding", protoFiles: []string{"int64_encoding.proto"}},
+		{name: "enum encoding", protoFiles: []string{"enum_encoding.proto"}},
+		{name: "nullable fields", protoFiles: []string{"nullable.proto"}},
+		{name: "empty behavior", protoFiles: []string{"empty_behavior.proto"}},
+		{name: "timestamp format", protoFiles: []string{"timestamp_format.proto"}},
+		{name: "bytes encoding", protoFiles: []string{"bytes_encoding.proto"}},
+		{name: "flatten", protoFiles: []string{"flatten.proto"}},
+		{name: "oneof discriminator", protoFiles: []string{"oneof_discriminator.proto"}},
+		{name: "SSE streaming", protoFiles: []string{"sse.proto"}},
+		{name: "empty request body", protoFiles: []string{"empty_request_body.proto"}},
+		{
+			name:             "cross-package imports",
+			protoFiles:       []string{"crosspkg/common/v1/types.proto", "crosspkg/shop/v1/service.proto"},
+			assertImportFile: filepath.Join("crosspkg", "shop", "v1", "service.ts"),
+			assertImport:     `from "../../common/v1/types"`,
+		},
 	}
 
 	baseDir, err := os.Getwd()
@@ -71,24 +82,38 @@ func TestTSServerGenGoldenFiles(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			if _, statErr := os.Stat(filepath.Join(protoDir, tc.protoFile)); os.IsNotExist(statErr) {
-				t.Fatalf("Proto file not found: %s", tc.protoFile)
+			for _, pf := range tc.protoFiles {
+				if _, statErr := os.Stat(filepath.Join(protoDir, pf)); os.IsNotExist(statErr) {
+					t.Fatalf("Proto file not found: %s", pf)
+				}
 			}
 
 			outDir := t.TempDir()
-			cmd := exec.Command("protoc",
-				"--plugin=protoc-gen-ts-server="+pluginPath,
-				"--ts-server_out="+outDir,
+			args := []string{
+				"--plugin=protoc-gen-ts-server=" + pluginPath,
+				"--ts-server_out=" + outDir,
 				"--ts-server_opt=paths=source_relative",
-				"--proto_path="+protoDir,
-				"--proto_path="+filepath.Join(projectRoot, "proto"),
-				tc.protoFile,
-			)
+				"--proto_path=" + protoDir,
+				"--proto_path=" + filepath.Join(projectRoot, "proto"),
+			}
+			args = append(args, tc.protoFiles...)
+			cmd := exec.Command("protoc", args...)
 			cmd.Dir = protoDir
 			var stderr bytes.Buffer
 			cmd.Stderr = &stderr
 			if runErr := cmd.Run(); runErr != nil {
 				t.Fatalf("protoc failed: %v\nstderr: %s", runErr, stderr.String())
+			}
+
+			if tc.assertImport != "" {
+				emitted, readErr := os.ReadFile(filepath.Join(outDir, tc.assertImportFile))
+				if readErr != nil {
+					t.Fatalf("Failed to read generated file %s for import assertion: %v", tc.assertImportFile, readErr)
+				}
+				if !strings.Contains(string(emitted), tc.assertImport) {
+					t.Errorf("generated %s does not contain expected cross-package import %q\n---\n%s",
+						tc.assertImportFile, tc.assertImport, string(emitted))
+				}
 			}
 
 			for _, rel := range generatedTSFiles(t, outDir) {
