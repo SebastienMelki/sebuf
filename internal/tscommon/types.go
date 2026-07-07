@@ -395,23 +395,16 @@ func GenerateInterface(p Printer, msg *protogen.Message) {
 		}
 	}
 
-	// Flattened and presence-discriminated (un-annotated) oneofs render their
-	// members flat on the parent object, which requires the intersection type
-	// alias instead of a wrapper property.
-	hasIntersectionOneof := false
-	for _, info := range discriminatedOneofs {
-		if info.Flatten || info.Discriminator == "" {
-			hasIntersectionOneof = true
-			break
-		}
-	}
-
 	// Generate discriminated union types before the message
 	for _, info := range discriminatedOneofs {
 		GenerateOneofDiscriminatedUnionType(p, name, info)
 	}
 
-	if hasIntersectionOneof {
+	// Every oneof union renders its members flat on the parent object — that is
+	// where the wire puts them (protojson for un-annotated oneofs, the generated
+	// MarshalJSON for annotated ones) — so any discriminated oneof requires the
+	// intersection type alias instead of a wrapper property.
+	if len(discriminatedOneofs) > 0 {
 		GenerateFlattenedOneofInterface(p, msg, name, discriminatedOneofs)
 	} else {
 		GenerateStandardInterface(p, msg, name, discriminatedOneofs)
@@ -449,8 +442,13 @@ func GenerateOneofDiscriminatedUnionType(p Printer, msgName string, info *annota
 		return
 	}
 
+	jsonNames := make([]string, len(info.Variants))
+	for i, variant := range info.Variants {
+		jsonNames[i] = variant.Field.Desc.JSONName()
+	}
+
 	var branches []string
-	for _, variant := range info.Variants {
+	for i, variant := range info.Variants {
 		var branch string
 		switch {
 		case info.Flatten && variant.IsMessage:
@@ -465,30 +463,45 @@ func GenerateOneofDiscriminatedUnionType(p Printer, msgName string, info *annota
 			branch += sb.String()
 			branch += " }"
 		case variant.IsMessage:
-			// Non-flattened message: { discriminator: "value", fieldName?: MessageType }
-			fieldJSONName := variant.Field.Desc.JSONName()
-			msgType := string(variant.Field.Message.Desc.Name())
-			branch = fmt.Sprintf(
-				"{ %s: \"%s\"; %s?: %s }",
-				info.Discriminator,
-				variant.DiscriminatorVal,
-				fieldJSONName,
-				msgType,
+			// Non-flattened message. The generated MarshalJSON keeps the variant's
+			// JSON key where protojson put it — directly on the parent object,
+			// next to the discriminator — so the arm carries both, with sibling
+			// variant keys typed `?: never` for presence narrowing.
+			branch = nonFlattenedOneofBranch(
+				info, variant.DiscriminatorVal, jsonNames, i,
+				string(variant.Field.Message.Desc.Name()),
 			)
 		default:
-			// Non-flattened scalar: { discriminator: "value", fieldName?: scalarType }
-			fieldJSONName := variant.Field.Desc.JSONName()
-			tsType := TSScalarTypeForField(variant.Field)
-			branch = fmt.Sprintf(
-				"{ %s: \"%s\"; %s?: %s }",
-				info.Discriminator,
-				variant.DiscriminatorVal,
-				fieldJSONName,
-				tsType,
-			)
+			// Non-flattened scalar: same flat shape with the scalar's TS type.
+			if info.Flatten {
+				branch = fmt.Sprintf(
+					"{ %s: \"%s\"; %s?: %s }",
+					info.Discriminator,
+					variant.DiscriminatorVal,
+					jsonNames[i],
+					TSScalarTypeForField(variant.Field),
+				)
+			} else {
+				branch = nonFlattenedOneofBranch(
+					info, variant.DiscriminatorVal, jsonNames, i,
+					TSScalarTypeForField(variant.Field),
+				)
+			}
 		}
 		branches = append(branches, branch)
 	}
+
+	// Unset arm: proto3 oneofs may have no member set, in which case the
+	// generated MarshalJSON omits the discriminator entirely.
+	var unset strings.Builder
+	fmt.Fprintf(&unset, "{ %s?: never", info.Discriminator)
+	if !info.Flatten {
+		for _, jsonName := range jsonNames {
+			fmt.Fprintf(&unset, "; %s?: never", jsonName)
+		}
+	}
+	unset.WriteString(" }")
+	branches = append(branches, unset.String())
 
 	p("export type %s =", unionName)
 	for i, branch := range branches {
@@ -499,6 +512,29 @@ func GenerateOneofDiscriminatedUnionType(p Printer, msgName string, info *annota
 		}
 	}
 	p("")
+}
+
+// nonFlattenedOneofBranch renders one arm of a non-flattened annotated oneof
+// union: discriminator, the set variant's key with a non-optional payload
+// (oneof fields have explicit presence, so a set member is always emitted),
+// and `?: never` guards for the sibling variant keys.
+func nonFlattenedOneofBranch(
+	info *annotations.OneofDiscriminatorInfo,
+	discriminatorVal string,
+	jsonNames []string,
+	index int,
+	tsType string,
+) string {
+	var sb strings.Builder
+	fmt.Fprintf(&sb, "{ %s: \"%s\"; %s: %s", info.Discriminator, discriminatorVal, jsonNames[index], tsType)
+	for j := range jsonNames {
+		if j == index {
+			continue
+		}
+		fmt.Fprintf(&sb, "; %s?: never", jsonNames[j])
+	}
+	sb.WriteString(" }")
+	return sb.String()
 }
 
 // generatePresenceOneofUnionType renders a oneof that has no wire discriminator
@@ -605,8 +641,10 @@ func GenerateFlattenedOneofInterface(
 	p("")
 }
 
-// GenerateStandardInterface generates a standard interface, handling non-flattened
-// discriminated oneofs as optional union properties.
+// GenerateStandardInterface generates a standard interface for messages without
+// discriminated oneofs. Fields belonging to discriminated oneofs are skipped;
+// messages that have any render through GenerateFlattenedOneofInterface instead,
+// since every oneof union sits flat on the parent object.
 func GenerateStandardInterface(
 	p Printer,
 	msg *protogen.Message,
@@ -616,27 +654,9 @@ func GenerateStandardInterface(
 	// Build set of fields that belong to discriminated oneofs
 	oneofFields := BuildOneofFieldSet(discriminatedOneofs)
 
-	// Build map of oneof -> union type name for non-flattened
-	oneofUnionNames := make(map[*protogen.Oneof]string)
-	for _, info := range discriminatedOneofs {
-		unionName := name + SnakeToUpperCamel(string(info.Oneof.Desc.Name()))
-		oneofUnionNames[info.Oneof] = unionName
-	}
-
 	p("export interface %s {", name)
-	// Track which oneofs we've already emitted
-	emittedOneofs := make(map[*protogen.Oneof]bool)
-
 	for _, field := range msg.Fields {
 		if oneofFields[field] {
-			// For discriminated oneof fields, emit the union type once for the oneof
-			if field.Oneof != nil && !emittedOneofs[field.Oneof] {
-				if unionName, ok := oneofUnionNames[field.Oneof]; ok {
-					oneofJSONName := string(field.Oneof.Desc.Name())
-					p("  %s?: %s;", oneofJSONName, unionName)
-					emittedOneofs[field.Oneof] = true
-				}
-			}
 			continue
 		}
 

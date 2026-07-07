@@ -12,6 +12,8 @@ import (
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/types/descriptorpb"
 	"google.golang.org/protobuf/types/pluginpb"
+
+	"github.com/SebastienMelki/sebuf/internal/annotations"
 )
 
 func TestTSScalarType(t *testing.T) {
@@ -79,6 +81,39 @@ func TestTSZeroCheck(t *testing.T) {
 				t.Errorf("TSZeroCheck(%q) = %q, want %q", tt.fieldKind, got, tt.want)
 			}
 		})
+	}
+}
+
+// TestNonFlattenedOneofBranch verifies the arm rendered for a single variant of a
+// non-flattened annotated oneof: the discriminator with its value, the set
+// variant's key carrying a non-optional payload, and `?: never` guards for every
+// sibling variant key. nonFlattenedOneofBranch reads only info.Discriminator, so
+// it can be exercised directly without a *protogen.Oneof.
+func TestNonFlattenedOneofBranch(t *testing.T) {
+	// Three message variants keyed by their JSON names; render the "text" arm.
+	info := &annotations.OneofDiscriminatorInfo{Discriminator: "kind"}
+	jsonNames := []string{"text", "image", "video"}
+
+	got := nonFlattenedOneofBranch(info, "text", jsonNames, 0, "TextContent")
+	want := `{ kind: "text"; text: TextContent; image?: never; video?: never }`
+	if got != want {
+		t.Errorf("nonFlattenedOneofBranch message variant:\n  got:  %s\n  want: %s", got, want)
+	}
+
+	// A middle variant guards both its siblings (before and after its index).
+	gotMid := nonFlattenedOneofBranch(info, "image", jsonNames, 1, "ImageContent")
+	wantMid := `{ kind: "image"; image: ImageContent; text?: never; video?: never }`
+	if gotMid != wantMid {
+		t.Errorf("nonFlattenedOneofBranch middle variant:\n  got:  %s\n  want: %s", gotMid, wantMid)
+	}
+
+	// A scalar variant: the discriminator value, the field name, and the scalar
+	// TS type land correctly, with the sibling key guarded.
+	scalarInfo := &annotations.OneofDiscriminatorInfo{Discriminator: "type"}
+	gotScalar := nonFlattenedOneofBranch(scalarInfo, "count", []string{"count", "label"}, 0, "number")
+	wantScalar := `{ type: "count"; count: number; label?: never }`
+	if gotScalar != wantScalar {
+		t.Errorf("nonFlattenedOneofBranch scalar variant:\n  got:  %s\n  want: %s", gotScalar, wantScalar)
 	}
 }
 
