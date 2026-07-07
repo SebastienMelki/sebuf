@@ -1,0 +1,217 @@
+package tsservergen
+
+import (
+	"os"
+	"os/exec"
+	"path/filepath"
+	"strings"
+	"testing"
+
+	"google.golang.org/protobuf/compiler/protogen"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/descriptorpb"
+	"google.golang.org/protobuf/types/pluginpb"
+)
+
+// TestTSServerGenInProcess drives the server generator in-process against the
+// same fixtures and golden files as TestTSServerGenGoldenFiles. Running the
+// generator inside the test binary (instead of as a subprocess protoc plugin)
+// makes its statements count toward Go coverage while still asserting that the
+// emitted TypeScript is byte-identical to the checked-in golden files.
+func TestTSServerGenInProcess(t *testing.T) {
+	if _, err := exec.LookPath("protoc"); err != nil {
+		t.Skip("protoc not found, skipping in-process golden tests")
+	}
+
+	baseDir, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("Failed to get working directory: %v", err)
+	}
+	projectRoot := filepath.Join(baseDir, "..", "..")
+	protoDir := filepath.Join(baseDir, "testdata", "proto")
+	goldenDir := filepath.Join(baseDir, "testdata", "golden")
+
+	for _, tc := range inProcessFixtures() {
+		t.Run(tc.name, func(t *testing.T) {
+			plugin := buildInProcessPlugin(t, protoDir, projectRoot, tc.protoFiles)
+
+			gen := New(plugin)
+			if genErr := gen.Generate(); genErr != nil {
+				t.Fatalf("Generate() failed: %v", genErr)
+			}
+
+			assertResponseMatchesGolden(t, plugin, goldenDir)
+		})
+	}
+}
+
+// TestTSServerGenInProcessValidationErrors drives the invalid-proto fixtures
+// in-process and asserts Generate() returns an error mentioning the offending
+// field, covering the error branches in buildRPCRouteConfig / validateFieldCoverage.
+func TestTSServerGenInProcessValidationErrors(t *testing.T) {
+	if _, err := exec.LookPath("protoc"); err != nil {
+		t.Skip("protoc not found, skipping in-process validation tests")
+	}
+
+	baseDir, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("Failed to get working directory: %v", err)
+	}
+	projectRoot := filepath.Join(baseDir, "..", "..")
+	protoDir := filepath.Join(baseDir, "testdata", "proto")
+
+	testCases := []struct {
+		name      string
+		protoFile string
+		wantErr   string
+	}{
+		{
+			name:      "path param without matching field",
+			protoFile: "invalid_path_param.proto",
+			wantErr:   "path parameter {id} has no matching field on request message GetItemRequest",
+		},
+		{
+			name:      "unreachable field on GET method",
+			protoFile: "invalid_uncovered_field.proto",
+			wantErr:   "fields [category] on request message GetItemRequest are not reachable",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			plugin := buildInProcessPlugin(t, protoDir, projectRoot, []string{tc.protoFile})
+			genErr := New(plugin).Generate()
+			if genErr == nil {
+				t.Fatalf("expected Generate() to fail for %s, but it succeeded", tc.protoFile)
+			}
+			if !strings.Contains(genErr.Error(), tc.wantErr) {
+				t.Errorf("expected error to contain %q, got: %v", tc.wantErr, genErr)
+			}
+		})
+	}
+}
+
+// TestTSServerGenInProcessReservedName drives a fixture whose message is named
+// ValidationError (a reserved error-helper symbol) and asserts Generate() fails
+// with a rename error, covering tscommon.CheckReservedNames via EmitSharedModules.
+func TestTSServerGenInProcessReservedName(t *testing.T) {
+	if _, err := exec.LookPath("protoc"); err != nil {
+		t.Skip("protoc not found, skipping in-process reserved-name test")
+	}
+
+	baseDir, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("Failed to get working directory: %v", err)
+	}
+	projectRoot := filepath.Join(baseDir, "..", "..")
+	protoDir := filepath.Join(baseDir, "testdata", "proto")
+
+	plugin := buildInProcessPlugin(t, protoDir, projectRoot, []string{"reserved_name.proto"})
+	genErr := New(plugin).Generate()
+	if genErr == nil {
+		t.Fatal("expected Generate() to fail for reserved message name, but it succeeded")
+	}
+	if !strings.Contains(genErr.Error(), "ValidationError") ||
+		!strings.Contains(genErr.Error(), "reserved") {
+		t.Errorf("expected reserved-name error mentioning ValidationError, got: %v", genErr)
+	}
+}
+
+// inProcessFixture names a set of proto files generated together.
+type inProcessFixture struct {
+	name       string
+	protoFiles []string
+}
+
+// inProcessFixtures returns the fixtures exercised by the in-process runner. It
+// mirrors the golden-file test cases, including the two-package crosspkg fixture
+// that exercises cross-package relative imports.
+func inProcessFixtures() []inProcessFixture {
+	return []inProcessFixture{
+		{name: "comprehensive HTTP verbs", protoFiles: []string{"http_verbs_comprehensive.proto"}},
+		{name: "query parameters", protoFiles: []string{"query_params.proto"}},
+		{name: "backward compatibility", protoFiles: []string{"backward_compat.proto"}},
+		{name: "complex features", protoFiles: []string{"complex_features.proto"}},
+		{name: "unwrap variants", protoFiles: []string{"unwrap.proto"}},
+		{name: "int64 encoding", protoFiles: []string{"int64_encoding.proto"}},
+		{name: "enum encoding", protoFiles: []string{"enum_encoding.proto"}},
+		{name: "nullable fields", protoFiles: []string{"nullable.proto"}},
+		{name: "empty behavior", protoFiles: []string{"empty_behavior.proto"}},
+		{name: "timestamp format", protoFiles: []string{"timestamp_format.proto"}},
+		{name: "bytes encoding", protoFiles: []string{"bytes_encoding.proto"}},
+		{name: "flatten", protoFiles: []string{"flatten.proto"}},
+		{name: "oneof discriminator", protoFiles: []string{"oneof_discriminator.proto"}},
+		{name: "SSE streaming", protoFiles: []string{"sse.proto"}},
+		{name: "empty request body", protoFiles: []string{"empty_request_body.proto"}},
+		{
+			name:       "cross-package imports",
+			protoFiles: []string{"crosspkg/common/v1/types.proto", "crosspkg/shop/v1/service.proto"},
+		},
+	}
+}
+
+// buildInProcessPlugin compiles the given fixtures into a FileDescriptorSet with
+// protoc and constructs a protogen.Plugin from it, so the generator can run in
+// the test process. Parameters mirror the golden test (paths=source_relative).
+func buildInProcessPlugin(
+	t *testing.T,
+	protoDir, projectRoot string,
+	protoFiles []string,
+) *protogen.Plugin {
+	t.Helper()
+
+	descPath := filepath.Join(t.TempDir(), "descriptors.pb")
+	args := []string{
+		"--descriptor_set_out=" + descPath,
+		"--include_imports",
+		"--proto_path=" + protoDir,
+		"--proto_path=" + filepath.Join(projectRoot, "proto"),
+	}
+	args = append(args, protoFiles...)
+	cmd := exec.Command("protoc", args...)
+	cmd.Dir = protoDir
+	if out, runErr := cmd.CombinedOutput(); runErr != nil {
+		t.Fatalf("protoc descriptor_set_out failed: %v\noutput: %s", runErr, out)
+	}
+
+	raw, readErr := os.ReadFile(descPath)
+	if readErr != nil {
+		t.Fatalf("Failed to read descriptor set: %v", readErr)
+	}
+	var fds descriptorpb.FileDescriptorSet
+	if unmarshalErr := proto.Unmarshal(raw, &fds); unmarshalErr != nil {
+		t.Fatalf("Failed to unmarshal descriptor set: %v", unmarshalErr)
+	}
+
+	req := &pluginpb.CodeGeneratorRequest{
+		FileToGenerate: protoFiles,
+		Parameter:      proto.String("paths=source_relative"),
+		ProtoFile:      fds.GetFile(),
+	}
+	plugin, newErr := protogen.Options{}.New(req)
+	if newErr != nil {
+		t.Fatalf("protogen.New failed: %v", newErr)
+	}
+	plugin.SupportedFeatures = uint64(pluginpb.CodeGeneratorResponse_FEATURE_PROTO3_OPTIONAL)
+	return plugin
+}
+
+// assertResponseMatchesGolden compares every file the generator emitted against
+// its checked-in golden file, byte for byte.
+func assertResponseMatchesGolden(t *testing.T, plugin *protogen.Plugin, goldenDir string) {
+	t.Helper()
+
+	resp := plugin.Response()
+	if resp.GetError() != "" {
+		t.Fatalf("generator reported error in response: %s", resp.GetError())
+	}
+	if len(resp.GetFile()) == 0 {
+		t.Fatal("generator emitted no files")
+	}
+
+	for _, f := range resp.GetFile() {
+		rel := f.GetName()
+		goldenPath := filepath.Join(goldenDir, filepath.FromSlash(rel))
+		compareGoldenFile(t, rel, goldenPath, []byte(f.GetContent()))
+	}
+}

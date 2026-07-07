@@ -1,0 +1,24 @@
+syntax = "proto3";
+package reserved_name;
+option go_package = "github.com/SebastienMelki/sebuf/internal/tsgen/testdata/generated;generated";
+
+import "sebuf/http/annotations.proto";
+
+// ValidationError collides with a reserved error-helper name hoisted into the
+// shared errors module, so generation must fail with a clear rename error.
+message ValidationError {
+  string message = 1;
+}
+
+message GetThingRequest {
+  string id = 1;
+}
+
+service ThingService {
+  rpc GetThing(GetThingRequest) returns (ValidationError) {
+    option (sebuf.http.config) = {
+      path: "/things"
+      method: HTTP_METHOD_POST
+    };
+  }
+}
