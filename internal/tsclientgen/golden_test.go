@@ -117,6 +117,13 @@ func TestTSClientGenGoldenFiles(t *testing.T) {
 			},
 		},
 		{
+			name:      "multi-word oneof name",
+			protoFile: "multi_word_oneof.proto",
+			expectedFiles: []string{
+				"multi_word_oneof_client.ts",
+			},
+		},
+		{
 			name:      "SSE streaming",
 			protoFile: "sse.proto",
 			expectedFiles: []string{
@@ -205,6 +212,36 @@ func TestTSClientGenGoldenFiles(t *testing.T) {
 				compareGoldenFile(t, expectedFile, goldenPath, generatedContent)
 			}
 		})
+	}
+}
+
+// TestMultiWordOneofNameDoesNotLeak asserts the regression fixed on this branch:
+// a multi-word oneof name (super_title_image) must surface only as the PascalCase
+// union type name and never leak into the generated TypeScript as a raw
+// snake_case wrapper property. See internal/tscommon/types.go
+// (GenerateOneofDiscriminatedUnionType / GenerateStandardInterface).
+func TestMultiWordOneofNameDoesNotLeak(t *testing.T) {
+	wd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("Failed to get working directory: %v", err)
+	}
+	goldenPath := filepath.Join(wd, "testdata", "golden", "multi_word_oneof_client.ts")
+
+	content, readErr := os.ReadFile(goldenPath)
+	if readErr != nil {
+		t.Fatalf("Failed to read golden file %s: %v", goldenPath, readErr)
+	}
+	ts := string(content)
+
+	// The oneof name renders as the PascalCase discriminated-union type name.
+	if !strings.Contains(ts, "MultiWordEventSuperTitleImage") {
+		t.Error("expected generated TS to contain the PascalCase union type MultiWordEventSuperTitleImage")
+	}
+
+	// The raw snake_case oneof name must never appear: no wrapper property such
+	// as `super_title_image?:` leaks onto the message interface.
+	if strings.Contains(ts, "super_title_image") {
+		t.Error("generated TS must not contain the raw snake_case oneof name super_title_image")
 	}
 }
 
