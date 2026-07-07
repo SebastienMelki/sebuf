@@ -202,7 +202,11 @@ func TestTSEnumUnspecifiedValue_ViaGoldenOutput(t *testing.T) {
 const testProtoPkg = "test.oneof.v1"
 
 // msgFieldProto builds a singular proto3 field descriptor.
-func msgFieldProto(name string, number int32, typ descriptorpb.FieldDescriptorProto_Type) *descriptorpb.FieldDescriptorProto {
+func msgFieldProto(
+	name string,
+	number int32,
+	typ descriptorpb.FieldDescriptorProto_Type,
+) *descriptorpb.FieldDescriptorProto {
 	return &descriptorpb.FieldDescriptorProto{
 		Name:     proto.String(name),
 		Number:   proto.Int32(number),
@@ -229,9 +233,6 @@ func jsonName(name string) string {
 	}
 	return strings.Join(parts, "")
 }
-
-// oneofIndex returns a pointer to i (fields reference their oneof by index).
-func oneofIndex(i int32) *int32 { return proto.Int32(i) }
 
 // buildTestPlugin compiles the descriptor into a *protogen.Plugin.
 func buildTestPlugin(t *testing.T, fd *descriptorpb.FileDescriptorProto) *protogen.Plugin {
@@ -287,7 +288,11 @@ func capturePrinter() (Printer, *strings.Builder) {
 // the presence-union emitter targets.
 func oneofTestFile() *descriptorpb.FileDescriptorProto {
 	str := descriptorpb.FieldDescriptorProto_TYPE_STRING
-	msg := func(name string, fields []*descriptorpb.FieldDescriptorProto, oneofs []*descriptorpb.OneofDescriptorProto) *descriptorpb.DescriptorProto {
+	msg := func(
+		name string,
+		fields []*descriptorpb.FieldDescriptorProto,
+		oneofs []*descriptorpb.OneofDescriptorProto,
+	) *descriptorpb.DescriptorProto {
 		return &descriptorpb.DescriptorProto{
 			Name:      proto.String(name),
 			Field:     fields,
@@ -314,12 +319,12 @@ func oneofTestFile() *descriptorpb.FileDescriptorProto {
 			msgFieldProto("id", 1, str),
 			func() *descriptorpb.FieldDescriptorProto {
 				f := msgRefFieldProto("text", 2, "TextContent")
-				f.OneofIndex = oneofIndex(0)
+				f.OneofIndex = proto.Int32(0)
 				return f
 			}(),
 			func() *descriptorpb.FieldDescriptorProto {
 				f := msgRefFieldProto("image", 3, "ImageContent")
-				f.OneofIndex = oneofIndex(0)
+				f.OneofIndex = proto.Int32(0)
 				return f
 			}(),
 		},
@@ -331,12 +336,12 @@ func oneofTestFile() *descriptorpb.FileDescriptorProto {
 		[]*descriptorpb.FieldDescriptorProto{
 			func() *descriptorpb.FieldDescriptorProto {
 				f := msgRefFieldProto("text", 1, "TextContent")
-				f.OneofIndex = oneofIndex(0)
+				f.OneofIndex = proto.Int32(0)
 				return f
 			}(),
 			func() *descriptorpb.FieldDescriptorProto {
 				f := msgRefFieldProto("image", 2, "ImageContent")
-				f.OneofIndex = oneofIndex(0)
+				f.OneofIndex = proto.Int32(0)
 				return f
 			}(),
 		},
@@ -348,17 +353,17 @@ func oneofTestFile() *descriptorpb.FileDescriptorProto {
 		[]*descriptorpb.FieldDescriptorProto{
 			func() *descriptorpb.FieldDescriptorProto {
 				f := msgRefFieldProto("text", 1, "TextContent")
-				f.OneofIndex = oneofIndex(0)
+				f.OneofIndex = proto.Int32(0)
 				return f
 			}(),
 			func() *descriptorpb.FieldDescriptorProto {
 				f := msgRefFieldProto("image", 2, "ImageContent")
-				f.OneofIndex = oneofIndex(0)
+				f.OneofIndex = proto.Int32(0)
 				return f
 			}(),
 			func() *descriptorpb.FieldDescriptorProto {
 				f := msgRefFieldProto("video", 3, "VideoContent")
-				f.OneofIndex = oneofIndex(0)
+				f.OneofIndex = proto.Int32(0)
 				return f
 			}(),
 		},
@@ -370,12 +375,12 @@ func oneofTestFile() *descriptorpb.FileDescriptorProto {
 		[]*descriptorpb.FieldDescriptorProto{
 			func() *descriptorpb.FieldDescriptorProto {
 				f := msgFieldProto("raw_text", 1, str)
-				f.OneofIndex = oneofIndex(0)
+				f.OneofIndex = proto.Int32(0)
 				return f
 			}(),
 			func() *descriptorpb.FieldDescriptorProto {
 				f := msgRefFieldProto("detail", 2, "TextContent")
-				f.OneofIndex = oneofIndex(0)
+				f.OneofIndex = proto.Int32(0)
 				return f
 			}(),
 		},
