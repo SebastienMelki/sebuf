@@ -419,10 +419,12 @@ func GenerateInterface(p Printer, msg *protogen.Message) {
 	GenerateInterfaceCtx(nil, p, msg)
 }
 
-// GenerateInterfaceCtx is the import-aware variant of GenerateInterface. In
-// modules mode it records cross-module imports via ctx; when ctx requests the
-// discriminated oneof style, un-annotated (non-synthetic) oneofs are rendered as
-// discriminated unions instead of flattened optional fields.
+// GenerateInterfaceCtx is the import-aware variant of GenerateInterface. When
+// ctx is in modules mode it records cross-module type references as relative
+// imports; a nil ctx (inline mode) emits fully-qualified local names. Oneofs
+// carrying a discriminator annotation are rendered as discriminated unions
+// (flattened into an intersection type when the annotation requests it);
+// all other oneofs are rendered as flattened optional fields.
 func GenerateInterfaceCtx(ctx *EmitContext, p Printer, msg *protogen.Message) {
 	name := string(msg.Desc.Name())
 
