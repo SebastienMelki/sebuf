@@ -3,7 +3,8 @@
 
 export type FlattenedEventContent =
   | { type: "text"; body: string }
-  | { type: "img"; url: string; width: number; height: number };
+  | { type: "img"; url: string; width: number; height: number }
+  | { type?: never };
 
 export interface FlattenedEventBase {
   id: string;
@@ -22,23 +23,30 @@ export interface ImageContent {
 }
 
 export type NestedEventContent =
-  | { kind: "text"; text?: TextContent }
-  | { kind: "image"; image?: ImageContent }
-  | { kind: "vid"; video?: VideoContent };
+  | { kind: "text"; text: TextContent; image?: never; video?: never }
+  | { kind: "image"; image: ImageContent; text?: never; video?: never }
+  | { kind: "vid"; video: VideoContent; text?: never; image?: never }
+  | { kind?: never; text?: never; image?: never; video?: never };
 
-export interface NestedEvent {
+export interface NestedEventBase {
   id: string;
-  content?: NestedEventContent;
 }
+
+export type NestedEvent = NestedEventBase & NestedEventContent;
 
 export interface VideoContent {
   url: string;
   duration: number;
 }
 
-export interface PlainEvent {
+export type PlainEventContent =
+  | { text: TextContent; image?: never }
+  | { image: ImageContent; text?: never }
+  | { text?: never; image?: never };
+
+export interface PlainEventBase {
   id: string;
-  text?: TextContent;
-  image?: ImageContent;
 }
+
+export type PlainEvent = PlainEventBase & PlainEventContent;
 

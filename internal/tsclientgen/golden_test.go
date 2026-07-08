@@ -48,6 +48,7 @@ func TestTSClientGenGoldenFiles(t *testing.T) {
 		{name: "oneof discriminator", protoFiles: []string{"oneof_discriminator.proto"}},
 		{name: "SSE streaming", protoFiles: []string{"sse.proto"}},
 		{name: "empty request body", protoFiles: []string{"empty_request_body.proto"}},
+		{name: "multi-word oneof name", protoFiles: []string{"multi_word_oneof.proto"}},
 		{
 			name:             "cross-package imports",
 			protoFiles:       []string{"crosspkg/common/v1/types.proto", "crosspkg/shop/v1/service.proto"},
@@ -154,6 +155,40 @@ func generatedTSFiles(t *testing.T, dir string) []string {
 	}
 	sort.Strings(files)
 	return files
+}
+
+// TestMultiWordOneofNameDoesNotLeak asserts a multi-word oneof name
+// (super_title_image) surfaces only as the PascalCase union type name and never
+// leaks into the generated TypeScript as a raw snake_case wrapper property. In
+// the modules layout the union type lives in the type module and the client
+// imports it, so both emitted files are checked. See internal/tscommon/types.go
+// (GenerateOneofDiscriminatedUnionTypeCtx / GenerateStandardInterfaceCtx).
+func TestMultiWordOneofNameDoesNotLeak(t *testing.T) {
+	wd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("Failed to get working directory: %v", err)
+	}
+
+	var ts string
+	for _, golden := range []string{"multi_word_oneof.ts", "multi_word_oneof_client.ts"} {
+		goldenPath := filepath.Join(wd, "testdata", "golden", golden)
+		content, readErr := os.ReadFile(goldenPath)
+		if readErr != nil {
+			t.Fatalf("Failed to read golden file %s: %v", goldenPath, readErr)
+		}
+		ts += string(content)
+	}
+
+	// The oneof name renders as the PascalCase discriminated-union type name.
+	if !strings.Contains(ts, "MultiWordEventSuperTitleImage") {
+		t.Error("expected generated TS to contain the PascalCase union type MultiWordEventSuperTitleImage")
+	}
+
+	// The raw snake_case oneof name must never appear: no wrapper property such
+	// as `super_title_image?:` leaks onto the message interface.
+	if strings.Contains(ts, "super_title_image") {
+		t.Error("generated TS must not contain the raw snake_case oneof name super_title_image")
+	}
 }
 
 func updateGoldenFile(t *testing.T, goldenPath string, content []byte) {

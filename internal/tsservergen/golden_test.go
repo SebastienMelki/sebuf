@@ -48,6 +48,7 @@ func TestTSServerGenGoldenFiles(t *testing.T) {
 		{name: "oneof discriminator", protoFiles: []string{"oneof_discriminator.proto"}},
 		{name: "SSE streaming", protoFiles: []string{"sse.proto"}},
 		{name: "empty request body", protoFiles: []string{"empty_request_body.proto"}},
+		{name: "multi-word oneof name", protoFiles: []string{"multi_word_oneof.proto"}},
 		{
 			name:             "cross-package imports",
 			protoFiles:       []string{"crosspkg/common/v1/types.proto", "crosspkg/shop/v1/service.proto"},
