@@ -1,0 +1,48 @@
+syntax = "proto3";
+
+package testdata.nestedcollision.v1;
+
+option go_package = "github.com/SebastienMelki/sebuf/internal/httpgen/testdata/nestedcollision/v1;nestedcollisionv1";
+
+import "sebuf/http/annotations.proto";
+import "nestedcollision/v1/wrapper.proto";
+
+// Top-level Status — a distinct message from Wrapper.Status. Its hoisted TS name
+// must remain the bare "Status".
+message Status {
+  string code = 1;
+  string message = 2;
+}
+
+// Top-level Kind — distinct from Wrapper.Kind. Its hoisted TS name must remain
+// the bare "Kind".
+enum Kind {
+  KIND_UNSPECIFIED = 0;
+  KIND_ALPHA = 1;
+}
+
+message GetStatusRequest {
+  string id = 1;
+}
+
+message GetStatusResponse {
+  // Resolves to the top-level Status.
+  Status status = 1;
+  // Resolves to the top-level Kind.
+  Kind kind = 2;
+  // Pulls in Wrapper (and its parent-qualified nested types) from wrapper.proto.
+  Wrapper wrapper = 3;
+}
+
+service NestedCollisionService {
+  option (sebuf.http.service_config) = {
+    base_path: "/api/v1"
+  };
+
+  rpc GetStatus(GetStatusRequest) returns (GetStatusResponse) {
+    option (sebuf.http.config) = {
+      path: "/status"
+      method: HTTP_METHOD_POST
+    };
+  }
+}

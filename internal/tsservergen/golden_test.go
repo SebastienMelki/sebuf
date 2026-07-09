@@ -66,6 +66,21 @@ func TestTSServerGenGoldenFiles(t *testing.T) {
 				`export * from "./service_server.js";`,
 			},
 		},
+		{
+			name: "nested type name collision",
+			protoFiles: []string{
+				"nestedcollision/v1/nested_collision.proto",
+				"nestedcollision/v1/wrapper.proto",
+			},
+			assertImportFile: filepath.Join("nestedcollision", "v1", "nested_collision.ts"),
+			assertImport:     `from "./wrapper.js"`,
+			assertBarrelFile: filepath.Join("nestedcollision", "v1", "index.ts"),
+			assertBarrelContains: []string{
+				`export * from "./nested_collision.js";`,
+				`export * from "./nested_collision_server.js";`,
+				`export * from "./wrapper.js";`,
+			},
+		},
 	}
 
 	baseDir, err := os.Getwd()

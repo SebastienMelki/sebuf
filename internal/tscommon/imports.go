@@ -172,7 +172,7 @@ func (c *EmitContext) RefMessage(msg *protogen.Message) string {
 	if msg == nil {
 		return ""
 	}
-	return c.ref(string(msg.Desc.Name()), msg.Desc.ParentFile())
+	return c.ref(QualifiedTSName(msg.Desc), msg.Desc.ParentFile())
 }
 
 // RefEnum returns the local TypeScript name for an enum reference, recording a
@@ -181,7 +181,7 @@ func (c *EmitContext) RefEnum(enum *protogen.Enum) string {
 	if enum == nil {
 		return ""
 	}
-	return c.ref(string(enum.Desc.Name()), enum.Desc.ParentFile())
+	return c.ref(QualifiedTSName(enum.Desc), enum.Desc.ParentFile())
 }
 
 func (c *EmitContext) ref(symbol string, file protoreflect.FileDescriptor) string {
