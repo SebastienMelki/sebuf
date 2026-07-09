@@ -52,7 +52,7 @@ func TestTSClientGenGoldenFiles(t *testing.T) {
 			name:             "cross-package imports",
 			protoFiles:       []string{"crosspkg/common/v1/types.proto", "crosspkg/shop/v1/service.proto"},
 			assertImportFile: filepath.Join("crosspkg", "shop", "v1", "service.ts"),
-			assertImport:     `from "../../common/v1/types"`,
+			assertImport:     `from "../../common/v1/types.js"`,
 		},
 	}
 

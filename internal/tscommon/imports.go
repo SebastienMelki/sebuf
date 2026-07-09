@@ -21,10 +21,13 @@ func ModuleForFile(protoPath string) string {
 	return strings.TrimSuffix(protoPath, ".proto")
 }
 
-// RelativeImportSpecifier returns the extensionless, POSIX, "./"-prefixed import
-// specifier needed to reach toModule from the file at fromModule. Both arguments
-// are extensionless module paths (e.g. "album/v1/service_client",
-// "core/v1/identifiers").
+// RelativeImportSpecifier returns the POSIX, "./"-prefixed import specifier
+// needed to reach toModule from the file at fromModule, suffixed with ".js" so
+// the emitted imports resolve under Node ESM / TypeScript nodenext module
+// resolution (which requires explicit extensions on relative imports). Both
+// arguments are extensionless module paths (e.g. "album/v1/service_client",
+// "core/v1/identifiers"); the result is e.g. "./album.js" or
+// "../../core/v1/identifiers.js".
 func RelativeImportSpecifier(fromModule, toModule string) string {
 	fromDir := path.Dir(fromModule)
 	var rel string
@@ -48,7 +51,7 @@ func RelativeImportSpecifier(fromModule, toModule string) string {
 	if !strings.HasPrefix(rel, ".") {
 		rel = "./" + rel
 	}
-	return rel
+	return rel + ".js"
 }
 
 // importedSymbol records a single imported name and its (possibly aliased) local
