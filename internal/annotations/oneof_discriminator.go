@@ -133,6 +133,7 @@ func HasOneofDiscriminator(message *protogen.Message) bool {
 // 1. Discriminator name collisions with parent message fields
 // 2. When flatten=true: all variants must be message types
 // 3. When flatten=true: variant child field names must not collide with parent fields or discriminator.
+// 4. When flatten=false: discriminator must not equal any variant's JSON name.
 func ValidateOneofDiscriminator(
 	message *protogen.Message,
 	oneof *protogen.Oneof,
@@ -148,7 +149,11 @@ func ValidateOneofDiscriminator(
 		return validateOneofFlatten(message, oneof, discriminator)
 	}
 
-	return nil
+	// Non-flatten path: the discriminator and each set variant's JSON key both sit
+	// flat on the parent object, so a discriminator equal to a variant key would
+	// emit a duplicate object key. The flatten path is exempt — it spreads the
+	// variant's child fields and never emits the variant key itself.
+	return validateDiscriminatorVariantCollision(message, oneof, discriminator)
 }
 
 // validateDiscriminatorNameCollision checks discriminator vs parent message fields.
@@ -165,6 +170,30 @@ func validateDiscriminatorNameCollision(
 		if field.Desc.JSONName() == discriminator {
 			return fmt.Errorf(
 				"oneof %s.%s: discriminator name %q collides with field %q (JSON: %q)",
+				message.Desc.Name(), oneof.Desc.Name(), discriminator,
+				field.Desc.Name(), field.Desc.JSONName(),
+			)
+		}
+	}
+
+	return nil
+}
+
+// validateDiscriminatorVariantCollision checks, on the non-flatten path, that the
+// discriminator name does not equal any variant's JSON name. On that path the
+// discriminator and the set variant's key share the parent object, so a
+// discriminator matching a variant key would produce a duplicate TypeScript key
+// (and collide with the sibling presence guards emitted for the other variants).
+func validateDiscriminatorVariantCollision(
+	message *protogen.Message,
+	oneof *protogen.Oneof,
+	discriminator string,
+) error {
+	for _, field := range oneof.Fields {
+		if field.Desc.JSONName() == discriminator {
+			return fmt.Errorf(
+				"oneof %s.%s (flatten=false): discriminator name %q collides with variant %q (JSON: %q); "+
+					"on the non-flatten path the discriminator and the variant key share the parent object",
 				message.Desc.Name(), oneof.Desc.Name(), discriminator,
 				field.Desc.Name(), field.Desc.JSONName(),
 			)
