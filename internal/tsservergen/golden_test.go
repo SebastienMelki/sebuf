@@ -131,6 +131,13 @@ func TestTSServerGenGoldenFiles(t *testing.T) {
 			},
 		},
 		{
+			name:      "two un-annotated oneofs in one message",
+			protoFile: "two_oneofs.proto",
+			expectedFiles: []string{
+				"two_oneofs_server.ts",
+			},
+		},
+		{
 			name:      "SSE streaming",
 			protoFile: "sse.proto",
 			expectedFiles: []string{
