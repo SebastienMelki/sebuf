@@ -32,6 +32,12 @@ func TestTSServerGenGoldenFiles(t *testing.T) {
 		// Used to lock in cross-package relative imports in the modules layout.
 		assertImportFile string
 		assertImport     string
+		// assertBarrelFile/assertBarrelContains, when set, require the generated
+		// per-package barrel at assertBarrelFile to contain every listed
+		// substring. Used to lock in that a package barrel re-exports both its
+		// type module and its server module.
+		assertBarrelFile     string
+		assertBarrelContains []string
 	}{
 		{name: "comprehensive HTTP verbs", protoFiles: []string{"http_verbs_comprehensive.proto"}},
 		{name: "query parameters", protoFiles: []string{"query_params.proto"}},
@@ -53,7 +59,12 @@ func TestTSServerGenGoldenFiles(t *testing.T) {
 			name:             "cross-package imports",
 			protoFiles:       []string{"crosspkg/common/v1/types.proto", "crosspkg/shop/v1/service.proto"},
 			assertImportFile: filepath.Join("crosspkg", "shop", "v1", "service.ts"),
-			assertImport:     `from "../../common/v1/types"`,
+			assertImport:     `from "../../common/v1/types.js"`,
+			assertBarrelFile: filepath.Join("crosspkg", "shop", "v1", "index.ts"),
+			assertBarrelContains: []string{
+				`export * from "./service.js";`,
+				`export * from "./service_server.js";`,
+			},
 		},
 	}
 
@@ -114,6 +125,19 @@ func TestTSServerGenGoldenFiles(t *testing.T) {
 				if !strings.Contains(string(emitted), tc.assertImport) {
 					t.Errorf("generated %s does not contain expected cross-package import %q\n---\n%s",
 						tc.assertImportFile, tc.assertImport, string(emitted))
+				}
+			}
+
+			if tc.assertBarrelFile != "" {
+				barrel, readErr := os.ReadFile(filepath.Join(outDir, tc.assertBarrelFile))
+				if readErr != nil {
+					t.Fatalf("Failed to read generated barrel %s for assertion: %v", tc.assertBarrelFile, readErr)
+				}
+				for _, want := range tc.assertBarrelContains {
+					if !strings.Contains(string(barrel), want) {
+						t.Errorf("generated barrel %s does not contain expected re-export %q\n---\n%s",
+							tc.assertBarrelFile, want, string(barrel))
+					}
 				}
 			}
 

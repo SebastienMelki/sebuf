@@ -12,13 +12,13 @@ func TestRelativeImportSpecifier(t *testing.T) {
 		to   string
 		want string
 	}{
-		{"album/v1/service_client", "core/v1/identifiers", "../../core/v1/identifiers"},
-		{"album/v1/service_client", "album/v1/album", "./album"},
-		{"album/v1/service_client", "errors", "../../errors"},
-		{"service_client", "errors", "./errors"},
-		{"service_client", "album", "./album"},
-		{"a/b/c_client", "a/b/c", "./c"},
-		{"a/b/c/deep_client", "x/y", "../../../x/y"},
+		{"album/v1/service_client", "core/v1/identifiers", "../../core/v1/identifiers.js"},
+		{"album/v1/service_client", "album/v1/album", "./album.js"},
+		{"album/v1/service_client", "errors", "../../errors.js"},
+		{"service_client", "errors", "./errors.js"},
+		{"service_client", "album", "./album.js"},
+		{"a/b/c_client", "a/b/c", "./c.js"},
+		{"a/b/c/deep_client", "x/y", "../../../x/y.js"},
 	}
 	for _, tt := range tests {
 		if got := RelativeImportSpecifier(tt.from, tt.to); got != tt.want {

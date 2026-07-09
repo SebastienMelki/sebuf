@@ -8,24 +8,28 @@ import (
 
 // generateModules emits shared canonical type modules and an errors module
 // (via tscommon), plus one slimmed client module per service file that imports
-// its request/response types and the error helpers.
+// its request/response types and the error helpers, then a per-package barrel
+// (index.ts) re-exporting each package directory's modules.
 func (g *Generator) generateModules() error {
-	if err := tscommon.EmitSharedModules(g.plugin); err != nil {
+	moduleFiles, err := tscommon.EmitSharedModules(g.plugin)
+	if err != nil {
 		return err
 	}
 	for _, file := range g.plugin.Files {
 		if !file.Generate || len(file.Services) == 0 {
 			continue
 		}
-		g.emitClientModule(file)
+		moduleFiles = append(moduleFiles, g.emitClientModule(file))
 	}
+	tscommon.EmitPackageBarrels(g.plugin, moduleFiles)
 	return nil
 }
 
 // emitClientModule writes a service file's client class(es), importing the
 // request/response types from their canonical modules and the shared error
-// helpers.
-func (g *Generator) emitClientModule(file *protogen.File) {
+// helpers. It returns the output-relative filename it emitted (ending in
+// ".ts"), so the caller can fold it into the per-package barrel.
+func (g *Generator) emitClientModule(file *protogen.File) string {
 	module := file.GeneratedFilenamePrefix + "_client"
 	gf := g.plugin.NewGeneratedFile(module+".ts", "")
 	tracker := tscommon.NewImportTracker()
@@ -48,4 +52,5 @@ func (g *Generator) emitClientModule(file *protogen.File) {
 	for _, line := range body {
 		gf.P(line)
 	}
+	return module + ".ts"
 }
