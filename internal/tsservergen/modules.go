@@ -8,26 +8,32 @@ import (
 
 // generateModules emits shared canonical type modules and an errors module
 // (via tscommon), plus one slimmed server module per service file that imports
-// its request/response types and the error helpers.
+// its request/response types and the error helpers, then a per-package barrel
+// (index.ts) re-exporting each package directory's modules.
 func (g *Generator) generateModules() error {
-	if err := tscommon.EmitSharedModules(g.plugin); err != nil {
+	moduleFiles, err := tscommon.EmitSharedModules(g.plugin)
+	if err != nil {
 		return err
 	}
 	for _, file := range g.plugin.Files {
 		if !file.Generate || len(file.Services) == 0 {
 			continue
 		}
-		if err := g.emitServerModule(file); err != nil {
-			return err
+		name, emitErr := g.emitServerModule(file)
+		if emitErr != nil {
+			return emitErr
 		}
+		moduleFiles = append(moduleFiles, name)
 	}
+	tscommon.EmitPackageBarrels(g.plugin, moduleFiles)
 	return nil
 }
 
 // emitServerModule writes a service file's server framework types + handlers,
 // importing the request/response types from their canonical modules and the
-// shared error helpers.
-func (g *Generator) emitServerModule(file *protogen.File) error {
+// shared error helpers. It returns the output-relative filename it emitted
+// (ending in ".ts"), so the caller can fold it into the per-package barrel.
+func (g *Generator) emitServerModule(file *protogen.File) (string, error) {
 	module := file.GeneratedFilenamePrefix + "_server"
 	gf := g.plugin.NewGeneratedFile(module+".ts", "")
 	tracker := tscommon.NewImportTracker()
@@ -43,7 +49,7 @@ func (g *Generator) emitServerModule(file *protogen.File) error {
 	}
 	for _, service := range file.Services {
 		if err := g.generateService(bp, service); err != nil {
-			return err
+			return "", err
 		}
 	}
 	// Import only the error helpers actually referenced in the body.
@@ -57,5 +63,5 @@ func (g *Generator) emitServerModule(file *protogen.File) error {
 	for _, line := range body {
 		gf.P(line)
 	}
-	return nil
+	return module + ".ts", nil
 }
