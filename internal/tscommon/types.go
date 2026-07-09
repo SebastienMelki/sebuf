@@ -386,10 +386,33 @@ func RootUnwrapTSTypeCtx(ctx *EmitContext, msg *protogen.Message) string {
 	return TSFieldTypeCtx(ctx, field)
 }
 
+// QualifiedTSName returns the TypeScript type name for a message or enum
+// descriptor, parent-qualified by prefixing the names of any enclosing
+// messages. Nested proto types are hoisted to top-level TS declarations, so a
+// nested type's leaf name can collide with a top-level type of the same name in
+// the same package; concatenating ancestor message names (e.g. a nested
+// GetSubscriptionStatusResponse.SubscriptionStatus becomes
+// "GetSubscriptionStatusResponseSubscriptionStatus") keeps the hoisted names
+// unique. This mirrors the convention proto authors already use manually for
+// flattened messages. Top-level types (whose parent is the file) return their
+// leaf name unchanged. It is the single source of truth for TS type names: both
+// the declaration and every reference must route through it.
+func QualifiedTSName(desc protoreflect.Descriptor) string {
+	var prefix string
+	for parent := desc.Parent(); parent != nil; parent = parent.Parent() {
+		msg, ok := parent.(protoreflect.MessageDescriptor)
+		if !ok {
+			break
+		}
+		prefix = string(msg.Name()) + prefix
+	}
+	return prefix + string(desc.Name())
+}
+
 // GenerateEnumType writes a TypeScript string union type for a protobuf enum.
 // Uses custom enum_value annotations if present, otherwise uses proto names.
 func GenerateEnumType(p Printer, enum *protogen.Enum) {
-	name := string(enum.Desc.Name())
+	name := QualifiedTSName(enum.Desc)
 	values := enum.Values
 
 	if len(values) == 0 {
@@ -426,7 +449,7 @@ func GenerateInterface(p Printer, msg *protogen.Message) {
 // (flattened into an intersection type when the annotation requests it);
 // all other oneofs are rendered as flattened optional fields.
 func GenerateInterfaceCtx(ctx *EmitContext, p Printer, msg *protogen.Message) {
-	name := string(msg.Desc.Name())
+	name := QualifiedTSName(msg.Desc)
 
 	// Collect discriminated oneof info
 	var discriminatedOneofs []*annotations.OneofDiscriminatorInfo
