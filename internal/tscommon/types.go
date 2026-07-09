@@ -407,7 +407,7 @@ func GenerateInterface(p Printer, msg *protogen.Message) {
 	if len(discriminatedOneofs) > 0 {
 		GenerateFlattenedOneofInterface(p, msg, name, discriminatedOneofs)
 	} else {
-		GenerateStandardInterface(p, msg, name, discriminatedOneofs)
+		GenerateStandardInterface(p, msg, name)
 	}
 }
 
@@ -472,21 +472,13 @@ func GenerateOneofDiscriminatedUnionType(p Printer, msgName string, info *annota
 				string(variant.Field.Message.Desc.Name()),
 			)
 		default:
-			// Non-flattened scalar: same flat shape with the scalar's TS type.
-			if info.Flatten {
-				branch = fmt.Sprintf(
-					"{ %s: \"%s\"; %s?: %s }",
-					info.Discriminator,
-					variant.DiscriminatorVal,
-					jsonNames[i],
-					TSScalarTypeForField(variant.Field),
-				)
-			} else {
-				branch = nonFlattenedOneofBranch(
-					info, variant.DiscriminatorVal, jsonNames, i,
-					TSScalarTypeForField(variant.Field),
-				)
-			}
+			// Scalar variant: flat shape with the scalar's TS type. Flatten+scalar is
+			// rejected by validateOneofFlatten (flatten variants must be messages), so
+			// a scalar variant only ever reaches the non-flatten branch.
+			branch = nonFlattenedOneofBranch(
+				info, variant.DiscriminatorVal, jsonNames, i,
+				TSScalarTypeForField(variant.Field),
+			)
 		}
 		branches = append(branches, branch)
 	}
@@ -642,24 +634,16 @@ func GenerateFlattenedOneofInterface(
 }
 
 // GenerateStandardInterface generates a standard interface for messages without
-// discriminated oneofs. Fields belonging to discriminated oneofs are skipped;
-// messages that have any render through GenerateFlattenedOneofInterface instead,
-// since every oneof union sits flat on the parent object.
+// discriminated oneofs. Messages that have any render through
+// GenerateFlattenedOneofInterface instead, since every oneof union sits flat on
+// the parent object, so this path never has oneof fields to skip.
 func GenerateStandardInterface(
 	p Printer,
 	msg *protogen.Message,
 	name string,
-	discriminatedOneofs []*annotations.OneofDiscriminatorInfo,
 ) {
-	// Build set of fields that belong to discriminated oneofs
-	oneofFields := BuildOneofFieldSet(discriminatedOneofs)
-
 	p("export interface %s {", name)
 	for _, field := range msg.Fields {
-		if oneofFields[field] {
-			continue
-		}
-
 		if annotations.IsFlattenField(field) && field.Message != nil {
 			prefix := annotations.GetFlattenPrefix(field)
 			GenerateFlattenedFields(p, field.Message, prefix)
