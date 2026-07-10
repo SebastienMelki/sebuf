@@ -136,7 +136,10 @@ jobs:
         run: |
           go mod download
           go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
-          
+
+      - name: Install TypeScript (generated-output typecheck tests)
+        run: npm install -g typescript@5.9.3
+
       - name: Build plugins
         run: make build
         
