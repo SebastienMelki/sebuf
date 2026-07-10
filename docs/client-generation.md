@@ -550,6 +550,13 @@ plugins:
     strategy: all
 ```
 
+When generating both a TS client and a TS server, give each its own `out:`
+directory (as in the examples: `./client/generated` and `./server/generated`).
+The type modules and `errors.ts` are byte-identical between the two
+generators, but each writes its own per-package `index.ts` barrel re-exporting
+its service module — pointing both generators at one directory would leave
+only the last writer's barrel, silently dropping the other's re-exports.
+
 The TypeScript server generates, using the same per-proto **modules layout** as
 the client (type module `<proto>.ts` per source proto, slim server module
 `<proto>_server.ts` importing its types from the sibling type module, and the

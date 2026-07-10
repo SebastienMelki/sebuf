@@ -83,10 +83,11 @@ func validatePathMode(plugin *protogen.Plugin) error {
 
 // EmitSharedModules emits one canonical type module per proto file (<proto>.ts)
 // plus a single shared errors module (errors.ts). Both TS generators call this;
-// the emitted files are byte-identical between them (neutral header), so running
-// client and server against the same output directory yields consistent type
-// modules. It returns the output-relative filenames (ending in ".ts") of the
-// type modules it emitted, so callers can fold them into per-package barrels.
+// the emitted files are byte-identical between them (neutral header). Note the
+// per-package barrels are not (see EmitPackageBarrels), so client and server
+// still require distinct output directories. It returns the output-relative
+// filenames (ending in ".ts") of the type modules it emitted, so callers can
+// fold them into per-package barrels.
 //
 // A proto type whose emitted TS name equals an error helper (ApiError,
 // ValidationError, FieldViolation) is fine: the type module declares it
@@ -119,6 +120,11 @@ func EmitSharedModules(plugin *protogen.Plugin) ([]string, error) {
 // and carry a ".js" extension to match the relative-import convention. The
 // output root, where the shared errors module lives, never receives a barrel:
 // aggregating the packages at the root is the consumer's concern.
+//
+// Unlike the type modules and errors.ts, barrels are NOT byte-identical
+// between the client and server generators — each re-exports its own service
+// module — so the two generators must use distinct output directories (see
+// docs/client-generation.md).
 func EmitPackageBarrels(plugin *protogen.Plugin, moduleFiles []string) {
 	byDir := map[string][]string{}
 	for _, f := range moduleFiles {
