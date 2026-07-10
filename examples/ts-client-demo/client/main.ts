@@ -1,8 +1,7 @@
+import { ValidationError, ApiError } from "./generated/errors.ts";
+import type { Note } from "./generated/proto/note_service.ts";
 import {
   NoteServiceClient,
-  ValidationError,
-  ApiError,
-  type Note,
   type NoteServiceClientOptions,
 } from "./generated/proto/note_service_client.ts";
 

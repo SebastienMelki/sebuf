@@ -14,8 +14,10 @@ plugins:
   - local: ../../bin/protoc-gen-ts-server
     out: ./server/generated
     opt: paths=source_relative
+    strategy: all
 
   # TypeScript HTTP client
   - local: ../../bin/protoc-gen-ts-client
     out: ./client/generated
     opt: paths=source_relative
+    strategy: all

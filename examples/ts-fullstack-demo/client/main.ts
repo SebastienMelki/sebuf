@@ -1,11 +1,10 @@
-import {
-  NoteServiceClient,
-  ValidationError,
-  ApiError,
-  type Note,
-  type NotFoundError,
-  type LoginError,
-} from "./generated/proto/note_service_client.ts";
+import { ValidationError, ApiError } from "./generated/errors.ts";
+import type {
+  Note,
+  NotFoundError,
+  LoginError,
+} from "./generated/proto/note_service.ts";
+import { NoteServiceClient } from "./generated/proto/note_service_client.ts";
 
 // ============================================================================
 // Terminal colors
