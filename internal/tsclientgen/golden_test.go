@@ -55,6 +55,12 @@ func TestTSClientGenGoldenFiles(t *testing.T) {
 		{name: "SSE streaming", protoFiles: []string{"sse.proto"}},
 		{name: "empty request body", protoFiles: []string{"empty_request_body.proto"}},
 		{
+			name:             "reserved error-helper names",
+			protoFiles:       []string{"reserved_name.proto"},
+			assertImportFile: "reserved_name_client.ts",
+			assertImport:     `ValidationError as ValidationError_1`,
+		},
+		{
 			name:             "cross-package imports",
 			protoFiles:       []string{"crosspkg/common/v1/types.proto", "crosspkg/shop/v1/service.proto"},
 			assertImportFile: filepath.Join("crosspkg", "shop", "v1", "service.ts"),

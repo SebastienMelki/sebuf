@@ -55,34 +55,19 @@ func CollectAllServiceMessages(plugin *protogen.Plugin) *MessageSet {
 	return ms
 }
 
-// CheckReservedNames returns an error if any collected message would shadow the
-// shared error helpers hoisted into the generated errors module.
-func CheckReservedNames(ms *MessageSet) error {
-	// Symbols emitted by the shared errors module; a proto message with one of
-	// these names would shadow the helpers.
-	reserved := map[string]bool{"ValidationError": true, "ApiError": true, "FieldViolation": true}
-	for _, msg := range ms.OrderedMessages() {
-		if reserved[string(msg.Desc.Name())] {
-			return fmt.Errorf(
-				"message %q collides with a reserved error-helper name (ValidationError, ApiError, FieldViolation); rename it",
-				msg.Desc.FullName(),
-			)
-		}
-	}
-	return nil
-}
-
 // EmitSharedModules emits one canonical type module per proto file (<proto>.ts)
 // plus a single shared errors module (errors.ts). Both TS generators call this;
 // the emitted files are byte-identical between them (neutral header), so running
 // client and server against the same output directory yields consistent type
 // modules. It returns the output-relative filenames (ending in ".ts") of the
 // type modules it emitted, so callers can fold them into per-package barrels.
+//
+// A proto type whose emitted TS name equals an error helper (ApiError,
+// ValidationError, FieldViolation) is fine: the type module declares it
+// normally, and service modules import it under a deterministic alias because
+// ImportTracker pre-reserves the helper names.
 func EmitSharedModules(plugin *protogen.Plugin) ([]string, error) {
 	global := CollectAllServiceMessages(plugin)
-	if err := CheckReservedNames(global); err != nil {
-		return nil, err
-	}
 
 	msgsBySrc := global.MessagesBySourceFile()
 	enumsBySrc := global.EnumsBySourceFile()

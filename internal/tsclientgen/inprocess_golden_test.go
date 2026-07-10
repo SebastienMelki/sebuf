@@ -45,9 +45,10 @@ func TestTSClientGenInProcess(t *testing.T) {
 	}
 }
 
-// TestTSClientGenInProcessReservedName drives a fixture whose message is named
-// ValidationError (a reserved error-helper symbol) and asserts Generate() fails
-// with a rename error, covering tscommon.CheckReservedNames via EmitSharedModules.
+// TestTSClientGenInProcessReservedName drives a fixture whose message and enum
+// collide with the shared error-helper names (ValidationError, ApiError) and
+// asserts the client module imports them under deterministic aliases while the
+// non-colliding hoisted nested name (WrapperValidationError) stays unaliased.
 func TestTSClientGenInProcessReservedName(t *testing.T) {
 	if _, err := exec.LookPath("protoc"); err != nil {
 		t.Skip("protoc not found, skipping in-process reserved-name test")
@@ -61,14 +62,38 @@ func TestTSClientGenInProcessReservedName(t *testing.T) {
 	protoDir := filepath.Join(baseDir, "testdata", "proto")
 
 	plugin := buildInProcessPlugin(t, protoDir, projectRoot, []string{"reserved_name.proto"})
-	genErr := New(plugin).Generate()
-	if genErr == nil {
-		t.Fatal("expected Generate() to fail for reserved message name, but it succeeded")
+	if genErr := New(plugin).Generate(); genErr != nil {
+		t.Fatalf("Generate() failed: %v", genErr)
 	}
-	if !strings.Contains(genErr.Error(), "ValidationError") ||
-		!strings.Contains(genErr.Error(), "reserved") {
-		t.Errorf("expected reserved-name error mentioning ValidationError, got: %v", genErr)
+
+	content := generatedFileContent(t, plugin, "reserved_name_client.ts")
+	for _, want := range []string{
+		`import { ApiError, ValidationError } from "./errors.js";`,
+		`ApiError as ApiError_1`,
+		`ValidationError as ValidationError_1`,
+		`Promise<ValidationError_1>`,
+		`Promise<ApiError_1[]>`,
+	} {
+		if !strings.Contains(content, want) {
+			t.Errorf("reserved_name_client.ts missing %q\n---\n%s", want, content)
+		}
 	}
+	if strings.Contains(content, "WrapperValidationError as") {
+		t.Errorf("WrapperValidationError must not be aliased\n---\n%s", content)
+	}
+}
+
+// generatedFileContent returns the content of the named file from the plugin
+// response, failing the test if it was not emitted.
+func generatedFileContent(t *testing.T, plugin *protogen.Plugin, name string) string {
+	t.Helper()
+	for _, f := range plugin.Response().GetFile() {
+		if f.GetName() == name {
+			return f.GetContent()
+		}
+	}
+	t.Fatalf("generator did not emit %s", name)
+	return ""
 }
 
 // inProcessFixture names a set of proto files generated together.
@@ -97,6 +122,7 @@ func inProcessFixtures() []inProcessFixture {
 		{name: "oneof discriminator", protoFiles: []string{"oneof_discriminator.proto"}},
 		{name: "SSE streaming", protoFiles: []string{"sse.proto"}},
 		{name: "empty request body", protoFiles: []string{"empty_request_body.proto"}},
+		{name: "reserved error-helper names", protoFiles: []string{"reserved_name.proto"}},
 		{
 			name:       "cross-package imports",
 			protoFiles: []string{"crosspkg/common/v1/types.proto", "crosspkg/shop/v1/service.proto"},

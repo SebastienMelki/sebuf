@@ -520,7 +520,9 @@ The TypeScript client generates, using a per-proto **modules layout**:
   importing its request/response types from the sibling type module
 - A shared `errors.ts` at the output root exporting the `ValidationError` and
   `ApiError` classes (and `FieldViolation`); every client module imports these
-  via a relative specifier
+  via a relative specifier. A proto type whose emitted TS name collides with
+  one of these helpers keeps its name in its own type module and is imported
+  into service modules under a deterministic alias (e.g. `ApiError_1`)
 - Cross-package references become relative type-only imports between modules
   (e.g. `import type { ItemID } from "../../common/v1/types";`), so types
   defined in one proto package are reused, not re-declared
