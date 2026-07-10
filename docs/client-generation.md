@@ -502,7 +502,11 @@ in a single pass over the full set of files — resolving cross-file references
 into relative imports and emitting one shared `errors.ts` — so they **require
 `strategy: all`**. The default `strategy: directory` runs the plugin once per
 directory in isolation, which re-emits the shared type modules and `errors.ts`
-from each pass and cannot resolve references into one consistent module tree:
+from each pass and cannot resolve references into one consistent module tree.
+They also **require `paths=source_relative`**: the module tree mirrors the
+proto source tree, and the generators fail loudly under any other path mode
+(such as protoc's default `paths=import`) rather than scatter type and service
+modules across different directories:
 
 ```yaml
 version: v2

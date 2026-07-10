@@ -175,6 +175,32 @@ func inProcessFixtures() []inProcessFixture {
 	}
 }
 
+// TestTSServerGenInProcessRequiresSourceRelative drives a fixture under
+// protoc's default path mode (paths=import) and asserts Generate() fails
+// loudly: type modules and service modules would otherwise land in different
+// directories, silently breaking the per-package barrels.
+func TestTSServerGenInProcessRequiresSourceRelative(t *testing.T) {
+	if _, err := exec.LookPath("protoc"); err != nil {
+		t.Skip("protoc not found, skipping in-process path-mode test")
+	}
+
+	baseDir, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("Failed to get working directory: %v", err)
+	}
+	projectRoot := filepath.Join(baseDir, "..", "..")
+	protoDir := filepath.Join(baseDir, "testdata", "proto")
+
+	plugin := buildInProcessPluginParams(t, protoDir, projectRoot, []string{"query_params.proto"}, "")
+	genErr := New(plugin).Generate()
+	if genErr == nil {
+		t.Fatal("expected Generate() to fail under default path mode, but it succeeded")
+	}
+	if !strings.Contains(genErr.Error(), "paths=source_relative") {
+		t.Errorf("expected error to mention paths=source_relative, got: %v", genErr)
+	}
+}
+
 // buildInProcessPlugin compiles the given fixtures into a FileDescriptorSet with
 // protoc and constructs a protogen.Plugin from it, so the generator can run in
 // the test process. Parameters mirror the golden test (paths=source_relative).
@@ -182,6 +208,18 @@ func buildInProcessPlugin(
 	t *testing.T,
 	protoDir, projectRoot string,
 	protoFiles []string,
+) *protogen.Plugin {
+	t.Helper()
+	return buildInProcessPluginParams(t, protoDir, projectRoot, protoFiles, "paths=source_relative")
+}
+
+// buildInProcessPluginParams is buildInProcessPlugin with an explicit plugin
+// parameter string (empty means protoc's default path mode).
+func buildInProcessPluginParams(
+	t *testing.T,
+	protoDir, projectRoot string,
+	protoFiles []string,
+	parameter string,
 ) *protogen.Plugin {
 	t.Helper()
 
@@ -210,7 +248,7 @@ func buildInProcessPlugin(
 
 	req := &pluginpb.CodeGeneratorRequest{
 		FileToGenerate: protoFiles,
-		Parameter:      proto.String("paths=source_relative"),
+		Parameter:      proto.String(parameter),
 		ProtoFile:      fds.GetFile(),
 	}
 	plugin, newErr := protogen.Options{}.New(req)

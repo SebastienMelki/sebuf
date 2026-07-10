@@ -55,6 +55,32 @@ func CollectAllServiceMessages(plugin *protogen.Plugin) *MessageSet {
 	return ms
 }
 
+// validatePathMode returns an error unless every generated file's output
+// prefix equals its source-relative proto path. Type modules are emitted at
+// the source-relative path (ModuleForFile) while service modules are emitted
+// at GeneratedFilenamePrefix; under any other path mode (protoc's default
+// paths=import, or module=) the two diverge, scattering type and service
+// modules across different directories and breaking the per-package barrels —
+// so fail loudly instead of emitting a subtly broken layout.
+func validatePathMode(plugin *protogen.Plugin) error {
+	for _, file := range plugin.Files {
+		if !file.Generate {
+			continue
+		}
+		want := ModuleForFile(file.Desc.Path())
+		if file.GeneratedFilenamePrefix != want {
+			return fmt.Errorf(
+				"the TypeScript modules layout requires paths=source_relative: "+
+					"%q would generate to %q instead of %q; "+
+					"add paths=source_relative to the plugin options "+
+					"(opt: paths=source_relative in buf.gen.yaml)",
+				file.Desc.Path(), file.GeneratedFilenamePrefix, want,
+			)
+		}
+	}
+	return nil
+}
+
 // EmitSharedModules emits one canonical type module per proto file (<proto>.ts)
 // plus a single shared errors module (errors.ts). Both TS generators call this;
 // the emitted files are byte-identical between them (neutral header), so running
@@ -67,6 +93,9 @@ func CollectAllServiceMessages(plugin *protogen.Plugin) *MessageSet {
 // normally, and service modules import it under a deterministic alias because
 // ImportTracker pre-reserves the helper names.
 func EmitSharedModules(plugin *protogen.Plugin) ([]string, error) {
+	if err := validatePathMode(plugin); err != nil {
+		return nil, err
+	}
 	global := CollectAllServiceMessages(plugin)
 
 	msgsBySrc := global.MessagesBySourceFile()
