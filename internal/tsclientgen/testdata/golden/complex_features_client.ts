@@ -2,7 +2,7 @@
 // source: complex_features.proto
 
 import { ApiError, ValidationError } from "./errors.js";
-import type { Bar, BarWrapper, BarsBySymbol, CreateNoteRequest, GetBarsBySymbolRequest, GetCombinedUnwrapRequest, GetNoteListRequest, GetNoteMapRequest, GetNoteRequest, ListNotesRequest, ListNotesResponse, Note, UpdateNoteRequest } from "./complex_features.js";
+import type { Bar, BarsBySymbol, CreateNoteRequest, GetBarsBySymbolRequest, GetCombinedUnwrapRequest, GetNoteListRequest, GetNoteMapRequest, GetNoteRequest, ListNotesRequest, ListNotesResponse, Note, UpdateNoteRequest } from "./complex_features.js";
 
 export interface FeatureServiceClientOptions {
   fetch?: typeof fetch;

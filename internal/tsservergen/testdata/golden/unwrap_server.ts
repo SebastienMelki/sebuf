@@ -2,7 +2,7 @@
 // source: unwrap.proto
 
 import { FieldViolation, ValidationError } from "./errors.js";
-import type { GetOptionBarsRequest, GetOptionBarsResponse, OptionBar, OptionBarsList } from "./unwrap.js";
+import type { GetOptionBarsRequest, GetOptionBarsResponse, OptionBar } from "./unwrap.js";
 
 export interface ServerContext {
   request: Request;

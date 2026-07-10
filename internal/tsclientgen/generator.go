@@ -375,7 +375,7 @@ func (g *Generator) generateURLBuilding(p printer, cfg *rpcMethodConfig) {
 		for _, qp := range cfg.queryParams {
 			// Handle repeated fields: use forEach + append for multi-value params
 			if qp.Field != nil && qp.Field.Desc.IsList() {
-				p("    if (req.%s && req.%s.length > 0) req.%s.forEach(v => params.append(\"%s\", v));",
+				p("    if (req.%s && req.%s.length > 0) req.%s.forEach(v => params.append(\"%s\", String(v)));",
 					qp.FieldJSONName, qp.FieldJSONName, qp.FieldJSONName, qp.ParamName)
 				continue
 			}

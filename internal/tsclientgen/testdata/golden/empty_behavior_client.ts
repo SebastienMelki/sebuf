@@ -2,7 +2,7 @@
 // source: empty_behavior.proto
 
 import { ApiError, ValidationError } from "./errors.js";
-import type { GetResponseRequest, Response } from "./empty_behavior.js";
+import type { GetResponseRequest, Response as Response_1 } from "./empty_behavior.js";
 
 export interface EmptyBehaviorServiceClientOptions {
   fetch?: typeof fetch;
@@ -25,7 +25,7 @@ export class EmptyBehaviorServiceClient {
     this.defaultHeaders = { ...options?.defaultHeaders };
   }
 
-  async getResponse(req: GetResponseRequest, options?: EmptyBehaviorServiceCallOptions): Promise<Response> {
+  async getResponse(req: GetResponseRequest, options?: EmptyBehaviorServiceCallOptions): Promise<Response_1> {
     let path = "/api/v1/responses/{id}";
     path = path.replace("{id}", encodeURIComponent(String(req.id)));
     const url = this.baseURL + path;
@@ -46,7 +46,7 @@ export class EmptyBehaviorServiceClient {
       return this.handleError(resp);
     }
 
-    return await resp.json() as Response;
+    return await resp.json() as Response_1;
   }
 
   private async handleError(resp: Response): Promise<never> {

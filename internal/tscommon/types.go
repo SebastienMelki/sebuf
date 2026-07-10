@@ -286,18 +286,20 @@ func TSFieldTypeCtx(ctx *EmitContext, field *protogen.Field) string {
 	// Handle map fields
 	if field.Desc.IsMap() {
 		valueField := field.Message.Fields[1] // map value is always second field of map entry
-		valueType := TSFieldTypeCtx(ctx, valueField)
 
-		// Check if the map value is a message with unwrap annotation
+		// Check if the map value is a message with unwrap annotation. Resolve
+		// the unwrapped inner type directly so the (collapsed) wrapper message
+		// is never referenced — referencing it would record a cross-module
+		// import that the emitted code never uses.
 		if valueField.Desc.Kind() == protoreflect.MessageKind && valueField.Message != nil {
 			unwrapField := annotations.FindUnwrapField(valueField.Message)
 			if unwrapField != nil && !unwrapField.Desc.IsMap() {
 				// Map-value unwrap: collapse wrapper to inner type array
-				valueType = TSElementTypeCtx(ctx, unwrapField) + "[]"
+				return fmt.Sprintf("Record<string, %s[]>", TSElementTypeCtx(ctx, unwrapField))
 			}
 		}
 
-		return fmt.Sprintf("Record<string, %s>", valueType)
+		return fmt.Sprintf("Record<string, %s>", TSFieldTypeCtx(ctx, valueField))
 	}
 
 	// Handle repeated fields
@@ -366,17 +368,18 @@ func RootUnwrapTSTypeCtx(ctx *EmitContext, msg *protogen.Message) string {
 
 	if field.Desc.IsMap() {
 		valueField := field.Message.Fields[1]
-		valueType := TSFieldTypeCtx(ctx, valueField)
 
-		// Check for combined unwrap: root map + value unwrap
+		// Check for combined unwrap: root map + value unwrap. Resolve the
+		// unwrapped inner type directly so the (collapsed) wrapper message is
+		// never referenced and no unused import is recorded.
 		if valueField.Desc.Kind() == protoreflect.MessageKind && valueField.Message != nil {
 			unwrapField := annotations.FindUnwrapField(valueField.Message)
 			if unwrapField != nil {
-				valueType = TSElementTypeCtx(ctx, unwrapField) + "[]"
+				return fmt.Sprintf("Record<string, %s[]>", TSElementTypeCtx(ctx, unwrapField))
 			}
 		}
 
-		return fmt.Sprintf("Record<string, %s>", valueType)
+		return fmt.Sprintf("Record<string, %s>", TSFieldTypeCtx(ctx, valueField))
 	}
 
 	if field.Desc.IsList() {

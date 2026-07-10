@@ -2,7 +2,7 @@
 // source: unwrap.proto
 
 import { ApiError, ValidationError } from "./errors.js";
-import type { GetOptionBarsRequest, GetOptionBarsResponse, OptionBar, OptionBarsList } from "./unwrap.js";
+import type { GetOptionBarsRequest, GetOptionBarsResponse, OptionBar } from "./unwrap.js";
 
 export interface OptionDataServiceClientOptions {
   fetch?: typeof fetch;

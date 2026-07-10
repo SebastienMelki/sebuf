@@ -31,6 +31,19 @@ func errorHelperNames() []string {
 	return []string{apiErrorName, fieldViolationName, validationErrorName}
 }
 
+// reservedGlobalNames returns the global (DOM / TS-lib) identifiers the
+// generated modules reference in template code — fetch, Response, Promise,
+// Record, and friends. Pre-reserving them keeps an imported proto type named
+// e.g. "Response" from shadowing the global the template relies on, which
+// would otherwise typecheck the template code against the proto type.
+func reservedGlobalNames() []string {
+	return []string{
+		"AbortSignal", "AsyncGenerator", "Error", "Headers", "Promise",
+		"ReadableStream", "Record", "Request", "Response", "TextDecoder",
+		"TextEncoder", "URL", "URLSearchParams", "fetch",
+	}
+}
+
 // reservedOwnerKey marks a local name as pre-reserved in ImportTracker. The
 // leading NUL can never collide with a real "spec\x00symbol" owner key because
 // specifiers are never empty.
@@ -93,8 +106,9 @@ type ImportTracker struct {
 	errorsSpec  string
 }
 
-// NewImportTracker returns an empty tracker with the error-helper names
-// pre-reserved, so type imports can never shadow the shared errors module.
+// NewImportTracker returns an empty tracker with the error-helper and global
+// template names pre-reserved, so type imports can never shadow the shared
+// errors module or the globals the generated code relies on.
 func NewImportTracker() *ImportTracker {
 	t := &ImportTracker{
 		typeImports: map[string][]importedSymbol{},
@@ -103,6 +117,9 @@ func NewImportTracker() *ImportTracker {
 		errorSyms:   map[string]bool{},
 	}
 	for _, name := range errorHelperNames() {
+		t.usedAlias[name] = reservedOwnerKey
+	}
+	for _, name := range reservedGlobalNames() {
 		t.usedAlias[name] = reservedOwnerKey
 	}
 	return t
