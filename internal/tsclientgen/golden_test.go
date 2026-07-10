@@ -9,6 +9,8 @@ import (
 	"sort"
 	"strings"
 	"testing"
+
+	"github.com/SebastienMelki/sebuf/internal/tscommon/plugintest"
 )
 
 // TestTSClientGenGoldenFiles tests TypeScript client generation against golden files.
@@ -101,14 +103,7 @@ func TestTSClientGenGoldenFiles(t *testing.T) {
 		t.Fatalf("Failed to create golden directory: %v", mkdirErr)
 	}
 
-	pluginPath := filepath.Join(projectRoot, "bin", "protoc-gen-ts-client")
-	if _, buildStatErr := os.Stat(pluginPath); os.IsNotExist(buildStatErr) {
-		buildCmd := exec.Command("make", "build")
-		buildCmd.Dir = projectRoot
-		if buildErr := buildCmd.Run(); buildErr != nil {
-			t.Fatalf("Failed to build plugin: %v", buildErr)
-		}
-	}
+	pluginPath := plugintest.Build(t, projectRoot, "protoc-gen-ts-client")
 
 	updateGolden := os.Getenv("UPDATE_GOLDEN") == "1"
 

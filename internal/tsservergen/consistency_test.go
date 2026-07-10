@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/SebastienMelki/sebuf/internal/tscommon/plugintest"
 )
 
 // TestCrossGeneratorTypeConsistency verifies that message interfaces and enum types
@@ -40,20 +42,8 @@ func TestCrossGeneratorTypeConsistency(t *testing.T) {
 	projectRoot := filepath.Join(baseDir, "..", "..")
 	protoDir := filepath.Join(baseDir, "testdata", "proto")
 
-	serverPluginPath := filepath.Join(projectRoot, "bin", "protoc-gen-ts-server")
-	clientPluginPath := filepath.Join(projectRoot, "bin", "protoc-gen-ts-client")
-
-	// Build plugins if they don't exist
-	for _, pluginPath := range []string{serverPluginPath, clientPluginPath} {
-		if _, statErr := os.Stat(pluginPath); os.IsNotExist(statErr) {
-			buildCmd := exec.Command("make", "build")
-			buildCmd.Dir = projectRoot
-			if buildErr := buildCmd.Run(); buildErr != nil {
-				t.Fatalf("Failed to build plugins: %v", buildErr)
-			}
-			break
-		}
-	}
+	serverPluginPath := plugintest.Build(t, projectRoot, "protoc-gen-ts-server")
+	clientPluginPath := plugintest.Build(t, projectRoot, "protoc-gen-ts-client")
 
 	serverDir := t.TempDir()
 	clientDir := t.TempDir()
