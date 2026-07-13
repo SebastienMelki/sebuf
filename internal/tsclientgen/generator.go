@@ -1,6 +1,7 @@
 package tsclientgen
 
 import (
+	"fmt"
 	"net/http"
 
 	"google.golang.org/protobuf/compiler/protogen"
@@ -219,8 +220,21 @@ func (g *Generator) generateRPCMethod(p printer, service *protogen.Service, meth
 		return
 	}
 
-	inputType := g.ctx.RefMessage(method.Input)
-	outputType := g.resolveOutputType(method)
+	es := g.ctx.MessageRuntime == tscommon.MessageRuntimeES
+
+	var inputType, outputType, reqSchema, resSchema string
+	if es {
+		// protobuf-es mode: consumers pass a plain init shape; the client routes
+		// the request through create/toJson and decodes the response with fromJson.
+		reqSchema = g.ctx.RefMessageSchema(method.Input)
+		resSchema = g.ctx.RefMessageSchema(method.Output)
+		inputType = "MessageInitShape<typeof " + reqSchema + ">"
+		outputType = g.ctx.RefMessagePb(method.Output)
+		g.ctx.NeedProtobufES()
+	} else {
+		inputType = g.ctx.RefMessage(method.Input)
+		outputType = g.resolveOutputType(method)
+	}
 
 	tsMethodName := annotations.LowerFirst(cfg.methodName)
 
@@ -235,10 +249,10 @@ func (g *Generator) generateRPCMethod(p printer, service *protogen.Service, meth
 	g.generateHeaderMerging(p, service, method)
 
 	// Build fetch options
-	g.generateFetchCall(p, cfg)
+	g.generateFetchCall(p, cfg, reqSchema)
 
 	// Handle response
-	g.generateResponseHandling(p, method)
+	g.generateResponseHandling(p, outputType, resSchema)
 
 	p("  }")
 	p("")
@@ -434,13 +448,19 @@ func (g *Generator) generateHeaderMerging(p printer, service *protogen.Service, 
 	p("")
 }
 
-// generateFetchCall generates the fetch invocation.
-func (g *Generator) generateFetchCall(p printer, cfg *rpcMethodConfig) {
+// generateFetchCall generates the fetch invocation. In protobuf-es mode
+// (reqSchema non-empty) the request body is encoded through create/toJson;
+// otherwise the request object is serialized directly.
+func (g *Generator) generateFetchCall(p printer, cfg *rpcMethodConfig, reqSchema string) {
 	if cfg.hasBody {
+		body := "JSON.stringify(req)"
+		if reqSchema != "" {
+			body = fmt.Sprintf("JSON.stringify(toJson(%s, create(%s, req)))", reqSchema, reqSchema)
+		}
 		p("    const resp = await this.fetchFn(url, {")
 		p(`      method: "%s",`, cfg.httpMethod)
 		p("      headers,")
-		p("      body: JSON.stringify(req),")
+		p("      body: %s,", body)
 		p("      signal: options?.signal,")
 		p("    });")
 	} else {
@@ -453,14 +473,18 @@ func (g *Generator) generateFetchCall(p printer, cfg *rpcMethodConfig) {
 	p("")
 }
 
-// generateResponseHandling generates response parsing and error handling.
-func (g *Generator) generateResponseHandling(p printer, method *protogen.Method) {
-	outputType := g.resolveOutputType(method)
-
+// generateResponseHandling generates response parsing and error handling. In
+// protobuf-es mode (resSchema non-empty) the response is decoded through fromJson
+// with ignoreUnknownFields (forward-compat); otherwise it is raw-cast.
+func (g *Generator) generateResponseHandling(p printer, outputType, resSchema string) {
 	p("    if (!resp.ok) {")
 	p("      return this.handleError(resp);")
 	p("    }")
 	p("")
+	if resSchema != "" {
+		p("    return fromJson(%s, await resp.json(), { ignoreUnknownFields: true });", resSchema)
+		return
+	}
 	p("    return await resp.json() as %s;", outputType)
 }
 

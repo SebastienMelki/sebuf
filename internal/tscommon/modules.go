@@ -84,12 +84,18 @@ func EmitSharedModules(plugin *protogen.Plugin, runtime MessageRuntime) ([]strin
 		return nil, err
 	}
 
-	msgsBySrc := global.MessagesBySourceFile()
-	enumsBySrc := global.EnumsBySourceFile()
+	// In protobuf-es mode the message/enum modules are owned by protoc-gen-es
+	// (<proto>_pb.ts); sebuf must not emit its hand-rolled type modules or they
+	// would clash. The shared errors module is still sebuf's to emit — the
+	// generated client imports ApiError/ValidationError from it.
 	var emitted []string
-	for _, src := range sortedSourceFiles(msgsBySrc, enumsBySrc) {
-		if name := emitTypeModule(plugin, src, msgsBySrc[src], enumsBySrc[src], runtime); name != "" {
-			emitted = append(emitted, name)
+	if runtime != MessageRuntimeES {
+		msgsBySrc := global.MessagesBySourceFile()
+		enumsBySrc := global.EnumsBySourceFile()
+		for _, src := range sortedSourceFiles(msgsBySrc, enumsBySrc) {
+			if name := emitTypeModule(plugin, src, msgsBySrc[src], enumsBySrc[src], runtime); name != "" {
+				emitted = append(emitted, name)
+			}
 		}
 	}
 	emitErrorsModule(plugin)
