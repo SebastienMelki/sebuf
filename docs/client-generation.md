@@ -635,6 +635,135 @@ try {
 
 The proto definition serves as the single source of truth for error shapes — both server and client use the same generated interface for type safety across the wire.
 
+## protobuf-es runtime (TypeScript)
+
+By default the TypeScript generators emit their own plain-interface types (the
+per-proto type module `<proto>.ts` described above). Passing
+`ts_runtime=protobuf-es` switches both the client and server generators into
+**protobuf-es transport mode**: instead of declaring their own interfaces, they
+consume the message types and schemas emitted by
+[`protoc-gen-es`](https://github.com/bufbuild/protobuf-es) (the `<proto>_pb.ts`
+files) and serialize on the wire through protobuf-es's canonical
+`fromJson`/`toJson`. This gives you protobuf-es's fully spec-compliant proto3
+JSON encoding (defaults, `bigint`, oneofs, well-known types) for free, shared
+across your whole app.
+
+### buf.gen.yaml shape
+
+In this mode you run `protoc-gen-es` **and** the sebuf ts-client (or ts-server)
+plugin together, into the same output directory. protoc-gen-es emits the
+`<proto>_pb.ts` message schemas; the sebuf plugin emits the transport
+client/server that imports them. Both sebuf plugins still require
+`strategy: all` (see the sections above):
+
+```yaml
+version: v2
+plugins:
+  # 1. protoc-gen-es: emits <proto>_pb.ts message classes + schemas
+  - local: protoc-gen-es
+    out: ./generated
+    opt:
+      - target=ts
+      - import_extension=js
+  # 2. sebuf ts-client in protobuf-es transport mode
+  - local: protoc-gen-ts-client
+    out: ./generated
+    opt:
+      - paths=source_relative
+      - ts_runtime=protobuf-es
+    strategy: all
+  # (and/or) sebuf ts-server in the same mode
+  - local: protoc-gen-ts-server
+    out: ./generated
+    opt:
+      - paths=source_relative
+      - ts_runtime=protobuf-es
+    strategy: all
+```
+
+The exact plugin options mirror what the generator's golden tests invoke:
+`--es_opt=target=ts,import_extension=js` for protoc-gen-es, and
+`--ts-client_opt=paths=source_relative,ts_runtime=protobuf-es` /
+`--ts-server_opt=paths=source_relative,ts_runtime=protobuf-es` for the sebuf
+plugins.
+
+### Runtime dependency
+
+protobuf-es transport mode has a runtime dependency on **`@bufbuild/protobuf`
+v2** (the `<proto>_pb.ts` files and the generated transport both import
+`create`, `fromJson`, `toJson`, `MessageInitShape`, and the message/`*Schema`
+symbols from it). Install it in the consuming project:
+
+```bash
+npm install @bufbuild/protobuf
+```
+
+The generated goldens were produced with `@bufbuild/protoc-gen-es@2.12.1`.
+
+The generated transport import only pulls in the `@bufbuild/protobuf` symbols a
+given file actually uses (e.g. a GET-only client imports just `fromJson` and
+`MessageInitShape`, not `create`/`toJson`), so the output compiles cleanly under
+strict `noUnusedLocals`.
+
+### Consumer-facing differences
+
+Compared to the default plain-interface mode, code that uses the generated
+client/server sees protobuf-es's types and conventions:
+
+- **Branded messages.** Message types are protobuf-es branded types
+  (`Message<"pkg.Name"> & {...}`), not structural interfaces. You cannot pass an
+  arbitrary object literal where a full message is expected.
+- **`create()` for construction; `MessageInitShape` on the boundaries.** To
+  build a message value use protobuf-es's `create(SchemaSymbol, {...})`. Client
+  methods and server handlers do not force you to call `create()` yourself,
+  though: client methods accept `MessageInitShape<typeof RequestSchema>` (the
+  loose init shape), and server handler methods **return**
+  `MessageInitShape<typeof ResponseSchema>` — the generated code calls
+  `create()` for you before encoding. So handlers can `return { ... }` with a
+  plain init object.
+- **Oneofs as `{ case, value }`.** A protobuf oneof is a discriminated union
+  (`{ case: "bigText"; value: TextContent } | { case: "bigImage"; value:
+  ImageContent } | { case: undefined; value?: undefined }`), not sibling
+  optional fields.
+- **int64 as `bigint`.** 64-bit integer fields (`int64`, `uint64`, `sint64`,
+  `fixed64`, `sfixed64`) are represented as `bigint`, following protobuf-es.
+
+### Server-streaming (SSE)
+
+Server-streaming RPCs **are** supported in protobuf-es mode. On the client, a
+streaming RPC is an `async function*` returning `AsyncGenerator<T>` that yields
+each event decoded with `fromJson(...)`; on the server, the handler returns a
+`ReadableStream<MessageInitShape<typeof EventSchema>>` and the generated route
+encodes each value with `toJson(create(EventSchema, value))` into an SSE
+`data:` frame. Both directions go through protobuf-es's canonical JSON.
+
+### Server `EmitDefaultValues` is not required for TS correctness
+
+In protobuf-es transport mode the client decodes every response with
+`fromJson(Schema, ..., { ignoreUnknownFields: true })`. protobuf-es's `fromJson`
+fills in proto3 default values for any field the server omitted, so the
+consumer always gets a fully-populated message even when the server does **not**
+set the `EmitDefaultValues` flag. That flag is therefore not needed for
+TypeScript correctness in this mode (unknown/extra fields on the wire are also
+ignored rather than causing an error).
+
+### Known limitations
+
+- **Enum path parameters are not yet supported.** protobuf-es enums are numeric,
+  but path-parameter values arrive as strings; the current merge emits an
+  `as <Enum>` cast, which is unsound (see the
+  `// TODO(es): enum path-param merge needs conversion, not a cast` in
+  `internal/tsservergen/generator.go`). A POST/GET RPC that has an **enum** path
+  parameter is unsupported under `ts_runtime=protobuf-es` for now. **String**
+  path parameters work fine.
+- **Prefer top-level messages for RPC input/output.** Nested-message local
+  names are reconciled to protoc-gen-es's underscore form (`Outer_Inner` /
+  `Outer_InnerSchema`, via `ESQualifiedName`), so nested messages used as RPC
+  I/O do resolve — but this was verified against
+  `@bufbuild/protoc-gen-es@2.12.1`; if you use a different protoc-gen-es version
+  and hit a naming mismatch, promoting the message to top level is the safe
+  workaround.
+
 ## See Also
 
 - **[HTTP Generation Guide](./http-generation.md)** - Go server-side handler generation
