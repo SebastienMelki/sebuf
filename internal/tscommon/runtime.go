@@ -1,6 +1,9 @@
 package tscommon
 
-import "strings"
+import (
+	"fmt"
+	"strings"
+)
 
 // MessageRuntime selects how generated TypeScript represents protobuf messages.
 type MessageRuntime int
@@ -29,4 +32,19 @@ func ParseMessageRuntime(param string) MessageRuntime {
 		}
 	}
 	return MessageRuntimeHandRolled
+}
+
+// UnsupportedEnumParamError builds the generation-time error returned when an
+// enum-typed path or query parameter is encountered in protobuf-es runtime
+// mode. protobuf-es represents enums as numeric values, but path/query
+// parameters arrive as strings on the wire; safely bridging the two requires a
+// name<->number conversion that is not yet implemented, so the generator fails
+// loud here instead of emitting code that fails downstream `tsc`. paramKind is
+// "path" or "query"; fieldName is the proto field name.
+func UnsupportedEnumParamError(paramKind, fieldName, service, method string) error {
+	return fmt.Errorf(
+		"ts_runtime=protobuf-es: enum %s parameter %q on %s.%s is not yet supported "+
+			"(protobuf-es enums are numeric; string<->enum conversion is not implemented)",
+		paramKind, fieldName, service, method,
+	)
 }

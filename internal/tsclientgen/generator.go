@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"google.golang.org/protobuf/compiler/protogen"
+	"google.golang.org/protobuf/reflect/protoreflect"
 
 	"github.com/SebastienMelki/sebuf/internal/annotations"
 	"github.com/SebastienMelki/sebuf/internal/tscommon"
@@ -33,6 +34,17 @@ func (g *Generator) Generate() error {
 
 func (g *Generator) generateServiceClient(p printer, service *protogen.Service) error {
 	serviceName := service.GoName
+
+	// Enum path/query parameters are not representable in protobuf-es mode
+	// (numeric enums vs string URL params); fail loud rather than emit code that
+	// fails downstream tsc.
+	if g.ctx.MessageRuntime == tscommon.MessageRuntimeES {
+		for _, method := range service.Methods {
+			if err := checkNoEnumParamsES(service, method); err != nil {
+				return err
+			}
+		}
+	}
 
 	// Client options interface
 	g.generateClientOptionsInterface(p, service)
@@ -209,6 +221,34 @@ func (g *Generator) buildRPCMethodConfig(service *protogen.Service, method *prot
 		hasBody:     httpMethod == "POST" || httpMethod == "PUT" || httpMethod == "PATCH",
 		isSSE:       isSSE,
 	}
+}
+
+// checkNoEnumParamsES reports a generation-time error if the method has an
+// enum-typed path or query parameter (including repeated enum query params),
+// which protobuf-es mode cannot yet represent. See UnsupportedEnumParamError.
+func checkNoEnumParamsES(service *protogen.Service, method *protogen.Method) error {
+	httpConfig := annotations.GetMethodHTTPConfig(method)
+	var pathParams []string
+	if httpConfig != nil {
+		pathParams = httpConfig.PathParams
+	}
+	if len(pathParams) > 0 {
+		fieldMap := make(map[string]*protogen.Field, len(method.Input.Fields))
+		for _, f := range method.Input.Fields {
+			fieldMap[string(f.Desc.Name())] = f
+		}
+		for _, param := range pathParams {
+			if f, ok := fieldMap[param]; ok && f.Desc.Kind() == protoreflect.EnumKind {
+				return tscommon.UnsupportedEnumParamError("path", param, service.GoName, method.GoName)
+			}
+		}
+	}
+	for _, qp := range annotations.GetQueryParams(method.Input) {
+		if qp.Field != nil && qp.Field.Desc.Kind() == protoreflect.EnumKind {
+			return tscommon.UnsupportedEnumParamError("query", qp.FieldName, service.GoName, method.GoName)
+		}
+	}
+	return nil
 }
 
 // generateRPCMethod generates a single async RPC method.

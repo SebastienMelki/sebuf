@@ -1,0 +1,38 @@
+syntax = "proto3";
+
+package test.getparams;
+
+option go_package = "github.com/SebastienMelki/sebuf/internal/httpgen/testdata/generated;generated";
+
+import "sebuf/http/annotations.proto";
+
+// GetParamsService exercises a unary GET RPC with a string path parameter and
+// scalar (non-enum) query parameters under protobuf-es mode. This locks down
+// the path/query surface that the POST-unary and GET-streaming es fixtures do
+// not cover.
+service GetParamsService {
+  option (sebuf.http.service_config) = {
+    base_path: "/api/v1"
+  };
+
+  rpc GetItem(GetItemRequest) returns (Item) {
+    option (sebuf.http.config) = {
+      path: "/items/{item_id}"
+      method: HTTP_METHOD_GET
+    };
+  }
+}
+
+message GetItemRequest {
+  // String path parameter.
+  string item_id = 1;
+  // Scalar query parameters (no enum).
+  string query = 2 [(sebuf.http.query) = { name: "q" }];
+  int32 limit = 3 [(sebuf.http.query) = { name: "limit" }];
+  bool include_archived = 4 [(sebuf.http.query) = { name: "include_archived" }];
+}
+
+message Item {
+  string id = 1;
+  string name = 2;
+}

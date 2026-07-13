@@ -274,6 +274,17 @@ func (g *Generator) buildRPCRouteConfig(service *protogen.Service, method *proto
 		return nil, fmt.Errorf("service %s, method %s: %w", serviceName, methodName, err)
 	}
 
+	queryParams := annotations.GetQueryParams(method.Input)
+
+	// Enum path/query parameters are not representable in protobuf-es mode
+	// (numeric enums vs string URL params); fail loud rather than emit code that
+	// fails downstream tsc.
+	if g.ctx.MessageRuntime == tscommon.MessageRuntimeES {
+		if enumErr := checkNoEnumParamsES(serviceName, methodName, pathParamFields, queryParams); enumErr != nil {
+			return nil, enumErr
+		}
+	}
+
 	return &rpcRouteConfig{
 		serviceName:     serviceName,
 		methodName:      methodName,
@@ -281,9 +292,30 @@ func (g *Generator) buildRPCRouteConfig(service *protogen.Service, method *proto
 		fullPath:        fullPath,
 		pathParams:      pathParams,
 		pathParamFields: pathParamFields,
-		queryParams:     annotations.GetQueryParams(method.Input),
+		queryParams:     queryParams,
 		hasBody:         httpMethod == "POST" || httpMethod == "PUT" || httpMethod == "PATCH",
 	}, nil
+}
+
+// checkNoEnumParamsES reports a generation-time error if any path or query
+// parameter is enum-typed (including repeated enum query params), which
+// protobuf-es mode cannot yet represent. See UnsupportedEnumParamError.
+func checkNoEnumParamsES(
+	service, method string,
+	pathParamFields []pathParamField,
+	queryParams []annotations.QueryParam,
+) error {
+	for _, ppf := range pathParamFields {
+		if ppf.field != nil && ppf.field.Desc.Kind() == protoreflect.EnumKind {
+			return tscommon.UnsupportedEnumParamError("path", ppf.protoName, service, method)
+		}
+	}
+	for _, qp := range queryParams {
+		if qp.Field != nil && qp.Field.Desc.Kind() == protoreflect.EnumKind {
+			return tscommon.UnsupportedEnumParamError("query", qp.FieldName, service, method)
+		}
+	}
+	return nil
 }
 
 // resolvePathParamFields validates that every path parameter has a matching field
@@ -582,9 +614,10 @@ func (g *Generator) emitPathParamAssignment(
 	suffix string,
 ) {
 	if ppf.field != nil && ppf.field.Desc.Kind() == protoreflect.EnumKind && ppf.field.Enum != nil {
+		// Hand-rolled mode only: enums are string unions here, so the cast is
+		// sound. protobuf-es mode rejects enum path params before emission (see
+		// checkNoEnumParamsES).
 		enumName := g.ctx.RefEnum(ppf.field.Enum)
-		// TODO(es): enum path-param merge needs conversion, not a cast
-		// (protobuf-es enums are numeric; pathParams values are strings).
 		p(
 			"%s%s: pathParams[\"%s\"] as %s%s",
 			prefix, ppf.jsonName, ppf.protoName, enumName, suffix,
@@ -602,9 +635,9 @@ func (g *Generator) generatePathParamMerge(p tscommon.Printer, cfg *rpcRouteConf
 	}
 	for _, ppf := range cfg.pathParamFields {
 		if ppf.field != nil && ppf.field.Desc.Kind() == protoreflect.EnumKind && ppf.field.Enum != nil {
+			// Hand-rolled mode only: protobuf-es mode rejects enum path params
+			// before emission (see checkNoEnumParamsES).
 			enumName := g.ctx.RefEnum(ppf.field.Enum)
-			// TODO(es): enum path-param merge needs conversion, not a cast
-			// (protobuf-es enums are numeric; pathParams values are strings).
 			p(
 				"          body.%s = pathParams[\"%s\"] as %s;",
 				ppf.jsonName, ppf.protoName, enumName,

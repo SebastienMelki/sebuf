@@ -225,6 +225,8 @@ func TestTSServerGenESGoldenFiles(t *testing.T) {
 		// Server-streaming (SSE) fixture: each yielded event is encoded through
 		// toJson(create(...)). Mirrors the hand-rolled SSE_streaming case.
 		{name: "SSE streaming", protoFile: "sse.proto"},
+		// Unary GET with a string path param and scalar (non-enum) query params.
+		{name: "unary GET path+query params", protoFile: "get_params.proto"},
 	}
 
 	protoPaths := []string{"--proto_path=" + protoDir, "--proto_path=" + filepath.Join(projectRoot, "proto")}

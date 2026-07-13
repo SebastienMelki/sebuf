@@ -19,7 +19,11 @@ func (g *Generator) generateModules() error {
 		if !file.Generate || len(file.Services) == 0 {
 			continue
 		}
-		moduleFiles = append(moduleFiles, g.emitClientModule(file))
+		name, emitErr := g.emitClientModule(file)
+		if emitErr != nil {
+			return emitErr
+		}
+		moduleFiles = append(moduleFiles, name)
 	}
 	tscommon.EmitPackageBarrels(g.plugin, moduleFiles)
 	return nil
@@ -29,7 +33,7 @@ func (g *Generator) generateModules() error {
 // request/response types from their canonical modules and the shared error
 // helpers. It returns the output-relative filename it emitted (ending in
 // ".ts"), so the caller can fold it into the per-package barrel.
-func (g *Generator) emitClientModule(file *protogen.File) string {
+func (g *Generator) emitClientModule(file *protogen.File) (string, error) {
 	module := file.GeneratedFilenamePrefix + "_client"
 	gf := g.plugin.NewGeneratedFile(module+".ts", "")
 	tracker := tscommon.NewImportTracker()
@@ -39,7 +43,9 @@ func (g *Generator) emitClientModule(file *protogen.File) string {
 	var body []string
 	bp := printer(tscommon.BufferedPrinter(&body))
 	for _, service := range file.Services {
-		_ = g.generateServiceClient(bp, service)
+		if err := g.generateServiceClient(bp, service); err != nil {
+			return "", err
+		}
 	}
 	// Import only the error helpers actually referenced in the body.
 	g.ctx.NeedErrors(tscommon.UsedErrorSymbols(body)...)
@@ -54,5 +60,5 @@ func (g *Generator) emitClientModule(file *protogen.File) string {
 	for _, line := range body {
 		gf.P(line)
 	}
-	return module + ".ts"
+	return module + ".ts", nil
 }

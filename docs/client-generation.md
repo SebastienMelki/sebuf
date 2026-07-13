@@ -749,13 +749,20 @@ ignored rather than causing an error).
 
 ### Known limitations
 
-- **Enum path parameters are not yet supported.** protobuf-es enums are numeric,
-  but path-parameter values arrive as strings; the current merge emits an
-  `as <Enum>` cast, which is unsound (see the
-  `// TODO(es): enum path-param merge needs conversion, not a cast` in
-  `internal/tsservergen/generator.go`). A POST/GET RPC that has an **enum** path
-  parameter is unsupported under `ts_runtime=protobuf-es` for now. **String**
-  path parameters work fine.
+- **Enum path AND query parameters are not yet supported.** protobuf-es enums
+  are numeric, but path- and query-parameter values arrive as strings on the
+  wire; safely bridging the two requires a name↔number conversion that is not
+  yet implemented. This applies to enum path parameters, enum query parameters,
+  and repeated enum query parameters. Rather than emit code that fails a
+  downstream `tsc` (with a confusing `TS2307: Cannot find module './<proto>.js'`,
+  because the hand-rolled enum type module is deliberately not emitted in
+  es-mode), **the generator now fails loud at generation time** with a clear
+  error, e.g. `ts_runtime=protobuf-es: enum query parameter "region" on
+  Service.Method is not yet supported`. Both the client and server generators
+  enforce this (see `checkNoEnumParamsES` in `internal/tsclientgen/generator.go`
+  and `internal/tsservergen/generator.go`). **String, integer, boolean, and
+  other scalar** path and query parameters work fine under
+  `ts_runtime=protobuf-es`.
 - **Prefer top-level messages for RPC input/output.** Nested-message local
   names are reconciled to protoc-gen-es's underscore form (`Outer_Inner` /
   `Outer_InnerSchema`, via `ESQualifiedName`), so nested messages used as RPC

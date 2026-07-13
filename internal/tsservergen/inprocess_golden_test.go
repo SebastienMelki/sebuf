@@ -93,6 +93,33 @@ func TestTSServerGenInProcessValidationErrors(t *testing.T) {
 	}
 }
 
+// TestTSServerGenESRejectsEnumParams asserts that in protobuf-es mode the
+// generator fails loud (rather than emitting uncompilable output) when a method
+// has an enum-typed path or query parameter. query_params.proto has both an
+// enum query param (SearchAdvanced) and an enum path param (GetByRegion).
+func TestTSServerGenESRejectsEnumParams(t *testing.T) {
+	if _, err := exec.LookPath("protoc"); err != nil {
+		t.Skip("protoc not found, skipping in-process es enum-param test")
+	}
+
+	baseDir, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("Failed to get working directory: %v", err)
+	}
+	projectRoot := filepath.Join(baseDir, "..", "..")
+	protoDir := filepath.Join(baseDir, "testdata", "proto")
+
+	plugin := buildInProcessPlugin(t, protoDir, projectRoot, []string{"query_params.proto"})
+	genErr := New(plugin, tscommon.MessageRuntimeES).Generate()
+	if genErr == nil {
+		t.Fatal("expected Generate() to fail for enum path/query param in es mode, but it succeeded")
+	}
+	if !strings.Contains(genErr.Error(), "ts_runtime=protobuf-es: enum") ||
+		!strings.Contains(genErr.Error(), "is not yet supported") {
+		t.Errorf("expected enum-param unsupported error, got: %v", genErr)
+	}
+}
+
 // TestTSServerGenInProcessReservedName drives a fixture whose message is named
 // ValidationError (a reserved error-helper symbol) and asserts Generate() fails
 // with a rename error, covering tscommon.CheckReservedNames via EmitSharedModules.
