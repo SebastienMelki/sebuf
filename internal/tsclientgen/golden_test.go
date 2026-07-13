@@ -215,58 +215,72 @@ func TestTSClientGenESGoldenFiles(t *testing.T) {
 
 	updateGolden := os.Getenv("UPDATE_GOLDEN") == "1"
 
-	// Smallest fixture exercising request-body encode + response decode.
-	protoFile := "multi_word_oneof.proto"
-	if _, statErr := os.Stat(filepath.Join(protoDir, protoFile)); os.IsNotExist(statErr) {
-		t.Fatalf("Proto file not found: %s", protoFile)
+	testCases := []struct {
+		name      string
+		protoFile string
+	}{
+		// Smallest fixture exercising request-body encode + response decode.
+		{name: "unary multi-word oneof", protoFile: "multi_word_oneof.proto"},
+		// Server-streaming (SSE) fixture: async generators decode each event
+		// through fromJson. Mirrors the hand-rolled SSE_streaming case.
+		{name: "SSE streaming", protoFile: "sse.proto"},
 	}
 
-	outDir := t.TempDir()
 	protoPaths := []string{"--proto_path=" + protoDir, "--proto_path=" + filepath.Join(projectRoot, "proto")}
 
-	// Pass 1: protoc-gen-es emits <proto>_pb.ts (imported by the client).
-	esArgs := []string{
-		"--plugin=protoc-gen-es=" + esPluginPath,
-		"--es_out=" + outDir,
-		"--es_opt=target=ts,import_extension=js",
-	}
-	esArgs = append(esArgs, protoPaths...)
-	esArgs = append(esArgs, protoFile)
-	esCmd := exec.Command("protoc", esArgs...)
-	esCmd.Dir = protoDir
-	var esStderr bytes.Buffer
-	esCmd.Stderr = &esStderr
-	if runErr := esCmd.Run(); runErr != nil {
-		t.Fatalf("protoc (protoc-gen-es) failed: %v\nstderr: %s", runErr, esStderr.String())
-	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			if _, statErr := os.Stat(filepath.Join(protoDir, tc.protoFile)); os.IsNotExist(statErr) {
+				t.Fatalf("Proto file not found: %s", tc.protoFile)
+			}
 
-	// Pass 2: sebuf ts-client in protobuf-es mode emits the transport client.
-	clientArgs := []string{
-		"--plugin=protoc-gen-ts-client=" + pluginPath,
-		"--ts-client_out=" + outDir,
-		"--ts-client_opt=paths=source_relative,ts_runtime=protobuf-es",
-	}
-	clientArgs = append(clientArgs, protoPaths...)
-	clientArgs = append(clientArgs, protoFile)
-	clientCmd := exec.Command("protoc", clientArgs...)
-	clientCmd.Dir = protoDir
-	var clientStderr bytes.Buffer
-	clientCmd.Stderr = &clientStderr
-	if runErr := clientCmd.Run(); runErr != nil {
-		t.Fatalf("protoc (ts-client) failed: %v\nstderr: %s", runErr, clientStderr.String())
-	}
+			outDir := t.TempDir()
 
-	for _, rel := range generatedTSFiles(t, outDir) {
-		generatedContent, readErr := os.ReadFile(filepath.Join(outDir, rel))
-		if readErr != nil {
-			t.Fatalf("Failed to read generated file %s: %v", rel, readErr)
-		}
-		goldenPath := filepath.Join(goldenDir, rel)
-		if updateGolden {
-			updateGoldenFile(t, goldenPath, generatedContent)
-			continue
-		}
-		compareGoldenFile(t, rel, goldenPath, generatedContent)
+			// Pass 1: protoc-gen-es emits <proto>_pb.ts (imported by the client).
+			esArgs := []string{
+				"--plugin=protoc-gen-es=" + esPluginPath,
+				"--es_out=" + outDir,
+				"--es_opt=target=ts,import_extension=js",
+			}
+			esArgs = append(esArgs, protoPaths...)
+			esArgs = append(esArgs, tc.protoFile)
+			esCmd := exec.Command("protoc", esArgs...)
+			esCmd.Dir = protoDir
+			var esStderr bytes.Buffer
+			esCmd.Stderr = &esStderr
+			if runErr := esCmd.Run(); runErr != nil {
+				t.Fatalf("protoc (protoc-gen-es) failed: %v\nstderr: %s", runErr, esStderr.String())
+			}
+
+			// Pass 2: sebuf ts-client in protobuf-es mode emits the transport client.
+			clientArgs := []string{
+				"--plugin=protoc-gen-ts-client=" + pluginPath,
+				"--ts-client_out=" + outDir,
+				"--ts-client_opt=paths=source_relative,ts_runtime=protobuf-es",
+			}
+			clientArgs = append(clientArgs, protoPaths...)
+			clientArgs = append(clientArgs, tc.protoFile)
+			clientCmd := exec.Command("protoc", clientArgs...)
+			clientCmd.Dir = protoDir
+			var clientStderr bytes.Buffer
+			clientCmd.Stderr = &clientStderr
+			if runErr := clientCmd.Run(); runErr != nil {
+				t.Fatalf("protoc (ts-client) failed: %v\nstderr: %s", runErr, clientStderr.String())
+			}
+
+			for _, rel := range generatedTSFiles(t, outDir) {
+				generatedContent, readErr := os.ReadFile(filepath.Join(outDir, rel))
+				if readErr != nil {
+					t.Fatalf("Failed to read generated file %s: %v", rel, readErr)
+				}
+				goldenPath := filepath.Join(goldenDir, rel)
+				if updateGolden {
+					updateGoldenFile(t, goldenPath, generatedContent)
+					continue
+				}
+				compareGoldenFile(t, rel, goldenPath, generatedContent)
+			}
+		})
 	}
 }
 

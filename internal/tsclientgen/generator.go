@@ -265,8 +265,22 @@ func (g *Generator) generateSSERPCMethod(
 	method *protogen.Method,
 	cfg *rpcMethodConfig,
 ) {
-	inputType := g.ctx.RefMessage(method.Input)
-	outputType := g.resolveOutputType(method)
+	es := g.ctx.MessageRuntime == tscommon.MessageRuntimeES
+
+	var inputType, outputType, reqSchema, resSchema string
+	if es {
+		// protobuf-es mode mirrors the unary path: the request is an init shape
+		// encoded through create/toJson (when a body is sent), and each streamed
+		// event is decoded with fromJson. The generator yields the decoded message.
+		reqSchema = g.ctx.RefMessageSchema(method.Input)
+		resSchema = g.ctx.RefMessageSchema(method.Output)
+		inputType = "MessageInitShape<typeof " + reqSchema + ">"
+		outputType = g.ctx.RefMessagePb(method.Output)
+		g.ctx.NeedProtobufES()
+	} else {
+		inputType = g.ctx.RefMessage(method.Input)
+		outputType = g.resolveOutputType(method)
+	}
 	tsMethodName := annotations.LowerFirst(cfg.methodName)
 
 	reqParam := cfg.requestParamName()
@@ -280,10 +294,10 @@ func (g *Generator) generateSSERPCMethod(
 	g.generateSSEHeaderMerging(p, service, method)
 
 	// Fetch call
-	g.generateSSEFetchCall(p, cfg)
+	g.generateSSEFetchCall(p, cfg, reqSchema)
 
 	// SSE stream parsing
-	g.generateSSEStreamParsing(p, outputType)
+	g.generateSSEStreamParsing(p, outputType, resSchema)
 
 	p("  }")
 	p("")
@@ -316,13 +330,19 @@ func (g *Generator) generateSSEHeaderMerging(p printer, service *protogen.Servic
 	p("")
 }
 
-// generateSSEFetchCall generates the fetch invocation for SSE.
-func (g *Generator) generateSSEFetchCall(p printer, cfg *rpcMethodConfig) {
+// generateSSEFetchCall generates the fetch invocation for SSE. In protobuf-es
+// mode (reqSchema non-empty) a request body is encoded through create/toJson,
+// matching the unary path; otherwise the request object is serialized directly.
+func (g *Generator) generateSSEFetchCall(p printer, cfg *rpcMethodConfig, reqSchema string) {
 	if cfg.hasBody {
+		body := "JSON.stringify(req)"
+		if reqSchema != "" {
+			body = fmt.Sprintf("JSON.stringify(toJson(%s, create(%s, req)))", reqSchema, reqSchema)
+		}
 		p("    const resp = await this.fetchFn(url, {")
 		p(`      method: "%s",`, cfg.httpMethod)
 		p("      headers,")
-		p("      body: JSON.stringify(req),")
+		p("      body: %s,", body)
 		p("      signal: options?.signal,")
 		p("    });")
 	} else {
@@ -340,8 +360,11 @@ func (g *Generator) generateSSEFetchCall(p printer, cfg *rpcMethodConfig) {
 	p("")
 }
 
-// generateSSEStreamParsing generates the ReadableStream SSE parsing logic.
-func (g *Generator) generateSSEStreamParsing(p printer, outputType string) {
+// generateSSEStreamParsing generates the ReadableStream SSE parsing logic. In
+// protobuf-es mode (resSchema non-empty) each streamed event is decoded through
+// fromJson with ignoreUnknownFields (forward-compat, mandatory); otherwise the
+// parsed JSON is raw-cast to the output type.
+func (g *Generator) generateSSEStreamParsing(p printer, outputType, resSchema string) {
 	p("    const reader = resp.body!.getReader();")
 	p("    const decoder = new TextDecoder();")
 	p(`    let buffer = "";`)
@@ -356,7 +379,11 @@ func (g *Generator) generateSSEStreamParsing(p printer, outputType string) {
 	p("        for (const line of lines) {")
 	p(`          if (line.startsWith("data: ")) {`)
 	p("            const data = line.slice(6);")
-	p("            yield JSON.parse(data) as %s;", outputType)
+	if resSchema != "" {
+		p("            yield fromJson(%s, JSON.parse(data), { ignoreUnknownFields: true });", resSchema)
+	} else {
+		p("            yield JSON.parse(data) as %s;", outputType)
+	}
 	p("          }")
 	p("        }")
 	p("      }")

@@ -265,7 +265,7 @@ func (c *EmitContext) RefMessagePb(msg *protogen.Message) string {
 	if msg == nil {
 		return ""
 	}
-	return c.Imports.NeedType(c.pbModuleSpec(msg.Desc.ParentFile()), QualifiedTSName(msg.Desc))
+	return c.Imports.NeedType(c.pbModuleSpec(msg.Desc.ParentFile()), ESQualifiedName(msg.Desc))
 }
 
 // RefMessageSchema returns the local name for a message's protobuf-es `*Schema`
@@ -275,7 +275,7 @@ func (c *EmitContext) RefMessageSchema(msg *protogen.Message) string {
 	if msg == nil {
 		return ""
 	}
-	return c.Imports.NeedValue(c.pbModuleSpec(msg.Desc.ParentFile()), QualifiedTSName(msg.Desc)+"Schema")
+	return c.Imports.NeedValue(c.pbModuleSpec(msg.Desc.ParentFile()), ESQualifiedName(msg.Desc)+"Schema")
 }
 
 // NeedProtobufES records that the file references the protobuf-es runtime
