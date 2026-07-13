@@ -187,15 +187,28 @@ func (g *Generator) isSSEMethod(method *protogen.Method) bool {
 	return config != nil && config.Stream
 }
 
-// generateHandlerInterface generates the XxxServiceHandler interface.
+// generateHandlerInterface generates the XxxServiceHandler interface. In
+// protobuf-es mode the handler receives the decoded request as its branded
+// protoc-gen-es message type (imported from <proto>_pb.js) and returns a
+// MessageInitShape of the response schema, so implementations may return either
+// a plain init object or an already-branded message; the generated route wraps
+// the return value in create(...) before encoding.
 func (g *Generator) generateHandlerInterface(p tscommon.Printer, service *protogen.Service) {
 	serviceName := service.GoName
+	es := g.ctx.MessageRuntime == tscommon.MessageRuntimeES
 
 	p("export interface %sHandler {", serviceName)
 	for _, method := range service.Methods {
 		methodName := annotations.LowerFirst(method.GoName)
-		inputType := g.ctx.RefMessage(method.Input)
-		outputType := g.resolveOutputType(method)
+		var inputType, outputType string
+		if es {
+			inputType = g.ctx.RefMessagePb(method.Input)
+			outputType = "MessageInitShape<typeof " + g.ctx.RefMessageSchema(method.Output) + ">"
+			g.ctx.NeedProtobufES()
+		} else {
+			inputType = g.ctx.RefMessage(method.Input)
+			outputType = g.resolveOutputType(method)
+		}
 		if g.isSSEMethod(method) {
 			p("  %s(ctx: ServerContext, req: %s): ReadableStream<%s>;", methodName, inputType, outputType)
 		} else {
@@ -376,7 +389,7 @@ func (g *Generator) generateRouteEntry(p tscommon.Printer, service *protogen.Ser
 	}
 
 	tsMethodName := annotations.LowerFirst(cfg.methodName)
-	outputType := g.resolveOutputType(method)
+	es := g.ctx.MessageRuntime == tscommon.MessageRuntimeES
 
 	p("    {")
 	p(`      method: "%s",`, cfg.httpMethod)
@@ -415,8 +428,17 @@ func (g *Generator) generateRouteEntry(p tscommon.Printer, service *protogen.Ser
 	// Call handler
 	p("          const result = await handler.%s(ctx, body);", tsMethodName)
 
-	// Return JSON response
-	p("          return new Response(JSON.stringify(result as %s), {", outputType)
+	// Return JSON response. In protobuf-es mode the result is normalized through
+	// create(...) and serialized with toJson(...) so the wire shape matches the
+	// canonical protojson encoding (Go-server parity); otherwise it is raw-cast.
+	if es {
+		resSchema := g.ctx.RefMessageSchema(method.Output)
+		g.ctx.NeedProtobufES()
+		p("          return new Response(JSON.stringify(toJson(%s, create(%s, result))), {", resSchema, resSchema)
+	} else {
+		outputType := g.resolveOutputType(method)
+		p("          return new Response(JSON.stringify(result as %s), {", outputType)
+	}
 	p("            status: 200,")
 	p(`            headers: { "Content-Type": "application/json" },`)
 	p("          });")
@@ -454,6 +476,7 @@ func (g *Generator) generateSSERouteEntry(
 	cfg *rpcRouteConfig,
 ) error {
 	tsMethodName := annotations.LowerFirst(cfg.methodName)
+	es := g.ctx.MessageRuntime == tscommon.MessageRuntimeES
 
 	p("    {")
 	p(`      method: "%s",`, cfg.httpMethod)
@@ -500,7 +523,16 @@ func (g *Generator) generateSSERouteEntry(
 	p("                while (true) {")
 	p("                  const { done, value } = await reader.read();")
 	p("                  if (done) break;")
-	p("                  controller.enqueue(encoder.encode(`data: ${JSON.stringify(value)}\\n\\n`));")
+	// In protobuf-es mode each yielded event is normalized through create(...)
+	// and serialized with toJson(...) for canonical protojson (Go-server parity);
+	// otherwise the value is stringified directly (no raw cast needed here).
+	valueExpr := "value"
+	if es {
+		resSchema := g.ctx.RefMessageSchema(method.Output)
+		g.ctx.NeedProtobufES()
+		valueExpr = fmt.Sprintf("toJson(%s, create(%s, value))", resSchema, resSchema)
+	}
+	p("                  controller.enqueue(encoder.encode(`data: ${JSON.stringify(%s)}\\n\\n`));", valueExpr)
 	p("                }")
 	p("                controller.close();")
 	p("              } catch (err) {")
@@ -642,10 +674,19 @@ func (g *Generator) generatePathParamExtraction(p tscommon.Printer, cfg *rpcRout
 	p("")
 }
 
-// generateBodyParsing generates code to parse JSON request body.
+// generateBodyParsing generates code to parse JSON request body. In protobuf-es
+// mode the JSON body is decoded through fromJson with ignoreUnknownFields
+// (forward-compat, mandatory), yielding a branded message; otherwise it is
+// raw-cast to the request type.
 func (g *Generator) generateBodyParsing(p tscommon.Printer, method *protogen.Method, tsMethodName string) {
-	inputType := g.ctx.RefMessage(method.Input)
-	p("          const body = await req.json() as %s;", inputType)
+	if g.ctx.MessageRuntime == tscommon.MessageRuntimeES {
+		reqSchema := g.ctx.RefMessageSchema(method.Input)
+		g.ctx.NeedProtobufES()
+		p("          const body = fromJson(%s, await req.json(), { ignoreUnknownFields: true });", reqSchema)
+	} else {
+		inputType := g.ctx.RefMessage(method.Input)
+		p("          const body = await req.json() as %s;", inputType)
+	}
 
 	// Optional validation hook
 	p("          if (options?.validateRequest) {")
@@ -657,23 +698,45 @@ func (g *Generator) generateBodyParsing(p tscommon.Printer, method *protogen.Met
 	p("")
 }
 
-// generateQueryParamParsing generates code to parse query parameters.
+// generateQueryParamParsing generates code to parse query parameters. In
+// protobuf-es mode the request object built from path/query params is wrapped in
+// create(<Req>Schema, {...}) so the handler receives a real branded message
+// (never a raw cast); otherwise it is a type-annotated object literal.
 func (g *Generator) generateQueryParamParsing(
 	p tscommon.Printer,
 	cfg *rpcRouteConfig,
 	method *protogen.Method,
 	tsMethodName string,
 ) {
-	inputType := g.ctx.RefMessage(method.Input)
+	es := g.ctx.MessageRuntime == tscommon.MessageRuntimeES
+	var inputType, reqSchema string
+	if es {
+		reqSchema = g.ctx.RefMessageSchema(method.Input)
+		g.ctx.NeedProtobufES()
+	} else {
+		inputType = g.ctx.RefMessage(method.Input)
+	}
+
+	// bodyOpen/bodyClose bracket the request object literal. In es mode the
+	// literal is passed to create(...); otherwise it is a typed literal.
+	bodyOpen := fmt.Sprintf("          const body: %s = {", inputType)
+	bodyClose := "          };"
+	if es {
+		bodyOpen = fmt.Sprintf("          const body = create(%s, {", reqSchema)
+		bodyClose = "          });"
+	}
 
 	if len(cfg.queryParams) == 0 {
-		if len(cfg.pathParamFields) > 0 {
-			p("          const body: %s = {", inputType)
+		switch {
+		case len(cfg.pathParamFields) > 0:
+			p(bodyOpen)
 			for _, ppf := range cfg.pathParamFields {
 				g.emitPathParamAssignment(p, ppf, "            ", ",")
 			}
-			p("          };")
-		} else {
+			p(bodyClose)
+		case es:
+			p("          const body = create(%s, {});", reqSchema)
+		default:
 			p("          const body = {} as %s;", inputType)
 		}
 		p("")
@@ -687,7 +750,7 @@ func (g *Generator) generateQueryParamParsing(
 		p("          const url = new URL(req.url, \"http://localhost\");")
 		p("          const params = url.searchParams;")
 	}
-	p("          const body: %s = {", inputType)
+	p(bodyOpen)
 	// Include path param fields in the literal so TS sees all required properties
 	for _, ppf := range cfg.pathParamFields {
 		g.emitPathParamAssignment(p, ppf, "            ", ",")
@@ -695,7 +758,7 @@ func (g *Generator) generateQueryParamParsing(
 	for _, qp := range cfg.queryParams {
 		g.generateQueryParamField(p, qp)
 	}
-	p("          };")
+	p(bodyClose)
 
 	// Optional validation hook
 	p("          if (options?.validateRequest) {")

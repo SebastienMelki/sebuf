@@ -172,6 +172,119 @@ func TestTSServerGenGoldenFiles(t *testing.T) {
 	}
 }
 
+// TestTSServerGenESGoldenFiles tests protobuf-es transport server generation
+// (ts_runtime=protobuf-es) against golden files. It runs protoc twice into one
+// output dir: once with protoc-gen-es (emitting <proto>_pb.ts message schemas)
+// and once with the sebuf ts-server plugin in es mode (emitting the server that
+// decodes requests with fromJson and encodes responses through
+// toJson(create(...))). Every emitted .ts file is compared against
+// testdata/golden/es/.
+//
+// To update golden files after intentional changes (protoc-gen-es must be on PATH):
+//
+//	UPDATE_GOLDEN=1 go test -run TestTSServerGenESGoldenFiles
+func TestTSServerGenESGoldenFiles(t *testing.T) {
+	if _, err := exec.LookPath("protoc"); err != nil {
+		t.Skip("protoc not found, skipping golden file tests")
+	}
+	esPluginPath, esErr := exec.LookPath("protoc-gen-es")
+	if esErr != nil {
+		t.Skip("protoc-gen-es not found, skipping protobuf-es golden file tests")
+	}
+
+	baseDir, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("Failed to get working directory: %v", err)
+	}
+
+	projectRoot := filepath.Join(baseDir, "..", "..")
+	protoDir := filepath.Join(baseDir, "testdata", "proto")
+	goldenDir := filepath.Join(baseDir, "testdata", "golden", "es")
+
+	if mkdirErr := os.MkdirAll(goldenDir, 0o755); mkdirErr != nil {
+		t.Fatalf("Failed to create golden directory: %v", mkdirErr)
+	}
+
+	pluginPath := filepath.Join(projectRoot, "bin", "protoc-gen-ts-server")
+	if _, buildStatErr := os.Stat(pluginPath); os.IsNotExist(buildStatErr) {
+		buildCmd := exec.Command("make", "build")
+		buildCmd.Dir = projectRoot
+		if buildErr := buildCmd.Run(); buildErr != nil {
+			t.Fatalf("Failed to build plugin: %v", buildErr)
+		}
+	}
+
+	updateGolden := os.Getenv("UPDATE_GOLDEN") == "1"
+
+	testCases := []struct {
+		name      string
+		protoFile string
+	}{
+		// Smallest fixture exercising request-body decode + response encode.
+		{name: "unary multi-word oneof", protoFile: "multi_word_oneof.proto"},
+		// Server-streaming (SSE) fixture: each yielded event is encoded through
+		// toJson(create(...)). Mirrors the hand-rolled SSE_streaming case.
+		{name: "SSE streaming", protoFile: "sse.proto"},
+	}
+
+	protoPaths := []string{"--proto_path=" + protoDir, "--proto_path=" + filepath.Join(projectRoot, "proto")}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			if _, statErr := os.Stat(filepath.Join(protoDir, tc.protoFile)); os.IsNotExist(statErr) {
+				t.Fatalf("Proto file not found: %s", tc.protoFile)
+			}
+
+			outDir := t.TempDir()
+
+			// Pass 1: protoc-gen-es emits <proto>_pb.ts (imported by the server).
+			esArgs := []string{
+				"--plugin=protoc-gen-es=" + esPluginPath,
+				"--es_out=" + outDir,
+				"--es_opt=target=ts,import_extension=js",
+			}
+			esArgs = append(esArgs, protoPaths...)
+			esArgs = append(esArgs, tc.protoFile)
+			esCmd := exec.Command("protoc", esArgs...)
+			esCmd.Dir = protoDir
+			var esStderr bytes.Buffer
+			esCmd.Stderr = &esStderr
+			if runErr := esCmd.Run(); runErr != nil {
+				t.Fatalf("protoc (protoc-gen-es) failed: %v\nstderr: %s", runErr, esStderr.String())
+			}
+
+			// Pass 2: sebuf ts-server in protobuf-es mode emits the transport server.
+			serverArgs := []string{
+				"--plugin=protoc-gen-ts-server=" + pluginPath,
+				"--ts-server_out=" + outDir,
+				"--ts-server_opt=paths=source_relative,ts_runtime=protobuf-es",
+			}
+			serverArgs = append(serverArgs, protoPaths...)
+			serverArgs = append(serverArgs, tc.protoFile)
+			serverCmd := exec.Command("protoc", serverArgs...)
+			serverCmd.Dir = protoDir
+			var serverStderr bytes.Buffer
+			serverCmd.Stderr = &serverStderr
+			if runErr := serverCmd.Run(); runErr != nil {
+				t.Fatalf("protoc (ts-server) failed: %v\nstderr: %s", runErr, serverStderr.String())
+			}
+
+			for _, rel := range generatedTSFiles(t, outDir) {
+				generatedContent, readErr := os.ReadFile(filepath.Join(outDir, rel))
+				if readErr != nil {
+					t.Fatalf("Failed to read generated file %s: %v", rel, readErr)
+				}
+				goldenPath := filepath.Join(goldenDir, rel)
+				if updateGolden {
+					updateGoldenFile(t, goldenPath, generatedContent)
+					continue
+				}
+				compareGoldenFile(t, rel, goldenPath, generatedContent)
+			}
+		})
+	}
+}
+
 // generatedTSFiles returns the relative paths of every .ts file under dir, sorted.
 func generatedTSFiles(t *testing.T, dir string) []string {
 	t.Helper()
