@@ -78,3 +78,7 @@ internal/modules/*/internal/infrastructure/persistence/sqlc/
 
 # Scratch / spike work (throwaway, never committed)
 .scratch/
+
+# node_modules symlink created by the protobuf-es wire-conformance test
+# (internal/tsclientgen/conformance_test.go) so node can resolve @bufbuild/protobuf
+internal/tsclientgen/testdata/es/node_modules

@@ -1,0 +1,43 @@
+// Dedicated wire-conformance fixture for the protobuf-es TS client.
+//
+// This message deliberately mixes scalar, bool, int64 and repeated fields so
+// the conformance check can OMIT every zero-valued field from the canonical
+// JSON (mimicking the Go server's default protojson output) and then prove
+// that protobuf-es MATERIALIZES those defaults after fromJson:
+//   - scalars  -> "" / 0
+//   - bool     -> false
+//   - int64    -> 0n (bigint)
+//   - lists    -> []
+//
+// It is intentionally standalone: no service, no sebuf/http imports, so
+// protoc-gen-es emits a clean _pb module that only depends on
+// @bufbuild/protobuf. Generate the JS the conformance test imports with:
+//
+//   protoc \
+//     --plugin=protoc-gen-es=.scratch/es-spike/node_modules/.bin/protoc-gen-es \
+//     --es_out=internal/tsclientgen/testdata/es \
+//     --es_opt=target=js,import_extension=js \
+//     --proto_path=internal/tsclientgen/testdata/es \
+//     conformance.proto
+syntax = "proto3";
+
+package test.conformance;
+
+message Tag {
+  string name = 1;
+}
+
+// ConformanceResponse mirrors a typical Go server response: every field below
+// is left at its zero value in the canonical fixture and therefore OMITTED by
+// protojson, except `id` which carries a real value to prove normal fields
+// round-trip.
+message ConformanceResponse {
+  string id = 1;
+  string name = 2;
+  int32 count = 3;
+  bool active = 4;
+  double ratio = 5;
+  int64 total = 6;
+  repeated string labels = 7;
+  repeated Tag tags = 8;
+}
