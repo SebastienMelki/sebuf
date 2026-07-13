@@ -204,7 +204,6 @@ func (g *Generator) generateHandlerInterface(p tscommon.Printer, service *protog
 		if es {
 			inputType = g.ctx.RefMessagePb(method.Input)
 			outputType = "MessageInitShape<typeof " + g.ctx.RefMessageSchema(method.Output) + ">"
-			g.ctx.NeedProtobufES()
 		} else {
 			inputType = g.ctx.RefMessage(method.Input)
 			outputType = g.resolveOutputType(method)
@@ -433,7 +432,6 @@ func (g *Generator) generateRouteEntry(p tscommon.Printer, service *protogen.Ser
 	// canonical protojson encoding (Go-server parity); otherwise it is raw-cast.
 	if es {
 		resSchema := g.ctx.RefMessageSchema(method.Output)
-		g.ctx.NeedProtobufES()
 		p("          return new Response(JSON.stringify(toJson(%s, create(%s, result))), {", resSchema, resSchema)
 	} else {
 		outputType := g.resolveOutputType(method)
@@ -529,7 +527,6 @@ func (g *Generator) generateSSERouteEntry(
 	valueExpr := "value"
 	if es {
 		resSchema := g.ctx.RefMessageSchema(method.Output)
-		g.ctx.NeedProtobufES()
 		valueExpr = fmt.Sprintf("toJson(%s, create(%s, value))", resSchema, resSchema)
 	}
 	p("                  controller.enqueue(encoder.encode(`data: ${JSON.stringify(%s)}\\n\\n`));", valueExpr)
@@ -586,6 +583,8 @@ func (g *Generator) emitPathParamAssignment(
 ) {
 	if ppf.field != nil && ppf.field.Desc.Kind() == protoreflect.EnumKind && ppf.field.Enum != nil {
 		enumName := g.ctx.RefEnum(ppf.field.Enum)
+		// TODO(es): enum path-param merge needs conversion, not a cast
+		// (protobuf-es enums are numeric; pathParams values are strings).
 		p(
 			"%s%s: pathParams[\"%s\"] as %s%s",
 			prefix, ppf.jsonName, ppf.protoName, enumName, suffix,
@@ -604,6 +603,8 @@ func (g *Generator) generatePathParamMerge(p tscommon.Printer, cfg *rpcRouteConf
 	for _, ppf := range cfg.pathParamFields {
 		if ppf.field != nil && ppf.field.Desc.Kind() == protoreflect.EnumKind && ppf.field.Enum != nil {
 			enumName := g.ctx.RefEnum(ppf.field.Enum)
+			// TODO(es): enum path-param merge needs conversion, not a cast
+			// (protobuf-es enums are numeric; pathParams values are strings).
 			p(
 				"          body.%s = pathParams[\"%s\"] as %s;",
 				ppf.jsonName, ppf.protoName, enumName,
@@ -681,7 +682,6 @@ func (g *Generator) generatePathParamExtraction(p tscommon.Printer, cfg *rpcRout
 func (g *Generator) generateBodyParsing(p tscommon.Printer, method *protogen.Method, tsMethodName string) {
 	if g.ctx.MessageRuntime == tscommon.MessageRuntimeES {
 		reqSchema := g.ctx.RefMessageSchema(method.Input)
-		g.ctx.NeedProtobufES()
 		p("          const body = fromJson(%s, await req.json(), { ignoreUnknownFields: true });", reqSchema)
 	} else {
 		inputType := g.ctx.RefMessage(method.Input)
@@ -712,7 +712,6 @@ func (g *Generator) generateQueryParamParsing(
 	var inputType, reqSchema string
 	if es {
 		reqSchema = g.ctx.RefMessageSchema(method.Input)
-		g.ctx.NeedProtobufES()
 	} else {
 		inputType = g.ctx.RefMessage(method.Input)
 	}

@@ -230,7 +230,6 @@ func (g *Generator) generateRPCMethod(p printer, service *protogen.Service, meth
 		resSchema = g.ctx.RefMessageSchema(method.Output)
 		inputType = "MessageInitShape<typeof " + reqSchema + ">"
 		outputType = g.ctx.RefMessagePb(method.Output)
-		g.ctx.NeedProtobufES()
 	} else {
 		inputType = g.ctx.RefMessage(method.Input)
 		outputType = g.resolveOutputType(method)
@@ -276,7 +275,6 @@ func (g *Generator) generateSSERPCMethod(
 		resSchema = g.ctx.RefMessageSchema(method.Output)
 		inputType = "MessageInitShape<typeof " + reqSchema + ">"
 		outputType = g.ctx.RefMessagePb(method.Output)
-		g.ctx.NeedProtobufES()
 	} else {
 		inputType = g.ctx.RefMessage(method.Input)
 		outputType = g.resolveOutputType(method)

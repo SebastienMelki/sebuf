@@ -3,12 +3,18 @@ package tscommon
 import (
 	"fmt"
 	"path"
+	"regexp"
 	"sort"
 	"strings"
 
 	"google.golang.org/protobuf/compiler/protogen"
 	"google.golang.org/protobuf/reflect/protoreflect"
 )
+
+// protobufESSymbolOrder is the canonical emission order of the protobuf-es
+// runtime symbols in the `@bufbuild/protobuf` import. MessageInitShape is a
+// type-only import; the rest are value imports.
+var protobufESSymbolOrder = []string{"create", "fromJson", "toJson", "MessageInitShape"}
 
 // errorsModule is the extensionless module path of the shared error-helpers
 // file emitted at the output root in modules mode.
@@ -70,19 +76,21 @@ type ImportTracker struct {
 	usedAlias    map[string]string           // local alias -> owning "spec\x00symbol"
 	errorSyms    map[string]bool             // error helpers referenced (value import)
 	errorsSpec   string
-	// needProtobufES records that the file references the protobuf-es runtime
-	// helpers (create/fromJson/toJson/MessageInitShape).
-	needProtobufES bool
+	// protobufESSyms records which protobuf-es runtime helpers
+	// (create/fromJson/toJson/MessageInitShape) the file actually references,
+	// so Render imports only those.
+	protobufESSyms map[string]bool
 }
 
 // NewImportTracker returns an empty tracker.
 func NewImportTracker() *ImportTracker {
 	return &ImportTracker{
-		typeImports:  map[string][]importedSymbol{},
-		valueImports: map[string][]importedSymbol{},
-		aliasOf:      map[string]string{},
-		usedAlias:    map[string]string{},
-		errorSyms:    map[string]bool{},
+		typeImports:    map[string][]importedSymbol{},
+		valueImports:   map[string][]importedSymbol{},
+		aliasOf:        map[string]string{},
+		usedAlias:      map[string]string{},
+		errorSyms:      map[string]bool{},
+		protobufESSyms: map[string]bool{},
 	}
 }
 
@@ -133,10 +141,13 @@ func (t *ImportTracker) NeedValue(spec, symbol string) string {
 	return alias
 }
 
-// NeedProtobufESRuntime records that the file references the protobuf-es runtime
-// helpers, so Render emits the fixed `@bufbuild/protobuf` import.
-func (t *ImportTracker) NeedProtobufESRuntime() {
-	t.needProtobufES = true
+// NeedProtobufES records that the file references the given protobuf-es runtime
+// helpers, so Render emits only those symbols in the `@bufbuild/protobuf`
+// import.
+func (t *ImportTracker) NeedProtobufES(symbols ...string) {
+	for _, s := range symbols {
+		t.protobufESSyms[s] = true
+	}
 }
 
 // NeedErrors records that the given shared error helpers are referenced,
@@ -150,20 +161,31 @@ func (t *ImportTracker) NeedErrors(spec string, symbols ...string) {
 
 // Empty reports whether no imports were recorded.
 func (t *ImportTracker) Empty() bool {
-	return !t.needProtobufES && len(t.errorSyms) == 0 &&
+	return len(t.protobufESSyms) == 0 && len(t.errorSyms) == 0 &&
 		len(t.valueImports) == 0 && len(t.typeImports) == 0
 }
 
-// Render writes the import block: the fixed protobuf-es runtime import (es mode
-// only), the value import for error helpers, sorted value imports (protobuf-es
-// `*Schema` handles), then sorted type-only imports. It emits a trailing blank
-// line when anything was written.
+// Render writes the import block: the protobuf-es runtime import (es mode only,
+// listing only the referenced symbols), the value import for error helpers,
+// sorted value imports (protobuf-es `*Schema` handles), then sorted type-only
+// imports. It emits a trailing blank line when anything was written.
 func (t *ImportTracker) Render(p Printer) {
 	if t.Empty() {
 		return
 	}
-	if t.needProtobufES {
-		p(`import { create, fromJson, toJson, type MessageInitShape } from "@bufbuild/protobuf";`)
+	if len(t.protobufESSyms) > 0 {
+		parts := make([]string, 0, len(protobufESSymbolOrder))
+		for _, s := range protobufESSymbolOrder {
+			if !t.protobufESSyms[s] {
+				continue
+			}
+			if s == "MessageInitShape" {
+				parts = append(parts, "type "+s)
+			} else {
+				parts = append(parts, s)
+			}
+		}
+		p(`import { %s } from "@bufbuild/protobuf";`, strings.Join(parts, ", "))
 	}
 	if len(t.errorSyms) > 0 {
 		syms := make([]string, 0, len(t.errorSyms))
@@ -278,12 +300,13 @@ func (c *EmitContext) RefMessageSchema(msg *protogen.Message) string {
 	return c.Imports.NeedValue(c.pbModuleSpec(msg.Desc.ParentFile()), ESQualifiedName(msg.Desc)+"Schema")
 }
 
-// NeedProtobufES records that the file references the protobuf-es runtime
-// helpers (create/fromJson/toJson/MessageInitShape).
-func (c *EmitContext) NeedProtobufES() {
-	if c.modules() {
-		c.Imports.NeedProtobufESRuntime()
+// NeedProtobufES records that the file references the given protobuf-es runtime
+// helpers (a subset of create/fromJson/toJson/MessageInitShape).
+func (c *EmitContext) NeedProtobufES(symbols ...string) {
+	if !c.modules() || len(symbols) == 0 {
+		return
 	}
+	c.Imports.NeedProtobufES(symbols...)
 }
 
 // NeedErrors records that this file references the given shared error helpers.
@@ -292,6 +315,35 @@ func (c *EmitContext) NeedErrors(symbols ...string) {
 		return
 	}
 	c.Imports.NeedErrors(RelativeImportSpecifier(c.SelfModule, errorsModule), symbols...)
+}
+
+// protobufESSymbolPatterns holds the word-boundary matcher for each protobuf-es
+// runtime symbol, so a match on `create` is not triggered by a longer
+// identifier that merely contains it.
+var protobufESSymbolPatterns = func() map[string]*regexp.Regexp {
+	m := make(map[string]*regexp.Regexp, len(protobufESSymbolOrder))
+	for _, s := range protobufESSymbolOrder {
+		m[s] = regexp.MustCompile(`\b` + regexp.QuoteMeta(s) + `\b`)
+	}
+	return m
+}()
+
+// UsedProtobufESSymbols returns the protobuf-es runtime symbols
+// (create/fromJson/toJson/MessageInitShape) referenced anywhere in the given
+// body lines, in canonical import order, using word-boundary matching so a
+// symbol is not matched inside a longer identifier.
+func UsedProtobufESSymbols(lines []string) []string {
+	var used []string
+	for _, sym := range protobufESSymbolOrder {
+		re := protobufESSymbolPatterns[sym]
+		for _, line := range lines {
+			if re.MatchString(line) {
+				used = append(used, sym)
+				break
+			}
+		}
+	}
+	return used
 }
 
 // UsedErrorSymbols returns the error-helper symbols referenced anywhere in the
