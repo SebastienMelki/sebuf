@@ -13,11 +13,11 @@ const (
 	MessageRuntimeES
 )
 
-// parseMessageRuntime scans a comma-separated protoc plugin parameter string
+// ParseMessageRuntime scans a comma-separated protoc plugin parameter string
 // (as passed via CodeGeneratorRequest.parameter) for a ts_runtime option and
-// returns the selected runtime. Unrecognized or absent values default to
-// MessageRuntimeHandRolled.
-func parseMessageRuntime(param string) MessageRuntime {
+// returns the selected runtime. An explicit ts_runtime=hand-rolled, an absent
+// option, or any unrecognized value all resolve to MessageRuntimeHandRolled.
+func ParseMessageRuntime(param string) MessageRuntime {
 	for _, part := range strings.Split(param, ",") {
 		part = strings.TrimSpace(part)
 		name, value, found := strings.Cut(part, "=")
@@ -29,10 +29,4 @@ func parseMessageRuntime(param string) MessageRuntime {
 		}
 	}
 	return MessageRuntimeHandRolled
-}
-
-// ParseMessageRuntime is the exported entry point for parsing the ts_runtime
-// plugin option from a raw parameter string.
-func ParseMessageRuntime(param string) MessageRuntime {
-	return parseMessageRuntime(param)
 }
