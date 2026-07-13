@@ -15,11 +15,13 @@ type Generator struct {
 	// ctx carries the emission state (self module + import tracker) for the
 	// service file currently being written.
 	ctx *tscommon.EmitContext
+	// runtime selects the TypeScript message representation.
+	runtime tscommon.MessageRuntime
 }
 
 // New creates a new TypeScript client generator.
-func New(plugin *protogen.Plugin) *Generator {
-	return &Generator{plugin: plugin}
+func New(plugin *protogen.Plugin, runtime tscommon.MessageRuntime) *Generator {
+	return &Generator{plugin: plugin, runtime: runtime}
 }
 
 // Generate emits one canonical type module per proto file, a shared errors

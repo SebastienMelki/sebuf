@@ -78,7 +78,7 @@ func CheckReservedNames(ms *MessageSet) error {
 // client and server against the same output directory yields consistent type
 // modules. It returns the output-relative filenames (ending in ".ts") of the
 // type modules it emitted, so callers can fold them into per-package barrels.
-func EmitSharedModules(plugin *protogen.Plugin) ([]string, error) {
+func EmitSharedModules(plugin *protogen.Plugin, runtime MessageRuntime) ([]string, error) {
 	global := CollectAllServiceMessages(plugin)
 	if err := CheckReservedNames(global); err != nil {
 		return nil, err
@@ -88,7 +88,7 @@ func EmitSharedModules(plugin *protogen.Plugin) ([]string, error) {
 	enumsBySrc := global.EnumsBySourceFile()
 	var emitted []string
 	for _, src := range sortedSourceFiles(msgsBySrc, enumsBySrc) {
-		if name := emitTypeModule(plugin, src, msgsBySrc[src], enumsBySrc[src]); name != "" {
+		if name := emitTypeModule(plugin, src, msgsBySrc[src], enumsBySrc[src], runtime); name != "" {
 			emitted = append(emitted, name)
 		}
 	}
@@ -158,6 +158,7 @@ func emitTypeModule(
 	srcPath string,
 	msgs []*protogen.Message,
 	enums []*protogen.Enum,
+	runtime MessageRuntime,
 ) string {
 	if len(msgs) == 0 && len(enums) == 0 {
 		return ""
@@ -165,7 +166,7 @@ func emitTypeModule(
 	module := ModuleForFile(srcPath)
 	gf := plugin.NewGeneratedFile(module+".ts", "")
 	tracker := NewImportTracker()
-	ctx := &EmitContext{SelfModule: module, Imports: tracker}
+	ctx := &EmitContext{SelfModule: module, Imports: tracker, MessageRuntime: runtime}
 
 	var body []string
 	bp := BufferedPrinter(&body)

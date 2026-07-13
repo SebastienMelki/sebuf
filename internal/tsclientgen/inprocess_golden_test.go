@@ -11,6 +11,8 @@ import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/descriptorpb"
 	"google.golang.org/protobuf/types/pluginpb"
+
+	"github.com/SebastienMelki/sebuf/internal/tscommon"
 )
 
 // TestTSClientGenInProcess drives the client generator in-process against the
@@ -35,7 +37,7 @@ func TestTSClientGenInProcess(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			plugin := buildInProcessPlugin(t, protoDir, projectRoot, tc.protoFiles)
 
-			gen := New(plugin)
+			gen := New(plugin, tscommon.MessageRuntimeHandRolled)
 			if genErr := gen.Generate(); genErr != nil {
 				t.Fatalf("Generate() failed: %v", genErr)
 			}
@@ -61,7 +63,7 @@ func TestTSClientGenInProcessReservedName(t *testing.T) {
 	protoDir := filepath.Join(baseDir, "testdata", "proto")
 
 	plugin := buildInProcessPlugin(t, protoDir, projectRoot, []string{"reserved_name.proto"})
-	genErr := New(plugin).Generate()
+	genErr := New(plugin, tscommon.MessageRuntimeHandRolled).Generate()
 	if genErr == nil {
 		t.Fatal("expected Generate() to fail for reserved message name, but it succeeded")
 	}

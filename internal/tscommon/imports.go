@@ -160,6 +160,9 @@ func (t *ImportTracker) Render(p Printer) {
 type EmitContext struct {
 	SelfModule string // extensionless module path of the file being written
 	Imports    *ImportTracker
+	// MessageRuntime selects the TypeScript message representation. The zero
+	// value (MessageRuntimeHandRolled) preserves the historical default.
+	MessageRuntime MessageRuntime
 }
 
 func (c *EmitContext) modules() bool {
