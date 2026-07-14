@@ -769,7 +769,23 @@ ignored rather than causing an error).
   I/O do resolve — but this was verified against
   `@bufbuild/protoc-gen-es@2.12.1`; if you use a different protoc-gen-es version
   and hit a naming mismatch, promoting the message to top level is the safe
-  workaround.
+  workaround. The es golden typecheck tests (`es_typecheck_test.go` in both
+  generators) run `tsc --noEmit` over the goldens against the real
+  `@bufbuild/protobuf` package, so a naming divergence fails CI rather than a
+  consumer build.
+- **URL parameters do not route through the protobuf-es codec.** Only request
+  bodies, response bodies, and SSE events go through
+  `create`/`toJson`/`fromJson`. Path and query parameter values are read
+  directly off the request init shape and string-coerced
+  (`encodeURIComponent(String(...))` / `URLSearchParams`), the same as
+  hand-rolled mode. URL parameters have no protojson canonical form, so this is
+  by design — but it means codec guarantees (e.g. int64 normalization) do not
+  apply to them.
+- **Path parameters are not compile-time required.** `MessageInitShape<...>`
+  makes every request field optional at the type level, so omitting a path
+  parameter field compiles and produces a URL containing the string
+  `"undefined"` at runtime. Hand-rolled mode's request interfaces mark such
+  fields required; in es-mode this check is deferred to the server's 4xx.
 
 ## See Also
 
