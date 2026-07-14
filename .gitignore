@@ -82,3 +82,8 @@ internal/modules/*/internal/infrastructure/persistence/sqlc/
 # node_modules symlink created by the protobuf-es wire-conformance test
 # (internal/tsclientgen/conformance_test.go) so node can resolve @bufbuild/protobuf
 internal/tsclientgen/testdata/es/node_modules
+
+# node_modules symlinks created by the es golden typecheck tests
+# (es_typecheck_test.go) so tsc can resolve @bufbuild/protobuf
+internal/tsclientgen/testdata/golden/es/node_modules
+internal/tsservergen/testdata/golden/es/node_modules
