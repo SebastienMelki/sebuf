@@ -3,7 +3,6 @@ package tscommon
 import (
 	"fmt"
 	"path"
-	"regexp"
 	"sort"
 	"strings"
 
@@ -301,9 +300,12 @@ func (c *EmitContext) RefMessageSchema(msg *protogen.Message) string {
 }
 
 // NeedProtobufES records that the file references the given protobuf-es runtime
-// helpers (a subset of create/fromJson/toJson/MessageInitShape).
+// helpers (a subset of create/fromJson/toJson/MessageInitShape). Generators call
+// it at each es-mode emission site, so the import list mirrors actual usage; it
+// is a no-op outside protobuf-es runtime mode — hand-rolled output must never
+// import @bufbuild/protobuf, whatever the emitted code happens to contain.
 func (c *EmitContext) NeedProtobufES(symbols ...string) {
-	if !c.modules() || len(symbols) == 0 {
+	if c.MessageRuntime != MessageRuntimeES || !c.modules() || len(symbols) == 0 {
 		return
 	}
 	c.Imports.NeedProtobufES(symbols...)
@@ -315,35 +317,6 @@ func (c *EmitContext) NeedErrors(symbols ...string) {
 		return
 	}
 	c.Imports.NeedErrors(RelativeImportSpecifier(c.SelfModule, errorsModule), symbols...)
-}
-
-// protobufESSymbolPatterns holds the word-boundary matcher for each protobuf-es
-// runtime symbol, so a match on `create` is not triggered by a longer
-// identifier that merely contains it.
-var protobufESSymbolPatterns = func() map[string]*regexp.Regexp {
-	m := make(map[string]*regexp.Regexp, len(protobufESSymbolOrder))
-	for _, s := range protobufESSymbolOrder {
-		m[s] = regexp.MustCompile(`\b` + regexp.QuoteMeta(s) + `\b`)
-	}
-	return m
-}()
-
-// UsedProtobufESSymbols returns the protobuf-es runtime symbols
-// (create/fromJson/toJson/MessageInitShape) referenced anywhere in the given
-// body lines, in canonical import order, using word-boundary matching so a
-// symbol is not matched inside a longer identifier.
-func UsedProtobufESSymbols(lines []string) []string {
-	var used []string
-	for _, sym := range protobufESSymbolOrder {
-		re := protobufESSymbolPatterns[sym]
-		for _, line := range lines {
-			if re.MatchString(line) {
-				used = append(used, sym)
-				break
-			}
-		}
-	}
-	return used
 }
 
 // UsedErrorSymbols returns the error-helper symbols referenced anywhere in the

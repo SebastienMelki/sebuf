@@ -204,6 +204,7 @@ func (g *Generator) generateHandlerInterface(p tscommon.Printer, service *protog
 		if es {
 			inputType = g.ctx.RefMessagePb(method.Input)
 			outputType = "MessageInitShape<typeof " + g.ctx.RefMessageSchema(method.Output) + ">"
+			g.ctx.NeedProtobufES("MessageInitShape")
 		} else {
 			inputType = g.ctx.RefMessage(method.Input)
 			outputType = g.resolveOutputType(method)
@@ -464,6 +465,7 @@ func (g *Generator) generateRouteEntry(p tscommon.Printer, service *protogen.Ser
 	// canonical protojson encoding (Go-server parity); otherwise it is raw-cast.
 	if es {
 		resSchema := g.ctx.RefMessageSchema(method.Output)
+		g.ctx.NeedProtobufES("create", "toJson")
 		p("          return new Response(JSON.stringify(toJson(%s, create(%s, result))), {", resSchema, resSchema)
 	} else {
 		outputType := g.resolveOutputType(method)
@@ -559,6 +561,7 @@ func (g *Generator) generateSSERouteEntry(
 	valueExpr := "value"
 	if es {
 		resSchema := g.ctx.RefMessageSchema(method.Output)
+		g.ctx.NeedProtobufES("create", "toJson")
 		valueExpr = fmt.Sprintf("toJson(%s, create(%s, value))", resSchema, resSchema)
 	}
 	p("                  controller.enqueue(encoder.encode(`data: ${JSON.stringify(%s)}\\n\\n`));", valueExpr)
@@ -715,6 +718,7 @@ func (g *Generator) generatePathParamExtraction(p tscommon.Printer, cfg *rpcRout
 func (g *Generator) generateBodyParsing(p tscommon.Printer, method *protogen.Method, tsMethodName string) {
 	if g.ctx.MessageRuntime == tscommon.MessageRuntimeES {
 		reqSchema := g.ctx.RefMessageSchema(method.Input)
+		g.ctx.NeedProtobufES("fromJson")
 		p("          const body = fromJson(%s, await req.json(), { ignoreUnknownFields: true });", reqSchema)
 	} else {
 		inputType := g.ctx.RefMessage(method.Input)
@@ -745,6 +749,7 @@ func (g *Generator) generateQueryParamParsing(
 	var inputType, reqSchema string
 	if es {
 		reqSchema = g.ctx.RefMessageSchema(method.Input)
+		g.ctx.NeedProtobufES("create")
 	} else {
 		inputType = g.ctx.RefMessage(method.Input)
 	}
