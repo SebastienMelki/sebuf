@@ -15,6 +15,12 @@ func (g *Generator) generateModules() error {
 	if err != nil {
 		return err
 	}
+	// In protobuf-es + Result mode the client returns a typed Result union and
+	// never throws; emit the shared result.ts (Result type, ClientError union,
+	// decodeError) that the client modules import.
+	if g.runtime == tscommon.MessageRuntimeES && g.errorHandling == tscommon.ErrorHandlingResult {
+		tscommon.EmitResultModule(g.plugin)
+	}
 	for _, file := range g.plugin.Files {
 		if !file.Generate || len(file.Services) == 0 {
 			continue
@@ -37,7 +43,12 @@ func (g *Generator) emitClientModule(file *protogen.File) (string, error) {
 	module := file.GeneratedFilenamePrefix + "_client"
 	gf := g.plugin.NewGeneratedFile(module+".ts", "")
 	tracker := tscommon.NewImportTracker()
-	g.ctx = &tscommon.EmitContext{SelfModule: module, Imports: tracker, MessageRuntime: g.runtime}
+	g.ctx = &tscommon.EmitContext{
+		SelfModule:     module,
+		Imports:        tracker,
+		MessageRuntime: g.runtime,
+		ErrorHandling:  g.errorHandling,
+	}
 	defer func() { g.ctx = nil }()
 
 	var body []string

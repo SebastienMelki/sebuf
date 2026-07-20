@@ -1,0 +1,57 @@
+syntax = "proto3";
+
+package test.resulterr;
+
+option go_package = "github.com/SebastienMelki/sebuf/internal/httpgen/testdata/generated;generated";
+
+import "sebuf/http/annotations.proto";
+
+// AccountService exercises ts_error_handling=result in protobuf-es mode: methods
+// return a discriminated Result union whose error side is the typed union of the
+// proto *Error messages below (NotFoundError, LoginError) plus the built-in
+// ValidationError/ApiError.
+service AccountService {
+  option (sebuf.http.service_config) = {
+    base_path: "/api/v1"
+  };
+
+  rpc GetAccount(GetAccountRequest) returns (Account) {
+    option (sebuf.http.config) = {
+      path: "/accounts/{id}"
+      method: HTTP_METHOD_GET
+    };
+  }
+
+  rpc Login(LoginRequest) returns (Account) {
+    option (sebuf.http.config) = {
+      path: "/login"
+      method: HTTP_METHOD_POST
+    };
+  }
+}
+
+message GetAccountRequest {
+  string id = 1;
+}
+
+message LoginRequest {
+  string email = 1;
+  string password = 2;
+}
+
+message Account {
+  string id = 1;
+  string email = 2;
+}
+
+// Proto-defined error messages. Distinct field sets so the structural registry
+// in result.ts can disambiguate them by their JSON marker keys.
+message NotFoundError {
+  string resource_type = 1;
+  string resource_id = 2;
+}
+
+message LoginError {
+  string reason = 1;
+  int32 retry_after_seconds = 2;
+}

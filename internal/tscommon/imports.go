@@ -11,9 +11,13 @@ import (
 )
 
 // protobufESSymbolOrder is the canonical emission order of the protobuf-es
-// runtime symbols in the `@bufbuild/protobuf` import. MessageInitShape is a
-// type-only import; the rest are value imports.
-var protobufESSymbolOrder = []string{"create", "fromJson", "toJson", "MessageInitShape"}
+// runtime symbols in the `@bufbuild/protobuf` import. Symbols in
+// protobufESTypeOnly are emitted as type-only imports; the rest are value
+// imports.
+var protobufESSymbolOrder = []string{"create", "fromJson", "toJson", "MessageInitShape", "DescMessage"}
+
+// protobufESTypeOnly marks which protobuf-es import symbols are type-only.
+var protobufESTypeOnly = map[string]bool{"MessageInitShape": true, "DescMessage": true}
 
 // errorsModule is the extensionless module path of the shared error-helpers
 // file emitted at the output root in modules mode.
@@ -178,7 +182,7 @@ func (t *ImportTracker) Render(p Printer) {
 			if !t.protobufESSyms[s] {
 				continue
 			}
-			if s == "MessageInitShape" {
+			if protobufESTypeOnly[s] {
 				parts = append(parts, "type "+s)
 			} else {
 				parts = append(parts, s)
@@ -236,6 +240,9 @@ type EmitContext struct {
 	// MessageRuntime selects the TypeScript message representation. The zero
 	// value (MessageRuntimeHandRolled) preserves the historical default.
 	MessageRuntime MessageRuntime
+	// ErrorHandling selects how client methods surface failures. The zero value
+	// (ErrorHandlingThrow) preserves the historical throwing behavior.
+	ErrorHandling ErrorHandling
 }
 
 func (c *EmitContext) modules() bool {

@@ -19,11 +19,17 @@ type Generator struct {
 	ctx *tscommon.EmitContext
 	// runtime selects the TypeScript message representation.
 	runtime tscommon.MessageRuntime
+	// errorHandling selects how client methods surface failures (throw vs Result).
+	errorHandling tscommon.ErrorHandling
 }
 
 // New creates a new TypeScript client generator.
-func New(plugin *protogen.Plugin, runtime tscommon.MessageRuntime) *Generator {
-	return &Generator{plugin: plugin, runtime: runtime}
+func New(
+	plugin *protogen.Plugin,
+	runtime tscommon.MessageRuntime,
+	errorHandling tscommon.ErrorHandling,
+) *Generator {
+	return &Generator{plugin: plugin, runtime: runtime, errorHandling: errorHandling}
 }
 
 // Generate emits one canonical type module per proto file, a shared errors
@@ -126,6 +132,21 @@ func (g *Generator) generateCallOptionsInterface(p printer, service *protogen.Se
 	p("")
 }
 
+// handleErrorNeeded reports whether the private handleError helper is referenced
+// by any emitted method. In throw mode every method (unary + SSE) calls it; in
+// Result mode only SSE methods do (unary methods return via decodeError).
+func (g *Generator) handleErrorNeeded(service *protogen.Service) bool {
+	if g.ctx.ErrorHandling != tscommon.ErrorHandlingResult {
+		return len(service.Methods) > 0
+	}
+	for _, m := range service.Methods {
+		if cfg := annotations.GetMethodHTTPConfig(m); cfg != nil && cfg.Stream {
+			return true
+		}
+	}
+	return false
+}
+
 // generateClientClass generates the client class with constructor and methods.
 func (g *Generator) generateClientClass(p printer, service *protogen.Service) {
 	serviceName := service.GoName
@@ -146,8 +167,12 @@ func (g *Generator) generateClientClass(p printer, service *protogen.Service) {
 		g.generateRPCMethod(p, service, method)
 	}
 
-	// Error handler
-	g.generateHandleError(p)
+	// Error handler. In Result mode unary methods return errors via decodeError
+	// and never call handleError; only SSE methods still throw through it, so
+	// omit it when there is no SSE method (else it trips noUnusedLocals).
+	if g.handleErrorNeeded(service) {
+		g.generateHandleError(p)
+	}
 
 	p("}")
 	p("")
@@ -296,9 +321,18 @@ func (g *Generator) generateRPCMethod(p printer, service *protogen.Service, meth
 
 	tsMethodName := annotations.LowerFirst(cfg.methodName)
 
+	// In es + Result mode the method returns a discriminated Result union
+	// (never throws); otherwise it returns the decoded message directly.
+	returnType := outputType
+	if es && g.ctx.ErrorHandling == tscommon.ErrorHandlingResult {
+		resultT := g.ctx.RefResult("Result", true)
+		clientErr := g.ctx.RefResult("ClientError", true)
+		returnType = fmt.Sprintf("%s<%s, %s>", resultT, outputType, clientErr)
+	}
+
 	reqParam := cfg.requestParamName()
 	p("  async %s(%s: %s, options?: %sCallOptions): Promise<%s> {",
-		tsMethodName, reqParam, inputType, cfg.serviceName, outputType)
+		tsMethodName, reqParam, inputType, cfg.serviceName, returnType)
 
 	// Build URL with path params
 	g.generateURLBuilding(p, cfg)
@@ -567,6 +601,18 @@ func (g *Generator) generateFetchCall(p printer, cfg *rpcMethodConfig, reqSchema
 // protobuf-es mode (resSchema non-empty) the response is decoded through fromJson
 // with ignoreUnknownFields (forward-compat); otherwise it is raw-cast.
 func (g *Generator) generateResponseHandling(p printer, outputType, resSchema string) {
+	// es + Result mode: return the discriminated union instead of throwing.
+	// resSchema is always non-empty here (Result requires es).
+	if resSchema != "" && g.ctx.ErrorHandling == tscommon.ErrorHandlingResult {
+		decodeErr := g.ctx.RefResult("decodeError", false)
+		p("    if (!resp.ok) {")
+		p("      return { ok: false, error: await %s(resp) };", decodeErr)
+		p("    }")
+		p("")
+		p("    return { ok: true, data: fromJson(%s, await resp.json(), { ignoreUnknownFields: true }) };", resSchema)
+		return
+	}
+
 	p("    if (!resp.ok) {")
 	p("      return this.handleError(resp);")
 	p("    }")
