@@ -41,9 +41,9 @@ func (x *UnwrapWrapper) MarshalJSON() ([]byte, error) {
 	return x.MarshalJSONSebuf(protojson.MarshalOptions{})
 }
 
-// UnmarshalJSON implements json.Unmarshaler for UnwrapWrapper.
+// UnmarshalJSONSebuf implements sebufUnmarshaler for UnwrapWrapper.
 // This method performs root-level unwrap, deserializing from just the array value.
-func (x *UnwrapWrapper) UnmarshalJSON(data []byte) error {
+func (x *UnwrapWrapper) UnmarshalJSONSebuf(data []byte, opts protojson.UnmarshalOptions) error {
 	var itemsRaw []json.RawMessage
 	if err := json.Unmarshal(data, &itemsRaw); err != nil {
 		return err
@@ -51,12 +51,23 @@ func (x *UnwrapWrapper) UnmarshalJSON(data []byte) error {
 	x.Items = make([]*Bar, 0, len(itemsRaw))
 	for _, itemRaw := range itemsRaw {
 		item := &Bar{}
-		if err := json.Unmarshal(itemRaw, item); err != nil {
+		if u, ok := any(item).(interface {
+			UnmarshalJSONSebuf([]byte, protojson.UnmarshalOptions) error
+		}); ok {
+			if err := u.UnmarshalJSONSebuf(itemRaw, opts); err != nil {
+				return err
+			}
+		} else if err := opts.Unmarshal(itemRaw, item); err != nil {
 			return err
 		}
 		x.Items = append(x.Items, item)
 	}
 	return nil
+}
+
+// UnmarshalJSON implements json.Unmarshaler for UnwrapWrapper.
+func (x *UnwrapWrapper) UnmarshalJSON(data []byte) error {
+	return x.UnmarshalJSONSebuf(data, protojson.UnmarshalOptions{})
 }
 
 // MarshalJSONSebuf implements sebufMarshaler for CombinedResponse.
@@ -129,9 +140,9 @@ func (x *CombinedResponse) MarshalJSON() ([]byte, error) {
 	return x.MarshalJSONSebuf(protojson.MarshalOptions{})
 }
 
-// UnmarshalJSON implements json.Unmarshaler for CombinedResponse.
+// UnmarshalJSONSebuf implements sebufUnmarshaler for CombinedResponse.
 // This method handles unwrap field deserialization for map values.
-func (x *CombinedResponse) UnmarshalJSON(data []byte) error {
+func (x *CombinedResponse) UnmarshalJSONSebuf(data []byte, opts protojson.UnmarshalOptions) error {
 	var raw map[string]json.RawMessage
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return err
@@ -152,7 +163,13 @@ func (x *CombinedResponse) UnmarshalJSON(data []byte) error {
 			items := make([]*Bar, 0, len(itemsRaw))
 			for _, itemRaw := range itemsRaw {
 				item := &Bar{}
-				if err := json.Unmarshal(itemRaw, item); err != nil {
+				if u, ok := any(item).(interface {
+					UnmarshalJSONSebuf([]byte, protojson.UnmarshalOptions) error
+				}); ok {
+					if err := u.UnmarshalJSONSebuf(itemRaw, opts); err != nil {
+						return err
+					}
+				} else if err := opts.Unmarshal(itemRaw, item); err != nil {
 					return err
 				}
 				items = append(items, item)
@@ -164,10 +181,21 @@ func (x *CombinedResponse) UnmarshalJSON(data []byte) error {
 	// Handle field: Meta
 	if rawField, ok := raw["meta"]; ok {
 		x.Meta = &Meta{}
-		if err := json.Unmarshal(rawField, x.Meta); err != nil {
+		if u, ok := any(x.Meta).(interface {
+			UnmarshalJSONSebuf([]byte, protojson.UnmarshalOptions) error
+		}); ok {
+			if err := u.UnmarshalJSONSebuf(rawField, opts); err != nil {
+				return err
+			}
+		} else if err := opts.Unmarshal(rawField, x.Meta); err != nil {
 			return err
 		}
 	}
 
 	return nil
+}
+
+// UnmarshalJSON implements json.Unmarshaler for CombinedResponse.
+func (x *CombinedResponse) UnmarshalJSON(data []byte) error {
+	return x.UnmarshalJSONSebuf(data, protojson.UnmarshalOptions{})
 }

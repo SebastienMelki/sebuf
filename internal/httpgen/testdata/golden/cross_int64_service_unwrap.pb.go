@@ -71,9 +71,9 @@ func (x *GetBarsResponse) MarshalJSON() ([]byte, error) {
 	return x.MarshalJSONSebuf(protojson.MarshalOptions{})
 }
 
-// UnmarshalJSON implements json.Unmarshaler for GetBarsResponse.
+// UnmarshalJSONSebuf implements sebufUnmarshaler for GetBarsResponse.
 // This method handles unwrap field deserialization for map values.
-func (x *GetBarsResponse) UnmarshalJSON(data []byte) error {
+func (x *GetBarsResponse) UnmarshalJSONSebuf(data []byte, opts protojson.UnmarshalOptions) error {
 	var raw map[string]json.RawMessage
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return err
@@ -94,7 +94,13 @@ func (x *GetBarsResponse) UnmarshalJSON(data []byte) error {
 			items := make([]*Bar, 0, len(itemsRaw))
 			for _, itemRaw := range itemsRaw {
 				item := &Bar{}
-				if err := json.Unmarshal(itemRaw, item); err != nil {
+				if u, ok := any(item).(interface {
+					UnmarshalJSONSebuf([]byte, protojson.UnmarshalOptions) error
+				}); ok {
+					if err := u.UnmarshalJSONSebuf(itemRaw, opts); err != nil {
+						return err
+					}
+				} else if err := opts.Unmarshal(itemRaw, item); err != nil {
 					return err
 				}
 				items = append(items, item)
@@ -111,4 +117,9 @@ func (x *GetBarsResponse) UnmarshalJSON(data []byte) error {
 	}
 
 	return nil
+}
+
+// UnmarshalJSON implements json.Unmarshaler for GetBarsResponse.
+func (x *GetBarsResponse) UnmarshalJSON(data []byte) error {
+	return x.UnmarshalJSONSebuf(data, protojson.UnmarshalOptions{})
 }

@@ -115,6 +115,8 @@ message MixedResponse {
   map<string, RegularWrapper> regular_bars = 2;
   // Simple scalar field
   string status = 3;
+  // Plain repeated message field, no unwrap annotation
+  repeated OptionBar extra_bars = 4;
 }
 
 // =============================================================================
