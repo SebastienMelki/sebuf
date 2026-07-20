@@ -226,6 +226,9 @@ func TestTSClientGenESGoldenFiles(t *testing.T) {
 		{name: "SSE streaming", protoFile: "sse.proto"},
 		// Unary GET with a string path param and scalar (non-enum) query params.
 		{name: "unary GET path+query params", protoFile: "get_params.proto"},
+		// Service with typed headers: its RequestOptions must extend the shared
+		// RequestOptions base and add only the header properties.
+		{name: "typed headers", protoFile: "es_headers.proto"},
 	}
 
 	protoPaths := []string{"--proto_path=" + protoDir, "--proto_path=" + filepath.Join(projectRoot, "proto")}

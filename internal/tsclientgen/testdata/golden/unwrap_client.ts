@@ -26,7 +26,7 @@ export class OptionDataServiceClient {
   }
 
   async getOptionBars(req: GetOptionBarsRequest, options?: OptionDataServiceCallOptions): Promise<GetOptionBarsResponse> {
-    let path = "/api/v1/options/bars";
+    const path = "/api/v1/options/bars";
     const url = this.baseURL + path;
 
     const headers: Record<string, string> = {
@@ -87,7 +87,7 @@ export class UnwrapServiceClient {
   }
 
   async getOptionBars(req: GetOptionBarsRequest, options?: UnwrapServiceCallOptions): Promise<GetOptionBarsResponse> {
-    let path = "/api/v1/options/bars";
+    const path = "/api/v1/options/bars";
     const url = this.baseURL + path;
 
     const headers: Record<string, string> = {
@@ -111,7 +111,7 @@ export class UnwrapServiceClient {
   }
 
   async getRootMap(req: GetOptionBarsRequest, options?: UnwrapServiceCallOptions): Promise<Record<string, OptionBar>> {
-    let path = "/api/v1/root/map";
+    const path = "/api/v1/root/map";
     const url = this.baseURL + path;
 
     const headers: Record<string, string> = {
@@ -135,7 +135,7 @@ export class UnwrapServiceClient {
   }
 
   async getRootRepeated(req: GetOptionBarsRequest, options?: UnwrapServiceCallOptions): Promise<OptionBar[]> {
-    let path = "/api/v1/root/repeated";
+    const path = "/api/v1/root/repeated";
     const url = this.baseURL + path;
 
     const headers: Record<string, string> = {
@@ -159,7 +159,7 @@ export class UnwrapServiceClient {
   }
 
   async getRootMapWithValueUnwrap(req: GetOptionBarsRequest, options?: UnwrapServiceCallOptions): Promise<Record<string, OptionBar[]>> {
-    let path = "/api/v1/root/map-value-unwrap";
+    const path = "/api/v1/root/map-value-unwrap";
     const url = this.baseURL + path;
 
     const headers: Record<string, string> = {

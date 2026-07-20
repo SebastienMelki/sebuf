@@ -5,41 +5,22 @@ import { fromJson, type MessageInitShape } from "@bufbuild/protobuf";
 import { ApiError, ValidationError } from "./errors.js";
 import { decodeError } from "./result.js";
 import { EventSchema, GetStatusRequestSchema, ResourceEventSchema, StatusResponseSchema, StreamEventsRequestSchema, StreamFilteredEventsRequestSchema, StreamResourceEventsRequestSchema } from "./sse_pb.js";
+import type { RequestOptions } from "./client.js";
 import type { ClientError, Result } from "./result.js";
 import type { Event, ResourceEvent, StatusResponse } from "./sse_pb.js";
 
-export interface SSEServiceClientOptions {
-  fetch?: typeof fetch;
-  defaultHeaders?: Record<string, string>;
-}
-
-export interface SSEServiceCallOptions {
-  headers?: Record<string, string>;
-  signal?: AbortSignal;
-}
-
-export class SSEServiceClient {
-  private baseURL: string;
-  private fetchFn: typeof fetch;
-  private defaultHeaders: Record<string, string>;
-
-  constructor(baseURL: string, options?: SSEServiceClientOptions) {
-    this.baseURL = baseURL.replace(/\/+$/, "");
-    this.fetchFn = options?.fetch ?? globalThis.fetch;
-    this.defaultHeaders = { ...options?.defaultHeaders };
-  }
-
-  async getStatus(_req: MessageInitShape<typeof GetStatusRequestSchema>, options?: SSEServiceCallOptions): Promise<Result<StatusResponse, ClientError>> {
-    let path = "/api/v1/status";
-    const url = this.baseURL + path;
+export async function getStatus(_req: MessageInitShape<typeof GetStatusRequestSchema>, options: RequestOptions): Promise<Result<StatusResponse, ClientError>> {
+    const baseURL = options.baseURL.replace(/\/+$/, "");
+    const fetchFn = options.fetch ?? globalThis.fetch;
+    const path = "/api/v1/status";
+    const url = baseURL + path;
 
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
-      ...this.defaultHeaders,
       ...options?.headers,
     };
 
-    const resp = await this.fetchFn(url, {
+    const resp = await fetchFn(url, {
       method: "GET",
       headers,
       signal: options?.signal,
@@ -50,26 +31,27 @@ export class SSEServiceClient {
     }
 
     return { ok: true, data: fromJson(StatusResponseSchema, await resp.json(), { ignoreUnknownFields: true }) };
-  }
+}
 
-  async *streamEvents(_req: MessageInitShape<typeof StreamEventsRequestSchema>, options?: SSEServiceCallOptions): AsyncGenerator<Event> {
-    let path = "/api/v1/events";
-    const url = this.baseURL + path;
+export async function* streamEvents(_req: MessageInitShape<typeof StreamEventsRequestSchema>, options: RequestOptions): AsyncGenerator<Event> {
+    const baseURL = options.baseURL.replace(/\/+$/, "");
+    const fetchFn = options.fetch ?? globalThis.fetch;
+    const path = "/api/v1/events";
+    const url = baseURL + path;
 
     const headers: Record<string, string> = {
       "Accept": "text/event-stream",
-      ...this.defaultHeaders,
       ...options?.headers,
     };
 
-    const resp = await this.fetchFn(url, {
+    const resp = await fetchFn(url, {
       method: "GET",
       headers,
       signal: options?.signal,
     });
 
     if (!resp.ok) {
-      return this.handleError(resp);
+      return handleError(resp);
     }
 
     const reader = resp.body!.getReader();
@@ -93,27 +75,28 @@ export class SSEServiceClient {
     } finally {
       reader.releaseLock();
     }
-  }
+}
 
-  async *streamResourceEvents(req: MessageInitShape<typeof StreamResourceEventsRequestSchema>, options?: SSEServiceCallOptions): AsyncGenerator<ResourceEvent> {
+export async function* streamResourceEvents(req: MessageInitShape<typeof StreamResourceEventsRequestSchema>, options: RequestOptions): AsyncGenerator<ResourceEvent> {
+    const baseURL = options.baseURL.replace(/\/+$/, "");
+    const fetchFn = options.fetch ?? globalThis.fetch;
     let path = "/api/v1/resources/{resource_id}/events";
     path = path.replace("{resource_id}", encodeURIComponent(String(req.resourceId)));
-    const url = this.baseURL + path;
+    const url = baseURL + path;
 
     const headers: Record<string, string> = {
       "Accept": "text/event-stream",
-      ...this.defaultHeaders,
       ...options?.headers,
     };
 
-    const resp = await this.fetchFn(url, {
+    const resp = await fetchFn(url, {
       method: "GET",
       headers,
       signal: options?.signal,
     });
 
     if (!resp.ok) {
-      return this.handleError(resp);
+      return handleError(resp);
     }
 
     const reader = resp.body!.getReader();
@@ -137,29 +120,30 @@ export class SSEServiceClient {
     } finally {
       reader.releaseLock();
     }
-  }
+}
 
-  async *streamFilteredEvents(req: MessageInitShape<typeof StreamFilteredEventsRequestSchema>, options?: SSEServiceCallOptions): AsyncGenerator<Event> {
-    let path = "/api/v1/events/filtered";
+export async function* streamFilteredEvents(req: MessageInitShape<typeof StreamFilteredEventsRequestSchema>, options: RequestOptions): AsyncGenerator<Event> {
+    const baseURL = options.baseURL.replace(/\/+$/, "");
+    const fetchFn = options.fetch ?? globalThis.fetch;
+    const path = "/api/v1/events/filtered";
     const params = new URLSearchParams();
     if (req.eventType != null && req.eventType !== "") params.set("type", String(req.eventType));
     if (req.limit != null && req.limit !== 0) params.set("limit", String(req.limit));
-    const url = this.baseURL + path + (params.toString() ? "?" + params.toString() : "");
+    const url = baseURL + path + (params.toString() ? "?" + params.toString() : "");
 
     const headers: Record<string, string> = {
       "Accept": "text/event-stream",
-      ...this.defaultHeaders,
       ...options?.headers,
     };
 
-    const resp = await this.fetchFn(url, {
+    const resp = await fetchFn(url, {
       method: "GET",
       headers,
       signal: options?.signal,
     });
 
     if (!resp.ok) {
-      return this.handleError(resp);
+      return handleError(resp);
     }
 
     const reader = resp.body!.getReader();
@@ -183,9 +167,9 @@ export class SSEServiceClient {
     } finally {
       reader.releaseLock();
     }
-  }
+}
 
-  private async handleError(resp: Response): Promise<never> {
+async function handleError(resp: Response): Promise<never> {
     const body = await resp.text();
     if (resp.status === 400) {
       try {
@@ -198,6 +182,5 @@ export class SSEServiceClient {
       }
     }
     throw new ApiError(resp.status, `Request failed with status ${resp.status}`, body);
-  }
 }
 

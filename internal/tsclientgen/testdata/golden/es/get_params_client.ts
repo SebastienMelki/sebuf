@@ -4,30 +4,12 @@
 import { create, fromJson, toJson, type MessageInitShape } from "@bufbuild/protobuf";
 import { ApiError, ValidationError } from "./errors.js";
 import { GetItemRequestSchema, GetItemVersionRequestSchema, ItemSchema, UpdateItemRequestSchema } from "./get_params_pb.js";
+import type { RequestOptions } from "./client.js";
 import type { Item } from "./get_params_pb.js";
 
-export interface GetParamsServiceClientOptions {
-  fetch?: typeof fetch;
-  defaultHeaders?: Record<string, string>;
-}
-
-export interface GetParamsServiceCallOptions {
-  headers?: Record<string, string>;
-  signal?: AbortSignal;
-}
-
-export class GetParamsServiceClient {
-  private baseURL: string;
-  private fetchFn: typeof fetch;
-  private defaultHeaders: Record<string, string>;
-
-  constructor(baseURL: string, options?: GetParamsServiceClientOptions) {
-    this.baseURL = baseURL.replace(/\/+$/, "");
-    this.fetchFn = options?.fetch ?? globalThis.fetch;
-    this.defaultHeaders = { ...options?.defaultHeaders };
-  }
-
-  async getItem(req: MessageInitShape<typeof GetItemRequestSchema>, options?: GetParamsServiceCallOptions): Promise<Item> {
+export async function getItem(req: MessageInitShape<typeof GetItemRequestSchema>, options: RequestOptions): Promise<Item> {
+    const baseURL = options.baseURL.replace(/\/+$/, "");
+    const fetchFn = options.fetch ?? globalThis.fetch;
     let path = "/api/v1/items/{item_id}";
     path = path.replace("{item_id}", encodeURIComponent(String(req.itemId)));
     const params = new URLSearchParams();
@@ -38,65 +20,66 @@ export class GetParamsServiceClient {
     if (req.sizes && req.sizes.length > 0) req.sizes.forEach(v => params.append("sizes", String(v)));
     if (req.ids && req.ids.length > 0) req.ids.forEach(v => params.append("ids", String(v)));
     if (req.flags && req.flags.length > 0) req.flags.forEach(v => params.append("flags", String(v)));
-    const url = this.baseURL + path + (params.toString() ? "?" + params.toString() : "");
+    const url = baseURL + path + (params.toString() ? "?" + params.toString() : "");
 
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
-      ...this.defaultHeaders,
       ...options?.headers,
     };
 
-    const resp = await this.fetchFn(url, {
+    const resp = await fetchFn(url, {
       method: "GET",
       headers,
       signal: options?.signal,
     });
 
     if (!resp.ok) {
-      return this.handleError(resp);
+      return handleError(resp);
     }
 
     return fromJson(ItemSchema, await resp.json(), { ignoreUnknownFields: true });
-  }
+}
 
-  async getItemVersion(req: MessageInitShape<typeof GetItemVersionRequestSchema>, options?: GetParamsServiceCallOptions): Promise<Item> {
+export async function getItemVersion(req: MessageInitShape<typeof GetItemVersionRequestSchema>, options: RequestOptions): Promise<Item> {
+    const baseURL = options.baseURL.replace(/\/+$/, "");
+    const fetchFn = options.fetch ?? globalThis.fetch;
     let path = "/api/v1/items/{item_number}/versions/{version}/draft/{draft}";
     path = path.replace("{item_number}", encodeURIComponent(String(req.itemNumber)));
     path = path.replace("{version}", encodeURIComponent(String(req.version)));
     path = path.replace("{draft}", encodeURIComponent(String(req.draft)));
-    const url = this.baseURL + path;
+    const url = baseURL + path;
 
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
-      ...this.defaultHeaders,
       ...options?.headers,
     };
 
-    const resp = await this.fetchFn(url, {
+    const resp = await fetchFn(url, {
       method: "GET",
       headers,
       signal: options?.signal,
     });
 
     if (!resp.ok) {
-      return this.handleError(resp);
+      return handleError(resp);
     }
 
     return fromJson(ItemSchema, await resp.json(), { ignoreUnknownFields: true });
-  }
+}
 
-  async updateItem(req: MessageInitShape<typeof UpdateItemRequestSchema>, options?: GetParamsServiceCallOptions): Promise<Item> {
+export async function updateItem(req: MessageInitShape<typeof UpdateItemRequestSchema>, options: RequestOptions): Promise<Item> {
+    const baseURL = options.baseURL.replace(/\/+$/, "");
+    const fetchFn = options.fetch ?? globalThis.fetch;
     let path = "/api/v1/items/{item_number}";
     path = path.replace("{item_number}", encodeURIComponent(String(req.itemNumber)));
-    const url = this.baseURL + path;
+    const url = baseURL + path;
 
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
-      ...this.defaultHeaders,
       ...options?.headers,
     };
 
-    const resp = await this.fetchFn(url, {
+    const resp = await fetchFn(url, {
       method: "POST",
       headers,
       body: JSON.stringify(toJson(UpdateItemRequestSchema, create(UpdateItemRequestSchema, req))),
@@ -104,13 +87,13 @@ export class GetParamsServiceClient {
     });
 
     if (!resp.ok) {
-      return this.handleError(resp);
+      return handleError(resp);
     }
 
     return fromJson(ItemSchema, await resp.json(), { ignoreUnknownFields: true });
-  }
+}
 
-  private async handleError(resp: Response): Promise<never> {
+async function handleError(resp: Response): Promise<never> {
     const body = await resp.text();
     if (resp.status === 400) {
       try {
@@ -123,6 +106,5 @@ export class GetParamsServiceClient {
       }
     }
     throw new ApiError(resp.status, `Request failed with status ${resp.status}`, body);
-  }
 }
 

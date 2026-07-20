@@ -26,7 +26,7 @@ export class EmptyRequestBodyServiceClient {
   }
 
   async ping(req: PingRequest, options?: EmptyRequestBodyServiceCallOptions): Promise<PingResponse> {
-    let path = "/api/v1/ping";
+    const path = "/api/v1/ping";
     const url = this.baseURL + path;
 
     const headers: Record<string, string> = {
@@ -50,7 +50,7 @@ export class EmptyRequestBodyServiceClient {
   }
 
   async noArgs(_req: NoArgsRequest, options?: EmptyRequestBodyServiceCallOptions): Promise<NoArgsResponse> {
-    let path = "/api/v1/no-args";
+    const path = "/api/v1/no-args";
     const url = this.baseURL + path;
 
     const headers: Record<string, string> = {

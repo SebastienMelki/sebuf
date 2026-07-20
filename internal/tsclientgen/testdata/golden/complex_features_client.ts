@@ -38,7 +38,7 @@ export class FeatureServiceClient {
   }
 
   async listNotes(req: ListNotesRequest, options?: FeatureServiceCallOptions): Promise<ListNotesResponse> {
-    let path = "/api/v1/notes";
+    const path = "/api/v1/notes";
     const params = new URLSearchParams();
     if (req.page != null && req.page !== 0) params.set("page", String(req.page));
     if (req.pageSize != null && req.pageSize !== 0) params.set("page_size", String(req.pageSize));
@@ -93,7 +93,7 @@ export class FeatureServiceClient {
   }
 
   async createNote(req: CreateNoteRequest, options?: FeatureServiceCallOptions): Promise<Note> {
-    let path = "/api/v1/notes";
+    const path = "/api/v1/notes";
     const url = this.baseURL + path;
 
     const headers: Record<string, string> = {
@@ -148,7 +148,7 @@ export class FeatureServiceClient {
   }
 
   async getNoteList(req: GetNoteListRequest, options?: FeatureServiceCallOptions): Promise<Note[]> {
-    let path = "/api/v1/notes/list";
+    const path = "/api/v1/notes/list";
     const url = this.baseURL + path;
 
     const headers: Record<string, string> = {
@@ -174,7 +174,7 @@ export class FeatureServiceClient {
   }
 
   async getNoteMap(req: GetNoteMapRequest, options?: FeatureServiceCallOptions): Promise<Record<string, Note>> {
-    let path = "/api/v1/notes/map";
+    const path = "/api/v1/notes/map";
     const url = this.baseURL + path;
 
     const headers: Record<string, string> = {
@@ -200,7 +200,7 @@ export class FeatureServiceClient {
   }
 
   async getBarsBySymbol(req: GetBarsBySymbolRequest, options?: FeatureServiceCallOptions): Promise<BarsBySymbol> {
-    let path = "/api/v1/bars";
+    const path = "/api/v1/bars";
     const url = this.baseURL + path;
 
     const headers: Record<string, string> = {
@@ -226,7 +226,7 @@ export class FeatureServiceClient {
   }
 
   async getCombinedUnwrap(req: GetCombinedUnwrapRequest, options?: FeatureServiceCallOptions): Promise<Record<string, Bar[]>> {
-    let path = "/api/v1/bars/combined";
+    const path = "/api/v1/bars/combined";
     const url = this.baseURL + path;
 
     const headers: Record<string, string> = {

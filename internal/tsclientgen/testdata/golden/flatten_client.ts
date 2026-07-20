@@ -26,7 +26,7 @@ export class FlattenServiceClient {
   }
 
   async testSimpleFlatten(req: SimpleFlatten, options?: FlattenServiceCallOptions): Promise<SimpleFlatten> {
-    let path = "/api/v1/flatten/simple";
+    const path = "/api/v1/flatten/simple";
     const url = this.baseURL + path;
 
     const headers: Record<string, string> = {
@@ -50,7 +50,7 @@ export class FlattenServiceClient {
   }
 
   async testDualFlatten(req: DualFlatten, options?: FlattenServiceCallOptions): Promise<DualFlatten> {
-    let path = "/api/v1/flatten/dual";
+    const path = "/api/v1/flatten/dual";
     const url = this.baseURL + path;
 
     const headers: Record<string, string> = {
@@ -74,7 +74,7 @@ export class FlattenServiceClient {
   }
 
   async testMixedFlatten(req: MixedFlatten, options?: FlattenServiceCallOptions): Promise<MixedFlatten> {
-    let path = "/api/v1/flatten/mixed";
+    const path = "/api/v1/flatten/mixed";
     const url = this.baseURL + path;
 
     const headers: Record<string, string> = {
@@ -98,7 +98,7 @@ export class FlattenServiceClient {
   }
 
   async testPlainNested(req: PlainNested, options?: FlattenServiceCallOptions): Promise<PlainNested> {
-    let path = "/api/v1/flatten/plain";
+    const path = "/api/v1/flatten/plain";
     const url = this.baseURL + path;
 
     const headers: Record<string, string> = {
