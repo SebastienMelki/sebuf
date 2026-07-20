@@ -6,6 +6,24 @@ import {
   type NoteServiceClientOptions,
 } from "./generated/proto/note_service_client.ts";
 
+// ----------------------------------------------------------------------------
+// Oneof helper: `Note.reminder` is an un-annotated proto oneof, so the client
+// renders it as a presence-discriminated union — exactly one of `remindAt` /
+// `remindInDays` is present per note, the other is typed `?: never`. Narrow it
+// by PRESENCE (the `in` operator), never by truthiness: `remindInDays` of 0
+// would be dropped by an `if (n.remindInDays)` check. TypeScript flows the
+// branch so `n.remindAt` / `n.remindInDays` are non-never inside each guard.
+// ----------------------------------------------------------------------------
+function describeReminder(n: Note): string {
+  if ("remindAt" in n && n.remindAt !== undefined) {
+    return `reminder at ${n.remindAt}`;
+  }
+  if ("remindInDays" in n && n.remindInDays !== undefined) {
+    return `reminder in ${n.remindInDays} day(s)`;
+  }
+  return "no reminder";
+}
+
 // ============================================================================
 // Section 1: Client Configuration
 // ============================================================================
@@ -53,6 +71,8 @@ async function section2_crudOperations(client: NoteServiceClient) {
   for (const n of allNotes.notes) {
     const due = n.dueDate ? ` (due: ${n.dueDate})` : "";
     console.log(`  ${n.id}: "${n.title}" [${n.priority}, ${n.status}]${due}`);
+    // Un-annotated oneof narrowed by presence (see describeReminder above).
+    console.log(`    ${describeReminder(n)}`);
     if (n.tags?.length > 0) {
       console.log(`    tags: ${n.tags.map((t) => t.name).join(", ")}`);
     }
