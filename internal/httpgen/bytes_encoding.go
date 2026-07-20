@@ -271,7 +271,6 @@ func (g *Generator) generateBytesUnmarshalJSON(gf *protogen.GeneratedFile, ctx *
 	gf.P("}")
 	gf.P()
 
-	// Backward-compatible UnmarshalJSON wrapper for stdlib encoding/json.
 	gf.P("// UnmarshalJSON implements json.Unmarshaler for ", msgName, ".")
 	gf.P("func (x *", msgName, ") UnmarshalJSON(data []byte) error {")
 	gf.P("return x.UnmarshalJSONSebuf(data, protojson.UnmarshalOptions{})")

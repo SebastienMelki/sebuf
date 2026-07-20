@@ -49,10 +49,9 @@ func wantUnknownFieldError(t *testing.T, err error) {
 	}
 }
 
-// TestRootRepeatedUnwrapDecode covers the bare-array shape, the one from the
-// original issue.
+// TestRootRepeatedUnwrapDecode covers the bare-array root repeated shape.
 func TestRootRepeatedUnwrapDecode(t *testing.T) {
-	body := []byte(`[{"i":"t1","p":1.5,"field_from_a_newer_server":"x"}]`)
+	body := []byte(`[{"id":"t1","price":1.5,"field_from_a_newer_server":"x"}]`)
 
 	var strict models.TradeList
 	wantUnknownFieldError(t, json.Unmarshal(body, &strict))
@@ -61,14 +60,14 @@ func TestRootRepeatedUnwrapDecode(t *testing.T) {
 	if err := lenient.UnmarshalJSONSebuf(body, discard()); err != nil {
 		t.Fatalf("UnmarshalJSONSebuf with DiscardUnknown: %v", err)
 	}
-	if trades := lenient.GetTrades(); len(trades) != 1 || trades[0].GetP() != 1.5 {
+	if trades := lenient.GetTrades(); len(trades) != 1 || trades[0].GetPrice() != 1.5 {
 		t.Errorf("trades = %v, want one trade with price 1.5", trades)
 	}
 }
 
 // TestRootMapMessageValuesDecode covers a root map with message values.
 func TestRootMapMessageValuesDecode(t *testing.T) {
-	body := []byte(`{"AAPL":{"bp":1.1,"ap":1.2,"field_from_a_newer_server":"x"}}`)
+	body := []byte(`{"AAPL":{"bidPrice":1.1,"askPrice":1.2,"field_from_a_newer_server":"x"}}`)
 
 	var strict models.QuotesBySymbol
 	wantUnknownFieldError(t, json.Unmarshal(body, &strict))
@@ -77,7 +76,7 @@ func TestRootMapMessageValuesDecode(t *testing.T) {
 	if err := lenient.UnmarshalJSONSebuf(body, discard()); err != nil {
 		t.Fatalf("UnmarshalJSONSebuf with DiscardUnknown: %v", err)
 	}
-	if q := lenient.GetQuotes()["AAPL"]; q.GetAp() != 1.2 {
+	if q := lenient.GetQuotes()["AAPL"]; q.GetAskPrice() != 1.2 {
 		t.Errorf("quote = %v, want ask 1.2", q)
 	}
 }

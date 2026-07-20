@@ -8,13 +8,12 @@ import (
 	"testing"
 )
 
-// TestGoldenSebufMethodPairing pins the structural invariant behind issue #204:
-// every generated type with a stdlib JSON method must also have its options-aware
-// Sebuf twin, in both directions. The original bug was exactly a broken pairing
-// (unwrap types had UnmarshalJSON but no UnmarshalJSONSebuf, so the client
-// dispatcher could never pass DiscardUnknown through). Scanning the checked-in
-// golden files needs no protoc, so this runs everywhere and catches the whole
-// class if any emitter regresses.
+// TestGoldenSebufMethodPairing asserts the pairing invariant over the checked-in
+// *_unwrap.pb.go and *_encoding.pb.go golden files. Every type there with a
+// stdlib JSON method must also have its options-aware Sebuf twin, and every
+// Sebuf method must have its stdlib wrapper. A type carrying only the stdlib
+// half cannot receive protojson options. The test reads the goldens directly
+// and does not run protoc.
 func TestGoldenSebufMethodPairing(t *testing.T) {
 	goldenDir := filepath.Join("testdata", "golden")
 	entries, err := os.ReadDir(goldenDir)
@@ -28,9 +27,9 @@ func TestGoldenSebufMethodPairing(t *testing.T) {
 	unmarshalSebufRe := regexp.MustCompile(`func \(x \*(\w+)\) UnmarshalJSONSebuf\(`)
 
 	checked := 0
-	// Enum types are exempt. Both generators emit enums with the plain pair
-	// only, because protojson options act on message fields and an enum scalar
-	// has none. Enums are recognizable by their value-receiver MarshalJSON.
+	// Enum types are exempt. Protojson options act on message fields and an
+	// enum scalar has none, so enums carry only the plain pair. They are
+	// recognizable by their value-receiver MarshalJSON.
 	enumRe := regexp.MustCompile(`func \(x (\w+)\) MarshalJSON\(`)
 
 	for _, entry := range entries {
