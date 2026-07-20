@@ -28,12 +28,14 @@ func TestGoldenSebufMethodPairing(t *testing.T) {
 	unmarshalSebufRe := regexp.MustCompile(`func \(x \*(\w+)\) UnmarshalJSONSebuf\(`)
 
 	checked := 0
+	// Enum types are exempt. Both generators emit enums with the plain pair
+	// only, because protojson options act on message fields and an enum scalar
+	// has none. Enums are recognizable by their value-receiver MarshalJSON.
+	enumRe := regexp.MustCompile(`func \(x (\w+)\) MarshalJSON\(`)
+
 	for _, entry := range entries {
 		name := entry.Name()
-		// Scoped to the unwrap emitters' output. The encoding emitters have
-		// their own pairing status (int64 pairs both methods; bytes and enum
-		// currently do not) and are outside this invariant.
-		if !strings.HasSuffix(name, "_unwrap.pb.go") {
+		if !strings.HasSuffix(name, "_unwrap.pb.go") && !strings.HasSuffix(name, "_encoding.pb.go") {
 			continue
 		}
 		content, readErr := os.ReadFile(filepath.Join(goldenDir, name))
@@ -52,6 +54,10 @@ func TestGoldenSebufMethodPairing(t *testing.T) {
 
 		marshal, marshalSebuf := types(marshalRe), types(marshalSebufRe)
 		unmarshal, unmarshalSebuf := types(unmarshalRe), types(unmarshalSebufRe)
+		for _, m := range enumRe.FindAllStringSubmatch(code, -1) {
+			delete(marshal, m[1])
+			delete(unmarshal, m[1])
+		}
 
 		for typ := range marshal {
 			if !marshalSebuf[typ] {
