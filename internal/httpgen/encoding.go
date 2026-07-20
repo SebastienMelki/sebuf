@@ -144,19 +144,6 @@ func collectWrapperMessages(
 	}
 }
 
-// collectDirectEncodingMsgNames returns the set of message full names that will have
-// custom MarshalJSON/UnmarshalJSON from the encoding generator (direct NUMBER fields only).
-// This is used by the unwrap generator to call json.Marshal instead of protojson.Marshal
-// for item types that implement json.Marshaler via the encoding generator.
-func collectDirectEncodingMsgNames(file *protogen.File) map[string]bool {
-	contexts := collectInt64EncodingContext(file)
-	result := make(map[string]bool, len(contexts))
-	for _, ctx := range contexts {
-		result[string(ctx.Message.Desc.FullName())] = true
-	}
-	return result
-}
-
 // printInt64PrecisionWarning prints a generation-time warning for fields with NUMBER encoding.
 func printInt64PrecisionWarning(w io.Writer, field *protogen.Field, messageName string) {
 	_, _ = w.Write([]byte(

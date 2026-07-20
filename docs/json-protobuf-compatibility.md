@@ -115,7 +115,7 @@ With `unwrap`, the JSON output matches the desired format:
 
 When you use the `unwrap` annotation:
 
-1. **HTTP Generation**: sebuf generates custom `MarshalJSON()` and `UnmarshalJSON()` methods for messages containing maps with unwrapped values
+1. **HTTP Generation**: sebuf generates options-aware `MarshalJSONSebuf(opts)` and `UnmarshalJSONSebuf(data, opts)` methods for messages containing maps with unwrapped values, plus thin `MarshalJSON()`/`UnmarshalJSON()` wrappers for stdlib `encoding/json`, so client options like `DiscardUnknown` flow through the custom serialization in both directions
 2. **Client Generation**: The generated client automatically uses the custom marshalers
 3. **OpenAPI Generation**: The OpenAPI schema shows the unwrapped structure (array values, not wrapper objects)
 
