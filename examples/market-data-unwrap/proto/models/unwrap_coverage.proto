@@ -7,10 +7,8 @@ import "sebuf/http/annotations.proto";
 
 // Trade is a single trade tick.
 message Trade {
-  // Trade identifier.
-  string i = 1;
-  // Trade price.
-  double p = 2;
+  string id = 1;
+  double price = 2;
 }
 
 // TradeList unwraps at the root, serializing as a bare JSON array.
@@ -20,10 +18,8 @@ message TradeList {
 
 // Quote is a top-of-book quote.
 message Quote {
-  // Bid price.
-  double bp = 1;
-  // Ask price.
-  double ap = 2;
+  double bid_price = 1;
+  double ask_price = 2;
 }
 
 // QuotesBySymbol unwraps at the root, serializing as a plain JSON object
@@ -44,9 +40,8 @@ message BarsBySymbol {
   map<string, OptionBarsList> bars = 1 [(sebuf.http.unwrap) = true];
 }
 
-// BarListSequence unwraps at the root; each element is itself a root-unwrap
-// message, so items only decode from their bare-array form through their own
-// options-aware method.
+// BarListSequence unwraps at the root and its elements are themselves
+// root-unwrap messages, so each element's JSON form is a bare array.
 message BarListSequence {
   repeated OptionBarsList lists = 1 [(sebuf.http.unwrap) = true];
 }

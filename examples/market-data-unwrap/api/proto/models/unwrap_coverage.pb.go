@@ -24,11 +24,9 @@ const (
 
 // Trade is a single trade tick.
 type Trade struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// Trade identifier.
-	I string `protobuf:"bytes,1,opt,name=i,proto3" json:"i,omitempty"`
-	// Trade price.
-	P             float64 `protobuf:"fixed64,2,opt,name=p,proto3" json:"p,omitempty"`
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Price         float64                `protobuf:"fixed64,2,opt,name=price,proto3" json:"price,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -63,16 +61,16 @@ func (*Trade) Descriptor() ([]byte, []int) {
 	return file_proto_models_unwrap_coverage_proto_rawDescGZIP(), []int{0}
 }
 
-func (x *Trade) GetI() string {
+func (x *Trade) GetId() string {
 	if x != nil {
-		return x.I
+		return x.Id
 	}
 	return ""
 }
 
-func (x *Trade) GetP() float64 {
+func (x *Trade) GetPrice() float64 {
 	if x != nil {
-		return x.P
+		return x.Price
 	}
 	return 0
 }
@@ -124,11 +122,9 @@ func (x *TradeList) GetTrades() []*Trade {
 
 // Quote is a top-of-book quote.
 type Quote struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// Bid price.
-	Bp float64 `protobuf:"fixed64,1,opt,name=bp,proto3" json:"bp,omitempty"`
-	// Ask price.
-	Ap            float64 `protobuf:"fixed64,2,opt,name=ap,proto3" json:"ap,omitempty"`
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	BidPrice      float64                `protobuf:"fixed64,1,opt,name=bid_price,json=bidPrice,proto3" json:"bid_price,omitempty"`
+	AskPrice      float64                `protobuf:"fixed64,2,opt,name=ask_price,json=askPrice,proto3" json:"ask_price,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -163,16 +159,16 @@ func (*Quote) Descriptor() ([]byte, []int) {
 	return file_proto_models_unwrap_coverage_proto_rawDescGZIP(), []int{2}
 }
 
-func (x *Quote) GetBp() float64 {
+func (x *Quote) GetBidPrice() float64 {
 	if x != nil {
-		return x.Bp
+		return x.BidPrice
 	}
 	return 0
 }
 
-func (x *Quote) GetAp() float64 {
+func (x *Quote) GetAskPrice() float64 {
 	if x != nil {
-		return x.Ap
+		return x.AskPrice
 	}
 	return 0
 }
@@ -315,9 +311,8 @@ func (x *BarsBySymbol) GetBars() map[string]*OptionBarsList {
 	return nil
 }
 
-// BarListSequence unwraps at the root; each element is itself a root-unwrap
-// message, so items only decode from their bare-array form through their own
-// options-aware method.
+// BarListSequence unwraps at the root and its elements are themselves
+// root-unwrap messages, so each element's JSON form is a bare array.
 type BarListSequence struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Lists         []*OptionBarsList      `protobuf:"bytes,1,rep,name=lists,proto3" json:"lists,omitempty"`
@@ -366,15 +361,15 @@ var File_proto_models_unwrap_coverage_proto protoreflect.FileDescriptor
 
 const file_proto_models_unwrap_coverage_proto_rawDesc = "" +
 	"\n" +
-	"\"proto/models/unwrap_coverage.proto\x12\x11marketdata.models\x1a\x1dproto/models/option_bar.proto\x1a\x1csebuf/http/annotations.proto\"#\n" +
-	"\x05Trade\x12\f\n" +
-	"\x01i\x18\x01 \x01(\tR\x01i\x12\f\n" +
-	"\x01p\x18\x02 \x01(\x01R\x01p\"C\n" +
+	"\"proto/models/unwrap_coverage.proto\x12\x11marketdata.models\x1a\x1dproto/models/option_bar.proto\x1a\x1csebuf/http/annotations.proto\"-\n" +
+	"\x05Trade\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x14\n" +
+	"\x05price\x18\x02 \x01(\x01R\x05price\"C\n" +
 	"\tTradeList\x126\n" +
-	"\x06trades\x18\x01 \x03(\v2\x18.marketdata.models.TradeB\x04ȵ\x18\x01R\x06trades\"'\n" +
-	"\x05Quote\x12\x0e\n" +
-	"\x02bp\x18\x01 \x01(\x01R\x02bp\x12\x0e\n" +
-	"\x02ap\x18\x02 \x01(\x01R\x02ap\"\xb2\x01\n" +
+	"\x06trades\x18\x01 \x03(\v2\x18.marketdata.models.TradeB\x04ȵ\x18\x01R\x06trades\"A\n" +
+	"\x05Quote\x12\x1b\n" +
+	"\tbid_price\x18\x01 \x01(\x01R\bbidPrice\x12\x1b\n" +
+	"\task_price\x18\x02 \x01(\x01R\baskPrice\"\xb2\x01\n" +
 	"\x0eQuotesBySymbol\x12K\n" +
 	"\x06quotes\x18\x01 \x03(\v2-.marketdata.models.QuotesBySymbol.QuotesEntryB\x04ȵ\x18\x01R\x06quotes\x1aS\n" +
 	"\vQuotesEntry\x12\x10\n" +

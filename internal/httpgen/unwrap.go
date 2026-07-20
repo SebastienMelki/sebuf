@@ -630,7 +630,6 @@ func (g *Generator) generateUnwrapUnmarshalJSON(gf *protogen.GeneratedFile, cont
 	gf.P("}")
 	gf.P()
 
-	// Backward-compatible UnmarshalJSON wrapper for stdlib encoding/json.
 	gf.P("// UnmarshalJSON implements json.Unmarshaler for ", msgName, ".")
 	gf.P("func (x *", msgName, ") UnmarshalJSON(data []byte) error {")
 	gf.P("return x.UnmarshalJSONSebuf(data, protojson.UnmarshalOptions{})")
@@ -920,7 +919,6 @@ func (g *Generator) generateRootMapUnwrapUnmarshalJSON(gf *protogen.GeneratedFil
 	gf.P("}")
 	gf.P()
 
-	// Backward-compatible UnmarshalJSON wrapper for stdlib encoding/json.
 	gf.P("// UnmarshalJSON implements json.Unmarshaler for ", msgName, ".")
 	gf.P("func (x *", msgName, ") UnmarshalJSON(data []byte) error {")
 	gf.P("return x.UnmarshalJSONSebuf(data, protojson.UnmarshalOptions{})")
@@ -1070,7 +1068,6 @@ func (g *Generator) generateRootRepeatedUnwrapUnmarshalJSON(gf *protogen.Generat
 	gf.P("}")
 	gf.P()
 
-	// Backward-compatible UnmarshalJSON wrapper for stdlib encoding/json.
 	gf.P("// UnmarshalJSON implements json.Unmarshaler for ", msgName, ".")
 	gf.P("func (x *", msgName, ") UnmarshalJSON(data []byte) error {")
 	gf.P("return x.UnmarshalJSONSebuf(data, protojson.UnmarshalOptions{})")

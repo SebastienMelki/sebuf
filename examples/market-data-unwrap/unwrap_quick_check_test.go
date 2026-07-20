@@ -10,10 +10,8 @@ import (
 	services "github.com/SebastienMelki/sebuf/examples/market-data-unwrap/api/proto/services"
 )
 
-// The compile-time quick check from issue #204, kept compiling forever: an
-// unwrap type must implement the stdlib interfaces and both options-aware Sebuf
-// methods. Before the fix, the fourth assertion did not compile because
-// UnmarshalJSONSebuf was never generated for unwrap types.
+// An unwrap type must implement the stdlib JSON interfaces and both
+// options-aware Sebuf methods.
 var (
 	_ json.Marshaler   = (*services.GetOptionBarsResponse)(nil)
 	_ json.Unmarshaler = (*services.GetOptionBarsResponse)(nil)
@@ -25,9 +23,9 @@ var (
 	} = (*services.GetOptionBarsResponse)(nil)
 )
 
-// TestUnwrapDirectDecode is the issue's two-line repro shape run directly on the
-// checked-in generated type, no HTTP involved: the same body must fail the
-// strict stdlib path and succeed through UnmarshalJSONSebuf with DiscardUnknown.
+// TestUnwrapDirectDecode decodes one body with an unknown field through both
+// paths on the generated type directly. The strict stdlib path must reject it
+// and UnmarshalJSONSebuf with DiscardUnknown must accept it.
 func TestUnwrapDirectDecode(t *testing.T) {
 	body := []byte(`{"bars":{"AAPL240119C00190000":[{"c":191.2,"field_from_a_newer_server":"x"}]}}`)
 

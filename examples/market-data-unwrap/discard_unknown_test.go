@@ -10,13 +10,10 @@ import (
 	services "github.com/SebastienMelki/sebuf/examples/market-data-unwrap/api/proto/services"
 )
 
-// TestUnwrapDiscardUnknownFields is the executable proof that the unwrap
-// annotation and DiscardUnknownFields interoperate. A real server evolves ahead
-// of its clients, so a response element can carry a field this client's proto
-// does not know. With the option on, the generated unwrap decoder must ignore
-// the extra field; without it, the strict default must reject the response.
-// The server writes the body by hand so it can contain a field no message here
-// declares.
+// TestUnwrapDiscardUnknownFields drives the generated client against a server
+// whose response carries a field this client's proto does not know. With
+// DiscardUnknownFields on, the decode must ignore it; the strict default must
+// reject it.
 func TestUnwrapDiscardUnknownFields(t *testing.T) {
 	body := `{"bars":{"AAPL240119C00190000":[` +
 		`{"t":"2025-12-15T15:05:00Z","o":190.5,"c":191.2,"v":12,` +
