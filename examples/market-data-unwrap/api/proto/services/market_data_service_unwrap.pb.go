@@ -13,9 +13,9 @@ import (
 	"google.golang.org/protobuf/encoding/protojson"
 )
 
-// MarshalJSON implements json.Marshaler for GetOptionBarsResponse.
+// MarshalJSONSebuf implements sebufMarshaler for GetOptionBarsResponse.
 // This method handles unwrap field serialization for map values.
-func (x *GetOptionBarsResponse) MarshalJSON() ([]byte, error) {
+func (x *GetOptionBarsResponse) MarshalJSONSebuf(opts protojson.MarshalOptions) ([]byte, error) {
 	if x == nil {
 		return []byte("null"), nil
 	}
@@ -30,7 +30,15 @@ func (x *GetOptionBarsResponse) MarshalJSON() ([]byte, error) {
 				// Marshal the unwrap field directly (the array)
 				items := make([]json.RawMessage, 0, len(wrapper.GetBars()))
 				for _, item := range wrapper.GetBars() {
-					data, err := protojson.Marshal(item)
+					var data []byte
+					var err error
+					if m, ok := any(item).(interface {
+						MarshalJSONSebuf(protojson.MarshalOptions) ([]byte, error)
+					}); ok {
+						data, err = m.MarshalJSONSebuf(opts)
+					} else {
+						data, err = opts.Marshal(item)
+					}
 					if err != nil {
 						return nil, err
 					}
@@ -62,9 +70,14 @@ func (x *GetOptionBarsResponse) MarshalJSON() ([]byte, error) {
 	return json.Marshal(out)
 }
 
-// UnmarshalJSON implements json.Unmarshaler for GetOptionBarsResponse.
+// MarshalJSON implements json.Marshaler for GetOptionBarsResponse.
+func (x *GetOptionBarsResponse) MarshalJSON() ([]byte, error) {
+	return x.MarshalJSONSebuf(protojson.MarshalOptions{})
+}
+
+// UnmarshalJSONSebuf implements sebufUnmarshaler for GetOptionBarsResponse.
 // This method handles unwrap field deserialization for map values.
-func (x *GetOptionBarsResponse) UnmarshalJSON(data []byte) error {
+func (x *GetOptionBarsResponse) UnmarshalJSONSebuf(data []byte, opts protojson.UnmarshalOptions) error {
 	var raw map[string]json.RawMessage
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return err
@@ -85,7 +98,13 @@ func (x *GetOptionBarsResponse) UnmarshalJSON(data []byte) error {
 			items := make([]*models.OptionBar, 0, len(itemsRaw))
 			for _, itemRaw := range itemsRaw {
 				item := &models.OptionBar{}
-				if err := protojson.Unmarshal(itemRaw, item); err != nil {
+				if u, ok := any(item).(interface {
+					UnmarshalJSONSebuf([]byte, protojson.UnmarshalOptions) error
+				}); ok {
+					if err := u.UnmarshalJSONSebuf(itemRaw, opts); err != nil {
+						return err
+					}
+				} else if err := opts.Unmarshal(itemRaw, item); err != nil {
 					return err
 				}
 				items = append(items, item)
@@ -102,4 +121,9 @@ func (x *GetOptionBarsResponse) UnmarshalJSON(data []byte) error {
 	}
 
 	return nil
+}
+
+// UnmarshalJSON implements json.Unmarshaler for GetOptionBarsResponse.
+func (x *GetOptionBarsResponse) UnmarshalJSON(data []byte) error {
+	return x.UnmarshalJSONSebuf(data, protojson.UnmarshalOptions{})
 }

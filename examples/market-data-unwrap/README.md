@@ -66,7 +66,7 @@ After running `make generate`, you'll have:
 api/
   models/
     option_bar.pb.go              # OptionBar and OptionBarsList messages
-    option_bar_unwrap.pb.go       # Custom MarshalJSON/UnmarshalJSON for unwrap
+    option_bar_unwrap.pb.go       # Options-aware MarshalJSONSebuf/UnmarshalJSONSebuf (+ stdlib wrappers) for unwrap
   services/
     market_data_service.pb.go           # Service interface
     market_data_service_http.pb.go      # HTTP handler registration
@@ -282,7 +282,7 @@ docker run -p 8081:8080 -v $(pwd)/docs:/app swaggerapi/swagger-ui
 ### How Unwrap Works
 
 1. **Proto definition**: Mark one repeated field in a message with `[(sebuf.http.unwrap) = true]`
-2. **Code generation**: sebuf generates custom `MarshalJSON()` and `UnmarshalJSON()` methods
+2. **Code generation**: sebuf generates options-aware `MarshalJSONSebuf(opts)`/`UnmarshalJSONSebuf(data, opts)` methods plus thin `MarshalJSON()`/`UnmarshalJSON()` wrappers, so client options like `DiscardUnknownFields` flow through the custom serialization
 3. **Runtime**: When the message is a map value, JSON serialization collapses the wrapper
 
 ### Constraints
