@@ -11,7 +11,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file get_params.proto.
  */
 export const file_get_params: GenFile = /*@__PURE__*/
-  fileDesc("ChBnZXRfcGFyYW1zLnByb3RvEg50ZXN0LmdldHBhcmFtcyKHAQoOR2V0SXRlbVJlcXVlc3QSDwoHaXRlbV9pZBgBIAEoCRIWCgVxdWVyeRgCIAEoCUIHwrUYAwoBcRIaCgVsaW1pdBgDIAEoBUILwrUYBwoFbGltaXQSMAoQaW5jbHVkZV9hcmNoaXZlZBgEIAEoCEIWwrUYEgoQaW5jbHVkZV9hcmNoaXZlZCJMChVHZXRJdGVtVmVyc2lvblJlcXVlc3QSEwoLaXRlbV9udW1iZXIYASABKAMSDwoHdmVyc2lvbhgCIAEoBRINCgVkcmFmdBgDIAEoCCI2ChFVcGRhdGVJdGVtUmVxdWVzdBITCgtpdGVtX251bWJlchgBIAEoAxIMCgRuYW1lGAIgASgJIiAKBEl0ZW0SCgoCaWQYASABKAkSDAoEbmFtZRgCIAEoCTLwAgoQR2V0UGFyYW1zU2VydmljZRJZCgdHZXRJdGVtEh4udGVzdC5nZXRwYXJhbXMuR2V0SXRlbVJlcXVlc3QaFC50ZXN0LmdldHBhcmFtcy5JdGVtIhiatRgUChAvaXRlbXMve2l0ZW1faWR9EAESjAEKDkdldEl0ZW1WZXJzaW9uEiUudGVzdC5nZXRwYXJhbXMuR2V0SXRlbVZlcnNpb25SZXF1ZXN0GhQudGVzdC5nZXRwYXJhbXMuSXRlbSI9mrUYOQo1L2l0ZW1zL3tpdGVtX251bWJlcn0vdmVyc2lvbnMve3ZlcnNpb259L2RyYWZ0L3tkcmFmdH0QARJjCgpVcGRhdGVJdGVtEiEudGVzdC5nZXRwYXJhbXMuVXBkYXRlSXRlbVJlcXVlc3QaFC50ZXN0LmdldHBhcmFtcy5JdGVtIhyatRgYChQvaXRlbXMve2l0ZW1fbnVtYmVyfRACGg2itRgJCgcvYXBpL3YxQk9aTWdpdGh1Yi5jb20vU2ViYXN0aWVuTWVsa2kvc2VidWYvaW50ZXJuYWwvaHR0cGdlbi90ZXN0ZGF0YS9nZW5lcmF0ZWQ7Z2VuZXJhdGVkYgZwcm90bzM", [file_sebuf_http_annotations]);
+  fileDesc("ChBnZXRfcGFyYW1zLnByb3RvEg50ZXN0LmdldHBhcmFtcyLxAQoOR2V0SXRlbVJlcXVlc3QSDwoHaXRlbV9pZBgBIAEoCRIWCgVxdWVyeRgCIAEoCUIHwrUYAwoBcRIaCgVsaW1pdBgDIAEoBUILwrUYBwoFbGltaXQSMAoQaW5jbHVkZV9hcmNoaXZlZBgEIAEoCEIWwrUYEgoQaW5jbHVkZV9hcmNoaXZlZBIYCgR0YWdzGAUgAygJQgrCtRgGCgR0YWdzEhoKBXNpemVzGAYgAygFQgvCtRgHCgVzaXplcxIWCgNpZHMYByADKANCCcK1GAUKA2lkcxIaCgVmbGFncxgIIAMoCEILwrUYBwoFZmxhZ3MiTAoVR2V0SXRlbVZlcnNpb25SZXF1ZXN0EhMKC2l0ZW1fbnVtYmVyGAEgASgDEg8KB3ZlcnNpb24YAiABKAUSDQoFZHJhZnQYAyABKAgiNgoRVXBkYXRlSXRlbVJlcXVlc3QSEwoLaXRlbV9udW1iZXIYASABKAMSDAoEbmFtZRgCIAEoCSIgCgRJdGVtEgoKAmlkGAEgASgJEgwKBG5hbWUYAiABKAky8AIKEEdldFBhcmFtc1NlcnZpY2USWQoHR2V0SXRlbRIeLnRlc3QuZ2V0cGFyYW1zLkdldEl0ZW1SZXF1ZXN0GhQudGVzdC5nZXRwYXJhbXMuSXRlbSIYmrUYFAoQL2l0ZW1zL3tpdGVtX2lkfRABEowBCg5HZXRJdGVtVmVyc2lvbhIlLnRlc3QuZ2V0cGFyYW1zLkdldEl0ZW1WZXJzaW9uUmVxdWVzdBoULnRlc3QuZ2V0cGFyYW1zLkl0ZW0iPZq1GDkKNS9pdGVtcy97aXRlbV9udW1iZXJ9L3ZlcnNpb25zL3t2ZXJzaW9ufS9kcmFmdC97ZHJhZnR9EAESYwoKVXBkYXRlSXRlbRIhLnRlc3QuZ2V0cGFyYW1zLlVwZGF0ZUl0ZW1SZXF1ZXN0GhQudGVzdC5nZXRwYXJhbXMuSXRlbSIcmrUYGAoUL2l0ZW1zL3tpdGVtX251bWJlcn0QAhoNorUYCQoHL2FwaS92MUJPWk1naXRodWIuY29tL1NlYmFzdGllbk1lbGtpL3NlYnVmL2ludGVybmFsL2h0dHBnZW4vdGVzdGRhdGEvZ2VuZXJhdGVkO2dlbmVyYXRlZGIGcHJvdG8z", [file_sebuf_http_annotations]);
 
 /**
  * @generated from message test.getparams.GetItemRequest
@@ -40,6 +40,30 @@ export type GetItemRequest = Message<"test.getparams.GetItemRequest"> & {
    * @generated from field: bool include_archived = 4;
    */
   includeArchived: boolean;
+
+  /**
+   * Repeated (non-enum) query parameters. On the server these arrive as a
+   * getAll() string[] and must be coerced to the protobuf-es element type
+   * (string[] passthrough, number[]/bigint[]/boolean[] mapped).
+   *
+   * @generated from field: repeated string tags = 5;
+   */
+  tags: string[];
+
+  /**
+   * @generated from field: repeated int32 sizes = 6;
+   */
+  sizes: number[];
+
+  /**
+   * @generated from field: repeated int64 ids = 7;
+   */
+  ids: bigint[];
+
+  /**
+   * @generated from field: repeated bool flags = 8;
+   */
+  flags: boolean[];
 };
 
 /**

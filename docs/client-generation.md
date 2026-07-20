@@ -818,6 +818,41 @@ ignored rather than causing an error).
   `"undefined"` at runtime. Hand-rolled mode's request interfaces mark such
   fields required; in es-mode this check is deferred to the server's 4xx.
 
+### Roadmap — lifting the guard
+
+es-mode ships as a **preview**: correct and safe for protos that use no
+`sebuf.http` JSON-mapping annotation, and fail-loud for the rest. The plan to
+make it a true drop-in replacement for annotated protos — matching what the Go
+server does with `MarshalJSONSebuf` — is staged so the fail-loud guard can be
+lifted **one annotation at a time**, each only after it is proven wire-correct.
+
+1. **Conformance harness (prerequisite for everything below).** A cross-runtime
+   test that asserts es-mode's on-the-wire bytes are **byte-equivalent** to a
+   sebuf Go server for a given `(message, annotation)` case — encode *and*
+   decode. The Go marshal pipeline already has per-annotation consistency tests
+   (`internal/httpgen/*_consistency_test.go`) that pin the expected wire; those
+   become the oracle. Start with captured golden wire fixtures (deterministic, no
+   network), add a handful of live Go-server round-trips for the trickiest
+   annotations. This harness is what lets us trust each transform and is the gate
+   for removing an annotation from the guard.
+2. **Transform layer (the TS analog of `MarshalJSONSebuf`).** The Go layer is not
+   a bespoke serializer — it post-processes canonical protojson: `protojson`
+   marshal → rewrite only the annotated JSON keys → emit. The same shape ports to
+   TypeScript over `toJson`/`fromJson`. Because protobuf-es exposes the message
+   `Schema` (`DescMessage`) at runtime, this can be a single hand-written runtime
+   shim (`sebufToJson`/`sebufFromJson`) driven by a small per-field annotation
+   table the plugin emits — not per-message codegen. Implement annotation by
+   annotation; as each passes the conformance harness, drop it from
+   `CheckESMessageAnnotations`.
+3. **Suggested order** (cheapest / highest-value first): `int64_encoding`,
+   `enum_value`, `enum_encoding`, `timestamp_format`, `bytes_encoding`,
+   `nullable`, `empty_behavior`, then the structural ones — `flatten` /
+   `flatten_prefix`, `unwrap`, and `oneof_config` flatten. Each lands with its
+   own conformance case and a guard-lift in the same change.
+
+Until an annotation reaches step 2 with green conformance, es-mode rejects it at
+generation time — no silent wire divergence.
+
 ## See Also
 
 - **[HTTP Generation Guide](./http-generation.md)** - Go server-side handler generation

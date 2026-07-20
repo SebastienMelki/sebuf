@@ -34,6 +34,10 @@ export class GetParamsServiceClient {
     if (req.query != null && req.query !== "") params.set("q", String(req.query));
     if (req.limit != null && req.limit !== 0) params.set("limit", String(req.limit));
     if (req.includeArchived) params.set("include_archived", String(req.includeArchived));
+    if (req.tags && req.tags.length > 0) req.tags.forEach(v => params.append("tags", String(v)));
+    if (req.sizes && req.sizes.length > 0) req.sizes.forEach(v => params.append("sizes", String(v)));
+    if (req.ids && req.ids.length > 0) req.ids.forEach(v => params.append("ids", String(v)));
+    if (req.flags && req.flags.length > 0) req.flags.forEach(v => params.append("flags", String(v)));
     const url = this.baseURL + path + (params.toString() ? "?" + params.toString() : "");
 
     const headers: Record<string, string> = {

@@ -675,6 +675,31 @@ func esPathParamInitExpr(field *protogen.Field, raw string) string {
 	}
 }
 
+// esQueryListInitExpr returns the TypeScript expression that coerces a
+// `getAll()` string[] into the element type protobuf-es expects for a repeated
+// query-param field. Query values arrive as strings, but protobuf-es types a
+// `repeated int32` as `number[]`, a repeated 64-bit field as `bigint[]`, and a
+// `repeated bool` as `boolean[]`. Enum lists never reach here in es-mode
+// (rejected up front by checkNoEnumParamsES); string lists pass through.
+func esQueryListInitExpr(field *protogen.Field, getAll string) string {
+	if field == nil {
+		return getAll
+	}
+	switch field.Desc.Kind() {
+	case protoreflect.BoolKind:
+		return getAll + `.map((v) => v === "true")`
+	case protoreflect.Int32Kind, protoreflect.Sint32Kind, protoreflect.Sfixed32Kind,
+		protoreflect.Uint32Kind, protoreflect.Fixed32Kind,
+		protoreflect.FloatKind, protoreflect.DoubleKind:
+		return getAll + ".map(Number)"
+	case protoreflect.Int64Kind, protoreflect.Sint64Kind, protoreflect.Sfixed64Kind,
+		protoreflect.Uint64Kind, protoreflect.Fixed64Kind:
+		return getAll + ".map(BigInt)"
+	default:
+		return getAll
+	}
+}
+
 // generatePathParamMerge generates code to merge path params into the request body.
 // This ensures the handler receives a fully populated request, matching Go generator behavior.
 func (g *Generator) generatePathParamMerge(p tscommon.Printer, cfg *rpcRouteConfig, _ *protogen.Method) {
@@ -864,9 +889,17 @@ func (g *Generator) generateQueryParamField(p tscommon.Printer, qp annotations.Q
 
 	// Handle repeated fields: use getAll() for multi-value params
 	if qp.Field != nil && qp.Field.Desc.IsList() {
-		if qp.Field.Desc.Kind() == protoreflect.EnumKind && qp.Field.Enum != nil {
+		switch {
+		case qp.Field.Desc.Kind() == protoreflect.EnumKind && qp.Field.Enum != nil:
+			// Hand-rolled only: enums are string unions here. es-mode rejects enum
+			// query params before emission (see checkNoEnumParamsES).
 			p(`            %s: params.getAll("%s") as %s[],`, jsonName, paramName, g.ctx.RefEnum(qp.Field.Enum))
-		} else {
+		case g.ctx.MessageRuntime == tscommon.MessageRuntimeES:
+			// protobuf-es element types are strongly typed; coerce the string[]
+			// from getAll() to number[]/bigint[]/boolean[] (string[] passes through).
+			getAll := fmt.Sprintf(`params.getAll("%s")`, paramName)
+			p(`            %s: %s,`, jsonName, esQueryListInitExpr(qp.Field, getAll))
+		default:
 			p(`            %s: params.getAll("%s"),`, jsonName, paramName)
 		}
 		return

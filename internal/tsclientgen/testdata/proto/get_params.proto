@@ -51,6 +51,13 @@ message GetItemRequest {
   string query = 2 [(sebuf.http.query) = { name: "q" }];
   int32 limit = 3 [(sebuf.http.query) = { name: "limit" }];
   bool include_archived = 4 [(sebuf.http.query) = { name: "include_archived" }];
+  // Repeated (non-enum) query parameters. On the server these arrive as a
+  // getAll() string[] and must be coerced to the protobuf-es element type
+  // (string[] passthrough, number[]/bigint[]/boolean[] mapped).
+  repeated string tags = 5 [(sebuf.http.query) = { name: "tags" }];
+  repeated int32 sizes = 6 [(sebuf.http.query) = { name: "sizes" }];
+  repeated int64 ids = 7 [(sebuf.http.query) = { name: "ids" }];
+  repeated bool flags = 8 [(sebuf.http.query) = { name: "flags" }];
 }
 
 message GetItemVersionRequest {

@@ -50,6 +50,10 @@ export function createGetParamsServiceRoutes(
             query: params.get("q") ?? "",
             limit: Number(params.get("limit") ?? "0"),
             includeArchived: params.get("include_archived") === "true",
+            tags: params.getAll("tags"),
+            sizes: params.getAll("sizes").map(Number),
+            ids: params.getAll("ids").map(BigInt),
+            flags: params.getAll("flags").map((v) => v === "true"),
           });
           if (options?.validateRequest) {
             const bodyViolations = options.validateRequest("getItem", body);
