@@ -120,6 +120,58 @@ func TestTSServerGenESRejectsEnumParams(t *testing.T) {
 	}
 }
 
+// TestTSServerGenESRejectsAnnotatedMessages asserts that in protobuf-es mode the
+// generator fails loud when an RPC's request or response message closure carries
+// a sebuf.http JSON-mapping annotation es-mode cannot honor. es-mode serializes
+// with the canonical protojson codec, so any annotated proto would silently
+// disagree with a sebuf Go server; the guard rejects it at generation time
+// rather than emitting a second, incompatible wire format. Each fixture reuses
+// the existing per-annotation hand-rolled test proto.
+func TestTSServerGenESRejectsAnnotatedMessages(t *testing.T) {
+	if _, err := exec.LookPath("protoc"); err != nil {
+		t.Skip("protoc not found, skipping in-process es annotation-guard test")
+	}
+
+	baseDir, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("Failed to get working directory: %v", err)
+	}
+	projectRoot := filepath.Join(baseDir, "..", "..")
+	protoDir := filepath.Join(baseDir, "testdata", "proto")
+
+	cases := []struct {
+		protoFile string
+		wantToken string
+	}{
+		{"unwrap.proto", "unwrap"},
+		{"timestamp_format.proto", "timestamp_format"},
+		{"bytes_encoding.proto", "bytes_encoding"},
+		{"nullable.proto", "nullable"},
+		{"empty_behavior.proto", "empty_behavior"},
+		{"flatten.proto", "flatten"},
+		{"oneof_discriminator.proto", "oneof_config"},
+		{"enum_encoding.proto", "enum_value"},
+		{"int64_encoding.proto", "int64_encoding=NUMBER"},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.protoFile, func(t *testing.T) {
+			plugin := buildInProcessPlugin(t, protoDir, projectRoot, []string{tc.protoFile})
+			genErr := New(plugin, tscommon.MessageRuntimeES).Generate()
+			if genErr == nil {
+				t.Fatalf("expected Generate() to fail for %s in es mode, but it succeeded", tc.protoFile)
+			}
+			if !strings.Contains(genErr.Error(), "ts_runtime=protobuf-es:") ||
+				!strings.Contains(genErr.Error(), "cannot honor") {
+				t.Errorf("expected es JSON-mapping guard error, got: %v", genErr)
+			}
+			if !strings.Contains(genErr.Error(), tc.wantToken) {
+				t.Errorf("expected error to name annotation %q, got: %v", tc.wantToken, genErr)
+			}
+		})
+	}
+}
+
 // TestTSServerGenInProcessReservedName drives a fixture whose message is named
 // ValidationError (a reserved error-helper symbol) and asserts Generate() fails
 // with a rename error, covering tscommon.CheckReservedNames via EmitSharedModules.

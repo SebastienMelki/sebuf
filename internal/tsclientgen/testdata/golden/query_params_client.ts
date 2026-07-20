@@ -144,11 +144,11 @@ export class QueryParamServiceClient {
     let path = "/api/search/advanced";
     const params = new URLSearchParams();
     if (req.region != null && req.region !== "unspecified") params.set("region", String(req.region));
-    if (req.countries && req.countries.length > 0) req.countries.forEach(v => params.append("countries", v));
+    if (req.countries && req.countries.length > 0) req.countries.forEach(v => params.append("countries", String(v)));
     if (req.keyword != null && req.keyword !== "") params.set("keyword", String(req.keyword));
-    if (req.years && req.years.length > 0) req.years.forEach(v => params.append("years", v));
-    if (req.flags && req.flags.length > 0) req.flags.forEach(v => params.append("flags", v));
-    if (req.regions && req.regions.length > 0) req.regions.forEach(v => params.append("regions", v));
+    if (req.years && req.years.length > 0) req.years.forEach(v => params.append("years", String(v)));
+    if (req.flags && req.flags.length > 0) req.flags.forEach(v => params.append("flags", String(v)));
+    if (req.regions && req.regions.length > 0) req.regions.forEach(v => params.append("regions", String(v)));
     const url = this.baseURL + path + (params.toString() ? "?" + params.toString() : "");
 
     const headers: Record<string, string> = {

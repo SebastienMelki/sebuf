@@ -6,10 +6,12 @@ option go_package = "github.com/SebastienMelki/sebuf/internal/httpgen/testdata/g
 
 import "sebuf/http/annotations.proto";
 
-// GetParamsService exercises a unary GET RPC with a string path parameter and
-// scalar (non-enum) query parameters under protobuf-es mode. This locks down
-// the path/query surface that the POST-unary and GET-streaming es fixtures do
-// not cover.
+// GetParamsService exercises unary RPCs with path and query parameters under
+// protobuf-es mode: a string path param, scalar (non-enum) query params, and
+// non-string (numeric/bool) path params that must be coerced from their raw URL
+// string form into the strongly typed protobuf-es message shapes. This locks
+// down the path/query surface that the POST-unary and GET-streaming es fixtures
+// do not cover.
 service GetParamsService {
   option (sebuf.http.service_config) = {
     base_path: "/api/v1"
@@ -21,6 +23,25 @@ service GetParamsService {
       method: HTTP_METHOD_GET
     };
   }
+
+  // Non-string path params on a GET: item_number (bigint), version (number),
+  // and draft (boolean) must be coerced from their raw string form when the
+  // request object is built via create(<Req>Schema, {...}).
+  rpc GetItemVersion(GetItemVersionRequest) returns (Item) {
+    option (sebuf.http.config) = {
+      path: "/items/{item_number}/versions/{version}/draft/{draft}"
+      method: HTTP_METHOD_GET
+    };
+  }
+
+  // Non-string path param merged into a POST body: item_number (bigint) must be
+  // coerced before assignment onto the branded request message.
+  rpc UpdateItem(UpdateItemRequest) returns (Item) {
+    option (sebuf.http.config) = {
+      path: "/items/{item_number}"
+      method: HTTP_METHOD_POST
+    };
+  }
 }
 
 message GetItemRequest {
@@ -30,6 +51,19 @@ message GetItemRequest {
   string query = 2 [(sebuf.http.query) = { name: "q" }];
   int32 limit = 3 [(sebuf.http.query) = { name: "limit" }];
   bool include_archived = 4 [(sebuf.http.query) = { name: "include_archived" }];
+}
+
+message GetItemVersionRequest {
+  // Non-string path parameters (coerced from URL strings).
+  int64 item_number = 1;
+  int32 version = 2;
+  bool draft = 3;
+}
+
+message UpdateItemRequest {
+  // Non-string path parameter merged into the request body.
+  int64 item_number = 1;
+  string name = 2;
 }
 
 message Item {

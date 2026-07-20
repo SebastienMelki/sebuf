@@ -37,10 +37,25 @@ func (g *Generator) generateServiceClient(p printer, service *protogen.Service) 
 
 	// Enum path/query parameters are not representable in protobuf-es mode
 	// (numeric enums vs string URL params); fail loud rather than emit code that
-	// fails downstream tsc.
+	// fails downstream tsc. Body/response messages carrying JSON-mapping
+	// annotations es-mode cannot honor are rejected the same way.
 	if g.ctx.MessageRuntime == tscommon.MessageRuntimeES {
 		for _, method := range service.Methods {
 			if err := checkNoEnumParamsES(service, method); err != nil {
+				return err
+			}
+			role := "response"
+			if cfg := annotations.GetMethodHTTPConfig(method); cfg != nil && cfg.Stream {
+				role = "SSE event"
+			}
+			if err := tscommon.CheckESMessageAnnotations(
+				service.GoName, method.GoName, "request", method.Input,
+			); err != nil {
+				return err
+			}
+			if err := tscommon.CheckESMessageAnnotations(
+				service.GoName, method.GoName, role, method.Output,
+			); err != nil {
 				return err
 			}
 		}
@@ -464,7 +479,9 @@ func (g *Generator) generateURLBuilding(p printer, cfg *rpcMethodConfig) {
 		for _, qp := range cfg.queryParams {
 			// Handle repeated fields: use forEach + append for multi-value params
 			if qp.Field != nil && qp.Field.Desc.IsList() {
-				p("    if (req.%s && req.%s.length > 0) req.%s.forEach(v => params.append(\"%s\", v));",
+				// String(v) coerces non-string element types (int32/bool/…) so the
+				// URLSearchParams.append call typechecks; it is a no-op for strings.
+				p("    if (req.%s && req.%s.length > 0) req.%s.forEach(v => params.append(\"%s\", String(v)));",
 					qp.FieldJSONName, qp.FieldJSONName, qp.FieldJSONName, qp.ParamName)
 				continue
 			}

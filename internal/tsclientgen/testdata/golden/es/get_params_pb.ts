@@ -11,7 +11,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file get_params.proto.
  */
 export const file_get_params: GenFile = /*@__PURE__*/
-  fileDesc("ChBnZXRfcGFyYW1zLnByb3RvEg50ZXN0LmdldHBhcmFtcyKHAQoOR2V0SXRlbVJlcXVlc3QSDwoHaXRlbV9pZBgBIAEoCRIWCgVxdWVyeRgCIAEoCUIHwrUYAwoBcRIaCgVsaW1pdBgDIAEoBUILwrUYBwoFbGltaXQSMAoQaW5jbHVkZV9hcmNoaXZlZBgEIAEoCEIWwrUYEgoQaW5jbHVkZV9hcmNoaXZlZCIgCgRJdGVtEgoKAmlkGAEgASgJEgwKBG5hbWUYAiABKAkyfAoQR2V0UGFyYW1zU2VydmljZRJZCgdHZXRJdGVtEh4udGVzdC5nZXRwYXJhbXMuR2V0SXRlbVJlcXVlc3QaFC50ZXN0LmdldHBhcmFtcy5JdGVtIhiatRgUChAvaXRlbXMve2l0ZW1faWR9EAEaDaK1GAkKBy9hcGkvdjFCT1pNZ2l0aHViLmNvbS9TZWJhc3RpZW5NZWxraS9zZWJ1Zi9pbnRlcm5hbC9odHRwZ2VuL3Rlc3RkYXRhL2dlbmVyYXRlZDtnZW5lcmF0ZWRiBnByb3RvMw", [file_sebuf_http_annotations]);
+  fileDesc("ChBnZXRfcGFyYW1zLnByb3RvEg50ZXN0LmdldHBhcmFtcyKHAQoOR2V0SXRlbVJlcXVlc3QSDwoHaXRlbV9pZBgBIAEoCRIWCgVxdWVyeRgCIAEoCUIHwrUYAwoBcRIaCgVsaW1pdBgDIAEoBUILwrUYBwoFbGltaXQSMAoQaW5jbHVkZV9hcmNoaXZlZBgEIAEoCEIWwrUYEgoQaW5jbHVkZV9hcmNoaXZlZCJMChVHZXRJdGVtVmVyc2lvblJlcXVlc3QSEwoLaXRlbV9udW1iZXIYASABKAMSDwoHdmVyc2lvbhgCIAEoBRINCgVkcmFmdBgDIAEoCCI2ChFVcGRhdGVJdGVtUmVxdWVzdBITCgtpdGVtX251bWJlchgBIAEoAxIMCgRuYW1lGAIgASgJIiAKBEl0ZW0SCgoCaWQYASABKAkSDAoEbmFtZRgCIAEoCTLwAgoQR2V0UGFyYW1zU2VydmljZRJZCgdHZXRJdGVtEh4udGVzdC5nZXRwYXJhbXMuR2V0SXRlbVJlcXVlc3QaFC50ZXN0LmdldHBhcmFtcy5JdGVtIhiatRgUChAvaXRlbXMve2l0ZW1faWR9EAESjAEKDkdldEl0ZW1WZXJzaW9uEiUudGVzdC5nZXRwYXJhbXMuR2V0SXRlbVZlcnNpb25SZXF1ZXN0GhQudGVzdC5nZXRwYXJhbXMuSXRlbSI9mrUYOQo1L2l0ZW1zL3tpdGVtX251bWJlcn0vdmVyc2lvbnMve3ZlcnNpb259L2RyYWZ0L3tkcmFmdH0QARJjCgpVcGRhdGVJdGVtEiEudGVzdC5nZXRwYXJhbXMuVXBkYXRlSXRlbVJlcXVlc3QaFC50ZXN0LmdldHBhcmFtcy5JdGVtIhyatRgYChQvaXRlbXMve2l0ZW1fbnVtYmVyfRACGg2itRgJCgcvYXBpL3YxQk9aTWdpdGh1Yi5jb20vU2ViYXN0aWVuTWVsa2kvc2VidWYvaW50ZXJuYWwvaHR0cGdlbi90ZXN0ZGF0YS9nZW5lcmF0ZWQ7Z2VuZXJhdGVkYgZwcm90bzM", [file_sebuf_http_annotations]);
 
 /**
  * @generated from message test.getparams.GetItemRequest
@@ -50,6 +50,59 @@ export const GetItemRequestSchema: GenMessage<GetItemRequest> = /*@__PURE__*/
   messageDesc(file_get_params, 0);
 
 /**
+ * @generated from message test.getparams.GetItemVersionRequest
+ */
+export type GetItemVersionRequest = Message<"test.getparams.GetItemVersionRequest"> & {
+  /**
+   * Non-string path parameters (coerced from URL strings).
+   *
+   * @generated from field: int64 item_number = 1;
+   */
+  itemNumber: bigint;
+
+  /**
+   * @generated from field: int32 version = 2;
+   */
+  version: number;
+
+  /**
+   * @generated from field: bool draft = 3;
+   */
+  draft: boolean;
+};
+
+/**
+ * Describes the message test.getparams.GetItemVersionRequest.
+ * Use `create(GetItemVersionRequestSchema)` to create a new message.
+ */
+export const GetItemVersionRequestSchema: GenMessage<GetItemVersionRequest> = /*@__PURE__*/
+  messageDesc(file_get_params, 1);
+
+/**
+ * @generated from message test.getparams.UpdateItemRequest
+ */
+export type UpdateItemRequest = Message<"test.getparams.UpdateItemRequest"> & {
+  /**
+   * Non-string path parameter merged into the request body.
+   *
+   * @generated from field: int64 item_number = 1;
+   */
+  itemNumber: bigint;
+
+  /**
+   * @generated from field: string name = 2;
+   */
+  name: string;
+};
+
+/**
+ * Describes the message test.getparams.UpdateItemRequest.
+ * Use `create(UpdateItemRequestSchema)` to create a new message.
+ */
+export const UpdateItemRequestSchema: GenMessage<UpdateItemRequest> = /*@__PURE__*/
+  messageDesc(file_get_params, 2);
+
+/**
  * @generated from message test.getparams.Item
  */
 export type Item = Message<"test.getparams.Item"> & {
@@ -69,13 +122,15 @@ export type Item = Message<"test.getparams.Item"> & {
  * Use `create(ItemSchema)` to create a new message.
  */
 export const ItemSchema: GenMessage<Item> = /*@__PURE__*/
-  messageDesc(file_get_params, 1);
+  messageDesc(file_get_params, 3);
 
 /**
- * GetParamsService exercises a unary GET RPC with a string path parameter and
- * scalar (non-enum) query parameters under protobuf-es mode. This locks down
- * the path/query surface that the POST-unary and GET-streaming es fixtures do
- * not cover.
+ * GetParamsService exercises unary RPCs with path and query parameters under
+ * protobuf-es mode: a string path param, scalar (non-enum) query params, and
+ * non-string (numeric/bool) path params that must be coerced from their raw URL
+ * string form into the strongly typed protobuf-es message shapes. This locks
+ * down the path/query surface that the POST-unary and GET-streaming es fixtures
+ * do not cover.
  *
  * @generated from service test.getparams.GetParamsService
  */
@@ -86,6 +141,29 @@ export const GetParamsService: GenService<{
   getItem: {
     methodKind: "unary";
     input: typeof GetItemRequestSchema;
+    output: typeof ItemSchema;
+  },
+  /**
+   * Non-string path params on a GET: item_number (bigint), version (number),
+   * and draft (boolean) must be coerced from their raw string form when the
+   * request object is built via create(<Req>Schema, {...}).
+   *
+   * @generated from rpc test.getparams.GetParamsService.GetItemVersion
+   */
+  getItemVersion: {
+    methodKind: "unary";
+    input: typeof GetItemVersionRequestSchema;
+    output: typeof ItemSchema;
+  },
+  /**
+   * Non-string path param merged into a POST body: item_number (bigint) must be
+   * coerced before assignment onto the branded request message.
+   *
+   * @generated from rpc test.getparams.GetParamsService.UpdateItem
+   */
+  updateItem: {
+    methodKind: "unary";
+    input: typeof UpdateItemRequestSchema;
     output: typeof ItemSchema;
   },
 }> = /*@__PURE__*/

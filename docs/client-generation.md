@@ -643,10 +643,28 @@ per-proto type module `<proto>.ts` described above). Passing
 **protobuf-es transport mode**: instead of declaring their own interfaces, they
 consume the message types and schemas emitted by
 [`protoc-gen-es`](https://github.com/bufbuild/protobuf-es) (the `<proto>_pb.ts`
-files) and serialize on the wire through protobuf-es's canonical
-`fromJson`/`toJson`. This gives you protobuf-es's fully spec-compliant proto3
-JSON encoding (defaults, `bigint`, oneofs, well-known types) for free, shared
-across your whole app.
+files) and serialize on the wire through protobuf-es's `fromJson`/`toJson`. This
+gives you protobuf-es's spec-compliant **canonical proto3 JSON** encoding
+(defaults, `bigint`, oneofs, well-known types) for free, shared across your whole
+app.
+
+> **Wire contract — read this before enabling es-mode.** es-mode speaks
+> **canonical protojson** and applies **none** of sebuf's `sebuf.http`
+> JSON-mapping annotations (`unwrap`, `oneof_config` flatten, `flatten` /
+> `flatten_prefix`, `enum_value`, `timestamp_format`, `bytes_encoding`,
+> `nullable`, `empty_behavior`, `enum_encoding`, `int64_encoding`). A sebuf Go
+> server, by contrast, layers an annotation-aware transform
+> (`MarshalJSONSebuf`) on top of protojson that deliberately diverges from
+> canonical protojson wherever one of those annotations is set. es-mode does
+> **not** yet have the TypeScript equivalent of that transform layer, so for any
+> annotated proto it is on a **different, incompatible wire** than the sebuf Go
+> server (and than the default hand-rolled TS output). It is therefore only
+> wire-compatible with a sebuf server for protos that use **none** of those
+> annotations. This is not left to chance: the generator **walks each RPC's
+> request/response message closure and fails loud at generation time** if it
+> finds any such annotation (see `CheckESMessageAnnotations` in
+> `internal/tscommon/es_guard.go`). Use the default hand-rolled runtime for
+> services that rely on JSON-mapping annotations.
 
 ### buf.gen.yaml shape
 
@@ -749,6 +767,16 @@ ignored rather than causing an error).
 
 ### Known limitations
 
+- **`sebuf.http` JSON-mapping annotations are not honored (fail-loud).** As
+  described in the wire-contract note above, es-mode emits canonical protojson
+  and does not apply any JSON-mapping annotation. The generator rejects, at
+  generation time, any RPC whose request/response message closure carries one —
+  with an error such as `ts_runtime=protobuf-es: field User.status uses the
+  enum_value JSON-mapping annotation (reachable from the response of
+  UserService.GetUser), which es-mode cannot honor`. Porting the sebuf transform
+  layer to TypeScript (so annotated protos round-trip byte-for-byte with the Go
+  server) is tracked as future work; until then, use hand-rolled mode for those
+  services.
 - **Enum path AND query parameters are not yet supported.** protobuf-es enums
   are numeric, but path- and query-parameter values arrive as strings on the
   wire; safely bridging the two requires a name↔number conversion that is not
@@ -775,12 +803,15 @@ ignored rather than causing an error).
   consumer build.
 - **URL parameters do not route through the protobuf-es codec.** Only request
   bodies, response bodies, and SSE events go through
-  `create`/`toJson`/`fromJson`. Path and query parameter values are read
-  directly off the request init shape and string-coerced
-  (`encodeURIComponent(String(...))` / `URLSearchParams`), the same as
-  hand-rolled mode. URL parameters have no protojson canonical form, so this is
-  by design — but it means codec guarantees (e.g. int64 normalization) do not
-  apply to them.
+  `create`/`toJson`/`fromJson`. Path and query parameter values are derived
+  directly from strings: on the client they are string-coerced into the URL
+  (`encodeURIComponent(String(...))` / `URLSearchParams`); on the server they are
+  read off the URL and coerced back to the field's protobuf-es type before being
+  placed on the request message (numeric fields via `Number(...)`, 64-bit via
+  `BigInt(...)`, booleans via `=== "true"`, strings verbatim). URL parameters
+  have no protojson canonical form, so this coercion — rather than the codec — is
+  by design; it means codec guarantees (e.g. int64 string/number normalization)
+  do not apply to them.
 - **Path parameters are not compile-time required.** `MessageInitShape<...>`
   makes every request field optional at the type level, so omitting a path
   parameter field compiles and produces a URL containing the string
