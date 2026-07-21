@@ -102,6 +102,17 @@ func TestHTTPGenGoldenFiles(t *testing.T) {
 			},
 		},
 		{
+			name:      "enum nested (transitive)",
+			protoFile: "enum_nested.proto",
+			expectedFiles: []string{
+				"enum_nested_http.pb.go",
+				"enum_nested_http_binding.pb.go",
+				"enum_nested_http_config.pb.go",
+				"enum_nested_enum_encoding.pb.go",
+				"enum_nested_enum_field_encoding.pb.go",
+			},
+		},
+		{
 			name:      "nullable fields",
 			protoFile: "nullable.proto",
 			expectedFiles: []string{

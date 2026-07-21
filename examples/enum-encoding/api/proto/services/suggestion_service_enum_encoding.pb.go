@@ -50,3 +50,43 @@ func (x *RiskLevel) UnmarshalJSON(data []byte) error {
 
 	return fmt.Errorf("cannot unmarshal %s into RiskLevel", string(data))
 }
+
+var optionTypeToJSON = map[OptionType]string{
+	OptionType_OPTION_TYPE_UNSPECIFIED: "OPTION_TYPE_UNSPECIFIED",
+	OptionType_OPTION_TYPE_CALL:        "call",
+	OptionType_OPTION_TYPE_PUT:         "put",
+}
+
+var optionTypeFromJSON = map[string]OptionType{
+	"OPTION_TYPE_UNSPECIFIED": OptionType_OPTION_TYPE_UNSPECIFIED,
+	"call":                    OptionType_OPTION_TYPE_CALL,
+	"put":                     OptionType_OPTION_TYPE_PUT,
+	"OPTION_TYPE_CALL":        OptionType_OPTION_TYPE_CALL,
+	"OPTION_TYPE_PUT":         OptionType_OPTION_TYPE_PUT,
+}
+
+func (x OptionType) MarshalJSON() ([]byte, error) {
+	if s, ok := optionTypeToJSON[x]; ok {
+		return json.Marshal(s)
+	}
+	return json.Marshal(x.String())
+}
+
+func (x *OptionType) UnmarshalJSON(data []byte) error {
+	var s string
+	if err := json.Unmarshal(data, &s); err == nil {
+		if v, ok := optionTypeFromJSON[s]; ok {
+			*x = v
+			return nil
+		}
+		return fmt.Errorf("unknown OptionType value: %q", s)
+	}
+
+	var n int32
+	if err := json.Unmarshal(data, &n); err == nil {
+		*x = OptionType(n)
+		return nil
+	}
+
+	return fmt.Errorf("cannot unmarshal %s into OptionType", string(data))
+}
