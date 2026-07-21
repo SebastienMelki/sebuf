@@ -32,9 +32,9 @@ func (suggestionHandler) GetEasyOptions(
 		// Direct (unnested) enums on the marshaled message.
 		OverallRisk:     risk,                            // annotated  -> "low"
 		MarketSentiment: api.Sentiment_SENTIMENT_BULLISH, // unannotated -> "SENTIMENT_BULLISH"
-		Data: []*api.EasyOptionSuggestion{
+		OptionSuggestions: []*api.EasyOptionSuggestion{
 			{
-				Contract: &api.OptionsContract{
+				OptionsContract: &api.OptionsContract{
 					Symbol:      req.GetUnderlyingSymbol(),
 					Type:        api.OptionType_OPTION_TYPE_CALL, // annotated, nested   -> "call"
 					Sentiment:   api.Sentiment_SENTIMENT_BULLISH, // unannotated, nested -> "SENTIMENT_BULLISH"
@@ -44,7 +44,7 @@ func (suggestionHandler) GetEasyOptions(
 				RiskLevel:           risk, // annotated, nested -> "low"
 			},
 			{
-				Contract: &api.OptionsContract{
+				OptionsContract: &api.OptionsContract{
 					Symbol:      req.GetUnderlyingSymbol(),
 					Type:        api.OptionType_OPTION_TYPE_PUT,
 					Sentiment:   api.Sentiment_SENTIMENT_BEARISH,
@@ -68,7 +68,7 @@ func main() {
 
 	fmt.Println("listening on :8080")
 	fmt.Println(`  curl -s localhost:8080/api/v1/suggestions -d '{"underlyingSymbol":"AAPL","requestedRisk":"low"}'`)
-	fmt.Println(`  -> data[].risk_level is "low"/"high" and data[].contract.type is "call"/"put"`)
+	fmt.Println(`  -> option_suggestions[].risk_level is "low"/"high" and .options_contract.type is "call"/"put"`)
 	if err := http.ListenAndServe(":8080", mux); err != nil {
 		log.Fatalf("server: %v", err)
 	}

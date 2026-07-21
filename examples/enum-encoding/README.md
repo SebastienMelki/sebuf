@@ -27,8 +27,8 @@ message and nested below it**:
 
 | | direct (on the response) | nested (below the response) |
 |---|---|---|
-| **annotated** (`RiskLevel`, `OptionType`) | `overall_risk` → `"low"` | `data[].risk_level` (1 level), `data[].contract.type` (2 levels) → `"low"`, `"call"` |
-| **unannotated** (`Sentiment`) | `market_sentiment` → `"SENTIMENT_BULLISH"` | `data[].contract.sentiment` → `"SENTIMENT_BULLISH"` |
+| **annotated** (`RiskLevel`, `OptionType`) | `overall_risk` → `"low"` | `option_suggestions[].risk_level` (1 level), `...options_contract.type` (2 levels) → `"low"`, `"call"` |
+| **unannotated** (`Sentiment`) | `market_sentiment` → `"SENTIMENT_BULLISH"` | `...options_contract.sentiment` → `"SENTIMENT_BULLISH"` |
 
 The nested cases are what plain `protojson` gets wrong — it never invokes a nested Go
 message's custom marshaler. Unannotated enums correctly keep their proto names at every depth.
@@ -37,16 +37,20 @@ message's custom marshaler. Unannotated enums correctly keep their proto names a
 
 ```json
 {
-  "data": [
-    {"contract": {"symbol": "AAPL", "type": "call", "sentiment": "SENTIMENT_BULLISH", "strikePrice": 330},
+  "optionSuggestions": [
+    {"optionsContract": {"symbol": "AAPL", "type": "call", "sentiment": "SENTIMENT_BULLISH", "strikePrice": 330},
      "probabilityOfProfit": 0.62, "riskLevel": "low"},
-    {"contract": {"symbol": "AAPL", "type": "put", "sentiment": "SENTIMENT_BEARISH", "strikePrice": 300},
+    {"optionsContract": {"symbol": "AAPL", "type": "put", "sentiment": "SENTIMENT_BEARISH", "strikePrice": 300},
      "probabilityOfProfit": 0.41, "riskLevel": "high"}
   ],
   "overallRisk": "low",
   "marketSentiment": "SENTIMENT_BULLISH"
 }
 ```
+
+Under `UseProtoNames: true` the same values appear under snake_case keys
+(`option_suggestions`, `options_contract`, `risk_level`, `type`) — the marshaler patches
+whichever key protojson emits.
 
 - `"low"` in the request body is accepted (request parsing).
 - Annotated enums serialize as custom strings at every depth — never `RISK_LEVEL_LOW` / `OPTION_TYPE_CALL`.

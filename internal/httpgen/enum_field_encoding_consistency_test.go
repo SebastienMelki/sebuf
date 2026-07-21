@@ -58,13 +58,25 @@ func TestEnumFieldEncodingTransitiveNesting(t *testing.T) {
 	// The wrapper re-serializes nested children (singular + repeated) via their marshaler, and the
 	// leaf still patches its direct enum fields.
 	for _, snippet := range []string{
-		`Re-serialize "lead" forwarding opts`,           // singular nested
-		`Re-serialize repeated "items" forwarding opts`, // repeated nested
-		`Re-serialize "group" forwarding opts`,          // two-level nested
-		"gradeToJSON[e]",                                // leaf direct enum still patched
+		`Re-serialize "leadItem" forwarding opts`,          // singular nested
+		`Re-serialize repeated "itemList" forwarding opts`, // repeated nested
+		`Re-serialize "itemGroup" forwarding opts`,         // two-level nested
+		"gradeToJSON[e]", // leaf direct enum still patched
 	} {
 		if !strings.Contains(src, snippet) {
 			t.Errorf("nested marshaler missing %q", snippet)
+		}
+	}
+
+	// Nested message fields must patch BOTH the camelCase and proto snake_case keys, so
+	// UseProtoNames output/input is handled (this is the Codex-reported gap).
+	for _, keys := range []string{
+		`[]string{"leadItem", "lead_item"}`,
+		`[]string{"itemList", "item_list"}`,
+		`[]string{"itemGroup", "item_group"}`,
+	} {
+		if !strings.Contains(src, keys) {
+			t.Errorf("nested marshaler does not patch both JSON keys %s", keys)
 		}
 	}
 }

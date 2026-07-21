@@ -77,17 +77,25 @@ func TestEnumValueFullMatrix(t *testing.T) {
 }
 
 // TestEnumValueWithUseProtoNames verifies the fix holds under protojson UseProtoNames, which emits
-// snake_case field keys, at every nesting depth.
+// snake_case field keys, at every nesting depth. The nested container fields are multi-word
+// (option_suggestions, options_contract) so the marshaler must patch the snake_case key protojson
+// emitted — not a camelCase key, which would both leak the raw enum and add a duplicate field.
 func TestEnumValueWithUseProtoNames(t *testing.T) {
 	body := post(t, api.WithMarshalOptions(protojson.MarshalOptions{UseProtoNames: true}))
 
 	if strings.Contains(body, "RISK_LEVEL_") || strings.Contains(body, "OPTION_TYPE_") {
 		t.Errorf("UseProtoNames response leaked raw proto enum names:\n%s", body)
 	}
-	if !strings.Contains(body, `"risk_level":"low"`) {
-		t.Errorf("UseProtoNames response missing \"risk_level\":\"low\"\nbody: %s", body)
+	// Custom strings present under snake_case, at every depth.
+	for _, w := range []string{`"overall_risk":"low"`, `"risk_level":"low"`, `"type":"call"`} {
+		if !strings.Contains(body, w) {
+			t.Errorf("UseProtoNames response missing %q\nbody: %s", w, body)
+		}
 	}
-	if !strings.Contains(body, `"type":"call"`) {
-		t.Errorf("UseProtoNames response missing nested \"type\":\"call\"\nbody: %s", body)
+	// No duplicate camelCase keys for the multi-word nested containers.
+	for _, dup := range []string{`"optionSuggestions"`, `"optionsContract"`} {
+		if strings.Contains(body, dup) {
+			t.Errorf("UseProtoNames response has a duplicate camelCase key %s\nbody: %s", dup, body)
+		}
 	}
 }

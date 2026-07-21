@@ -40,7 +40,7 @@ message OptionsContract {
 // EasyOptionSuggestion has a nested message (contract) plus a directly-held
 // annotated enum (risk_level).
 message EasyOptionSuggestion {
-  OptionsContract contract = 1;
+  OptionsContract options_contract = 1;
   double probability_of_profit = 2;
   RiskLevel risk_level = 3; // annotated, nested one level -> "low"
 }
@@ -49,7 +49,7 @@ message EasyOptionSuggestion {
 // BOTH directly (overall_risk, market_sentiment) and nested (via data), so the
 // example covers the full matrix: annotated/unannotated x direct/nested.
 message GetEasyOptionsResponse {
-  repeated EasyOptionSuggestion data = 1;
+  repeated EasyOptionSuggestion option_suggestions = 1;
   RiskLevel overall_risk = 2; // annotated, direct (unnested) -> "low"
   Sentiment market_sentiment = 3; // unannotated, direct (unnested) -> "SENTIMENT_BULLISH"
 }

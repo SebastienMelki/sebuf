@@ -29,16 +29,18 @@ message Item {
   Tier tier = 3;
 }
 
-// ItemGroup nests Item both singular and repeated (one level of nesting).
+// ItemGroup nests Item both singular and repeated. The multi-word field names
+// (lead_item, item_list) exercise the UseProtoNames path: the marshaler must patch
+// whichever key protojson emits (camelCase or snake_case).
 message ItemGroup {
-  Item lead = 1;
-  repeated Item items = 2;
+  Item lead_item = 1;
+  repeated Item item_list = 2;
 }
 
 // GetItemsResponse nests ItemGroup, making the enum two levels deep from the
-// response the server marshals: response -> group -> lead/items -> grade.
+// response the server marshals: response -> item_group -> lead_item/item_list -> grade.
 message GetItemsResponse {
-  ItemGroup group = 1;
+  ItemGroup item_group = 1;
 }
 
 message GetItemsRequest {

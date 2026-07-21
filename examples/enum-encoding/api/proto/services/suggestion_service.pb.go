@@ -251,7 +251,7 @@ func (x *OptionsContract) GetStrikePrice() float64 {
 // annotated enum (risk_level).
 type EasyOptionSuggestion struct {
 	state               protoimpl.MessageState `protogen:"open.v1"`
-	Contract            *OptionsContract       `protobuf:"bytes,1,opt,name=contract,proto3" json:"contract,omitempty"`
+	OptionsContract     *OptionsContract       `protobuf:"bytes,1,opt,name=options_contract,json=optionsContract,proto3" json:"options_contract,omitempty"`
 	ProbabilityOfProfit float64                `protobuf:"fixed64,2,opt,name=probability_of_profit,json=probabilityOfProfit,proto3" json:"probability_of_profit,omitempty"`
 	RiskLevel           RiskLevel              `protobuf:"varint,3,opt,name=risk_level,json=riskLevel,proto3,enum=suggestion.v1.RiskLevel" json:"risk_level,omitempty"` // annotated, nested one level -> "low"
 	unknownFields       protoimpl.UnknownFields
@@ -288,9 +288,9 @@ func (*EasyOptionSuggestion) Descriptor() ([]byte, []int) {
 	return file_proto_services_suggestion_service_proto_rawDescGZIP(), []int{1}
 }
 
-func (x *EasyOptionSuggestion) GetContract() *OptionsContract {
+func (x *EasyOptionSuggestion) GetOptionsContract() *OptionsContract {
 	if x != nil {
-		return x.Contract
+		return x.OptionsContract
 	}
 	return nil
 }
@@ -313,12 +313,12 @@ func (x *EasyOptionSuggestion) GetRiskLevel() RiskLevel {
 // BOTH directly (overall_risk, market_sentiment) and nested (via data), so the
 // example covers the full matrix: annotated/unannotated x direct/nested.
 type GetEasyOptionsResponse struct {
-	state           protoimpl.MessageState  `protogen:"open.v1"`
-	Data            []*EasyOptionSuggestion `protobuf:"bytes,1,rep,name=data,proto3" json:"data,omitempty"`
-	OverallRisk     RiskLevel               `protobuf:"varint,2,opt,name=overall_risk,json=overallRisk,proto3,enum=suggestion.v1.RiskLevel" json:"overall_risk,omitempty"`             // annotated, direct (unnested) -> "low"
-	MarketSentiment Sentiment               `protobuf:"varint,3,opt,name=market_sentiment,json=marketSentiment,proto3,enum=suggestion.v1.Sentiment" json:"market_sentiment,omitempty"` // unannotated, direct (unnested) -> "SENTIMENT_BULLISH"
-	unknownFields   protoimpl.UnknownFields
-	sizeCache       protoimpl.SizeCache
+	state             protoimpl.MessageState  `protogen:"open.v1"`
+	OptionSuggestions []*EasyOptionSuggestion `protobuf:"bytes,1,rep,name=option_suggestions,json=optionSuggestions,proto3" json:"option_suggestions,omitempty"`
+	OverallRisk       RiskLevel               `protobuf:"varint,2,opt,name=overall_risk,json=overallRisk,proto3,enum=suggestion.v1.RiskLevel" json:"overall_risk,omitempty"`             // annotated, direct (unnested) -> "low"
+	MarketSentiment   Sentiment               `protobuf:"varint,3,opt,name=market_sentiment,json=marketSentiment,proto3,enum=suggestion.v1.Sentiment" json:"market_sentiment,omitempty"` // unannotated, direct (unnested) -> "SENTIMENT_BULLISH"
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
 }
 
 func (x *GetEasyOptionsResponse) Reset() {
@@ -351,9 +351,9 @@ func (*GetEasyOptionsResponse) Descriptor() ([]byte, []int) {
 	return file_proto_services_suggestion_service_proto_rawDescGZIP(), []int{2}
 }
 
-func (x *GetEasyOptionsResponse) GetData() []*EasyOptionSuggestion {
+func (x *GetEasyOptionsResponse) GetOptionSuggestions() []*EasyOptionSuggestion {
 	if x != nil {
-		return x.Data
+		return x.OptionSuggestions
 	}
 	return nil
 }
@@ -434,14 +434,14 @@ const file_proto_services_suggestion_service_proto_rawDesc = "" +
 	"\x06symbol\x18\x01 \x01(\tR\x06symbol\x12-\n" +
 	"\x04type\x18\x02 \x01(\x0e2\x19.suggestion.v1.OptionTypeR\x04type\x126\n" +
 	"\tsentiment\x18\x03 \x01(\x0e2\x18.suggestion.v1.SentimentR\tsentiment\x12!\n" +
-	"\fstrike_price\x18\x04 \x01(\x01R\vstrikePrice\"\xbf\x01\n" +
-	"\x14EasyOptionSuggestion\x12:\n" +
-	"\bcontract\x18\x01 \x01(\v2\x1e.suggestion.v1.OptionsContractR\bcontract\x122\n" +
+	"\fstrike_price\x18\x04 \x01(\x01R\vstrikePrice\"\xce\x01\n" +
+	"\x14EasyOptionSuggestion\x12I\n" +
+	"\x10options_contract\x18\x01 \x01(\v2\x1e.suggestion.v1.OptionsContractR\x0foptionsContract\x122\n" +
 	"\x15probability_of_profit\x18\x02 \x01(\x01R\x13probabilityOfProfit\x127\n" +
 	"\n" +
-	"risk_level\x18\x03 \x01(\x0e2\x18.suggestion.v1.RiskLevelR\triskLevel\"\xd3\x01\n" +
-	"\x16GetEasyOptionsResponse\x127\n" +
-	"\x04data\x18\x01 \x03(\v2#.suggestion.v1.EasyOptionSuggestionR\x04data\x12;\n" +
+	"risk_level\x18\x03 \x01(\x0e2\x18.suggestion.v1.RiskLevelR\triskLevel\"\xee\x01\n" +
+	"\x16GetEasyOptionsResponse\x12R\n" +
+	"\x12option_suggestions\x18\x01 \x03(\v2#.suggestion.v1.EasyOptionSuggestionR\x11optionSuggestions\x12;\n" +
 	"\foverall_risk\x18\x02 \x01(\x0e2\x18.suggestion.v1.RiskLevelR\voverallRisk\x12C\n" +
 	"\x10market_sentiment\x18\x03 \x01(\x0e2\x18.suggestion.v1.SentimentR\x0fmarketSentiment\"\x85\x01\n" +
 	"\x15GetEasyOptionsRequest\x12+\n" +
@@ -494,9 +494,9 @@ var file_proto_services_suggestion_service_proto_goTypes = []any{
 var file_proto_services_suggestion_service_proto_depIdxs = []int32{
 	1, // 0: suggestion.v1.OptionsContract.type:type_name -> suggestion.v1.OptionType
 	2, // 1: suggestion.v1.OptionsContract.sentiment:type_name -> suggestion.v1.Sentiment
-	3, // 2: suggestion.v1.EasyOptionSuggestion.contract:type_name -> suggestion.v1.OptionsContract
+	3, // 2: suggestion.v1.EasyOptionSuggestion.options_contract:type_name -> suggestion.v1.OptionsContract
 	0, // 3: suggestion.v1.EasyOptionSuggestion.risk_level:type_name -> suggestion.v1.RiskLevel
-	4, // 4: suggestion.v1.GetEasyOptionsResponse.data:type_name -> suggestion.v1.EasyOptionSuggestion
+	4, // 4: suggestion.v1.GetEasyOptionsResponse.option_suggestions:type_name -> suggestion.v1.EasyOptionSuggestion
 	0, // 5: suggestion.v1.GetEasyOptionsResponse.overall_risk:type_name -> suggestion.v1.RiskLevel
 	2, // 6: suggestion.v1.GetEasyOptionsResponse.market_sentiment:type_name -> suggestion.v1.Sentiment
 	0, // 7: suggestion.v1.GetEasyOptionsRequest.requested_risk:type_name -> suggestion.v1.RiskLevel

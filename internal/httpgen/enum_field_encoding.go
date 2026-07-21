@@ -478,8 +478,11 @@ func (g *Generator) generateEnumFieldMarshal(gf *protogen.GeneratedFile, info *E
 
 // generateNestedMessageMarshal re-serializes a nested message field through the child's
 // MarshalJSONSebuf (forwarding opts) so custom enum strings propagate, mirroring the int64 wrapper.
+// The result is written under whichever JSON key protojson emitted (camelCase, or the proto
+// snake_case name under UseProtoNames).
 func (g *Generator) generateNestedMessageMarshal(gf *protogen.GeneratedFile, field *protogen.Field) {
 	jsonName := field.Desc.JSONName()
+	keys := enumFieldJSONKeys(field)
 
 	if field.Desc.IsList() {
 		gf.P("// Re-serialize repeated \"", jsonName, "\" forwarding opts to each element")
@@ -500,9 +503,14 @@ func (g *Generator) generateNestedMessageMarshal(gf *protogen.GeneratedFile, fie
 		gf.P("items = append(items, itemData)")
 		gf.P("}")
 		gf.P("}")
-		gf.P("raw[\"", jsonName, "\"], err = json.Marshal(items)")
-		gf.P("if err != nil {")
-		gf.P("return nil, err")
+		gf.P("listData, listErr := json.Marshal(items)")
+		gf.P("if listErr != nil {")
+		gf.P("return nil, listErr")
+		gf.P("}")
+		gf.P("for _, k := range []string{", keys, "} {")
+		gf.P("if _, ok := raw[k]; ok {")
+		gf.P("raw[k] = listData")
+		gf.P("}")
 		gf.P("}")
 		gf.P("}")
 		gf.P()
@@ -513,9 +521,14 @@ func (g *Generator) generateNestedMessageMarshal(gf *protogen.GeneratedFile, fie
 	gf.P("if x.", field.GoName, " != nil {")
 	gf.P("if m, ok := any(x.", field.GoName,
 		").(interface{ MarshalJSONSebuf(protojson.MarshalOptions) ([]byte, error) }); ok {")
-	gf.P("raw[\"", jsonName, "\"], err = m.MarshalJSONSebuf(opts)")
-	gf.P("if err != nil {")
-	gf.P("return nil, err")
+	gf.P("childData, childErr := m.MarshalJSONSebuf(opts)")
+	gf.P("if childErr != nil {")
+	gf.P("return nil, childErr")
+	gf.P("}")
+	gf.P("for _, k := range []string{", keys, "} {")
+	gf.P("if _, ok := raw[k]; ok {")
+	gf.P("raw[k] = childData")
+	gf.P("}")
 	gf.P("}")
 	gf.P("}")
 	gf.P("}")
@@ -615,14 +628,21 @@ func (g *Generator) generateEnumFieldUnmarshal(gf *protogen.GeneratedFile, info 
 }
 
 // generateNestedMessageUnmarshal delegates nested message parsing to the child's UnmarshalJSONSebuf
-// (forwarding opts), then converts back to protojson form, mirroring the int64 wrapper.
+// (forwarding opts), then converts back to protojson form, mirroring the int64 wrapper. It handles
+// whichever JSON key the request used (camelCase or the proto snake_case name).
 func (g *Generator) generateNestedMessageUnmarshal(gf *protogen.GeneratedFile, field *protogen.Field) {
 	jsonName := field.Desc.JSONName()
+	keys := enumFieldJSONKeys(field)
 	childIdent := gf.QualifiedGoIdent(field.Message.GoIdent)
 
+	gf.P("// Handle \"", jsonName, "\" using its custom unmarshaler")
+	gf.P("for _, k := range []string{", keys, "} {")
+	gf.P("rawVal, ok := raw[k]")
+	gf.P("if !ok {")
+	gf.P("continue")
+	gf.P("}")
+
 	if field.Desc.IsList() {
-		gf.P("// Handle repeated \"", jsonName, "\" using its custom unmarshaler")
-		gf.P("if rawVal, ok := raw[\"", jsonName, "\"]; ok {")
 		gf.P("var rawItems []json.RawMessage")
 		gf.P("if err := json.Unmarshal(rawVal, &rawItems); err != nil {")
 		gf.P("return err")
@@ -647,27 +667,23 @@ func (g *Generator) generateNestedMessageUnmarshal(gf *protogen.GeneratedFile, f
 		gf.P("if marshalErr != nil {")
 		gf.P("return marshalErr")
 		gf.P("}")
-		gf.P("raw[\"", jsonName, "\"] = protoJSON")
+		gf.P("raw[k] = protoJSON")
+	} else {
+		gf.P("inner := &", childIdent, "{}")
+		gf.P("if u, ok := any(inner).(interface{ UnmarshalJSONSebuf([]byte, protojson.UnmarshalOptions) error }); ok {")
+		gf.P("if err := u.UnmarshalJSONSebuf(rawVal, opts); err != nil {")
+		gf.P("return err")
 		gf.P("}")
-		gf.P()
-		return
+		gf.P("} else if err := json.Unmarshal(rawVal, inner); err != nil {")
+		gf.P("return err")
+		gf.P("}")
+		gf.P("innerJSON, marshalErr := protojson.Marshal(inner)")
+		gf.P("if marshalErr != nil {")
+		gf.P("return marshalErr")
+		gf.P("}")
+		gf.P("raw[k] = innerJSON")
 	}
 
-	gf.P("// Handle \"", jsonName, "\" using its custom unmarshaler")
-	gf.P("if rawVal, ok := raw[\"", jsonName, "\"]; ok {")
-	gf.P("inner := &", childIdent, "{}")
-	gf.P("if u, ok := any(inner).(interface{ UnmarshalJSONSebuf([]byte, protojson.UnmarshalOptions) error }); ok {")
-	gf.P("if err := u.UnmarshalJSONSebuf(rawVal, opts); err != nil {")
-	gf.P("return err")
-	gf.P("}")
-	gf.P("} else if err := json.Unmarshal(rawVal, inner); err != nil {")
-	gf.P("return err")
-	gf.P("}")
-	gf.P("innerJSON, err := protojson.Marshal(inner)")
-	gf.P("if err != nil {")
-	gf.P("return err")
-	gf.P("}")
-	gf.P("raw[\"", jsonName, "\"] = innerJSON")
 	gf.P("}")
 	gf.P()
 }
