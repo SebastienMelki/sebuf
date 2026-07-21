@@ -31,14 +31,7 @@ func TestTimestampFormatTypeScriptTypes(t *testing.T) {
 		t.Fatalf("Failed to get working directory: %v", baseErr)
 	}
 
-	tsFile := filepath.Join(baseDir, "..", "tsclientgen", "testdata", "golden", "timestamp_format_client.ts")
-
-	content, readErr := os.ReadFile(tsFile)
-	if readErr != nil {
-		t.Fatalf("Failed to read TypeScript timestamp_format golden file: %v", readErr)
-	}
-
-	tsContent := string(content)
+	tsContent := readCombinedTSGolden(t, baseDir, "timestamp_format")
 
 	// Verify UNIX_SECONDS and UNIX_MILLIS fields use TypeScript number type
 	numberFields := []string{"unixSecondsTs", "unixMillisTs"}
@@ -138,7 +131,6 @@ func TestTimestampFormatCrossGeneratorAgreement(t *testing.T) {
 
 	// Read all golden files
 	goFile := filepath.Join(baseDir, "testdata", "golden", "timestamp_format_timestamp_format.pb.go")
-	tsFile := filepath.Join(baseDir, "..", "tsclientgen", "testdata", "golden", "timestamp_format_client.ts")
 	yamlFile := filepath.Join(
 		baseDir, "..", "openapiv3", "testdata", "golden", "yaml", "TimestampFormatService.openapi.yaml",
 	)
@@ -147,17 +139,13 @@ func TestTimestampFormatCrossGeneratorAgreement(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to read Go golden file: %v", err)
 	}
-	tsContent, err := os.ReadFile(tsFile)
-	if err != nil {
-		t.Fatalf("Failed to read TypeScript golden file: %v", err)
-	}
 	yamlContent, err := os.ReadFile(yamlFile)
 	if err != nil {
 		t.Fatalf("Failed to read OpenAPI golden file: %v", err)
 	}
 
 	goStr := string(goContent)
-	tsStr := string(tsContent)
+	tsStr := readCombinedTSGolden(t, baseDir, "timestamp_format")
 	yamlStr := string(yamlContent)
 
 	testCases := []struct {

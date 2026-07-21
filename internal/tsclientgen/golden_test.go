@@ -2,15 +2,21 @@ package tsclientgen
 
 import (
 	"bytes"
+	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strings"
 	"testing"
+
+	"github.com/SebastienMelki/sebuf/internal/tscommon/plugintest"
 )
 
 // TestTSClientGenGoldenFiles tests TypeScript client generation against golden files.
-// This ensures any changes to code generation are intentional and reviewed.
+// Each fixture is generated into its own temp directory; every emitted .ts file
+// (type modules, the slimmed client module, and errors.ts) is compared against
+// testdata/golden/<relative path>.
 //
 // To update golden files after intentional changes:
 //
@@ -21,141 +27,70 @@ func TestTSClientGenGoldenFiles(t *testing.T) {
 	}
 
 	testCases := []struct {
-		name          string
-		protoFile     string
-		expectedFiles []string
+		name       string
+		protoFiles []string
+		// assertImportFile/assertImport, when set, require the generated file at
+		// assertImportFile (relative to the output dir) to contain assertImport.
+		// Used to lock in cross-package relative imports in the modules layout.
+		assertImportFile string
+		assertImport     string
+		// assertBarrelFile/assertBarrelContains, when set, require the generated
+		// per-package barrel at assertBarrelFile to contain every listed
+		// substring. Used to lock in that a package barrel re-exports both its
+		// type module and its client module.
+		assertBarrelFile     string
+		assertBarrelContains []string
 	}{
+		{name: "comprehensive HTTP verbs", protoFiles: []string{"http_verbs_comprehensive.proto"}},
+		{name: "query parameters", protoFiles: []string{"query_params.proto"}},
+		{name: "backward compatibility", protoFiles: []string{"backward_compat.proto"}},
+		{name: "complex features", protoFiles: []string{"complex_features.proto"}},
+		{name: "unwrap variants", protoFiles: []string{"unwrap.proto"}},
+		{name: "int64 encoding", protoFiles: []string{"int64_encoding.proto"}},
+		{name: "enum encoding", protoFiles: []string{"enum_encoding.proto"}},
+		{name: "nullable fields", protoFiles: []string{"nullable.proto"}},
+		{name: "empty behavior", protoFiles: []string{"empty_behavior.proto"}},
+		{name: "timestamp format", protoFiles: []string{"timestamp_format.proto"}},
+		{name: "bytes encoding", protoFiles: []string{"bytes_encoding.proto"}},
+		{name: "flatten", protoFiles: []string{"flatten.proto"}},
+		{name: "oneof discriminator", protoFiles: []string{"oneof_discriminator.proto"}},
+		{name: "multi-word oneof name", protoFiles: []string{"multi_word_oneof.proto"}},
+		{name: "two un-annotated oneofs in one message", protoFiles: []string{"two_oneofs.proto"}},
+		{name: "un-annotated oneof with enum and timestamp variants", protoFiles: []string{"oneof_field_typing.proto"}},
+		{name: "flatten oneof unset arm guards child keys", protoFiles: []string{"flatten_oneof_unset.proto"}},
+		{name: "SSE streaming", protoFiles: []string{"sse.proto"}},
+		{name: "empty request body", protoFiles: []string{"empty_request_body.proto"}},
+		{name: "record map collision", protoFiles: []string{"record_map_collision.proto"}},
 		{
-			name:      "comprehensive HTTP verbs",
-			protoFile: "http_verbs_comprehensive.proto",
-			expectedFiles: []string{
-				"http_verbs_comprehensive_client.ts",
+			name:             "reserved error-helper names",
+			protoFiles:       []string{"reserved_name.proto"},
+			assertImportFile: "reserved_name_client.ts",
+			assertImport:     `ValidationError as ValidationError_1`,
+		},
+		{
+			name:             "cross-package imports",
+			protoFiles:       []string{"crosspkg/common/v1/types.proto", "crosspkg/shop/v1/service.proto"},
+			assertImportFile: filepath.Join("crosspkg", "shop", "v1", "service.ts"),
+			assertImport:     `from "../../common/v1/types.js"`,
+			assertBarrelFile: filepath.Join("crosspkg", "shop", "v1", "index.ts"),
+			assertBarrelContains: []string{
+				`export * from "./service.js";`,
+				`export * from "./service_client.js";`,
 			},
 		},
 		{
-			name:      "query parameters",
-			protoFile: "query_params.proto",
-			expectedFiles: []string{
-				"query_params_client.ts",
+			name: "nested type name collision",
+			protoFiles: []string{
+				"nestedcollision/v1/nested_collision.proto",
+				"nestedcollision/v1/wrapper.proto",
 			},
-		},
-		{
-			name:      "backward compatibility",
-			protoFile: "backward_compat.proto",
-			expectedFiles: []string{
-				"backward_compat_client.ts",
-			},
-		},
-		{
-			name:      "complex features",
-			protoFile: "complex_features.proto",
-			expectedFiles: []string{
-				"complex_features_client.ts",
-			},
-		},
-		{
-			name:      "unwrap variants",
-			protoFile: "unwrap.proto",
-			expectedFiles: []string{
-				"unwrap_client.ts",
-			},
-		},
-		{
-			name:      "int64 encoding",
-			protoFile: "int64_encoding.proto",
-			expectedFiles: []string{
-				"int64_encoding_client.ts",
-			},
-		},
-		{
-			name:      "enum encoding",
-			protoFile: "enum_encoding.proto",
-			expectedFiles: []string{
-				"enum_encoding_client.ts",
-			},
-		},
-		{
-			name:      "nullable fields",
-			protoFile: "nullable.proto",
-			expectedFiles: []string{
-				"nullable_client.ts",
-			},
-		},
-		{
-			name:      "empty behavior",
-			protoFile: "empty_behavior.proto",
-			expectedFiles: []string{
-				"empty_behavior_client.ts",
-			},
-		},
-		{
-			name:      "timestamp format",
-			protoFile: "timestamp_format.proto",
-			expectedFiles: []string{
-				"timestamp_format_client.ts",
-			},
-		},
-		{
-			name:      "bytes encoding",
-			protoFile: "bytes_encoding.proto",
-			expectedFiles: []string{
-				"bytes_encoding_client.ts",
-			},
-		},
-		{
-			name:      "flatten",
-			protoFile: "flatten.proto",
-			expectedFiles: []string{
-				"flatten_client.ts",
-			},
-		},
-		{
-			name:      "oneof discriminator",
-			protoFile: "oneof_discriminator.proto",
-			expectedFiles: []string{
-				"oneof_discriminator_client.ts",
-			},
-		},
-		{
-			name:      "multi-word oneof name",
-			protoFile: "multi_word_oneof.proto",
-			expectedFiles: []string{
-				"multi_word_oneof_client.ts",
-			},
-		},
-		{
-			name:      "two un-annotated oneofs in one message",
-			protoFile: "two_oneofs.proto",
-			expectedFiles: []string{
-				"two_oneofs_client.ts",
-			},
-		},
-		{
-			name:      "un-annotated oneof with enum and timestamp variants",
-			protoFile: "oneof_field_typing.proto",
-			expectedFiles: []string{
-				"oneof_field_typing_client.ts",
-			},
-		},
-		{
-			name:      "flatten oneof unset arm guards child keys",
-			protoFile: "flatten_oneof_unset.proto",
-			expectedFiles: []string{
-				"flatten_oneof_unset_client.ts",
-			},
-		},
-		{
-			name:      "SSE streaming",
-			protoFile: "sse.proto",
-			expectedFiles: []string{
-				"sse_client.ts",
-			},
-		},
-		{
-			name:      "empty request body",
-			protoFile: "empty_request_body.proto",
-			expectedFiles: []string{
-				"empty_request_body_client.ts",
+			assertImportFile: filepath.Join("nestedcollision", "v1", "nested_collision.ts"),
+			assertImport:     `from "./wrapper.js"`,
+			assertBarrelFile: filepath.Join("nestedcollision", "v1", "index.ts"),
+			assertBarrelContains: []string{
+				`export * from "./nested_collision.js";`,
+				`export * from "./nested_collision_client.js";`,
+				`export * from "./wrapper.js";`,
 			},
 		},
 	}
@@ -169,90 +104,132 @@ func TestTSClientGenGoldenFiles(t *testing.T) {
 	protoDir := filepath.Join(baseDir, "testdata", "proto")
 	goldenDir := filepath.Join(baseDir, "testdata", "golden")
 
-	mkdirErr := os.MkdirAll(goldenDir, 0o755)
-	if mkdirErr != nil {
+	if mkdirErr := os.MkdirAll(goldenDir, 0o755); mkdirErr != nil {
 		t.Fatalf("Failed to create golden directory: %v", mkdirErr)
 	}
 
-	pluginPath := filepath.Join(projectRoot, "bin", "protoc-gen-ts-client")
-
-	// Build the plugin if it doesn't exist
-	if _, buildStatErr := os.Stat(pluginPath); os.IsNotExist(buildStatErr) {
-		buildCmd := exec.Command("make", "build")
-		buildCmd.Dir = projectRoot
-		if buildErr := buildCmd.Run(); buildErr != nil {
-			t.Fatalf("Failed to build plugin: %v", buildErr)
-		}
-	}
-
-	tempDir := t.TempDir()
+	pluginPath := plugintest.Build(t, projectRoot, "protoc-gen-ts-client")
 
 	updateGolden := os.Getenv("UPDATE_GOLDEN") == "1"
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			protoPath := filepath.Join(protoDir, tc.protoFile)
-
-			_, statErr := os.Stat(protoPath)
-			if os.IsNotExist(statErr) {
-				t.Fatalf("Proto file not found: %s", protoPath)
+			for _, pf := range tc.protoFiles {
+				if _, statErr := os.Stat(filepath.Join(protoDir, pf)); os.IsNotExist(statErr) {
+					t.Fatalf("Proto file not found: %s", pf)
+				}
 			}
 
-			// Run protoc with ts-client plugin
-			cmd := exec.Command("protoc",
-				"--plugin=protoc-gen-ts-client="+pluginPath,
-				"--ts-client_out="+tempDir,
+			outDir := t.TempDir()
+			args := []string{
+				"--plugin=protoc-gen-ts-client=" + pluginPath,
+				"--ts-client_out=" + outDir,
 				"--ts-client_opt=paths=source_relative",
-				"--proto_path="+protoDir,
-				"--proto_path="+filepath.Join(projectRoot, "proto"),
-				tc.protoFile,
-			)
+				"--proto_path=" + protoDir,
+				"--proto_path=" + filepath.Join(projectRoot, "proto"),
+			}
+			args = append(args, tc.protoFiles...)
+			cmd := exec.Command("protoc", args...)
 			cmd.Dir = protoDir
-
 			var stderr bytes.Buffer
 			cmd.Stderr = &stderr
-
-			runErr := cmd.Run()
-			if runErr != nil {
+			if runErr := cmd.Run(); runErr != nil {
 				t.Fatalf("protoc failed: %v\nstderr: %s", runErr, stderr.String())
 			}
 
-			for _, expectedFile := range tc.expectedFiles {
-				generatedPath := filepath.Join(tempDir, expectedFile)
-				goldenPath := filepath.Join(goldenDir, expectedFile)
-
-				generatedContent, readErr := os.ReadFile(generatedPath)
+			if tc.assertImport != "" {
+				emitted, readErr := os.ReadFile(filepath.Join(outDir, tc.assertImportFile))
 				if readErr != nil {
-					t.Fatalf("Failed to read generated file %s: %v", generatedPath, readErr)
+					t.Fatalf("Failed to read generated file %s for import assertion: %v", tc.assertImportFile, readErr)
 				}
+				if !strings.Contains(string(emitted), tc.assertImport) {
+					t.Errorf("generated %s does not contain expected cross-package import %q\n---\n%s",
+						tc.assertImportFile, tc.assertImport, string(emitted))
+				}
+			}
 
+			if tc.assertBarrelFile != "" {
+				barrel, readErr := os.ReadFile(filepath.Join(outDir, tc.assertBarrelFile))
+				if readErr != nil {
+					t.Fatalf("Failed to read generated barrel %s for assertion: %v", tc.assertBarrelFile, readErr)
+				}
+				for _, want := range tc.assertBarrelContains {
+					if !strings.Contains(string(barrel), want) {
+						t.Errorf("generated barrel %s does not contain expected re-export %q\n---\n%s",
+							tc.assertBarrelFile, want, string(barrel))
+					}
+				}
+			}
+
+			for _, rel := range generatedTSFiles(t, outDir) {
+				generatedContent, readErr := os.ReadFile(filepath.Join(outDir, rel))
+				if readErr != nil {
+					t.Fatalf("Failed to read generated file %s: %v", rel, readErr)
+				}
+				goldenPath := filepath.Join(goldenDir, rel)
 				if updateGolden {
 					updateGoldenFile(t, goldenPath, generatedContent)
 					continue
 				}
-				compareGoldenFile(t, expectedFile, goldenPath, generatedContent)
+				compareGoldenFile(t, rel, goldenPath, generatedContent)
 			}
 		})
 	}
 }
 
-// TestMultiWordOneofNameDoesNotLeak asserts the regression fixed on this branch:
-// a multi-word oneof name (super_title_image) must surface only as the PascalCase
-// union type name and never leak into the generated TypeScript as a raw
-// snake_case wrapper property. See internal/tscommon/types.go
-// (GenerateOneofDiscriminatedUnionType / GenerateStandardInterface).
-func TestMultiWordOneofNameDoesNotLeak(t *testing.T) {
+// generatedTSFiles returns the relative paths of every .ts file under dir, sorted.
+func generatedTSFiles(t *testing.T, dir string) []string {
+	t.Helper()
+	var files []string
+	walkErr := filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if !d.IsDir() && strings.HasSuffix(path, ".ts") {
+			rel, relErr := filepath.Rel(dir, path)
+			if relErr != nil {
+				return relErr
+			}
+			files = append(files, rel)
+		}
+		return nil
+	})
+	if walkErr != nil {
+		t.Fatalf("Failed to walk generated dir: %v", walkErr)
+	}
+	sort.Strings(files)
+	return files
+}
+
+// readGoldenConcat reads and concatenates the named golden files. In the modules
+// layout a message's interfaces and oneof union types live in the per-proto type
+// module while the client module imports them, so oneof-shape assertions read both.
+func readGoldenConcat(t *testing.T, names ...string) string {
+	t.Helper()
 	wd, err := os.Getwd()
 	if err != nil {
 		t.Fatalf("Failed to get working directory: %v", err)
 	}
-	goldenPath := filepath.Join(wd, "testdata", "golden", "multi_word_oneof_client.ts")
-
-	content, readErr := os.ReadFile(goldenPath)
-	if readErr != nil {
-		t.Fatalf("Failed to read golden file %s: %v", goldenPath, readErr)
+	var sb strings.Builder
+	for _, name := range names {
+		goldenPath := filepath.Join(wd, "testdata", "golden", name)
+		content, readErr := os.ReadFile(goldenPath)
+		if readErr != nil {
+			t.Fatalf("Failed to read golden file %s: %v", goldenPath, readErr)
+		}
+		sb.Write(content)
 	}
-	ts := string(content)
+	return sb.String()
+}
+
+// TestMultiWordOneofNameDoesNotLeak asserts a multi-word oneof name
+// (super_title_image) surfaces only as the PascalCase union type name and never
+// leaks into the generated TypeScript as a raw snake_case wrapper property. In
+// the modules layout the union type lives in the type module and the client
+// imports it, so both emitted files are checked. See internal/tscommon/types.go
+// (GenerateOneofDiscriminatedUnionTypeCtx / GenerateStandardInterfaceCtx).
+func TestMultiWordOneofNameDoesNotLeak(t *testing.T) {
+	ts := readGoldenConcat(t, "multi_word_oneof.ts", "multi_word_oneof_client.ts")
 
 	// The oneof name renders as the PascalCase discriminated-union type name.
 	if !strings.Contains(ts, "MultiWordEventSuperTitleImage") {
@@ -270,19 +247,10 @@ func TestMultiWordOneofNameDoesNotLeak(t *testing.T) {
 // distinct un-annotated oneofs renders as an intersection of a base interface and
 // one presence-discriminated union per oneof, and that each union's `?: never`
 // presence guards cover only its own siblings — the two oneofs are independent, so
-// neither union references the other's variant keys.
+// neither union references the other's variant keys. In the modules layout these
+// union types live in the type module.
 func TestTwoOneofsRenderAsIndependentPresenceUnions(t *testing.T) {
-	wd, err := os.Getwd()
-	if err != nil {
-		t.Fatalf("Failed to get working directory: %v", err)
-	}
-	goldenPath := filepath.Join(wd, "testdata", "golden", "two_oneofs_client.ts")
-
-	content, readErr := os.ReadFile(goldenPath)
-	if readErr != nil {
-		t.Fatalf("Failed to read golden file %s: %v", goldenPath, readErr)
-	}
-	ts := string(content)
+	ts := readGoldenConcat(t, "two_oneofs.ts", "two_oneofs_client.ts")
 
 	// The message type is the intersection of the base and BOTH presence unions.
 	if !strings.Contains(ts, "export type TwoOneofs = TwoOneofsBase & TwoOneofsA & TwoOneofsB;") {
@@ -341,14 +309,16 @@ func sliceBetween(s, start, end string) string {
 
 func updateGoldenFile(t *testing.T, goldenPath string, content []byte) {
 	t.Helper()
-	writeErr := os.WriteFile(goldenPath, content, 0o644)
-	if writeErr != nil {
+	if mkErr := os.MkdirAll(filepath.Dir(goldenPath), 0o755); mkErr != nil {
+		t.Fatalf("Failed to create golden dir for %s: %v", goldenPath, mkErr)
+	}
+	if writeErr := os.WriteFile(goldenPath, content, 0o644); writeErr != nil {
 		t.Fatalf("Failed to write golden file %s: %v", goldenPath, writeErr)
 	}
 	t.Logf("Updated golden file: %s", goldenPath)
 }
 
-func compareGoldenFile(t *testing.T, expectedFile, goldenPath string, generatedContent []byte) {
+func compareGoldenFile(t *testing.T, name, goldenPath string, generatedContent []byte) {
 	t.Helper()
 	goldenContent, goldenReadErr := os.ReadFile(goldenPath)
 	if goldenReadErr != nil {
@@ -362,7 +332,7 @@ func compareGoldenFile(t *testing.T, expectedFile, goldenPath string, generatedC
 		t.Errorf("Generated file %s does not match golden file.\n"+
 			"Run with UPDATE_GOLDEN=1 to update golden files after reviewing changes.\n"+
 			"Diff:\n%s",
-			expectedFile,
+			name,
 			diffStrings(string(goldenContent), string(generatedContent)))
 	}
 }

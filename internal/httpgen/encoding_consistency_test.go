@@ -70,14 +70,7 @@ func TestTypeScriptInt64TypesMatchGoEncoding(t *testing.T) {
 		t.Fatalf("Failed to get working directory: %v", baseErr)
 	}
 
-	tsFile := filepath.Join(baseDir, "..", "tsclientgen", "testdata", "golden", "int64_encoding_client.ts")
-
-	content, readErr := os.ReadFile(tsFile)
-	if readErr != nil {
-		t.Fatalf("Failed to read TypeScript int64 encoding golden file: %v", readErr)
-	}
-
-	tsContent := string(content)
+	tsContent := readCombinedTSGolden(t, baseDir, "int64_encoding")
 
 	// Verify NUMBER fields use TypeScript number type
 	numberFields := []string{"numberInt64", "numberUint64", "numberSint64", "numberSfixed64", "numberFixed64"}
@@ -119,14 +112,7 @@ func TestTypeScriptEnumTypesMatchGoEncoding(t *testing.T) {
 		t.Fatalf("Failed to get working directory: %v", baseErr)
 	}
 
-	tsFile := filepath.Join(baseDir, "..", "tsclientgen", "testdata", "golden", "enum_encoding_client.ts")
-
-	content, readErr := os.ReadFile(tsFile)
-	if readErr != nil {
-		t.Fatalf("Failed to read TypeScript enum encoding golden file: %v", readErr)
-	}
-
-	tsContent := string(content)
+	tsContent := readCombinedTSGolden(t, baseDir, "enum_encoding")
 
 	// Verify Status enum uses custom enum_value mappings
 	if !strings.Contains(tsContent, `type Status = "unknown" | "active" | "inactive"`) {
@@ -300,9 +286,8 @@ func verifyCriterion1Int64String(t *testing.T, baseDir string) {
 	}
 
 	// TypeScript: string type
-	tsFile := filepath.Join(baseDir, "..", "tsclientgen", "testdata", "golden", "int64_encoding_client.ts")
-	tsContent, _ := os.ReadFile(tsFile)
-	if !strings.Contains(string(tsContent), "defaultInt64: string") {
+	tsContent := readCombinedTSGolden(t, baseDir, "int64_encoding")
+	if !strings.Contains(tsContent, "defaultInt64: string") {
 		t.Error("TypeScript STRING int64 should be 'string' type")
 	}
 
@@ -337,9 +322,8 @@ func verifyCriterion2Int64Number(t *testing.T, baseDir string) {
 	}
 
 	// TypeScript: number type
-	tsFile := filepath.Join(baseDir, "..", "tsclientgen", "testdata", "golden", "int64_encoding_client.ts")
-	tsContent, _ := os.ReadFile(tsFile)
-	if !strings.Contains(string(tsContent), "numberInt64: number") {
+	tsContent := readCombinedTSGolden(t, baseDir, "int64_encoding")
+	if !strings.Contains(tsContent, "numberInt64: number") {
 		t.Error("TypeScript NUMBER int64 should be 'number' type")
 	}
 
@@ -362,9 +346,8 @@ func verifyCriterion3EnumString(t *testing.T, baseDir string) {
 	t.Helper()
 
 	// TypeScript: Priority enum uses proto names
-	tsFile := filepath.Join(baseDir, "..", "tsclientgen", "testdata", "golden", "enum_encoding_client.ts")
-	tsContent, _ := os.ReadFile(tsFile)
-	if !strings.Contains(string(tsContent), `"PRIORITY_LOW" | "PRIORITY_MEDIUM" | "PRIORITY_HIGH"`) {
+	tsContent := readCombinedTSGolden(t, baseDir, "enum_encoding")
+	if !strings.Contains(tsContent, `"PRIORITY_LOW" | "PRIORITY_MEDIUM" | "PRIORITY_HIGH"`) {
 		t.Error("TypeScript Priority enum should use proto names")
 	}
 
@@ -396,9 +379,8 @@ func verifyCriterion4EnumValue(t *testing.T, baseDir string) {
 	}
 
 	// TypeScript: custom values in union type
-	tsFile := filepath.Join(baseDir, "..", "tsclientgen", "testdata", "golden", "enum_encoding_client.ts")
-	tsContent, _ := os.ReadFile(tsFile)
-	if !strings.Contains(string(tsContent), `"unknown" | "active" | "inactive"`) {
+	tsContent := readCombinedTSGolden(t, baseDir, "enum_encoding")
+	if !strings.Contains(tsContent, `"unknown" | "active" | "inactive"`) {
 		t.Error("TypeScript Status enum should use custom values")
 	}
 

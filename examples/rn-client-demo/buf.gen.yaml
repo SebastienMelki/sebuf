@@ -35,3 +35,4 @@ plugins:
   - local: ../../bin/protoc-gen-ts-client
     out: ./app/generated
     opt: paths=source_relative
+    strategy: all

@@ -1,0 +1,35 @@
+syntax = "proto3";
+
+package crosspkg.shop.v1;
+
+option go_package = "github.com/SebastienMelki/sebuf/internal/tsclientgen/testdata/crosspkg/shop/v1;shopv1";
+
+import "sebuf/http/annotations.proto";
+import "crosspkg/common/v1/types.proto";
+
+// GetItemRequest embeds an ItemID defined in the crosspkg.common.v1 package,
+// forcing the generated type module to import it across packages.
+message GetItemRequest {
+  crosspkg.common.v1.ItemID id = 1;
+}
+
+// GetItemResponse embeds both a cross-package message and a cross-package enum.
+message GetItemResponse {
+  crosspkg.common.v1.ItemID id = 1;
+  crosspkg.common.v1.Category category = 2;
+  string name = 3;
+}
+
+// ShopService exercises generation across two proto packages: its request and
+// response messages reference types from crosspkg.common.v1.
+service ShopService {
+  option (sebuf.http.service_config) = {base_path: "/api/v1"};
+
+  // GetItem looks up a single item by its cross-package identifier.
+  rpc GetItem(GetItemRequest) returns (GetItemResponse) {
+    option (sebuf.http.config) = {
+      path: "/get-item"
+      method: HTTP_METHOD_POST
+    };
+  }
+}

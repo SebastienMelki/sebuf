@@ -497,43 +497,77 @@ if err != nil {
 
 For TypeScript/JavaScript projects, sebuf also provides `protoc-gen-ts-client` which generates TypeScript HTTP clients with full type safety. See the [ts-client-demo example](../examples/ts-client-demo/) for a complete walkthrough.
 
-Add it to your `buf.gen.yaml`:
+Add it to your `buf.gen.yaml`. The TypeScript generators build the type modules
+in a single pass over the full set of files — resolving cross-file references
+into relative imports and emitting one shared `errors.ts` — so they **require
+`strategy: all`**. The default `strategy: directory` runs the plugin once per
+directory in isolation, which re-emits the shared type modules and `errors.ts`
+from each pass and cannot resolve references into one consistent module tree.
+They also **require `paths=source_relative`**: the module tree mirrors the
+proto source tree, and the generators fail loudly under any other path mode
+(such as protoc's default `paths=import`) rather than scatter type and service
+modules across different directories:
 
 ```yaml
+version: v2
 plugins:
   - local: protoc-gen-ts-client
     out: ./client/generated
     opt: paths=source_relative
+    strategy: all
 ```
 
-The TypeScript client generates:
-- Typed request/response interfaces from protobuf messages
-- A client class with methods for each RPC
+The TypeScript client generates, using a per-proto **modules layout**:
+- One type module per source proto (`<proto>.ts`) holding the request/response
+  interfaces and enums for that file's messages
+- A slim client module per proto (`<proto>_client.ts`) with the client class,
+  importing its request/response types from the sibling type module
+- A shared `errors.ts` at the output root exporting the `ValidationError` and
+  `ApiError` classes (and `FieldViolation`); every client module imports these
+  via a relative specifier. A proto type whose emitted TS name collides with
+  one of these helpers keeps its name in its own type module and is imported
+  into service modules under a deterministic alias (e.g. `ApiError_1`)
+- Cross-package references become relative type-only imports between modules
+  (e.g. `import type { ItemID } from "../../common/v1/types";`), so types
+  defined in one proto package are reused, not re-declared
 - Service-level headers as constructor options (e.g., `apiKey` from `X-API-Key`)
 - Method-level headers as call options (e.g., `requestId` from `X-Request-ID`)
-- `ValidationError` and `ApiError` classes for structured error handling
 - Automatic query parameter encoding and path parameter substitution
 
 ## TypeScript Server Generation
 
 For TypeScript server-side code generation, sebuf provides `protoc-gen-ts-server` which generates framework-agnostic HTTP server handlers using the Web Fetch API. See the [ts-fullstack-demo example](../examples/ts-fullstack-demo/) for a complete TS client + TS server working together from the same proto.
 
-Add it to your `buf.gen.yaml`:
+Add it to your `buf.gen.yaml`. Like the client generator, it emits a per-proto
+modules layout and therefore **requires `strategy: all`**:
 
 ```yaml
+version: v2
 plugins:
   - local: protoc-gen-ts-server
     out: ./server/generated
     opt: paths=source_relative
+    strategy: all
 ```
 
-The TypeScript server generates:
+When generating both a TS client and a TS server, give each its own `out:`
+directory (as in the examples: `./client/generated` and `./server/generated`).
+The type modules and `errors.ts` are byte-identical between the two
+generators, but each writes its own per-package `index.ts` barrel re-exporting
+its service module — pointing both generators at one directory would leave
+only the last writer's barrel, silently dropping the other's re-exports.
+
+The TypeScript server generates, using the same per-proto **modules layout** as
+the client (type module `<proto>.ts` per source proto, slim server module
+`<proto>_server.ts` importing its types from the sibling type module, and the
+shared `errors.ts` at the output root):
 - Handler interface (`{Service}Handler`) with methods for each RPC
 - Route descriptors (`RouteDescriptor[]`) for wiring into any framework
 - `create{Service}Routes(handler, options)` factory function
 - `ServerContext` with headers, path params, and raw request
 - Header validation, query/body parsing, and error handling
-- Proto-defined error interfaces (messages ending with "Error")
+- Proto-defined error interfaces (messages ending with "Error"), emitted into
+  their proto's type module
 - Works natively in Node 18+, Deno, Bun, and Cloudflare Workers
 
 ### TypeScript Custom Error Handling
@@ -554,7 +588,7 @@ message LoginError {
 }
 ```
 
-**Generated TypeScript interfaces (in both server and client):**
+**Generated TypeScript interfaces (in the proto's type module `my_service.ts`, shared by both server and client):**
 ```typescript
 export interface NotFoundError {
   resourceType: string;
@@ -570,7 +604,7 @@ export interface LoginError {
 
 **Server — implement the generated interface and handle in `onError`:**
 ```typescript
-import { type NotFoundError as NotFoundErrorType } from "./generated/proto/my_service_server.ts";
+import { type NotFoundError as NotFoundErrorType } from "./generated/proto/my_service.ts";
 
 class NotFoundError extends Error implements NotFoundErrorType {
   resourceType: string;
@@ -598,7 +632,8 @@ const routes = createMyServiceRoutes(handler, {
 
 **Client — parse `ApiError.body` using the generated interface:**
 ```typescript
-import { ApiError, type NotFoundError } from "./generated/proto/my_service_client.ts";
+import { ApiError } from "./generated/errors.ts";
+import { type NotFoundError } from "./generated/proto/my_service.ts";
 
 try {
   await client.getUser({ id: "not-found" });

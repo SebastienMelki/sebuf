@@ -1,0 +1,64 @@
+syntax = "proto3";
+package reserved_name;
+option go_package = "github.com/SebastienMelki/sebuf/internal/tsgen/testdata/generated;generated";
+
+import "sebuf/http/annotations.proto";
+
+// ValidationError collides with the ValidationError helper hoisted into the
+// shared errors module. The type module declares it normally; service modules
+// import it under a deterministic alias (ValidationError_1).
+message ValidationError {
+  string message = 1;
+}
+
+// ApiError (an enum) collides with the ApiError helper. Enums are reachable
+// from service modules (root unwrap, path params, query params), so the
+// aliasing must cover them too.
+enum ApiError {
+  API_ERROR_UNSPECIFIED = 0;
+  API_ERROR_TIMEOUT = 1;
+  API_ERROR_THROTTLED = 2;
+}
+
+// Wrapper.ValidationError hoists to the qualified TS name
+// WrapperValidationError, which does NOT collide with the helper and must not
+// be aliased.
+message Wrapper {
+  message ValidationError {
+    string detail = 1;
+  }
+  ValidationError nested = 1;
+}
+
+message GetThingRequest {
+  string id = 1;
+}
+
+// Root-unwraps to ApiError[], forcing the service module to reference the
+// colliding enum directly in its method signature.
+message ListErrorCodesResponse {
+  repeated ApiError codes = 1 [(sebuf.http.unwrap) = true];
+}
+
+service ThingService {
+  rpc GetThing(GetThingRequest) returns (ValidationError) {
+    option (sebuf.http.config) = {
+      path: "/things"
+      method: HTTP_METHOD_POST
+    };
+  }
+
+  rpc ListErrorCodes(GetThingRequest) returns (ListErrorCodesResponse) {
+    option (sebuf.http.config) = {
+      path: "/things/codes"
+      method: HTTP_METHOD_POST
+    };
+  }
+
+  rpc GetWrapper(GetThingRequest) returns (Wrapper) {
+    option (sebuf.http.config) = {
+      path: "/wrapper"
+      method: HTTP_METHOD_POST
+    };
+  }
+}

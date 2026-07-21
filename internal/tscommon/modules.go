@@ -1,0 +1,216 @@
+package tscommon
+
+import (
+	"fmt"
+	"path"
+	"sort"
+	"strings"
+
+	"google.golang.org/protobuf/compiler/protogen"
+)
+
+// BufferedPrinter returns a Printer that accumulates formatted lines into *lines.
+func BufferedPrinter(lines *[]string) Printer {
+	return func(format string, args ...interface{}) {
+		if len(args) == 0 {
+			*lines = append(*lines, format)
+		} else {
+			*lines = append(*lines, fmt.Sprintf(format, args...))
+		}
+	}
+}
+
+// DirectPrinter returns a Printer that writes formatted lines straight to gf.
+func DirectPrinter(gf *protogen.GeneratedFile) Printer {
+	return func(format string, args ...interface{}) {
+		if len(args) == 0 {
+			gf.P(format)
+		} else {
+			gf.P(fmt.Sprintf(format, args...))
+		}
+	}
+}
+
+// CollectAllServiceMessages builds the transitive closure of every message/enum
+// referenced by any service across all generated files, plus proto-defined
+// "*Error" messages (matching CollectServiceMessages).
+func CollectAllServiceMessages(plugin *protogen.Plugin) *MessageSet {
+	ms := NewMessageSet()
+	for _, file := range plugin.Files {
+		if !file.Generate {
+			continue
+		}
+		for _, service := range file.Services {
+			for _, method := range service.Methods {
+				ms.AddMessage(method.Input)
+				ms.AddMessage(method.Output)
+			}
+		}
+		for _, msg := range file.Messages {
+			if strings.HasSuffix(string(msg.Desc.Name()), "Error") {
+				ms.AddMessage(msg)
+			}
+		}
+	}
+	return ms
+}
+
+// validatePathMode returns an error unless every generated file's output
+// prefix equals its source-relative proto path. Type modules are emitted at
+// the source-relative path (ModuleForFile) while service modules are emitted
+// at GeneratedFilenamePrefix; under any other path mode (protoc's default
+// paths=import, or module=) the two diverge, scattering type and service
+// modules across different directories and breaking the per-package barrels —
+// so fail loudly instead of emitting a subtly broken layout.
+func validatePathMode(plugin *protogen.Plugin) error {
+	for _, file := range plugin.Files {
+		if !file.Generate {
+			continue
+		}
+		want := ModuleForFile(file.Desc.Path())
+		if file.GeneratedFilenamePrefix != want {
+			return fmt.Errorf(
+				"the TypeScript modules layout requires paths=source_relative: "+
+					"%q would generate to %q instead of %q; "+
+					"add paths=source_relative to the plugin options "+
+					"(opt: paths=source_relative in buf.gen.yaml)",
+				file.Desc.Path(), file.GeneratedFilenamePrefix, want,
+			)
+		}
+	}
+	return nil
+}
+
+// EmitSharedModules emits one canonical type module per proto file (<proto>.ts)
+// plus a single shared errors module (errors.ts). Both TS generators call this;
+// the emitted files are byte-identical between them (neutral header). Note the
+// per-package barrels are not (see EmitPackageBarrels), so client and server
+// still require distinct output directories. It returns the output-relative
+// filenames (ending in ".ts") of the type modules it emitted, so callers can
+// fold them into per-package barrels.
+//
+// A proto type whose emitted TS name equals an error helper (ApiError,
+// ValidationError, FieldViolation) is fine: the type module declares it
+// normally, and service modules import it under a deterministic alias because
+// ImportTracker pre-reserves the helper names.
+func EmitSharedModules(plugin *protogen.Plugin) ([]string, error) {
+	if err := validatePathMode(plugin); err != nil {
+		return nil, err
+	}
+	global := CollectAllServiceMessages(plugin)
+
+	msgsBySrc := global.MessagesBySourceFile()
+	enumsBySrc := global.EnumsBySourceFile()
+	var emitted []string
+	for _, src := range sortedSourceFiles(msgsBySrc, enumsBySrc) {
+		if name := emitTypeModule(plugin, src, msgsBySrc[src], enumsBySrc[src]); name != "" {
+			emitted = append(emitted, name)
+		}
+	}
+	emitErrorsModule(plugin)
+	return emitted, nil
+}
+
+// EmitPackageBarrels writes an index.ts barrel into each non-root output
+// directory that contains at least one of the given generated module files,
+// re-exporting every such sibling module so a consumer can import a whole proto
+// package by its directory (e.g. import { Album } from ".../anghamna/album/v1").
+// moduleFiles are output-relative paths ending in ".ts" (e.g.
+// "crosspkg/shop/v1/service_client.ts"). Re-exports are sorted for determinism
+// and carry a ".js" extension to match the relative-import convention. The
+// output root, where the shared errors module lives, never receives a barrel:
+// aggregating the packages at the root is the consumer's concern.
+//
+// Unlike the type modules and errors.ts, barrels are NOT byte-identical
+// between the client and server generators — each re-exports its own service
+// module — so the two generators must use distinct output directories (see
+// docs/client-generation.md).
+func EmitPackageBarrels(plugin *protogen.Plugin, moduleFiles []string) {
+	byDir := map[string][]string{}
+	for _, f := range moduleFiles {
+		dir := path.Dir(f)
+		if dir == "." || dir == "" {
+			continue
+		}
+		byDir[dir] = append(byDir[dir], path.Base(f))
+	}
+
+	dirs := make([]string, 0, len(byDir))
+	for dir := range byDir {
+		dirs = append(dirs, dir)
+	}
+	sort.Strings(dirs)
+
+	for _, dir := range dirs {
+		bases := byDir[dir]
+		sort.Strings(bases)
+		gf := plugin.NewGeneratedFile(dir+"/index.ts", "")
+		dp := DirectPrinter(gf)
+		dp("// Code generated by sebuf. DO NOT EDIT.")
+		dp("")
+		for _, base := range bases {
+			dp(`export * from "./%s.js";`, strings.TrimSuffix(base, ".ts"))
+		}
+	}
+}
+
+func sortedSourceFiles(msgs map[string][]*protogen.Message, enums map[string][]*protogen.Enum) []string {
+	seen := map[string]bool{}
+	var srcs []string
+	for src := range msgs {
+		if !seen[src] {
+			seen[src] = true
+			srcs = append(srcs, src)
+		}
+	}
+	for src := range enums {
+		if !seen[src] {
+			seen[src] = true
+			srcs = append(srcs, src)
+		}
+	}
+	sort.Strings(srcs)
+	return srcs
+}
+
+func emitTypeModule(
+	plugin *protogen.Plugin,
+	srcPath string,
+	msgs []*protogen.Message,
+	enums []*protogen.Enum,
+) string {
+	if len(msgs) == 0 && len(enums) == 0 {
+		return ""
+	}
+	module := ModuleForFile(srcPath)
+	gf := plugin.NewGeneratedFile(module+".ts", "")
+	tracker := NewImportTracker()
+	ctx := &EmitContext{SelfModule: module, Imports: tracker}
+
+	var body []string
+	bp := BufferedPrinter(&body)
+	for _, msg := range msgs {
+		GenerateInterfaceCtx(ctx, bp, msg)
+	}
+	for _, enum := range enums {
+		GenerateEnumType(bp, enum)
+	}
+
+	dp := DirectPrinter(gf)
+	dp("// Code generated by sebuf. DO NOT EDIT.")
+	dp("// source: %s", srcPath)
+	dp("")
+	tracker.Render(dp)
+	for _, line := range body {
+		gf.P(line)
+	}
+	return module + ".ts"
+}
+
+func emitErrorsModule(plugin *protogen.Plugin) {
+	gf := plugin.NewGeneratedFile("errors.ts", "")
+	dp := DirectPrinter(gf)
+	dp("// Code generated by sebuf. DO NOT EDIT.")
+	dp("")
+	WriteErrorTypes(dp)
+}

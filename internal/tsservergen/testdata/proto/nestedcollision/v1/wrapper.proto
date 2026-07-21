@@ -1,0 +1,26 @@
+syntax = "proto3";
+
+package testdata.nestedcollision.v1;
+
+option go_package = "github.com/SebastienMelki/sebuf/internal/httpgen/testdata/nestedcollision/v1;nestedcollisionv1";
+
+// Wrapper nests a Status message and a Kind enum whose leaf names collide with
+// the top-level Status message and Kind enum declared in nested_collision.proto.
+// When these nested types are hoisted to top-level TypeScript declarations they
+// must be parent-qualified (WrapperStatus, WrapperKind) so the package barrel's
+// `export *` does not emit a duplicate export.
+message Wrapper {
+  message Status {
+    bool active = 1;
+  }
+
+  enum Kind {
+    WRAPPER_KIND_UNSPECIFIED = 0;
+    WRAPPER_KIND_PRIMARY = 1;
+  }
+
+  // Resolves to the nested Wrapper.Status (innermost scope wins).
+  Status nested_status = 1;
+  // Resolves to the nested Wrapper.Kind.
+  Kind nested_kind = 2;
+}
