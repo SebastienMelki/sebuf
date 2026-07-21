@@ -129,4 +129,26 @@ components:
                         - active
                         - inactive
                     description: Status enum with custom enum_value mappings
+                statusMap:
+                    type: object
+                    additionalProperties:
+                        type: string
+                        enum:
+                            - unknown
+                            - active
+                            - inactive
+                        description: Status enum with custom enum_value mappings
+                    description: Map with enum values carrying custom enum_value strings
             description: EnumEncodingTest demonstrates enum encoding variations
+        StatusMapEntry:
+            type: object
+            properties:
+                key:
+                    type: string
+                value:
+                    type: string
+                    enum:
+                        - unknown
+                        - active
+                        - inactive
+                    description: Status enum with custom enum_value mappings

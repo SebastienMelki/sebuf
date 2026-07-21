@@ -13,6 +13,7 @@ export interface EnumEncodingTest {
   statusList: Status[];
   numberPriorityList: number[];
   optionalStatus?: Status;
+  statusMap: Record<string, Status>;
 }
 
 export type Priority = "PRIORITY_LOW" | "PRIORITY_MEDIUM" | "PRIORITY_HIGH";
