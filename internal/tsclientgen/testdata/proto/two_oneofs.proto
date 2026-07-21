@@ -1,0 +1,53 @@
+syntax = "proto3";
+
+package testdata.two_oneofs;
+
+option go_package = "github.com/SebastienMelki/sebuf/internal/httpgen/testdata/twooneofs;twooneofs";
+
+import "sebuf/http/annotations.proto";
+
+// Variant message types for the first oneof.
+message TypeX {
+  string x = 1;
+}
+
+message TypeY {
+  string y = 1;
+}
+
+// Variant message types for the second oneof.
+message TypeP {
+  string p = 1;
+}
+
+message TypeQ {
+  string q = 1;
+}
+
+// TwoOneofs carries two independent, un-annotated oneofs alongside a base field.
+// Each oneof renders as its own presence-discriminated union, and the message
+// type is the intersection of the base and both unions.
+message TwoOneofs {
+  string id = 1;
+  oneof a {
+    TypeX x = 2;
+    TypeY y = 3;
+  }
+  oneof b {
+    TypeP p = 4;
+    TypeQ q = 5;
+  }
+}
+
+service TwoOneofsService {
+  option (sebuf.http.service_config) = {
+    base_path: "/api/v1"
+  };
+
+  rpc TestTwoOneofs(TwoOneofs) returns (TwoOneofs) {
+    option (sebuf.http.config) = {
+      path: "/two-oneofs"
+      method: HTTP_METHOD_POST
+    };
+  }
+}

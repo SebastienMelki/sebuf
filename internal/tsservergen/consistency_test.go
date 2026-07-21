@@ -32,6 +32,7 @@ func TestCrossGeneratorTypeConsistency(t *testing.T) {
 		"bytes_encoding.proto",
 		"flatten.proto",
 		"oneof_discriminator.proto",
+		"multi_word_oneof.proto",
 	}
 
 	baseDir, err := os.Getwd()

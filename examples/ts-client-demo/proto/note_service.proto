@@ -50,6 +50,17 @@ message Note {
   map<string, string> metadata = 7;
   optional string due_date = 8;
   string created_at = 9;
+
+  // Un-annotated oneof: an optional reminder that is EITHER an absolute
+  // timestamp OR a relative day offset. With no oneof_config annotation, the
+  // TypeScript client renders this as a presence-discriminated union — exactly
+  // one member key is present, siblings are `?: never`. Narrow it by presence
+  // (the `in` operator), not truthiness. See "Oneofs in TypeScript" in
+  // docs/client-generation.md.
+  oneof reminder {
+    string remind_at = 10;
+    int32 remind_in_days = 11;
+  }
 }
 
 // --- Unwrap response: returns Note[] directly ---

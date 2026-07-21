@@ -507,6 +507,39 @@ message Event {
 // Not flattened: {"id": "1", "type": "text", "text": {"body": "hello"}}
 ```
 
+**Oneofs in TypeScript (default, un-annotated)** — A oneof with *no* `oneof_config`
+annotation is not left as a bag of optional fields. Both TS generators render it as a
+presence-discriminated union that mirrors protojson: exactly the set member's JSON key
+appears on the parent object. Each arm carries one variant key with a non-optional
+payload and types every sibling key `?: never`; a final all-`never` arm models the unset
+oneof. A message with oneofs becomes the intersection of a base interface and one union
+per oneof (independent oneofs each get their own union). The clients are conversion-free
+(`JSON.stringify` on send, `as T` on receive), so the TS shape matches the wire exactly.
+
+```proto
+message PlainEvent {
+  string id = 1;
+  oneof content {           // no oneof_config → presence union
+    TextContent text = 2;
+    ImageContent image = 3;
+  }
+}
+```
+```typescript
+export type PlainEventContent =
+  | { text: TextContent; image?: never }
+  | { image: ImageContent; text?: never }
+  | { text?: never; image?: never };
+export interface PlainEventBase { id: string; }
+export type PlainEvent = PlainEventBase & PlainEventContent;
+```
+
+Annotated oneofs differ: a non-flatten `oneof_config` keeps the discriminator and the
+variant key flat on the parent (plus `?: never` sibling guards); `flatten: true` spreads
+the variant's child fields onto the parent instead. See
+[docs/client-generation.md](docs/client-generation.md#oneofs-in-typescript) for the full
+TS shape and consumer caveats.
+
 **flatten / flatten_prefix** - Promote nested message fields to parent (ext 50019, 50020):
 ```protobuf
 message Order {

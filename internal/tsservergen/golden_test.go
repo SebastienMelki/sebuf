@@ -54,6 +54,8 @@ func TestTSServerGenGoldenFiles(t *testing.T) {
 		{name: "bytes encoding", protoFiles: []string{"bytes_encoding.proto"}},
 		{name: "flatten", protoFiles: []string{"flatten.proto"}},
 		{name: "oneof discriminator", protoFiles: []string{"oneof_discriminator.proto"}},
+		{name: "multi-word oneof name", protoFiles: []string{"multi_word_oneof.proto"}},
+		{name: "two un-annotated oneofs in one message", protoFiles: []string{"two_oneofs.proto"}},
 		{name: "SSE streaming", protoFiles: []string{"sse.proto"}},
 		{name: "empty request body", protoFiles: []string{"empty_request_body.proto"}},
 		{name: "record map collision", protoFiles: []string{"record_map_collision.proto"}},

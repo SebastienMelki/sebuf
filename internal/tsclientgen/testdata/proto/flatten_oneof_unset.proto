@@ -1,0 +1,47 @@
+syntax = "proto3";
+
+package testdata.flatten_oneof_unset;
+
+option go_package = "github.com/SebastienMelki/sebuf/internal/httpgen/testdata/flattenoneofunset;flattenoneofunset";
+
+import "sebuf/http/annotations.proto";
+
+// Variant payloads promoted onto the parent by the flattened oneof.
+message AlphaPayload {
+  string title = 1;
+  int32 count = 2;
+}
+
+message BetaPayload {
+  string body = 1;
+}
+
+// FlattenUnset exercises a flatten=true discriminated oneof. Because a flattened
+// oneof promotes each variant's child fields onto the parent object, the
+// generated unset arm must guard the discriminator AND every promoted child key
+// (title, count, body). Otherwise a discriminator-less partial payload such as
+// { id: "1", body: "x" } would spuriously type-check as "nothing set".
+message FlattenUnset {
+  string id = 1;
+  oneof content {
+    option (sebuf.http.oneof_config) = {
+      discriminator: "type"
+      flatten: true
+    };
+    AlphaPayload alpha = 2;
+    BetaPayload beta = 3 [(sebuf.http.oneof_value) = "b"];
+  }
+}
+
+service FlattenUnsetService {
+  option (sebuf.http.service_config) = {
+    base_path: "/api/v1"
+  };
+
+  rpc TestFlattenUnset(FlattenUnset) returns (FlattenUnset) {
+    option (sebuf.http.config) = {
+      path: "/flatten-unset"
+      method: HTTP_METHOD_POST
+    };
+  }
+}

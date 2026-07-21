@@ -648,6 +648,41 @@ try {
 
 The proto definition serves as the single source of truth for error shapes — both server and client use the same generated interface for type safety across the wire.
 
+### Oneofs in TypeScript
+
+Both TypeScript generators render a protobuf `oneof` as a discriminated union that matches protojson exactly. The clients do no conversion — requests are `JSON.stringify`-ed and responses are cast with `as T` — so the generated types are the wire contract.
+
+- **Un-annotated oneof (default)** — presence-discriminated union: exactly the set member's JSON key appears on the parent. Each arm carries one variant key with a non-optional payload and types every sibling `?: never`, with a final all-`never` arm for the unset oneof. A message becomes the intersection of a base interface and one union per oneof.
+- **Annotated `oneof_config`, `flatten: false`** — the discriminator and the set variant's key both sit flat on the parent, with `?: never` guards on the sibling keys.
+- **Annotated `oneof_config`, `flatten: true`** — the variant's child fields are spread onto the parent next to the discriminator; the variant key itself is not emitted.
+
+```typescript
+// message Event { string id = 1; oneof content { TextContent text = 2; int32 count = 3; } }
+export type EventContent =
+  | { text: TextContent; count?: never }
+  | { count: number; text?: never }
+  | { text?: never; count?: never };
+export type Event = EventBase & EventContent;
+
+// Construct exactly one variant:
+const e: Event = { id: "1", text: { body: "hi" } };
+
+// Narrow on presence, NOT truthiness (count can legitimately be 0):
+if ("text" in e && e.text !== undefined) {
+  console.log(e.text.body);
+} else if ("count" in e && e.count !== undefined) {
+  console.log(e.count); // narrowed to number, correct even when 0
+}
+```
+
+**Caveats:**
+
+1. **Breaking change.** Consumers written against the old shapes break: the previous un-annotated "flattened bag" of optional fields, and the `event.content` wrapper property for `flatten: false`, are both gone. In particular, setting two members of the same oneof is now a compile error rather than a silently-tolerated object.
+2. **Narrow scalar variants by presence, not truthiness.** Use `"count" in e` or `e.count !== undefined` — a truthiness check (`if (e.count)`) misfires on the zero values `0`, `""`, and `false`, which are valid payloads.
+3. **Exactly-one is enforced only at object-literal construction.** That is where TypeScript rejects setting more than one member; the TS types are therefore stricter than the Python and OpenAPI outputs for the same proto.
+4. **`?: never` is a compile-time guard, not runtime exclusivity.** Under non-strict TypeScript, `{ text: ..., image: undefined }` still type-checks, and reads go through an unchecked `as T` cast — nothing validates at runtime that exactly one member is set.
+5. **The unset state is modeled differently across outputs.** TypeScript represents "no member set" with the all-`never` arm of the union, whereas OpenAPI represents it via `oneOf` / a discriminator — so the unset case is not equally visible when comparing the two generated surfaces.
+
 ## See Also
 
 - **[HTTP Generation Guide](./http-generation.md)** - Go server-side handler generation
