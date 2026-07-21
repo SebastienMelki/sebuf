@@ -4,7 +4,7 @@
 export type FlattenedEventContent =
   | { type: "text"; body: string }
   | { type: "img"; url: string; width: number; height: number }
-  | { type?: never };
+  | { type?: never; body?: never; url?: never; width?: never; height?: never };
 
 export interface FlattenedEventBase {
   id: string;

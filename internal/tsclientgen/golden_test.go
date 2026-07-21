@@ -131,6 +131,20 @@ func TestTSClientGenGoldenFiles(t *testing.T) {
 			},
 		},
 		{
+			name:      "un-annotated oneof with enum and timestamp variants",
+			protoFile: "oneof_field_typing.proto",
+			expectedFiles: []string{
+				"oneof_field_typing_client.ts",
+			},
+		},
+		{
+			name:      "flatten oneof unset arm guards child keys",
+			protoFile: "flatten_oneof_unset.proto",
+			expectedFiles: []string{
+				"flatten_oneof_unset_client.ts",
+			},
+		},
+		{
 			name:      "SSE streaming",
 			protoFile: "sse.proto",
 			expectedFiles: []string{

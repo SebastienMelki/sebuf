@@ -450,8 +450,7 @@ func GenerateOneofDiscriminatedUnionType(p Printer, msgName string, info *annota
 	var branches []string
 	for i, variant := range info.Variants {
 		var branch string
-		switch {
-		case info.Flatten && variant.IsMessage:
+		if info.Flatten && variant.IsMessage {
 			// Flattened: { discriminator: "value", ...variant fields }
 			branch = fmt.Sprintf("{ %s: \"%s\"", info.Discriminator, variant.DiscriminatorVal)
 			var sb strings.Builder
@@ -462,35 +461,38 @@ func GenerateOneofDiscriminatedUnionType(p Printer, msgName string, info *annota
 			}
 			branch += sb.String()
 			branch += " }"
-		case variant.IsMessage:
-			// Non-flattened message. The generated MarshalJSON keeps the variant's
+		} else {
+			// Non-flattened variant. The generated MarshalJSON keeps the variant's
 			// JSON key where protojson put it — directly on the parent object,
 			// next to the discriminator — so the arm carries both, with sibling
-			// variant keys typed `?: never` for presence narrowing.
+			// variant keys typed `?: never` for presence narrowing. The payload
+			// type flows through TSFieldType so enum/timestamp/message/scalar
+			// variants pick up the same JSON-aware typing as normal fields.
+			// (Flatten+scalar is rejected by validateOneofFlatten, so a scalar
+			// variant only ever reaches this non-flatten branch.)
 			branch = nonFlattenedOneofBranch(
 				info, variant.DiscriminatorVal, jsonNames, i,
-				string(variant.Field.Message.Desc.Name()),
-			)
-		default:
-			// Scalar variant: flat shape with the scalar's TS type. Flatten+scalar is
-			// rejected by validateOneofFlatten (flatten variants must be messages), so
-			// a scalar variant only ever reaches the non-flatten branch.
-			branch = nonFlattenedOneofBranch(
-				info, variant.DiscriminatorVal, jsonNames, i,
-				TSScalarTypeForField(variant.Field),
+				TSFieldType(variant.Field),
 			)
 		}
 		branches = append(branches, branch)
 	}
 
 	// Unset arm: proto3 oneofs may have no member set, in which case the
-	// generated MarshalJSON omits the discriminator entirely.
+	// generated MarshalJSON omits the discriminator entirely. The arm must
+	// guard every key the set arms could promote onto the parent object, or a
+	// partial payload lacking the discriminator would spuriously type-check as
+	// "nothing set". For non-flattened oneofs those keys are the variant JSON
+	// keys; for flattened oneofs they are the promoted child field keys of
+	// every variant.
 	var unset strings.Builder
 	fmt.Fprintf(&unset, "{ %s?: never", info.Discriminator)
-	if !info.Flatten {
-		for _, jsonName := range jsonNames {
-			fmt.Fprintf(&unset, "; %s?: never", jsonName)
-		}
+	guardedKeys := jsonNames
+	if info.Flatten {
+		guardedKeys = flattenedChildJSONNames(info)
+	}
+	for _, jsonName := range guardedKeys {
+		fmt.Fprintf(&unset, "; %s?: never", jsonName)
 	}
 	unset.WriteString(" }")
 	branches = append(branches, unset.String())
@@ -529,6 +531,32 @@ func nonFlattenedOneofBranch(
 	return sb.String()
 }
 
+// flattenedChildJSONNames returns the unique JSON names of every flattened
+// variant's child fields, in variant order then field order, deduplicated.
+// These are the keys a flattened oneof promotes onto the parent object; the
+// unset arm guards them so a discriminator-less partial payload (e.g.
+// { body: "x" }) does not spuriously type-check as "nothing set". Only message
+// variants contribute keys — flatten variants are always messages, enforced by
+// validateOneofFlatten.
+func flattenedChildJSONNames(info *annotations.OneofDiscriminatorInfo) []string {
+	seen := make(map[string]bool)
+	var names []string
+	for _, variant := range info.Variants {
+		if !variant.IsMessage {
+			continue
+		}
+		for _, childField := range variant.Field.Message.Fields {
+			jsonName := childField.Desc.JSONName()
+			if seen[jsonName] {
+				continue
+			}
+			seen[jsonName] = true
+			names = append(names, jsonName)
+		}
+	}
+	return names
+}
+
 // generatePresenceOneofUnionType renders a oneof that has no wire discriminator
 // (no oneof_config annotation) as a union discriminated by key presence, matching
 // protojson serialization: exactly the set member's JSON key appears on the parent
@@ -540,11 +568,11 @@ func generatePresenceOneofUnionType(p Printer, unionName string, info *annotatio
 	tsTypes := make([]string, len(info.Variants))
 	for i, variant := range info.Variants {
 		jsonNames[i] = variant.Field.Desc.JSONName()
-		if variant.IsMessage {
-			tsTypes[i] = string(variant.Field.Message.Desc.Name())
-		} else {
-			tsTypes[i] = TSScalarTypeForField(variant.Field)
-		}
+		// Route the payload through the same field-typing path normal fields
+		// use so enum variants emit the enum union (or numeric encoding) and
+		// google.protobuf.Timestamp variants emit string/number per
+		// timestamp_format — not a hand-computed scalar/message-name type.
+		tsTypes[i] = TSFieldType(variant.Field)
 	}
 
 	var branches []string
