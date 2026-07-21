@@ -84,6 +84,7 @@ func TestClientGenGoldenFiles(t *testing.T) {
 			expectedFiles: []string{
 				"enum_encoding_client.pb.go",
 				"enum_encoding_enum_encoding.pb.go",
+				"enum_encoding_enum_field_encoding.pb.go",
 			},
 		},
 		{
