@@ -1,0 +1,46 @@
+syntax = "proto3";
+
+package testdata.multi_word_oneof;
+
+option go_package = "github.com/SebastienMelki/sebuf/internal/tsclientgen/testdata/multiwordoneof;multiwordoneof";
+
+import "sebuf/http/annotations.proto";
+
+// Variant message types
+message TextContent {
+  string body = 1;
+}
+
+message ImageContent {
+  string url = 1;
+  int32 width = 2;
+  int32 height = 3;
+}
+
+// Message with a multi-word oneof name and no oneof_config annotation.
+//
+// The oneof name (super_title_image) is deliberately multi-word: it must
+// surface in the generated TypeScript only as the PascalCase union type name
+// (MultiWordEventSuperTitleImage) and must NEVER leak as a raw snake_case
+// wrapper property. Because the oneof is un-annotated it takes the
+// presence-discriminated flat-union path, matching plain protojson.
+message MultiWordEvent {
+  string id = 1;
+  oneof super_title_image {
+    TextContent big_text = 2;
+    ImageContent big_image = 3;
+  }
+}
+
+service MultiWordOneofService {
+  option (sebuf.http.service_config) = {
+    base_path: "/api/v1"
+  };
+
+  rpc TestMultiWordEvent(MultiWordEvent) returns (MultiWordEvent) {
+    option (sebuf.http.config) = {
+      path: "/events/multi-word"
+      method: HTTP_METHOD_POST
+    };
+  }
+}

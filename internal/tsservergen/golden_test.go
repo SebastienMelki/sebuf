@@ -124,6 +124,20 @@ func TestTSServerGenGoldenFiles(t *testing.T) {
 			},
 		},
 		{
+			name:      "multi-word oneof name",
+			protoFile: "multi_word_oneof.proto",
+			expectedFiles: []string{
+				"multi_word_oneof_server.ts",
+			},
+		},
+		{
+			name:      "two un-annotated oneofs in one message",
+			protoFile: "two_oneofs.proto",
+			expectedFiles: []string{
+				"two_oneofs_server.ts",
+			},
+		},
+		{
 			name:      "SSE streaming",
 			protoFile: "sse.proto",
 			expectedFiles: []string{

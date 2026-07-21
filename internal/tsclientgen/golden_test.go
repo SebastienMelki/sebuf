@@ -117,6 +117,34 @@ func TestTSClientGenGoldenFiles(t *testing.T) {
 			},
 		},
 		{
+			name:      "multi-word oneof name",
+			protoFile: "multi_word_oneof.proto",
+			expectedFiles: []string{
+				"multi_word_oneof_client.ts",
+			},
+		},
+		{
+			name:      "two un-annotated oneofs in one message",
+			protoFile: "two_oneofs.proto",
+			expectedFiles: []string{
+				"two_oneofs_client.ts",
+			},
+		},
+		{
+			name:      "un-annotated oneof with enum and timestamp variants",
+			protoFile: "oneof_field_typing.proto",
+			expectedFiles: []string{
+				"oneof_field_typing_client.ts",
+			},
+		},
+		{
+			name:      "flatten oneof unset arm guards child keys",
+			protoFile: "flatten_oneof_unset.proto",
+			expectedFiles: []string{
+				"flatten_oneof_unset_client.ts",
+			},
+		},
+		{
 			name:      "SSE streaming",
 			protoFile: "sse.proto",
 			expectedFiles: []string{
@@ -206,6 +234,109 @@ func TestTSClientGenGoldenFiles(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestMultiWordOneofNameDoesNotLeak asserts the regression fixed on this branch:
+// a multi-word oneof name (super_title_image) must surface only as the PascalCase
+// union type name and never leak into the generated TypeScript as a raw
+// snake_case wrapper property. See internal/tscommon/types.go
+// (GenerateOneofDiscriminatedUnionType / GenerateStandardInterface).
+func TestMultiWordOneofNameDoesNotLeak(t *testing.T) {
+	wd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("Failed to get working directory: %v", err)
+	}
+	goldenPath := filepath.Join(wd, "testdata", "golden", "multi_word_oneof_client.ts")
+
+	content, readErr := os.ReadFile(goldenPath)
+	if readErr != nil {
+		t.Fatalf("Failed to read golden file %s: %v", goldenPath, readErr)
+	}
+	ts := string(content)
+
+	// The oneof name renders as the PascalCase discriminated-union type name.
+	if !strings.Contains(ts, "MultiWordEventSuperTitleImage") {
+		t.Error("expected generated TS to contain the PascalCase union type MultiWordEventSuperTitleImage")
+	}
+
+	// The raw snake_case oneof name must never appear: no wrapper property such
+	// as `super_title_image?:` leaks onto the message interface.
+	if strings.Contains(ts, "super_title_image") {
+		t.Error("generated TS must not contain the raw snake_case oneof name super_title_image")
+	}
+}
+
+// TestTwoOneofsRenderAsIndependentPresenceUnions asserts that a message with two
+// distinct un-annotated oneofs renders as an intersection of a base interface and
+// one presence-discriminated union per oneof, and that each union's `?: never`
+// presence guards cover only its own siblings — the two oneofs are independent, so
+// neither union references the other's variant keys.
+func TestTwoOneofsRenderAsIndependentPresenceUnions(t *testing.T) {
+	wd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("Failed to get working directory: %v", err)
+	}
+	goldenPath := filepath.Join(wd, "testdata", "golden", "two_oneofs_client.ts")
+
+	content, readErr := os.ReadFile(goldenPath)
+	if readErr != nil {
+		t.Fatalf("Failed to read golden file %s: %v", goldenPath, readErr)
+	}
+	ts := string(content)
+
+	// The message type is the intersection of the base and BOTH presence unions.
+	if !strings.Contains(ts, "export type TwoOneofs = TwoOneofsBase & TwoOneofsA & TwoOneofsB;") {
+		t.Error("expected TwoOneofs to be an intersection of TwoOneofsBase and both oneof unions")
+	}
+
+	// Union A: its own arms plus an all-never arm, guarding only its own siblings
+	// (x, y) — never the other oneof's keys (p, q).
+	unionA := `export type TwoOneofsA =
+  | { x: TypeX; y?: never }
+  | { y: TypeY; x?: never }
+  | { x?: never; y?: never };`
+	if !strings.Contains(ts, unionA) {
+		t.Errorf("expected TwoOneofsA presence union with only its own sibling guards, got:\n%s", ts)
+	}
+
+	// Union B: independent of A — arms + all-never arm guarding only p, q.
+	unionB := `export type TwoOneofsB =
+  | { p: TypeP; q?: never }
+  | { q: TypeQ; p?: never }
+  | { p?: never; q?: never };`
+	if !strings.Contains(ts, unionB) {
+		t.Errorf("expected TwoOneofsB presence union with only its own sibling guards, got:\n%s", ts)
+	}
+
+	// The two oneofs are independent: neither union guards against the other's keys.
+	if strings.Contains(unionAOf(ts), "p?: never") || strings.Contains(unionAOf(ts), "q?: never") {
+		t.Error("TwoOneofsA must not reference oneof B's variant keys (p, q)")
+	}
+	if strings.Contains(unionBOf(ts), "x?: never") || strings.Contains(unionBOf(ts), "y?: never") {
+		t.Error("TwoOneofsB must not reference oneof A's variant keys (x, y)")
+	}
+}
+
+// unionAOf / unionBOf extract the TwoOneofsA / TwoOneofsB union declaration text so
+// cross-oneof leakage can be asserted without matching against the whole file.
+func unionAOf(ts string) string {
+	return sliceBetween(ts, "export type TwoOneofsA =", "export type TwoOneofsB =")
+}
+
+func unionBOf(ts string) string {
+	return sliceBetween(ts, "export type TwoOneofsB =", "export interface TwoOneofsBase")
+}
+
+func sliceBetween(s, start, end string) string {
+	i := strings.Index(s, start)
+	if i < 0 {
+		return ""
+	}
+	j := strings.Index(s[i:], end)
+	if j < 0 {
+		return s[i:]
+	}
+	return s[i : i+j]
 }
 
 func updateGoldenFile(t *testing.T, goldenPath string, content []byte) {
