@@ -29,39 +29,54 @@ func (x *EasyOptionSuggestion) MarshalJSONSebuf(opts protojson.MarshalOptions) (
 	}
 
 	// Rewrite risk_level to custom enum_value strings
-	if v, ok := raw["riskLevel"]; ok {
+	for _, k := range []string{"riskLevel", "risk_level"} {
+		v, ok := raw[k]
+		if !ok {
+			continue
+		}
 		var s string
-		if err := json.Unmarshal(v, &s); err == nil {
-			if e, ok := riskLevelFromJSON[s]; ok {
-				raw["riskLevel"], _ = json.Marshal(riskLevelToJSON[e])
-			}
+		if err := json.Unmarshal(v, &s); err != nil {
+			continue
+		}
+		if e, ok := riskLevelFromJSON[s]; ok {
+			raw[k], _ = json.Marshal(riskLevelToJSON[e])
 		}
 	}
 
 	// Rewrite alternate_risk_levels to custom enum_value strings
-	if v, ok := raw["alternateRiskLevels"]; ok {
-		var arr []string
-		if err := json.Unmarshal(v, &arr); err == nil {
-			for i, s := range arr {
-				if e, ok := riskLevelFromJSON[s]; ok {
-					arr[i] = riskLevelToJSON[e]
-				}
-			}
-			raw["alternateRiskLevels"], _ = json.Marshal(arr)
+	for _, k := range []string{"alternateRiskLevels", "alternate_risk_levels"} {
+		v, ok := raw[k]
+		if !ok {
+			continue
 		}
+		var arr []string
+		if err := json.Unmarshal(v, &arr); err != nil {
+			continue
+		}
+		for i, s := range arr {
+			if e, ok := riskLevelFromJSON[s]; ok {
+				arr[i] = riskLevelToJSON[e]
+			}
+		}
+		raw[k], _ = json.Marshal(arr)
 	}
 
 	// Rewrite risk_by_symbol to custom enum_value strings
-	if v, ok := raw["riskBySymbol"]; ok {
-		var m map[string]string
-		if err := json.Unmarshal(v, &m); err == nil {
-			for k, s := range m {
-				if e, ok := riskLevelFromJSON[s]; ok {
-					m[k] = riskLevelToJSON[e]
-				}
-			}
-			raw["riskBySymbol"], _ = json.Marshal(m)
+	for _, k := range []string{"riskBySymbol", "risk_by_symbol"} {
+		v, ok := raw[k]
+		if !ok {
+			continue
 		}
+		var m map[string]string
+		if err := json.Unmarshal(v, &m); err != nil {
+			continue
+		}
+		for mk, s := range m {
+			if e, ok := riskLevelFromJSON[s]; ok {
+				m[mk] = riskLevelToJSON[e]
+			}
+		}
+		raw[k], _ = json.Marshal(m)
 	}
 
 	return json.Marshal(raw)
@@ -82,39 +97,54 @@ func (x *EasyOptionSuggestion) UnmarshalJSONSebuf(data []byte, opts protojson.Un
 	}
 
 	// Rewrite risk_level from custom enum_value strings to proto names
-	if v, ok := raw["riskLevel"]; ok {
+	for _, k := range []string{"riskLevel", "risk_level"} {
+		v, ok := raw[k]
+		if !ok {
+			continue
+		}
 		var s string
-		if err := json.Unmarshal(v, &s); err == nil {
-			if e, ok := riskLevelFromJSON[s]; ok {
-				raw["riskLevel"], _ = json.Marshal(e.String())
-			}
+		if err := json.Unmarshal(v, &s); err != nil {
+			continue
+		}
+		if e, ok := riskLevelFromJSON[s]; ok {
+			raw[k], _ = json.Marshal(e.String())
 		}
 	}
 
 	// Rewrite alternate_risk_levels from custom enum_value strings to proto names
-	if v, ok := raw["alternateRiskLevels"]; ok {
-		var arr []string
-		if err := json.Unmarshal(v, &arr); err == nil {
-			for i, s := range arr {
-				if e, ok := riskLevelFromJSON[s]; ok {
-					arr[i] = e.String()
-				}
-			}
-			raw["alternateRiskLevels"], _ = json.Marshal(arr)
+	for _, k := range []string{"alternateRiskLevels", "alternate_risk_levels"} {
+		v, ok := raw[k]
+		if !ok {
+			continue
 		}
+		var arr []string
+		if err := json.Unmarshal(v, &arr); err != nil {
+			continue
+		}
+		for i, s := range arr {
+			if e, ok := riskLevelFromJSON[s]; ok {
+				arr[i] = e.String()
+			}
+		}
+		raw[k], _ = json.Marshal(arr)
 	}
 
 	// Rewrite risk_by_symbol from custom enum_value strings to proto names
-	if v, ok := raw["riskBySymbol"]; ok {
-		var m map[string]string
-		if err := json.Unmarshal(v, &m); err == nil {
-			for k, s := range m {
-				if e, ok := riskLevelFromJSON[s]; ok {
-					m[k] = e.String()
-				}
-			}
-			raw["riskBySymbol"], _ = json.Marshal(m)
+	for _, k := range []string{"riskBySymbol", "risk_by_symbol"} {
+		v, ok := raw[k]
+		if !ok {
+			continue
 		}
+		var m map[string]string
+		if err := json.Unmarshal(v, &m); err != nil {
+			continue
+		}
+		for mk, s := range m {
+			if e, ok := riskLevelFromJSON[s]; ok {
+				m[mk] = e.String()
+			}
+		}
+		raw[k], _ = json.Marshal(m)
 	}
 
 	// Re-marshal with proto value names for protojson
@@ -152,12 +182,17 @@ func (x *GetSuggestionRequest) MarshalJSONSebuf(opts protojson.MarshalOptions) (
 	}
 
 	// Rewrite requested_risk to custom enum_value strings
-	if v, ok := raw["requestedRisk"]; ok {
+	for _, k := range []string{"requestedRisk", "requested_risk"} {
+		v, ok := raw[k]
+		if !ok {
+			continue
+		}
 		var s string
-		if err := json.Unmarshal(v, &s); err == nil {
-			if e, ok := riskLevelFromJSON[s]; ok {
-				raw["requestedRisk"], _ = json.Marshal(riskLevelToJSON[e])
-			}
+		if err := json.Unmarshal(v, &s); err != nil {
+			continue
+		}
+		if e, ok := riskLevelFromJSON[s]; ok {
+			raw[k], _ = json.Marshal(riskLevelToJSON[e])
 		}
 	}
 
@@ -179,12 +214,17 @@ func (x *GetSuggestionRequest) UnmarshalJSONSebuf(data []byte, opts protojson.Un
 	}
 
 	// Rewrite requested_risk from custom enum_value strings to proto names
-	if v, ok := raw["requestedRisk"]; ok {
+	for _, k := range []string{"requestedRisk", "requested_risk"} {
+		v, ok := raw[k]
+		if !ok {
+			continue
+		}
 		var s string
-		if err := json.Unmarshal(v, &s); err == nil {
-			if e, ok := riskLevelFromJSON[s]; ok {
-				raw["requestedRisk"], _ = json.Marshal(e.String())
-			}
+		if err := json.Unmarshal(v, &s); err != nil {
+			continue
+		}
+		if e, ok := riskLevelFromJSON[s]; ok {
+			raw[k], _ = json.Marshal(e.String())
 		}
 	}
 

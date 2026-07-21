@@ -51,15 +51,16 @@ func TestEnumFieldEncodingCoversAllShapes(t *testing.T) {
 		}
 	}
 
-	// Each enum field shape must be patched by json name.
+	// Each enum field shape must be patched. Multi-word fields patch BOTH the camelCase JSON
+	// name and the snake_case proto name so protojson's UseProtoNames output is handled too.
 	for _, field := range []string{
-		`raw["status"]`,         // singular
-		`raw["statusList"]`,     // repeated
-		`raw["optionalStatus"]`, // proto3 optional
-		`raw["statusMap"]`,      // map value
+		`[]string{"status"}`,                            // singular (single word: one key)
+		`[]string{"statusList", "status_list"}`,         // repeated
+		`[]string{"optionalStatus", "optional_status"}`, // proto3 optional
+		`[]string{"statusMap", "status_map"}`,           // map value
 	} {
 		if !strings.Contains(src, field) {
-			t.Errorf("generated marshaler does not patch enum field %s", field)
+			t.Errorf("generated marshaler does not patch enum field keys %s", field)
 		}
 	}
 

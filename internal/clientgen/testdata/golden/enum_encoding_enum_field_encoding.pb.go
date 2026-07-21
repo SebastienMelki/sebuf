@@ -29,49 +29,69 @@ func (x *EnumEncodingTest) MarshalJSONSebuf(opts protojson.MarshalOptions) ([]by
 	}
 
 	// Rewrite status to custom enum_value strings
-	if v, ok := raw["status"]; ok {
+	for _, k := range []string{"status"} {
+		v, ok := raw[k]
+		if !ok {
+			continue
+		}
 		var s string
-		if err := json.Unmarshal(v, &s); err == nil {
-			if e, ok := statusFromJSON[s]; ok {
-				raw["status"], _ = json.Marshal(statusToJSON[e])
-			}
+		if err := json.Unmarshal(v, &s); err != nil {
+			continue
+		}
+		if e, ok := statusFromJSON[s]; ok {
+			raw[k], _ = json.Marshal(statusToJSON[e])
 		}
 	}
 
 	// Rewrite status_list to custom enum_value strings
-	if v, ok := raw["statusList"]; ok {
-		var arr []string
-		if err := json.Unmarshal(v, &arr); err == nil {
-			for i, s := range arr {
-				if e, ok := statusFromJSON[s]; ok {
-					arr[i] = statusToJSON[e]
-				}
-			}
-			raw["statusList"], _ = json.Marshal(arr)
+	for _, k := range []string{"statusList", "status_list"} {
+		v, ok := raw[k]
+		if !ok {
+			continue
 		}
+		var arr []string
+		if err := json.Unmarshal(v, &arr); err != nil {
+			continue
+		}
+		for i, s := range arr {
+			if e, ok := statusFromJSON[s]; ok {
+				arr[i] = statusToJSON[e]
+			}
+		}
+		raw[k], _ = json.Marshal(arr)
 	}
 
 	// Rewrite optional_status to custom enum_value strings
-	if v, ok := raw["optionalStatus"]; ok {
+	for _, k := range []string{"optionalStatus", "optional_status"} {
+		v, ok := raw[k]
+		if !ok {
+			continue
+		}
 		var s string
-		if err := json.Unmarshal(v, &s); err == nil {
-			if e, ok := statusFromJSON[s]; ok {
-				raw["optionalStatus"], _ = json.Marshal(statusToJSON[e])
-			}
+		if err := json.Unmarshal(v, &s); err != nil {
+			continue
+		}
+		if e, ok := statusFromJSON[s]; ok {
+			raw[k], _ = json.Marshal(statusToJSON[e])
 		}
 	}
 
 	// Rewrite status_map to custom enum_value strings
-	if v, ok := raw["statusMap"]; ok {
-		var m map[string]string
-		if err := json.Unmarshal(v, &m); err == nil {
-			for k, s := range m {
-				if e, ok := statusFromJSON[s]; ok {
-					m[k] = statusToJSON[e]
-				}
-			}
-			raw["statusMap"], _ = json.Marshal(m)
+	for _, k := range []string{"statusMap", "status_map"} {
+		v, ok := raw[k]
+		if !ok {
+			continue
 		}
+		var m map[string]string
+		if err := json.Unmarshal(v, &m); err != nil {
+			continue
+		}
+		for mk, s := range m {
+			if e, ok := statusFromJSON[s]; ok {
+				m[mk] = statusToJSON[e]
+			}
+		}
+		raw[k], _ = json.Marshal(m)
 	}
 
 	return json.Marshal(raw)
@@ -92,49 +112,69 @@ func (x *EnumEncodingTest) UnmarshalJSONSebuf(data []byte, opts protojson.Unmars
 	}
 
 	// Rewrite status from custom enum_value strings to proto names
-	if v, ok := raw["status"]; ok {
+	for _, k := range []string{"status"} {
+		v, ok := raw[k]
+		if !ok {
+			continue
+		}
 		var s string
-		if err := json.Unmarshal(v, &s); err == nil {
-			if e, ok := statusFromJSON[s]; ok {
-				raw["status"], _ = json.Marshal(e.String())
-			}
+		if err := json.Unmarshal(v, &s); err != nil {
+			continue
+		}
+		if e, ok := statusFromJSON[s]; ok {
+			raw[k], _ = json.Marshal(e.String())
 		}
 	}
 
 	// Rewrite status_list from custom enum_value strings to proto names
-	if v, ok := raw["statusList"]; ok {
-		var arr []string
-		if err := json.Unmarshal(v, &arr); err == nil {
-			for i, s := range arr {
-				if e, ok := statusFromJSON[s]; ok {
-					arr[i] = e.String()
-				}
-			}
-			raw["statusList"], _ = json.Marshal(arr)
+	for _, k := range []string{"statusList", "status_list"} {
+		v, ok := raw[k]
+		if !ok {
+			continue
 		}
+		var arr []string
+		if err := json.Unmarshal(v, &arr); err != nil {
+			continue
+		}
+		for i, s := range arr {
+			if e, ok := statusFromJSON[s]; ok {
+				arr[i] = e.String()
+			}
+		}
+		raw[k], _ = json.Marshal(arr)
 	}
 
 	// Rewrite optional_status from custom enum_value strings to proto names
-	if v, ok := raw["optionalStatus"]; ok {
+	for _, k := range []string{"optionalStatus", "optional_status"} {
+		v, ok := raw[k]
+		if !ok {
+			continue
+		}
 		var s string
-		if err := json.Unmarshal(v, &s); err == nil {
-			if e, ok := statusFromJSON[s]; ok {
-				raw["optionalStatus"], _ = json.Marshal(e.String())
-			}
+		if err := json.Unmarshal(v, &s); err != nil {
+			continue
+		}
+		if e, ok := statusFromJSON[s]; ok {
+			raw[k], _ = json.Marshal(e.String())
 		}
 	}
 
 	// Rewrite status_map from custom enum_value strings to proto names
-	if v, ok := raw["statusMap"]; ok {
-		var m map[string]string
-		if err := json.Unmarshal(v, &m); err == nil {
-			for k, s := range m {
-				if e, ok := statusFromJSON[s]; ok {
-					m[k] = e.String()
-				}
-			}
-			raw["statusMap"], _ = json.Marshal(m)
+	for _, k := range []string{"statusMap", "status_map"} {
+		v, ok := raw[k]
+		if !ok {
+			continue
 		}
+		var m map[string]string
+		if err := json.Unmarshal(v, &m); err != nil {
+			continue
+		}
+		for mk, s := range m {
+			if e, ok := statusFromJSON[s]; ok {
+				m[mk] = e.String()
+			}
+		}
+		raw[k], _ = json.Marshal(m)
 	}
 
 	// Re-marshal with proto value names for protojson

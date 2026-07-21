@@ -2,6 +2,7 @@ package clientgen
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
 	"google.golang.org/protobuf/compiler/protogen"
@@ -29,19 +30,10 @@ type EnumFieldInfo struct {
 	Shape enumFieldShape
 }
 
-// EnumFieldEncodingContext holds a message that needs a message-level marshaler to apply
-// custom enum_value strings to its enum fields (protojson emits the raw proto value names).
-type EnumFieldEncodingContext struct {
-	Message    *protogen.Message
-	EnumFields []*EnumFieldInfo
-}
-
-// customEnumFieldInfo returns EnumFieldInfo for a field whose enum type carries custom
-// enum_value mappings (and is not NUMBER-encoded), or nil if the field is not such a field.
-// Only enums generated in the same Go package as the message are handled, since the marshaler
-// references the package-private xToJSON/xFromJSON lookup maps from *_enum_encoding.pb.go.
-func customEnumFieldInfo(field *protogen.Field, pkg protogen.GoImportPath) *EnumFieldInfo {
-	// NUMBER encoding never carries custom string values (rejected by validateEnumAnnotations).
+// customEnumForField returns the custom-value enum a field references (the map value's enum for
+// map fields), regardless of Go package, or nil if the field does not reference a custom-value,
+// string-encoded enum. NUMBER-encoded enums never carry custom string values.
+func customEnumForField(field *protogen.Field) *protogen.Enum {
 	if annotations.GetEnumEncoding(field) == http.EnumEncoding_ENUM_ENCODING_NUMBER {
 		return nil
 	}
@@ -52,30 +44,36 @@ func customEnumFieldInfo(field *protogen.Field, pkg protogen.GoImportPath) *Enum
 			return nil
 		}
 		valueEnum := field.Message.Fields[1].Enum
-		if !isSamePackageCustomEnum(valueEnum, pkg) {
-			return nil
+		if valueEnum != nil && annotations.HasAnyEnumValueMapping(valueEnum) {
+			return valueEnum
 		}
-		return &EnumFieldInfo{Field: field, Enum: valueEnum, Shape: enumShapeMap}
 	case field.Desc.Kind() == protoreflect.EnumKind:
-		if !isSamePackageCustomEnum(field.Enum, pkg) {
-			return nil
+		if field.Enum != nil && annotations.HasAnyEnumValueMapping(field.Enum) {
+			return field.Enum
 		}
-		shape := enumShapeSingular
-		if field.Desc.IsList() {
-			shape = enumShapeRepeated
-		}
-		return &EnumFieldInfo{Field: field, Enum: field.Enum, Shape: shape}
-	default:
-		return nil
 	}
+	return nil
 }
 
-// isSamePackageCustomEnum reports whether the enum has custom values and is generated in pkg.
-func isSamePackageCustomEnum(enum *protogen.Enum, pkg protogen.GoImportPath) bool {
-	if enum == nil || !annotations.HasAnyEnumValueMapping(enum) {
-		return false
+// customEnumFieldInfo returns EnumFieldInfo for a field whose enum type carries custom
+// enum_value mappings and is generated in the same Go package as the message (pkg), or nil
+// otherwise. The marshaler references the package-private xToJSON/xFromJSON lookup maps from
+// *_enum_encoding.pb.go, so cross-package enums are handled separately by validateEnumFieldEncoding
+// (which fails loudly rather than silently emitting proto names).
+func customEnumFieldInfo(field *protogen.Field, pkg protogen.GoImportPath) *EnumFieldInfo {
+	enum := customEnumForField(field)
+	if enum == nil || enum.GoIdent.GoImportPath != pkg {
+		return nil
 	}
-	return enum.GoIdent.GoImportPath == pkg
+
+	shape := enumShapeSingular
+	switch {
+	case field.Desc.IsMap():
+		shape = enumShapeMap
+	case field.Desc.IsList():
+		shape = enumShapeRepeated
+	}
+	return &EnumFieldInfo{Field: field, Enum: enum, Shape: shape}
 }
 
 // getCustomEnumFields returns the custom-enum fields of a message (direct fields only).
@@ -93,6 +91,39 @@ func getCustomEnumFields(msg *protogen.Message) []*EnumFieldInfo {
 // hasCustomEnumFields reports whether a message has any custom-enum field needing a marshaler.
 func hasCustomEnumFields(msg *protogen.Message) bool {
 	return len(getCustomEnumFields(msg)) > 0
+}
+
+// validateEnumFieldEncoding fails loudly when a message field references a custom enum_value enum
+// from a different Go package. The generated marshaler relies on the package-private lookup maps
+// emitted alongside the enum, so a cross-package enum cannot be patched; emitting proto names
+// silently would contradict the OpenAPI docs. Cross-package support is tracked as a follow-up.
+func validateEnumFieldEncoding(file *protogen.File) error {
+	return validateEnumFieldEncodingMessages(file.Messages)
+}
+
+func validateEnumFieldEncodingMessages(messages []*protogen.Message) error {
+	for _, msg := range messages {
+		if msg.Desc.IsMapEntry() {
+			continue
+		}
+		pkg := msg.GoIdent.GoImportPath
+		for _, field := range msg.Fields {
+			enum := customEnumForField(field)
+			if enum == nil || enum.GoIdent.GoImportPath == pkg {
+				continue
+			}
+			return fmt.Errorf(
+				"message %s field %q references enum %s with (sebuf.http.enum_value) mappings from a "+
+					"different Go package (%s); cross-package custom enum JSON encoding is not supported "+
+					"by the Go generator",
+				msg.GoIdent.GoName, field.Desc.Name(), enum.GoIdent.GoName, enum.GoIdent.GoImportPath,
+			)
+		}
+		if err := validateEnumFieldEncodingMessages(msg.Messages); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // collectEnumFieldEncodingContext gathers messages that need a custom enum-field marshaler.
@@ -118,6 +149,13 @@ func collectEnumFieldEncodingMessages(
 		}
 		collectEnumFieldEncodingMessages(msg.Messages, contexts)
 	}
+}
+
+// EnumFieldEncodingContext holds a message that needs a message-level marshaler to apply
+// custom enum_value strings to its enum fields (protojson emits the raw proto value names).
+type EnumFieldEncodingContext struct {
+	Message    *protogen.Message
+	EnumFields []*EnumFieldInfo
 }
 
 // checkEnumMarshalJSONConflict returns an error if a message that needs a custom enum-field
@@ -168,6 +206,10 @@ func checkEnumMarshalJSONConflict(msg *protogen.Message) error {
 // proto value names protojson uses and the custom enum_value strings, reusing the lookup maps
 // generated in *_enum_encoding.pb.go.
 func (g *Generator) generateEnumFieldEncodingFile(file *protogen.File) error {
+	if err := validateEnumFieldEncoding(file); err != nil {
+		return err
+	}
+
 	contexts := collectEnumFieldEncodingContext(file)
 	if len(contexts) == 0 {
 		return nil
@@ -200,6 +242,18 @@ func (g *Generator) writeEnumFieldEncodingImports(gf *protogen.GeneratedFile) {
 	gf.P(`"google.golang.org/protobuf/encoding/protojson"`)
 	gf.P(")")
 	gf.P()
+}
+
+// enumFieldJSONKeys returns the Go slice-literal contents of the JSON keys a field may appear
+// under: the camelCase JSON name and, when different, the proto (snake_case) name. protojson emits
+// the proto name when MarshalOptions.UseProtoNames is set, so both must be patched.
+func enumFieldJSONKeys(field *protogen.Field) string {
+	jsonName := field.Desc.JSONName()
+	protoName := string(field.Desc.Name())
+	if jsonName == protoName {
+		return strconv.Quote(jsonName)
+	}
+	return strconv.Quote(jsonName) + ", " + strconv.Quote(protoName)
 }
 
 // generateEnumFieldMarshalJSON emits MarshalJSONSebuf (+ MarshalJSON wrapper) that rewrites
@@ -252,43 +306,50 @@ func (g *Generator) generateEnumFieldMarshalJSON(gf *protogen.GeneratedFile, ctx
 }
 
 // generateEnumFieldMarshal emits the map-patching code for one enum field (proto name -> custom).
+// It patches both the JSON name and proto name keys so UseProtoNames output is handled.
 func (g *Generator) generateEnumFieldMarshal(gf *protogen.GeneratedFile, info *EnumFieldInfo) {
-	jsonName := info.Field.Desc.JSONName()
 	lower := annotations.LowerFirst(info.Enum.GoIdent.GoName)
 	toJSON := lower + "ToJSON"
 	fromJSON := lower + "FromJSON"
 
 	gf.P("// Rewrite ", info.Field.Desc.Name(), " to custom enum_value strings")
-	gf.P(`if v, ok := raw["`, jsonName, `"]; ok {`)
+	gf.P("for _, k := range []string{", enumFieldJSONKeys(info.Field), "} {")
+	gf.P("v, ok := raw[k]")
+	gf.P("if !ok {")
+	gf.P("continue")
+	gf.P("}")
 
 	switch info.Shape {
 	case enumShapeSingular:
 		gf.P("var s string")
-		gf.P("if err := json.Unmarshal(v, &s); err == nil {")
-		gf.P("if e, ok := ", fromJSON, "[s]; ok {")
-		gf.P(`raw["`, jsonName, `"], _ = json.Marshal(`, toJSON, `[e])`)
+		gf.P("if err := json.Unmarshal(v, &s); err != nil {")
+		gf.P("continue")
 		gf.P("}")
+		gf.P("if e, ok := ", fromJSON, "[s]; ok {")
+		gf.P("raw[k], _ = json.Marshal(", toJSON, "[e])")
 		gf.P("}")
 	case enumShapeRepeated:
 		gf.P("var arr []string")
-		gf.P("if err := json.Unmarshal(v, &arr); err == nil {")
+		gf.P("if err := json.Unmarshal(v, &arr); err != nil {")
+		gf.P("continue")
+		gf.P("}")
 		gf.P("for i, s := range arr {")
 		gf.P("if e, ok := ", fromJSON, "[s]; ok {")
 		gf.P("arr[i] = ", toJSON, "[e]")
 		gf.P("}")
 		gf.P("}")
-		gf.P(`raw["`, jsonName, `"], _ = json.Marshal(arr)`)
-		gf.P("}")
+		gf.P("raw[k], _ = json.Marshal(arr)")
 	case enumShapeMap:
 		gf.P("var m map[string]string")
-		gf.P("if err := json.Unmarshal(v, &m); err == nil {")
-		gf.P("for k, s := range m {")
+		gf.P("if err := json.Unmarshal(v, &m); err != nil {")
+		gf.P("continue")
+		gf.P("}")
+		gf.P("for mk, s := range m {")
 		gf.P("if e, ok := ", fromJSON, "[s]; ok {")
-		gf.P("m[k] = ", toJSON, "[e]")
+		gf.P("m[mk] = ", toJSON, "[e]")
 		gf.P("}")
 		gf.P("}")
-		gf.P(`raw["`, jsonName, `"], _ = json.Marshal(m)`)
-		gf.P("}")
+		gf.P("raw[k], _ = json.Marshal(m)")
 	}
 
 	gf.P("}")
@@ -340,44 +401,51 @@ func (g *Generator) generateEnumFieldUnmarshalJSON(gf *protogen.GeneratedFile, c
 }
 
 // generateEnumFieldUnmarshal emits the map-patching code for one enum field (custom -> proto name).
-// The lookup accepts both custom values and proto names (both are keys in xFromJSON), so it is
-// idempotent for clients that already send proto names; numeric values fall through untouched.
+// It patches both the JSON name and proto name keys (protojson.Unmarshal accepts either), and the
+// lookup accepts both custom values and proto names, so it is idempotent for clients that already
+// send proto names; numeric values fall through untouched.
 func (g *Generator) generateEnumFieldUnmarshal(gf *protogen.GeneratedFile, info *EnumFieldInfo) {
-	jsonName := info.Field.Desc.JSONName()
 	lower := annotations.LowerFirst(info.Enum.GoIdent.GoName)
 	fromJSON := lower + "FromJSON"
 
 	gf.P("// Rewrite ", info.Field.Desc.Name(), " from custom enum_value strings to proto names")
-	gf.P(`if v, ok := raw["`, jsonName, `"]; ok {`)
+	gf.P("for _, k := range []string{", enumFieldJSONKeys(info.Field), "} {")
+	gf.P("v, ok := raw[k]")
+	gf.P("if !ok {")
+	gf.P("continue")
+	gf.P("}")
 
 	switch info.Shape {
 	case enumShapeSingular:
 		gf.P("var s string")
-		gf.P("if err := json.Unmarshal(v, &s); err == nil {")
-		gf.P("if e, ok := ", fromJSON, "[s]; ok {")
-		gf.P(`raw["`, jsonName, `"], _ = json.Marshal(e.String())`)
+		gf.P("if err := json.Unmarshal(v, &s); err != nil {")
+		gf.P("continue")
 		gf.P("}")
+		gf.P("if e, ok := ", fromJSON, "[s]; ok {")
+		gf.P("raw[k], _ = json.Marshal(e.String())")
 		gf.P("}")
 	case enumShapeRepeated:
 		gf.P("var arr []string")
-		gf.P("if err := json.Unmarshal(v, &arr); err == nil {")
+		gf.P("if err := json.Unmarshal(v, &arr); err != nil {")
+		gf.P("continue")
+		gf.P("}")
 		gf.P("for i, s := range arr {")
 		gf.P("if e, ok := ", fromJSON, "[s]; ok {")
 		gf.P("arr[i] = e.String()")
 		gf.P("}")
 		gf.P("}")
-		gf.P(`raw["`, jsonName, `"], _ = json.Marshal(arr)`)
-		gf.P("}")
+		gf.P("raw[k], _ = json.Marshal(arr)")
 	case enumShapeMap:
 		gf.P("var m map[string]string")
-		gf.P("if err := json.Unmarshal(v, &m); err == nil {")
-		gf.P("for k, s := range m {")
+		gf.P("if err := json.Unmarshal(v, &m); err != nil {")
+		gf.P("continue")
+		gf.P("}")
+		gf.P("for mk, s := range m {")
 		gf.P("if e, ok := ", fromJSON, "[s]; ok {")
-		gf.P("m[k] = e.String()")
+		gf.P("m[mk] = e.String()")
 		gf.P("}")
 		gf.P("}")
-		gf.P(`raw["`, jsonName, `"], _ = json.Marshal(m)`)
-		gf.P("}")
+		gf.P("raw[k], _ = json.Marshal(m)")
 	}
 
 	gf.P("}")

@@ -7,6 +7,8 @@ import (
 	"strings"
 	"testing"
 
+	"google.golang.org/protobuf/encoding/protojson"
+
 	api "github.com/SebastienMelki/sebuf/examples/enum-encoding/api/proto/services"
 )
 
@@ -55,5 +57,45 @@ func TestEnumValueServerEncoding(t *testing.T) {
 		if !strings.Contains(body, w) {
 			t.Errorf("response missing %q\nbody: %s", w, body)
 		}
+	}
+}
+
+// TestEnumValueWithUseProtoNames verifies the fix also holds when the server is configured with
+// protojson UseProtoNames, which emits snake_case field keys. The enum patcher must still apply
+// custom strings under the proto field names (not just the camelCase JSON names).
+func TestEnumValueWithUseProtoNames(t *testing.T) {
+	mux := http.NewServeMux()
+	err := api.RegisterSuggestionServiceServer(
+		suggestionHandler{},
+		api.WithMux(mux),
+		api.WithMarshalOptions(protojson.MarshalOptions{UseProtoNames: true}),
+	)
+	if err != nil {
+		t.Fatalf("register server: %v", err)
+	}
+	srv := httptest.NewServer(mux)
+	defer srv.Close()
+
+	resp, err := http.Post(
+		srv.URL+"/api/v1/suggestion", "application/json",
+		strings.NewReader(`{"symbol":"AAPL","requested_risk":"low"}`),
+	)
+	if err != nil {
+		t.Fatalf("POST: %v", err)
+	}
+	defer resp.Body.Close()
+
+	raw, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatalf("read body: %v", err)
+	}
+	body := string(raw)
+
+	if strings.Contains(body, "RISK_LEVEL_") {
+		t.Errorf("UseProtoNames response leaked raw proto enum names:\n%s", body)
+	}
+	// snake_case field key carries the custom enum string.
+	if !strings.Contains(body, `"risk_level":"low"`) {
+		t.Errorf("UseProtoNames response missing \"risk_level\":\"low\"\nbody: %s", body)
 	}
 }
