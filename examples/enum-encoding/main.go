@@ -30,14 +30,14 @@ func (suggestionHandler) GetEasyOptions(
 	}
 	return &api.GetEasyOptionsResponse{
 		// Direct (unnested) enums on the marshaled message.
-		OverallRisk:     risk,                              // annotated  -> "low"
-		MarketSentiment: api.Sentiment_SENTIMENT_BULLISH,   // unannotated -> "SENTIMENT_BULLISH"
+		OverallRisk:     risk,                            // annotated  -> "low"
+		MarketSentiment: api.Sentiment_SENTIMENT_BULLISH, // unannotated -> "SENTIMENT_BULLISH"
 		Data: []*api.EasyOptionSuggestion{
 			{
 				Contract: &api.OptionsContract{
 					Symbol:      req.GetUnderlyingSymbol(),
-					Type:        api.OptionType_OPTION_TYPE_CALL,     // annotated, nested   -> "call"
-					Sentiment:   api.Sentiment_SENTIMENT_BULLISH,     // unannotated, nested -> "SENTIMENT_BULLISH"
+					Type:        api.OptionType_OPTION_TYPE_CALL, // annotated, nested   -> "call"
+					Sentiment:   api.Sentiment_SENTIMENT_BULLISH, // unannotated, nested -> "SENTIMENT_BULLISH"
 					StrikePrice: 330,
 				},
 				ProbabilityOfProfit: 0.62,
