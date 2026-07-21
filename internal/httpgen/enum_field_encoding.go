@@ -204,6 +204,8 @@ func (g *Generator) writeEnumFieldEncodingImports(gf *protogen.GeneratedFile) {
 
 // generateEnumFieldMarshalJSON emits MarshalJSONSebuf (+ MarshalJSON wrapper) that rewrites
 // enum fields from proto value names to custom enum_value strings.
+//
+//nolint:dupl // Code generation patterns naturally have similar structure across encoding types
 func (g *Generator) generateEnumFieldMarshalJSON(gf *protogen.GeneratedFile, ctx *EnumFieldEncodingContext) {
 	msgName := ctx.Message.GoIdent.GoName
 
