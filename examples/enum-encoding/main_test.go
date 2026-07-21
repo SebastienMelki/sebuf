@@ -12,90 +12,82 @@ import (
 	api "github.com/SebastienMelki/sebuf/examples/enum-encoding/api/proto/services"
 )
 
-// TestEnumValueServerEncoding is the end-to-end proof for the enum_value fix: the
-// generated Go server emits the custom enum strings ("low"/"medium"/"high") in
-// JSON responses and accepts them in JSON requests, rather than the raw proto
-// value names (RISK_LEVEL_LOW).
-func TestEnumValueServerEncoding(t *testing.T) {
+func post(t *testing.T, opts ...api.ServerOption) string {
+	t.Helper()
 	mux := http.NewServeMux()
-	if err := api.RegisterSuggestionServiceServer(suggestionHandler{}, api.WithMux(mux)); err != nil {
-		t.Fatalf("register server: %v", err)
-	}
-	srv := httptest.NewServer(mux)
-	defer srv.Close()
-
-	// Send the custom enum string "low" in the request body — proves request parsing.
-	reqBody := `{"symbol":"AAPL","requestedRisk":"low"}`
-	resp, err := http.Post(srv.URL+"/api/v1/suggestion", "application/json", strings.NewReader(reqBody))
-	if err != nil {
-		t.Fatalf("POST: %v", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		t.Fatalf("status = %d, want 200 (request with \"low\" should parse)", resp.StatusCode)
-	}
-
-	raw, err := io.ReadAll(resp.Body)
-	if err != nil {
-		t.Fatalf("read body: %v", err)
-	}
-	body := string(raw)
-
-	// The raw proto names must NOT appear anywhere in the response.
-	if strings.Contains(body, "RISK_LEVEL_") {
-		t.Errorf("response leaked raw proto enum names:\n%s", body)
-	}
-
-	// Singular, echoed-from-request, repeated, and map enum values must all use custom strings.
-	wants := []string{
-		`"riskLevel":"low"`, // singular (echoed request value -> proves both directions)
-		`"medium"`,          // repeated element
-		`"high"`,            // repeated element + map value
-	}
-	for _, w := range wants {
-		if !strings.Contains(body, w) {
-			t.Errorf("response missing %q\nbody: %s", w, body)
-		}
-	}
-}
-
-// TestEnumValueWithUseProtoNames verifies the fix also holds when the server is configured with
-// protojson UseProtoNames, which emits snake_case field keys. The enum patcher must still apply
-// custom strings under the proto field names (not just the camelCase JSON names).
-func TestEnumValueWithUseProtoNames(t *testing.T) {
-	mux := http.NewServeMux()
-	err := api.RegisterSuggestionServiceServer(
-		suggestionHandler{},
-		api.WithMux(mux),
-		api.WithMarshalOptions(protojson.MarshalOptions{UseProtoNames: true}),
-	)
-	if err != nil {
+	opts = append([]api.ServerOption{api.WithMux(mux)}, opts...)
+	if err := api.RegisterSuggestionServiceServer(suggestionHandler{}, opts...); err != nil {
 		t.Fatalf("register server: %v", err)
 	}
 	srv := httptest.NewServer(mux)
 	defer srv.Close()
 
 	resp, err := http.Post(
-		srv.URL+"/api/v1/suggestion", "application/json",
-		strings.NewReader(`{"symbol":"AAPL","requested_risk":"low"}`),
+		srv.URL+"/api/v1/suggestions", "application/json",
+		strings.NewReader(`{"underlyingSymbol":"AAPL","requestedRisk":"low"}`),
 	)
 	if err != nil {
 		t.Fatalf("POST: %v", err)
 	}
 	defer resp.Body.Close()
-
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status = %d, want 200 (request with \"low\" should parse)", resp.StatusCode)
+	}
 	raw, err := io.ReadAll(resp.Body)
 	if err != nil {
 		t.Fatalf("read body: %v", err)
 	}
-	body := string(raw)
+	return string(raw)
+}
 
-	if strings.Contains(body, "RISK_LEVEL_") {
+// TestEnumValueFullMatrix is the end-to-end proof across the full matrix: annotated vs
+// unannotated enums, each appearing directly on the marshaled message and nested below it.
+// Annotated enums serialize as their custom strings at every depth; unannotated enums keep
+// their proto names. The request's "low" must also be accepted (request parsing).
+func TestEnumValueFullMatrix(t *testing.T) {
+	body := post(t)
+
+	// Annotated enums -> custom strings, at every depth.
+	for _, w := range []string{
+		`"overallRisk":"low"`, // annotated, DIRECT on the marshaled message
+		`"riskLevel":"low"`,   // annotated, nested one level (echoed from request)
+		`"riskLevel":"high"`,  // annotated, nested (second element)
+		`"type":"call"`,       // annotated, nested two levels
+		`"type":"put"`,        // annotated, nested two levels (second element)
+	} {
+		if !strings.Contains(body, w) {
+			t.Errorf("response missing annotated custom value %q\nbody: %s", w, body)
+		}
+	}
+
+	// No annotated enum should leak its proto name.
+	if strings.Contains(body, "RISK_LEVEL_") || strings.Contains(body, "OPTION_TYPE_") {
+		t.Errorf("response leaked raw proto enum names for annotated enums:\n%s", body)
+	}
+
+	// Unannotated enum (Sentiment) keeps its proto name, both direct and nested.
+	for _, w := range []string{
+		`"marketSentiment":"SENTIMENT_BULLISH"`, // unannotated, DIRECT
+		`"sentiment":"SENTIMENT_BULLISH"`,       // unannotated, nested
+	} {
+		if !strings.Contains(body, w) {
+			t.Errorf("response missing unannotated proto name %q\nbody: %s", w, body)
+		}
+	}
+}
+
+// TestEnumValueWithUseProtoNames verifies the fix holds under protojson UseProtoNames, which emits
+// snake_case field keys, at every nesting depth.
+func TestEnumValueWithUseProtoNames(t *testing.T) {
+	body := post(t, api.WithMarshalOptions(protojson.MarshalOptions{UseProtoNames: true}))
+
+	if strings.Contains(body, "RISK_LEVEL_") || strings.Contains(body, "OPTION_TYPE_") {
 		t.Errorf("UseProtoNames response leaked raw proto enum names:\n%s", body)
 	}
-	// snake_case field key carries the custom enum string.
 	if !strings.Contains(body, `"risk_level":"low"`) {
 		t.Errorf("UseProtoNames response missing \"risk_level\":\"low\"\nbody: %s", body)
+	}
+	if !strings.Contains(body, `"type":"call"`) {
+		t.Errorf("UseProtoNames response missing nested \"type\":\"call\"\nbody: %s", body)
 	}
 }

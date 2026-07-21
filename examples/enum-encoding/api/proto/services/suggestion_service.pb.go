@@ -22,19 +22,14 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// RiskLevel rates a suggestion. The enum_value annotations control the JSON
-// wire format: the server emits "low"/"medium"/"high" (not RISK_LEVEL_LOW).
+// RiskLevel is ANNOTATED with enum_value -> serializes as "low"/"medium"/"high".
 type RiskLevel int32
 
 const (
-	// Default unset value. No enum_value annotation -> serializes as the proto name.
 	RiskLevel_RISK_LEVEL_UNSPECIFIED RiskLevel = 0
-	// Lower chance of a full loss; easier to profit.
-	RiskLevel_RISK_LEVEL_LOW RiskLevel = 1
-	// Balanced bet; moderate chance of a full loss.
-	RiskLevel_RISK_LEVEL_MEDIUM RiskLevel = 2
-	// Bigger reward; higher chance of a full loss.
-	RiskLevel_RISK_LEVEL_HIGH RiskLevel = 3
+	RiskLevel_RISK_LEVEL_LOW         RiskLevel = 1
+	RiskLevel_RISK_LEVEL_MEDIUM      RiskLevel = 2
+	RiskLevel_RISK_LEVEL_HIGH        RiskLevel = 3
 )
 
 // Enum value maps for RiskLevel.
@@ -80,24 +75,192 @@ func (RiskLevel) EnumDescriptor() ([]byte, []int) {
 	return file_proto_services_suggestion_service_proto_rawDescGZIP(), []int{0}
 }
 
-// EasyOptionSuggestion is a single curated buy-to-open suggestion.
-type EasyOptionSuggestion struct {
-	state               protoimpl.MessageState `protogen:"open.v1"`
-	Symbol              string                 `protobuf:"bytes,1,opt,name=symbol,proto3" json:"symbol,omitempty"`
-	ProbabilityOfProfit float64                `protobuf:"fixed64,2,opt,name=probability_of_profit,json=probabilityOfProfit,proto3" json:"probability_of_profit,omitempty"`
-	// Singular enum -> "low"
-	RiskLevel RiskLevel `protobuf:"varint,3,opt,name=risk_level,json=riskLevel,proto3,enum=suggestion.v1.RiskLevel" json:"risk_level,omitempty"`
-	// Repeated enum -> ["low", "high"]
-	AlternateRiskLevels []RiskLevel `protobuf:"varint,4,rep,packed,name=alternate_risk_levels,json=alternateRiskLevels,proto3,enum=suggestion.v1.RiskLevel" json:"alternate_risk_levels,omitempty"`
-	// Map with enum values -> {"AAPL": "low", "TSLA": "high"}
-	RiskBySymbol  map[string]RiskLevel `protobuf:"bytes,5,rep,name=risk_by_symbol,json=riskBySymbol,proto3" json:"risk_by_symbol,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"varint,2,opt,name=value,enum=suggestion.v1.RiskLevel"`
+// OptionType is ANNOTATED and lives on a nested message (two levels below the
+// response), exercising transitive/recursive nesting.
+type OptionType int32
+
+const (
+	OptionType_OPTION_TYPE_UNSPECIFIED OptionType = 0
+	OptionType_OPTION_TYPE_CALL        OptionType = 1
+	OptionType_OPTION_TYPE_PUT         OptionType = 2
+)
+
+// Enum value maps for OptionType.
+var (
+	OptionType_name = map[int32]string{
+		0: "OPTION_TYPE_UNSPECIFIED",
+		1: "OPTION_TYPE_CALL",
+		2: "OPTION_TYPE_PUT",
+	}
+	OptionType_value = map[string]int32{
+		"OPTION_TYPE_UNSPECIFIED": 0,
+		"OPTION_TYPE_CALL":        1,
+		"OPTION_TYPE_PUT":         2,
+	}
+)
+
+func (x OptionType) Enum() *OptionType {
+	p := new(OptionType)
+	*p = x
+	return p
+}
+
+func (x OptionType) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (OptionType) Descriptor() protoreflect.EnumDescriptor {
+	return file_proto_services_suggestion_service_proto_enumTypes[1].Descriptor()
+}
+
+func (OptionType) Type() protoreflect.EnumType {
+	return &file_proto_services_suggestion_service_proto_enumTypes[1]
+}
+
+func (x OptionType) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use OptionType.Descriptor instead.
+func (OptionType) EnumDescriptor() ([]byte, []int) {
+	return file_proto_services_suggestion_service_proto_rawDescGZIP(), []int{1}
+}
+
+// Sentiment is NOT annotated (no enum_value) -> serializes as the proto name
+// ("SENTIMENT_BULLISH"), whether it appears directly or nested.
+type Sentiment int32
+
+const (
+	Sentiment_SENTIMENT_UNSPECIFIED Sentiment = 0
+	Sentiment_SENTIMENT_BULLISH     Sentiment = 1
+	Sentiment_SENTIMENT_BEARISH     Sentiment = 2
+)
+
+// Enum value maps for Sentiment.
+var (
+	Sentiment_name = map[int32]string{
+		0: "SENTIMENT_UNSPECIFIED",
+		1: "SENTIMENT_BULLISH",
+		2: "SENTIMENT_BEARISH",
+	}
+	Sentiment_value = map[string]int32{
+		"SENTIMENT_UNSPECIFIED": 0,
+		"SENTIMENT_BULLISH":     1,
+		"SENTIMENT_BEARISH":     2,
+	}
+)
+
+func (x Sentiment) Enum() *Sentiment {
+	p := new(Sentiment)
+	*p = x
+	return p
+}
+
+func (x Sentiment) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (Sentiment) Descriptor() protoreflect.EnumDescriptor {
+	return file_proto_services_suggestion_service_proto_enumTypes[2].Descriptor()
+}
+
+func (Sentiment) Type() protoreflect.EnumType {
+	return &file_proto_services_suggestion_service_proto_enumTypes[2]
+}
+
+func (x Sentiment) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use Sentiment.Descriptor instead.
+func (Sentiment) EnumDescriptor() ([]byte, []int) {
+	return file_proto_services_suggestion_service_proto_rawDescGZIP(), []int{2}
+}
+
+// OptionsContract holds a nested annotated enum (type) and a nested unannotated
+// enum (sentiment).
+type OptionsContract struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Symbol        string                 `protobuf:"bytes,1,opt,name=symbol,proto3" json:"symbol,omitempty"`
+	Type          OptionType             `protobuf:"varint,2,opt,name=type,proto3,enum=suggestion.v1.OptionType" json:"type,omitempty"`          // annotated, nested -> "call"
+	Sentiment     Sentiment              `protobuf:"varint,3,opt,name=sentiment,proto3,enum=suggestion.v1.Sentiment" json:"sentiment,omitempty"` // unannotated, nested -> "SENTIMENT_BULLISH"
+	StrikePrice   float64                `protobuf:"fixed64,4,opt,name=strike_price,json=strikePrice,proto3" json:"strike_price,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
+func (x *OptionsContract) Reset() {
+	*x = OptionsContract{}
+	mi := &file_proto_services_suggestion_service_proto_msgTypes[0]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *OptionsContract) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*OptionsContract) ProtoMessage() {}
+
+func (x *OptionsContract) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_services_suggestion_service_proto_msgTypes[0]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use OptionsContract.ProtoReflect.Descriptor instead.
+func (*OptionsContract) Descriptor() ([]byte, []int) {
+	return file_proto_services_suggestion_service_proto_rawDescGZIP(), []int{0}
+}
+
+func (x *OptionsContract) GetSymbol() string {
+	if x != nil {
+		return x.Symbol
+	}
+	return ""
+}
+
+func (x *OptionsContract) GetType() OptionType {
+	if x != nil {
+		return x.Type
+	}
+	return OptionType_OPTION_TYPE_UNSPECIFIED
+}
+
+func (x *OptionsContract) GetSentiment() Sentiment {
+	if x != nil {
+		return x.Sentiment
+	}
+	return Sentiment_SENTIMENT_UNSPECIFIED
+}
+
+func (x *OptionsContract) GetStrikePrice() float64 {
+	if x != nil {
+		return x.StrikePrice
+	}
+	return 0
+}
+
+// EasyOptionSuggestion has a nested message (contract) plus a directly-held
+// annotated enum (risk_level).
+type EasyOptionSuggestion struct {
+	state               protoimpl.MessageState `protogen:"open.v1"`
+	Contract            *OptionsContract       `protobuf:"bytes,1,opt,name=contract,proto3" json:"contract,omitempty"`
+	ProbabilityOfProfit float64                `protobuf:"fixed64,2,opt,name=probability_of_profit,json=probabilityOfProfit,proto3" json:"probability_of_profit,omitempty"`
+	RiskLevel           RiskLevel              `protobuf:"varint,3,opt,name=risk_level,json=riskLevel,proto3,enum=suggestion.v1.RiskLevel" json:"risk_level,omitempty"` // annotated, nested one level -> "low"
+	unknownFields       protoimpl.UnknownFields
+	sizeCache           protoimpl.SizeCache
+}
+
 func (x *EasyOptionSuggestion) Reset() {
 	*x = EasyOptionSuggestion{}
-	mi := &file_proto_services_suggestion_service_proto_msgTypes[0]
+	mi := &file_proto_services_suggestion_service_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -109,7 +272,7 @@ func (x *EasyOptionSuggestion) String() string {
 func (*EasyOptionSuggestion) ProtoMessage() {}
 
 func (x *EasyOptionSuggestion) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_services_suggestion_service_proto_msgTypes[0]
+	mi := &file_proto_services_suggestion_service_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -122,14 +285,14 @@ func (x *EasyOptionSuggestion) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EasyOptionSuggestion.ProtoReflect.Descriptor instead.
 func (*EasyOptionSuggestion) Descriptor() ([]byte, []int) {
-	return file_proto_services_suggestion_service_proto_rawDescGZIP(), []int{0}
+	return file_proto_services_suggestion_service_proto_rawDescGZIP(), []int{1}
 }
 
-func (x *EasyOptionSuggestion) GetSymbol() string {
+func (x *EasyOptionSuggestion) GetContract() *OptionsContract {
 	if x != nil {
-		return x.Symbol
+		return x.Contract
 	}
-	return ""
+	return nil
 }
 
 func (x *EasyOptionSuggestion) GetProbabilityOfProfit() float64 {
@@ -146,44 +309,33 @@ func (x *EasyOptionSuggestion) GetRiskLevel() RiskLevel {
 	return RiskLevel_RISK_LEVEL_UNSPECIFIED
 }
 
-func (x *EasyOptionSuggestion) GetAlternateRiskLevels() []RiskLevel {
-	if x != nil {
-		return x.AlternateRiskLevels
-	}
-	return nil
+// GetEasyOptionsResponse is the message the server marshals. It carries enums
+// BOTH directly (overall_risk, market_sentiment) and nested (via data), so the
+// example covers the full matrix: annotated/unannotated x direct/nested.
+type GetEasyOptionsResponse struct {
+	state           protoimpl.MessageState  `protogen:"open.v1"`
+	Data            []*EasyOptionSuggestion `protobuf:"bytes,1,rep,name=data,proto3" json:"data,omitempty"`
+	OverallRisk     RiskLevel               `protobuf:"varint,2,opt,name=overall_risk,json=overallRisk,proto3,enum=suggestion.v1.RiskLevel" json:"overall_risk,omitempty"`             // annotated, direct (unnested) -> "low"
+	MarketSentiment Sentiment               `protobuf:"varint,3,opt,name=market_sentiment,json=marketSentiment,proto3,enum=suggestion.v1.Sentiment" json:"market_sentiment,omitempty"` // unannotated, direct (unnested) -> "SENTIMENT_BULLISH"
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
 }
 
-func (x *EasyOptionSuggestion) GetRiskBySymbol() map[string]RiskLevel {
-	if x != nil {
-		return x.RiskBySymbol
-	}
-	return nil
-}
-
-type GetSuggestionRequest struct {
-	state  protoimpl.MessageState `protogen:"open.v1"`
-	Symbol string                 `protobuf:"bytes,1,opt,name=symbol,proto3" json:"symbol,omitempty"`
-	// Echoes the requested risk level back, proving request parsing accepts "low".
-	RequestedRisk RiskLevel `protobuf:"varint,2,opt,name=requested_risk,json=requestedRisk,proto3,enum=suggestion.v1.RiskLevel" json:"requested_risk,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *GetSuggestionRequest) Reset() {
-	*x = GetSuggestionRequest{}
-	mi := &file_proto_services_suggestion_service_proto_msgTypes[1]
+func (x *GetEasyOptionsResponse) Reset() {
+	*x = GetEasyOptionsResponse{}
+	mi := &file_proto_services_suggestion_service_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *GetSuggestionRequest) String() string {
+func (x *GetEasyOptionsResponse) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*GetSuggestionRequest) ProtoMessage() {}
+func (*GetEasyOptionsResponse) ProtoMessage() {}
 
-func (x *GetSuggestionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_services_suggestion_service_proto_msgTypes[1]
+func (x *GetEasyOptionsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_services_suggestion_service_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -194,19 +346,79 @@ func (x *GetSuggestionRequest) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use GetSuggestionRequest.ProtoReflect.Descriptor instead.
-func (*GetSuggestionRequest) Descriptor() ([]byte, []int) {
-	return file_proto_services_suggestion_service_proto_rawDescGZIP(), []int{1}
+// Deprecated: Use GetEasyOptionsResponse.ProtoReflect.Descriptor instead.
+func (*GetEasyOptionsResponse) Descriptor() ([]byte, []int) {
+	return file_proto_services_suggestion_service_proto_rawDescGZIP(), []int{2}
 }
 
-func (x *GetSuggestionRequest) GetSymbol() string {
+func (x *GetEasyOptionsResponse) GetData() []*EasyOptionSuggestion {
 	if x != nil {
-		return x.Symbol
+		return x.Data
+	}
+	return nil
+}
+
+func (x *GetEasyOptionsResponse) GetOverallRisk() RiskLevel {
+	if x != nil {
+		return x.OverallRisk
+	}
+	return RiskLevel_RISK_LEVEL_UNSPECIFIED
+}
+
+func (x *GetEasyOptionsResponse) GetMarketSentiment() Sentiment {
+	if x != nil {
+		return x.MarketSentiment
+	}
+	return Sentiment_SENTIMENT_UNSPECIFIED
+}
+
+type GetEasyOptionsRequest struct {
+	state            protoimpl.MessageState `protogen:"open.v1"`
+	UnderlyingSymbol string                 `protobuf:"bytes,1,opt,name=underlying_symbol,json=underlyingSymbol,proto3" json:"underlying_symbol,omitempty"`
+	// Echoes the requested risk level back, proving request parsing accepts "low".
+	RequestedRisk RiskLevel `protobuf:"varint,2,opt,name=requested_risk,json=requestedRisk,proto3,enum=suggestion.v1.RiskLevel" json:"requested_risk,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetEasyOptionsRequest) Reset() {
+	*x = GetEasyOptionsRequest{}
+	mi := &file_proto_services_suggestion_service_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetEasyOptionsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetEasyOptionsRequest) ProtoMessage() {}
+
+func (x *GetEasyOptionsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_services_suggestion_service_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetEasyOptionsRequest.ProtoReflect.Descriptor instead.
+func (*GetEasyOptionsRequest) Descriptor() ([]byte, []int) {
+	return file_proto_services_suggestion_service_proto_rawDescGZIP(), []int{3}
+}
+
+func (x *GetEasyOptionsRequest) GetUnderlyingSymbol() string {
+	if x != nil {
+		return x.UnderlyingSymbol
 	}
 	return ""
 }
 
-func (x *GetSuggestionRequest) GetRequestedRisk() RiskLevel {
+func (x *GetEasyOptionsRequest) GetRequestedRisk() RiskLevel {
 	if x != nil {
 		return x.RequestedRisk
 	}
@@ -217,29 +429,42 @@ var File_proto_services_suggestion_service_proto protoreflect.FileDescriptor
 
 const file_proto_services_suggestion_service_proto_rawDesc = "" +
 	"\n" +
-	"'proto/services/suggestion_service.proto\x12\rsuggestion.v1\x1a\x1csebuf/http/annotations.proto\"\xa1\x03\n" +
-	"\x14EasyOptionSuggestion\x12\x16\n" +
-	"\x06symbol\x18\x01 \x01(\tR\x06symbol\x122\n" +
+	"'proto/services/suggestion_service.proto\x12\rsuggestion.v1\x1a\x1csebuf/http/annotations.proto\"\xb3\x01\n" +
+	"\x0fOptionsContract\x12\x16\n" +
+	"\x06symbol\x18\x01 \x01(\tR\x06symbol\x12-\n" +
+	"\x04type\x18\x02 \x01(\x0e2\x19.suggestion.v1.OptionTypeR\x04type\x126\n" +
+	"\tsentiment\x18\x03 \x01(\x0e2\x18.suggestion.v1.SentimentR\tsentiment\x12!\n" +
+	"\fstrike_price\x18\x04 \x01(\x01R\vstrikePrice\"\xbf\x01\n" +
+	"\x14EasyOptionSuggestion\x12:\n" +
+	"\bcontract\x18\x01 \x01(\v2\x1e.suggestion.v1.OptionsContractR\bcontract\x122\n" +
 	"\x15probability_of_profit\x18\x02 \x01(\x01R\x13probabilityOfProfit\x127\n" +
 	"\n" +
-	"risk_level\x18\x03 \x01(\x0e2\x18.suggestion.v1.RiskLevelR\triskLevel\x12L\n" +
-	"\x15alternate_risk_levels\x18\x04 \x03(\x0e2\x18.suggestion.v1.RiskLevelR\x13alternateRiskLevels\x12[\n" +
-	"\x0erisk_by_symbol\x18\x05 \x03(\v25.suggestion.v1.EasyOptionSuggestion.RiskBySymbolEntryR\friskBySymbol\x1aY\n" +
-	"\x11RiskBySymbolEntry\x12\x10\n" +
-	"\x03key\x18\x01 \x01(\tR\x03key\x12.\n" +
-	"\x05value\x18\x02 \x01(\x0e2\x18.suggestion.v1.RiskLevelR\x05value:\x028\x01\"o\n" +
-	"\x14GetSuggestionRequest\x12\x16\n" +
-	"\x06symbol\x18\x01 \x01(\tR\x06symbol\x12?\n" +
+	"risk_level\x18\x03 \x01(\x0e2\x18.suggestion.v1.RiskLevelR\triskLevel\"\xd3\x01\n" +
+	"\x16GetEasyOptionsResponse\x127\n" +
+	"\x04data\x18\x01 \x03(\v2#.suggestion.v1.EasyOptionSuggestionR\x04data\x12;\n" +
+	"\foverall_risk\x18\x02 \x01(\x0e2\x18.suggestion.v1.RiskLevelR\voverallRisk\x12C\n" +
+	"\x10market_sentiment\x18\x03 \x01(\x0e2\x18.suggestion.v1.SentimentR\x0fmarketSentiment\"\x85\x01\n" +
+	"\x15GetEasyOptionsRequest\x12+\n" +
+	"\x11underlying_symbol\x18\x01 \x01(\tR\x10underlyingSymbol\x12?\n" +
 	"\x0erequested_risk\x18\x02 \x01(\x0e2\x18.suggestion.v1.RiskLevelR\rrequestedRisk*\x86\x01\n" +
 	"\tRiskLevel\x12\x1a\n" +
 	"\x16RISK_LEVEL_UNSPECIFIED\x10\x00\x12\x1b\n" +
 	"\x0eRISK_LEVEL_LOW\x10\x01\x1a\a\xe2\xb5\x18\x03low\x12!\n" +
 	"\x11RISK_LEVEL_MEDIUM\x10\x02\x1a\n" +
 	"\xe2\xb5\x18\x06medium\x12\x1d\n" +
-	"\x0fRISK_LEVEL_HIGH\x10\x03\x1a\b\xe2\xb5\x18\x04high2\x92\x01\n" +
-	"\x11SuggestionService\x12n\n" +
-	"\rGetSuggestion\x12#.suggestion.v1.GetSuggestionRequest\x1a#.suggestion.v1.EasyOptionSuggestion\"\x13\x9a\xb5\x18\x0f\n" +
-	"\v/suggestion\x10\x02\x1a\r\xa2\xb5\x18\t\n" +
+	"\x0fRISK_LEVEL_HIGH\x10\x03\x1a\b\xe2\xb5\x18\x04high*g\n" +
+	"\n" +
+	"OptionType\x12\x1b\n" +
+	"\x17OPTION_TYPE_UNSPECIFIED\x10\x00\x12\x1e\n" +
+	"\x10OPTION_TYPE_CALL\x10\x01\x1a\b\xe2\xb5\x18\x04call\x12\x1c\n" +
+	"\x0fOPTION_TYPE_PUT\x10\x02\x1a\a\xe2\xb5\x18\x03put*T\n" +
+	"\tSentiment\x12\x19\n" +
+	"\x15SENTIMENT_UNSPECIFIED\x10\x00\x12\x15\n" +
+	"\x11SENTIMENT_BULLISH\x10\x01\x12\x15\n" +
+	"\x11SENTIMENT_BEARISH\x10\x022\x97\x01\n" +
+	"\x11SuggestionService\x12s\n" +
+	"\x0eGetEasyOptions\x12$.suggestion.v1.GetEasyOptionsRequest\x1a%.suggestion.v1.GetEasyOptionsResponse\"\x14\x9a\xb5\x18\x10\n" +
+	"\f/suggestions\x10\x02\x1a\r\xa2\xb5\x18\t\n" +
 	"\a/api/v1B\xd8\x01\n" +
 	"\x11com.suggestion.v1B\x16SuggestionServiceProtoP\x01ZVgithub.com/SebastienMelki/sebuf/examples/enum-encoding/api/proto/services;suggestionv1\xa2\x02\x03SXX\xaa\x02\rSuggestion.V1\xca\x02\rSuggestion\\V1\xe2\x02\x19Suggestion\\V1\\GPBMetadata\xea\x02\x0eSuggestion::V1b\x06proto3"
 
@@ -255,27 +480,33 @@ func file_proto_services_suggestion_service_proto_rawDescGZIP() []byte {
 	return file_proto_services_suggestion_service_proto_rawDescData
 }
 
-var file_proto_services_suggestion_service_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_proto_services_suggestion_service_proto_msgTypes = make([]protoimpl.MessageInfo, 3)
+var file_proto_services_suggestion_service_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
+var file_proto_services_suggestion_service_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
 var file_proto_services_suggestion_service_proto_goTypes = []any{
-	(RiskLevel)(0),               // 0: suggestion.v1.RiskLevel
-	(*EasyOptionSuggestion)(nil), // 1: suggestion.v1.EasyOptionSuggestion
-	(*GetSuggestionRequest)(nil), // 2: suggestion.v1.GetSuggestionRequest
-	nil,                          // 3: suggestion.v1.EasyOptionSuggestion.RiskBySymbolEntry
+	(RiskLevel)(0),                 // 0: suggestion.v1.RiskLevel
+	(OptionType)(0),                // 1: suggestion.v1.OptionType
+	(Sentiment)(0),                 // 2: suggestion.v1.Sentiment
+	(*OptionsContract)(nil),        // 3: suggestion.v1.OptionsContract
+	(*EasyOptionSuggestion)(nil),   // 4: suggestion.v1.EasyOptionSuggestion
+	(*GetEasyOptionsResponse)(nil), // 5: suggestion.v1.GetEasyOptionsResponse
+	(*GetEasyOptionsRequest)(nil),  // 6: suggestion.v1.GetEasyOptionsRequest
 }
 var file_proto_services_suggestion_service_proto_depIdxs = []int32{
-	0, // 0: suggestion.v1.EasyOptionSuggestion.risk_level:type_name -> suggestion.v1.RiskLevel
-	0, // 1: suggestion.v1.EasyOptionSuggestion.alternate_risk_levels:type_name -> suggestion.v1.RiskLevel
-	3, // 2: suggestion.v1.EasyOptionSuggestion.risk_by_symbol:type_name -> suggestion.v1.EasyOptionSuggestion.RiskBySymbolEntry
-	0, // 3: suggestion.v1.GetSuggestionRequest.requested_risk:type_name -> suggestion.v1.RiskLevel
-	0, // 4: suggestion.v1.EasyOptionSuggestion.RiskBySymbolEntry.value:type_name -> suggestion.v1.RiskLevel
-	2, // 5: suggestion.v1.SuggestionService.GetSuggestion:input_type -> suggestion.v1.GetSuggestionRequest
-	1, // 6: suggestion.v1.SuggestionService.GetSuggestion:output_type -> suggestion.v1.EasyOptionSuggestion
-	6, // [6:7] is the sub-list for method output_type
-	5, // [5:6] is the sub-list for method input_type
-	5, // [5:5] is the sub-list for extension type_name
-	5, // [5:5] is the sub-list for extension extendee
-	0, // [0:5] is the sub-list for field type_name
+	1, // 0: suggestion.v1.OptionsContract.type:type_name -> suggestion.v1.OptionType
+	2, // 1: suggestion.v1.OptionsContract.sentiment:type_name -> suggestion.v1.Sentiment
+	3, // 2: suggestion.v1.EasyOptionSuggestion.contract:type_name -> suggestion.v1.OptionsContract
+	0, // 3: suggestion.v1.EasyOptionSuggestion.risk_level:type_name -> suggestion.v1.RiskLevel
+	4, // 4: suggestion.v1.GetEasyOptionsResponse.data:type_name -> suggestion.v1.EasyOptionSuggestion
+	0, // 5: suggestion.v1.GetEasyOptionsResponse.overall_risk:type_name -> suggestion.v1.RiskLevel
+	2, // 6: suggestion.v1.GetEasyOptionsResponse.market_sentiment:type_name -> suggestion.v1.Sentiment
+	0, // 7: suggestion.v1.GetEasyOptionsRequest.requested_risk:type_name -> suggestion.v1.RiskLevel
+	6, // 8: suggestion.v1.SuggestionService.GetEasyOptions:input_type -> suggestion.v1.GetEasyOptionsRequest
+	5, // 9: suggestion.v1.SuggestionService.GetEasyOptions:output_type -> suggestion.v1.GetEasyOptionsResponse
+	9, // [9:10] is the sub-list for method output_type
+	8, // [8:9] is the sub-list for method input_type
+	8, // [8:8] is the sub-list for extension type_name
+	8, // [8:8] is the sub-list for extension extendee
+	0, // [0:8] is the sub-list for field type_name
 }
 
 func init() { file_proto_services_suggestion_service_proto_init() }
@@ -288,8 +519,8 @@ func file_proto_services_suggestion_service_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_services_suggestion_service_proto_rawDesc), len(file_proto_services_suggestion_service_proto_rawDesc)),
-			NumEnums:      1,
-			NumMessages:   3,
+			NumEnums:      3,
+			NumMessages:   4,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

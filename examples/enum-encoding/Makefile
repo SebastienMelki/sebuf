@@ -29,7 +29,7 @@ run:
 
 # Hit the running server (start it with `make run` first)
 curl:
-	@curl -s localhost:8080/api/v1/suggestion -d '{"symbol":"AAPL","requestedRisk":"low"}'
+	@curl -s localhost:8080/api/v1/suggestions -d '{"underlyingSymbol":"AAPL","requestedRisk":"low"}'
 	@echo ""
 
 # Clean generated files

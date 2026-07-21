@@ -20,6 +20,53 @@ func TestGoGeneratorsProduceIdenticalEnumFieldEncoding(t *testing.T) {
 		filepath.Join(baseDir, "..", "clientgen", "testdata", "golden", "enum_encoding_enum_field_encoding.pb.go"),
 		"enum_field_encoding",
 	)
+	compareEncodingFiles(t,
+		filepath.Join(baseDir, "testdata", "golden", "enum_nested_enum_field_encoding.pb.go"),
+		filepath.Join(baseDir, "..", "clientgen", "testdata", "golden", "enum_nested_enum_field_encoding.pb.go"),
+		"enum_nested_enum_field_encoding",
+	)
+}
+
+// TestEnumFieldEncodingTransitiveNesting verifies the generated marshaler propagates custom enum
+// strings through nested messages: a wrapper re-serializes its child via the child's marshaler, so
+// enums nested any number of levels below the marshaled message are still translated.
+func TestEnumFieldEncodingTransitiveNesting(t *testing.T) {
+	baseDir, baseErr := os.Getwd()
+	if baseErr != nil {
+		t.Fatalf("Failed to get working directory: %v", baseErr)
+	}
+
+	content, readErr := os.ReadFile(
+		filepath.Join(baseDir, "testdata", "golden", "enum_nested_enum_field_encoding.pb.go"),
+	)
+	if readErr != nil {
+		t.Fatalf("Failed to read enum_nested golden file: %v", readErr)
+	}
+	src := string(content)
+
+	// Every message in the chain (leaf, one-level wrapper, two-level wrapper) gets a marshaler.
+	for _, method := range []string{
+		"func (x *Item) MarshalJSONSebuf(",
+		"func (x *ItemGroup) MarshalJSONSebuf(",
+		"func (x *GetItemsResponse) MarshalJSONSebuf(",
+	} {
+		if !strings.Contains(src, method) {
+			t.Errorf("missing marshaler %q -- transitive nesting not generated", method)
+		}
+	}
+
+	// The wrapper re-serializes nested children (singular + repeated) via their marshaler, and the
+	// leaf still patches its direct enum fields.
+	for _, snippet := range []string{
+		`Re-serialize "lead" forwarding opts`,           // singular nested
+		`Re-serialize repeated "items" forwarding opts`, // repeated nested
+		`Re-serialize "group" forwarding opts`,          // two-level nested
+		"gradeToJSON[e]",                                // leaf direct enum still patched
+	} {
+		if !strings.Contains(src, snippet) {
+			t.Errorf("nested marshaler missing %q", snippet)
+		}
+	}
 }
 
 // TestEnumFieldEncodingCoversAllShapes verifies the generated marshaler patches every enum

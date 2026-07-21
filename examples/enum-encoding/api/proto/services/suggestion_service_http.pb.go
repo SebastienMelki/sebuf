@@ -11,7 +11,7 @@ import (
 
 // SuggestionServiceServer is the server API for SuggestionService service.
 type SuggestionServiceServer interface {
-	GetSuggestion(context.Context, *GetSuggestionRequest) (*EasyOptionSuggestion, error)
+	GetEasyOptions(context.Context, *GetEasyOptionsRequest) (*GetEasyOptionsResponse, error)
 }
 
 // RegisterSuggestionServiceServer registers the HTTP handlers for service SuggestionService to the given mux.
@@ -20,14 +20,14 @@ func RegisterSuggestionServiceServer(server SuggestionServiceServer, opts ...Ser
 
 	serviceHeaders := getSuggestionServiceHeaders()
 
-	methodHeaders := getGetSuggestionHeaders()
-	getSuggestionHandler := BindingMiddleware[GetSuggestionRequest](
-		genericHandler(server.GetSuggestion, config.errorHandler, config.marshalOpts), serviceHeaders, methodHeaders,
-		getSuggestionPathParams, getSuggestionQueryParams,
+	methodHeaders := getGetEasyOptionsHeaders()
+	getEasyOptionsHandler := BindingMiddleware[GetEasyOptionsRequest](
+		genericHandler(server.GetEasyOptions, config.errorHandler, config.marshalOpts), serviceHeaders, methodHeaders,
+		getEasyOptionsPathParams, getEasyOptionsQueryParams,
 		"POST", config.errorHandler, config.marshalOpts,
 	)
 
-	config.mux.Handle("POST /api/v1/suggestion", getSuggestionHandler)
+	config.mux.Handle("POST /api/v1/suggestions", getEasyOptionsHandler)
 
 	return nil
 }
@@ -37,13 +37,13 @@ func getSuggestionServiceHeaders() []*sebufhttp.Header {
 	return nil
 }
 
-// getGetSuggestionHeaders returns the method-level required headers for GetSuggestion
-func getGetSuggestionHeaders() []*sebufhttp.Header {
+// getGetEasyOptionsHeaders returns the method-level required headers for GetEasyOptions
+func getGetEasyOptionsHeaders() []*sebufhttp.Header {
 	return nil
 }
 
-// getSuggestionPathParams contains path parameter configuration for GetSuggestion
-var getSuggestionPathParams = []PathParamConfig{}
+// getEasyOptionsPathParams contains path parameter configuration for GetEasyOptions
+var getEasyOptionsPathParams = []PathParamConfig{}
 
-// getSuggestionQueryParams contains query parameter configuration for GetSuggestion
-var getSuggestionQueryParams = []QueryParamConfig{}
+// getEasyOptionsQueryParams contains query parameter configuration for GetEasyOptions
+var getEasyOptionsQueryParams = []QueryParamConfig{}
