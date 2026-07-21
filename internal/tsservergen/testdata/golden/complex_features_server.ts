@@ -106,9 +106,9 @@ export interface FeatureServiceHandler {
   createNote(ctx: ServerContext, req: CreateNoteRequest): Promise<Note>;
   updateNote(ctx: ServerContext, req: UpdateNoteRequest): Promise<Note>;
   getNoteList(ctx: ServerContext, req: GetNoteListRequest): Promise<Note[]>;
-  getNoteMap(ctx: ServerContext, req: GetNoteMapRequest): Promise<Record<string, Note>>;
+  getNoteMap(ctx: ServerContext, req: GetNoteMapRequest): Promise<{ [key: string]: Note }>;
   getBarsBySymbol(ctx: ServerContext, req: GetBarsBySymbolRequest): Promise<BarsBySymbol>;
-  getCombinedUnwrap(ctx: ServerContext, req: GetCombinedUnwrapRequest): Promise<Record<string, Bar[]>>;
+  getCombinedUnwrap(ctx: ServerContext, req: GetCombinedUnwrapRequest): Promise<{ [key: string]: Bar[] }>;
 }
 
 export function createFeatureServiceRoutes(
@@ -420,7 +420,7 @@ export function createFeatureServiceRoutes(
           };
 
           const result = await handler.getNoteMap(ctx, body);
-          return new Response(JSON.stringify(result as Record<string, Note>), {
+          return new Response(JSON.stringify(result as { [key: string]: Note }), {
             status: 200,
             headers: { "Content-Type": "application/json" },
           });
@@ -524,7 +524,7 @@ export function createFeatureServiceRoutes(
           };
 
           const result = await handler.getCombinedUnwrap(ctx, body);
-          return new Response(JSON.stringify(result as Record<string, Bar[]>), {
+          return new Response(JSON.stringify(result as { [key: string]: Bar[] }), {
             status: 200,
             headers: { "Content-Type": "application/json" },
           });

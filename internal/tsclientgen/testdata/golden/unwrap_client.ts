@@ -110,7 +110,7 @@ export class UnwrapServiceClient {
     return await resp.json() as GetOptionBarsResponse;
   }
 
-  async getRootMap(req: GetOptionBarsRequest, options?: UnwrapServiceCallOptions): Promise<Record<string, OptionBar>> {
+  async getRootMap(req: GetOptionBarsRequest, options?: UnwrapServiceCallOptions): Promise<{ [key: string]: OptionBar }> {
     let path = "/api/v1/root/map";
     const url = this.baseURL + path;
 
@@ -131,7 +131,7 @@ export class UnwrapServiceClient {
       return this.handleError(resp);
     }
 
-    return await resp.json() as Record<string, OptionBar>;
+    return await resp.json() as { [key: string]: OptionBar };
   }
 
   async getRootRepeated(req: GetOptionBarsRequest, options?: UnwrapServiceCallOptions): Promise<OptionBar[]> {
@@ -158,7 +158,7 @@ export class UnwrapServiceClient {
     return await resp.json() as OptionBar[];
   }
 
-  async getRootMapWithValueUnwrap(req: GetOptionBarsRequest, options?: UnwrapServiceCallOptions): Promise<Record<string, OptionBar[]>> {
+  async getRootMapWithValueUnwrap(req: GetOptionBarsRequest, options?: UnwrapServiceCallOptions): Promise<{ [key: string]: OptionBar[] }> {
     let path = "/api/v1/root/map-value-unwrap";
     const url = this.baseURL + path;
 
@@ -179,7 +179,7 @@ export class UnwrapServiceClient {
       return this.handleError(resp);
     }
 
-    return await resp.json() as Record<string, OptionBar[]>;
+    return await resp.json() as { [key: string]: OptionBar[] };
   }
 
   private async handleError(resp: Response): Promise<never> {

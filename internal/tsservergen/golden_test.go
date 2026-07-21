@@ -56,6 +56,7 @@ func TestTSServerGenGoldenFiles(t *testing.T) {
 		{name: "oneof discriminator", protoFiles: []string{"oneof_discriminator.proto"}},
 		{name: "SSE streaming", protoFiles: []string{"sse.proto"}},
 		{name: "empty request body", protoFiles: []string{"empty_request_body.proto"}},
+		{name: "record map collision", protoFiles: []string{"record_map_collision.proto"}},
 		{
 			name:             "reserved error-helper names",
 			protoFiles:       []string{"reserved_name.proto"},

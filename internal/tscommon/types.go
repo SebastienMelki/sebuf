@@ -295,11 +295,11 @@ func TSFieldTypeCtx(ctx *EmitContext, field *protogen.Field) string {
 			unwrapField := annotations.FindUnwrapField(valueField.Message)
 			if unwrapField != nil && !unwrapField.Desc.IsMap() {
 				// Map-value unwrap: collapse wrapper to inner type array
-				return fmt.Sprintf("Record<string, %s[]>", TSElementTypeCtx(ctx, unwrapField))
+				return fmt.Sprintf("{ [key: string]: %s[] }", TSElementTypeCtx(ctx, unwrapField))
 			}
 		}
 
-		return fmt.Sprintf("Record<string, %s>", TSFieldTypeCtx(ctx, valueField))
+		return fmt.Sprintf("{ [key: string]: %s }", TSFieldTypeCtx(ctx, valueField))
 	}
 
 	// Handle repeated fields
@@ -375,11 +375,11 @@ func RootUnwrapTSTypeCtx(ctx *EmitContext, msg *protogen.Message) string {
 		if valueField.Desc.Kind() == protoreflect.MessageKind && valueField.Message != nil {
 			unwrapField := annotations.FindUnwrapField(valueField.Message)
 			if unwrapField != nil {
-				return fmt.Sprintf("Record<string, %s[]>", TSElementTypeCtx(ctx, unwrapField))
+				return fmt.Sprintf("{ [key: string]: %s[] }", TSElementTypeCtx(ctx, unwrapField))
 			}
 		}
 
-		return fmt.Sprintf("Record<string, %s>", TSFieldTypeCtx(ctx, valueField))
+		return fmt.Sprintf("{ [key: string]: %s }", TSFieldTypeCtx(ctx, valueField))
 	}
 
 	if field.Desc.IsList() {
