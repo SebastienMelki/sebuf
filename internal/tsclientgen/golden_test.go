@@ -210,16 +210,16 @@ func readGoldenConcat(t *testing.T, names ...string) string {
 	if err != nil {
 		t.Fatalf("Failed to get working directory: %v", err)
 	}
-	var ts string
+	var sb strings.Builder
 	for _, name := range names {
 		goldenPath := filepath.Join(wd, "testdata", "golden", name)
 		content, readErr := os.ReadFile(goldenPath)
 		if readErr != nil {
 			t.Fatalf("Failed to read golden file %s: %v", goldenPath, readErr)
 		}
-		ts += string(content)
+		sb.Write(content)
 	}
-	return ts
+	return sb.String()
 }
 
 // TestMultiWordOneofNameDoesNotLeak asserts a multi-word oneof name
