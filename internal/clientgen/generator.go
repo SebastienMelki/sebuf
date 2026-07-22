@@ -92,6 +92,12 @@ func (g *Generator) generateFile(file *protogen.File) error {
 		return err
 	}
 
+	// Generate enum-field encoding file so the client sends/receives custom enum_value strings
+	// (protojson emits raw proto value names). Depends on the lookup maps emitted above.
+	if err := g.generateEnumFieldEncodingFile(file); err != nil {
+		return err
+	}
+
 	return nil
 }
 

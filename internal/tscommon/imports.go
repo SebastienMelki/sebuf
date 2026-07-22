@@ -3,6 +3,7 @@ package tscommon
 import (
 	"fmt"
 	"path"
+	"regexp"
 	"sort"
 	"strings"
 
@@ -22,6 +23,40 @@ var protobufESTypeOnly = map[string]bool{"MessageInitShape": true, "DescMessage"
 // errorsModule is the extensionless module path of the shared error-helpers
 // file emitted at the output root in modules mode.
 const errorsModule = "errors"
+
+// Names of the value exports of the shared errors module (see WriteErrorTypes).
+const (
+	apiErrorName        = "ApiError"
+	fieldViolationName  = "FieldViolation"
+	validationErrorName = "ValidationError"
+)
+
+// errorHelperNames returns the value exports of the shared errors module,
+// sorted. Every ImportTracker pre-reserves them as local names so an imported
+// proto type or enum whose emitted TS name collides with a helper is
+// deterministically aliased (e.g. ApiError_1) instead of producing a duplicate
+// identifier next to the helper import.
+func errorHelperNames() []string {
+	return []string{apiErrorName, fieldViolationName, validationErrorName}
+}
+
+// reservedGlobalNames returns the global (DOM / TS-lib) identifiers the
+// generated modules reference in template code — fetch, Response, Promise,
+// Record, and friends. Pre-reserving them keeps an imported proto type named
+// e.g. "Response" from shadowing the global the template relies on, which
+// would otherwise typecheck the template code against the proto type.
+func reservedGlobalNames() []string {
+	return []string{
+		"AbortSignal", "AsyncGenerator", "Error", "Headers", "Promise",
+		"ReadableStream", "Record", "Request", "Response", "TextDecoder",
+		"TextEncoder", "URL", "URLSearchParams", "fetch",
+	}
+}
+
+// reservedOwnerKey marks a local name as pre-reserved in ImportTracker. The
+// leading NUL can never collide with a real "spec\x00symbol" owner key because
+// specifiers are never empty.
+const reservedOwnerKey = "\x00reserved"
 
 // ModuleForFile returns the canonical extensionless TypeScript module path for a
 // proto file path, e.g. "anghamna/core/v1/identifiers.proto" ->
@@ -85,9 +120,11 @@ type ImportTracker struct {
 	protobufESSyms map[string]bool
 }
 
-// NewImportTracker returns an empty tracker.
+// NewImportTracker returns an empty tracker with the error-helper and global
+// template names pre-reserved, so type imports can never shadow the shared
+// errors module or the globals the generated code relies on.
 func NewImportTracker() *ImportTracker {
-	return &ImportTracker{
+	t := &ImportTracker{
 		typeImports:    map[string][]importedSymbol{},
 		valueImports:   map[string][]importedSymbol{},
 		aliasOf:        map[string]string{},
@@ -95,6 +132,13 @@ func NewImportTracker() *ImportTracker {
 		errorSyms:      map[string]bool{},
 		protobufESSyms: map[string]bool{},
 	}
+	for _, name := range errorHelperNames() {
+		t.usedAlias[name] = reservedOwnerKey
+	}
+	for _, name := range reservedGlobalNames() {
+		t.usedAlias[name] = reservedOwnerKey
+	}
+	return t
 }
 
 // assignAlias reserves a deterministic local binding for `symbol` imported from
@@ -327,15 +371,15 @@ func (c *EmitContext) NeedErrors(symbols ...string) {
 }
 
 // UsedErrorSymbols returns the error-helper symbols referenced anywhere in the
-// given body lines, so a generated file imports only what it uses (these
-// symbols are distinct, none a substring of another).
+// given body lines, so a generated file imports only what it uses. Matching is
+// on identifier boundaries: an aliased colliding type (ApiError_1) or a longer
+// identifier embedding a helper name does not trigger an import.
 func UsedErrorSymbols(lines []string) []string {
-	// The value exports of the shared errors module.
-	symbols := []string{"ApiError", "FieldViolation", "ValidationError"}
 	var used []string
-	for _, sym := range symbols {
+	for _, sym := range errorHelperNames() {
+		pattern := regexp.MustCompile(`\b` + sym + `\b`)
 		for _, line := range lines {
-			if strings.Contains(line, sym) {
+			if pattern.MatchString(line) {
 				used = append(used, sym)
 				break
 			}

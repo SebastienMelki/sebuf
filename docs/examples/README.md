@@ -28,7 +28,7 @@ This starts a working HTTP API with user management, authentication, and OpenAPI
 | **[nested-resources](../../examples/nested-resources/)** | Organization hierarchy API | Deep path nesting (3 levels), multiple path params per endpoint |
 | **[multi-service-api](../../examples/multi-service-api/)** | Multi-tenant platform | Multiple services, different auth levels, service/method headers |
 | **[market-data-unwrap](../../examples/market-data-unwrap/)** | Financial market data API | Unwrap annotation for map values, JSON/protobuf compatibility |
-| **[ts-client-demo](../../examples/ts-client-demo/)** | TypeScript client demo | TypeScript HTTP client, CRUD API, query params, headers, error handling |
+| **[ts-client-demo](../../examples/ts-client-demo/)** | TypeScript client demo | TypeScript HTTP client, CRUD API, query params, headers, error handling, oneof presence-union |
 | **[ts-fullstack-demo](../../examples/ts-fullstack-demo/)** | TypeScript full-stack demo | TS client + TS server from same proto, CRUD, unwrap, custom errors |
 
 ---
@@ -131,6 +131,7 @@ End-to-end TypeScript HTTP client demo with a NoteService CRUD API.
 - Query parameters: filter by status, limit results
 - Service-level headers (X-API-Key) and method-level headers (X-Request-ID)
 - Structured error handling: `ValidationError` and `ApiError`
+- Un-annotated oneof (`Note.reminder`) rendered as a TypeScript presence-discriminated union, narrowed by presence in the client (`describeReminder`)
 - Go server implementing `NoteServiceServer` with in-memory store
 
 ```bash

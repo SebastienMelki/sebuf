@@ -42,6 +42,9 @@ message EnumEncodingTest {
 
   // Optional enum with custom values
   optional Status optional_status = 7;
+
+  // Map with enum values carrying custom enum_value strings
+  map<string, Status> status_map = 8;
 }
 
 // Request message for testing

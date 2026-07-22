@@ -86,4 +86,5 @@ internal/tsclientgen/testdata/es/node_modules
 # node_modules symlinks created by the es golden typecheck tests
 # (es_typecheck_test.go) so tsc can resolve @bufbuild/protobuf
 internal/tsclientgen/testdata/golden/es/node_modules
+internal/tsclientgen/testdata/golden/es-result/node_modules
 internal/tsservergen/testdata/golden/es/node_modules

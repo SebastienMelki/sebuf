@@ -254,8 +254,8 @@ export function createQueryParamServiceRoutes(
             region: (params.get("region") ?? "unspecified") as Region,
             countries: params.getAll("countries"),
             keyword: params.get("keyword") ?? "",
-            years: params.getAll("years"),
-            flags: params.getAll("flags"),
+            years: params.getAll("years").map(Number),
+            flags: params.getAll("flags").map(v => v === "true"),
             regions: params.getAll("regions") as Region[],
           };
           if (options?.validateRequest) {

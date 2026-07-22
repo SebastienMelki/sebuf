@@ -9,12 +9,9 @@ import {
   SafeAreaView,
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
-import {
-  TaskServiceClient,
-  ValidationError,
-  ApiError,
-  type Task,
-} from "./generated/proto/task_service_client";
+import { ValidationError, ApiError } from "./generated/errors";
+import type { Task } from "./generated/proto/task_service";
+import { TaskServiceClient } from "./generated/proto/task_service_client";
 
 // Platform-aware base URL
 const BASE_URL = Platform.select({

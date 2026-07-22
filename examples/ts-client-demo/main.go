@@ -46,6 +46,8 @@ func (s *noteService) seedData() {
 		},
 		Metadata:  map[string]string{"sprint": "12", "team": "platform"},
 		CreatedAt: now.Add(-72 * time.Hour).Format(time.RFC3339),
+		// Un-annotated oneof: absolute-timestamp reminder variant.
+		Reminder: &pb.Note_RemindAt{RemindAt: now.Add(24 * time.Hour).Format(time.RFC3339)},
 	}
 	s.notes["note-2"] = &pb.Note{
 		Id:       "note-2",
@@ -60,6 +62,8 @@ func (s *noteService) seedData() {
 		Metadata:  map[string]string{"sprint": "12"},
 		DueDate:   strPtr("2025-12-31"),
 		CreatedAt: now.Add(-48 * time.Hour).Format(time.RFC3339),
+		// Un-annotated oneof: relative day-offset reminder variant.
+		Reminder: &pb.Note_RemindInDays{RemindInDays: 3},
 	}
 	s.notes["note-3"] = &pb.Note{
 		Id:       "note-3",

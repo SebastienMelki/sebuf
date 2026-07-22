@@ -2,16 +2,18 @@ import { createServer, type IncomingMessage, type ServerResponse } from "node:ht
 import { readFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
+import type {
+  Note,
+  Priority,
+  Status,
+  NotFoundError as NotFoundErrorType,
+  LoginError as LoginErrorType,
+} from "./generated/proto/note_service.ts";
 import {
   createNoteServiceRoutes,
   type NoteServiceHandler,
   type ServerContext,
-  type Note,
   type RouteDescriptor,
-  type Priority,
-  type Status,
-  type NotFoundError as NotFoundErrorType,
-  type LoginError as LoginErrorType,
 } from "./generated/proto/note_service_server.ts";
 
 // ==========================================================================
