@@ -918,6 +918,11 @@ func TestGeneratePackage(t *testing.T) {
 		"return new LoginErrorException(statusCode, responseBody, headers, payload);",
 		"public sealed class WidgetServiceClientOptions",
 		"public sealed class WidgetServiceCallOptions",
+		"public TimeSpan? Timeout { get; set; }",
+		"public string ContentType { get; set; } = \"application/json\";",
+		"public string? ContentType { get; set; }",
+		"private readonly TimeSpan? _timeout;",
+		"private readonly string _contentType;",
 		"public interface IWidgetServiceClient",
 		"public sealed class WidgetServiceClient : IWidgetServiceClient",
 		"private static string NormalizeSerializedJson(object value, string json)",
@@ -951,7 +956,12 @@ func TestGeneratePackage(t *testing.T) {
 		`query.Add(Uri.EscapeDataString("owner") + "=" + Uri.EscapeDataString(FormatQueryValue(req.OwnerId)));`,
 		`headers["X-API-Key"] = options.ApiKey!;`,
 		`headers["X-Request-ID"] = options.RequestId!;`,
-		"return await SendAsync<Widget>(HttpMethod.Get, requestUri, null, headers, cancellationToken);",
+		"var contentType = options?.ContentType ?? _contentType;",
+		"headers[\"Accept\"] = \"application/json\";",
+		"options?.Timeout ?? _timeout",
+		"new CancellationTokenSource(timeout.Value)",
+		"CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeoutCancellation.Token)",
+		"return await SendAsync<Widget>(HttpMethod.Get, requestUri, null, headers, contentType, options?.Timeout ?? _timeout, cancellationToken);",
 		"public static class WidgetService",
 		`public const string Path = "/api/v1/widgets/{id}";`,
 		`public const string RequestType = "GetWidgetRequest";`,
@@ -959,6 +969,32 @@ func TestGeneratePackage(t *testing.T) {
 		if !strings.Contains(output, want) {
 			t.Fatalf("generated output missing %q:\n%s", want, output)
 		}
+	}
+}
+
+func TestCSharpGenSSEMethodFailsExplicitly(t *testing.T) {
+	plugin := newCSharpTestPlugin(t)
+	gen := New(plugin, Options{Namespace: "Test.Contracts", JSONLib: "newtonsoft"})
+	pkg := &contractmodel.Package{
+		Name: "test.sse",
+		Services: []*contractmodel.Service{{
+			Name: "EventsService",
+			Methods: []*contractmodel.Method{{
+				Name: "StreamEvents", InputType: "StreamEventsRequest", ResponseType: "Event",
+				HTTPMethod: "GET", Path: "/events", Stream: true,
+			}},
+		}},
+	}
+
+	if err := gen.generatePackage(pkg); err != nil {
+		t.Fatalf("generatePackage() error = %v", err)
+	}
+	output := generatedCSharpContent(t, plugin, "test/sse/Contracts.g.cs")
+	if !strings.Contains(output, `throw new NotSupportedException("SSE streaming is not implemented by the C# client generator.");`) {
+		t.Fatalf("SSE method did not fail explicitly:\n%s", output)
+	}
+	if strings.Contains(output, "SendAsync<Event>(HttpMethod.Get") {
+		t.Fatalf("SSE method must not be generated as a JSON request:\n%s", output)
 	}
 }
 

@@ -145,6 +145,9 @@ func assertServiceModel(t *testing.T, pkg *Package) {
 	if got, want := getWidget.PathParams, []string{"id"}; !slices.Equal(got, want) {
 		t.Fatalf("GetWidget.PathParams = %v, want %v", got, want)
 	}
+	if !getWidget.Stream {
+		t.Fatalf("GetWidget.Stream = false, want true")
+	}
 	if len(getWidget.Headers) != 1 || getWidget.Headers[0].Name != "X-Request-ID" {
 		t.Fatalf("GetWidget.Headers = %+v, want X-Request-ID", getWidget.Headers)
 	}
@@ -259,6 +262,7 @@ func newContractModelPlugin(t *testing.T) *protogen.Plugin {
 							withMethodOption(t, sebufhttp.E_Config, &sebufhttp.HttpConfig{
 								Path:   "/widgets/{id}",
 								Method: sebufhttp.HttpMethod_HTTP_METHOD_GET,
+								Stream: true,
 							}),
 							withMethodOption(t, sebufhttp.E_MethodHeaders, &sebufhttp.MethodHeaders{
 								RequiredHeaders: []*sebufhttp.Header{{Name: "X-Request-ID", Required: true}},

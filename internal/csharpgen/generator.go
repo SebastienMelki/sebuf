@@ -317,6 +317,8 @@ func (g *Generator) generateServiceClientOptions(gf *protogen.GeneratedFile, ser
 	gf.P("    {")
 	gf.P("        public HttpClient? HttpClient { get; set; }")
 	gf.P("        public Dictionary<string, string>? DefaultHeaders { get; set; }")
+	gf.P("        public TimeSpan? Timeout { get; set; }")
+	gf.P("        public string ContentType { get; set; } = \"application/json\";")
 	for _, header := range service.Headers {
 		gf.P("        public string? ", upperFirst(tscommon.HeaderNameToPropertyName(header.Name)), " { get; set; }")
 	}
@@ -328,6 +330,8 @@ func (g *Generator) generateServiceCallOptions(gf *protogen.GeneratedFile, servi
 	gf.P("    public sealed class ", service.Name, "CallOptions")
 	gf.P("    {")
 	gf.P("        public Dictionary<string, string>? Headers { get; set; }")
+	gf.P("        public TimeSpan? Timeout { get; set; }")
+	gf.P("        public string? ContentType { get; set; }")
 	for _, header := range serviceCallHeaders(service) {
 		gf.P("        public string? ", upperFirst(tscommon.HeaderNameToPropertyName(header.Name)), " { get; set; }")
 	}
@@ -360,6 +364,8 @@ func (g *Generator) generateServiceClientClass(
 	gf.P("        private readonly string _baseUrl;")
 	gf.P("        private readonly HttpClient _httpClient;")
 	gf.P("        private readonly Dictionary<string, string> _defaultHeaders;")
+	gf.P("        private readonly TimeSpan? _timeout;")
+	gf.P("        private readonly string _contentType;")
 	if !g.useNewtonsoft() {
 		gf.P("        private static readonly JsonSerializerOptions JsonOptions = new()")
 		gf.P("        {")
@@ -387,6 +393,8 @@ func (g *Generator) generateServiceClientConstructor(gf *protogen.GeneratedFile,
 	gf.P("            _defaultHeaders = options?.DefaultHeaders is null")
 	gf.P("                ? new Dictionary<string, string>()")
 	gf.P("                : new Dictionary<string, string>(options.DefaultHeaders);")
+	gf.P("            _timeout = options?.Timeout;")
+	gf.P("            _contentType = options?.ContentType ?? \"application/json\";")
 	for _, header := range service.Headers {
 		prop := upperFirst(tscommon.HeaderNameToPropertyName(header.Name))
 		gf.P("            if (!string.IsNullOrEmpty(options?.", prop, "))")
@@ -412,6 +420,17 @@ func (g *Generator) generateServiceClientMethod(
 		"CallOptions? options = null, CancellationToken cancellationToken = default)",
 	)
 	gf.P("        {")
+	if method.Stream {
+		gf.P(`            throw new NotSupportedException("SSE streaming is not implemented by the C# client generator.");`)
+		gf.P("        }")
+		gf.P()
+		return
+	}
+	gf.P("            var contentType = options?.ContentType ?? _contentType;")
+	gf.P("            if (!string.Equals(contentType, \"application/json\", StringComparison.OrdinalIgnoreCase))")
+	gf.P("            {")
+	gf.P(`                throw new NotSupportedException("Only application/json is implemented by the C# client generator.");`)
+	gf.P("            }")
 	gf.P(`            var path = "`, method.Path, `";`)
 	for _, pathParam := range method.PathParams {
 		gf.P(
@@ -439,7 +458,7 @@ func (g *Generator) generateServiceClientMethod(
 	}
 	gf.P(
 		"            return await SendAsync<", responseType, ">(HttpMethod.",
-		httpMethodName(method.HTTPMethod), ", requestUri, ", bodyExpr, ", headers, cancellationToken);",
+		httpMethodName(method.HTTPMethod), ", requestUri, ", bodyExpr, ", headers, contentType, options?.Timeout ?? _timeout, cancellationToken);",
 	)
 	gf.P("        }")
 	gf.P()
@@ -496,6 +515,7 @@ func (g *Generator) generateServiceClientHelpers(
 	gf.P("        private Dictionary<string, string> BuildHeaders(", service.Name, "CallOptions? options)")
 	gf.P("        {")
 	gf.P("            var headers = new Dictionary<string, string>(_defaultHeaders);")
+	gf.P("            headers[\"Accept\"] = \"application/json\";")
 	gf.P("            if (options?.Headers is not null)")
 	gf.P("            {")
 	gf.P("                foreach (var pair in options.Headers)")
@@ -526,7 +546,7 @@ func (g *Generator) generateSendAsync(
 ) {
 	gf.P(
 		"        private async Task<TResponse> SendAsync<TResponse>(",
-		"HttpMethod method, string requestUri, object? body, Dictionary<string, string> headers, CancellationToken cancellationToken) where TResponse : new()",
+		"HttpMethod method, string requestUri, object? body, Dictionary<string, string> headers, string contentType, TimeSpan? timeout, CancellationToken cancellationToken) where TResponse : new()",
 	)
 	gf.P("        {")
 	gf.P("            using var request = new HttpRequestMessage(method, _baseUrl + requestUri);")
@@ -537,12 +557,15 @@ func (g *Generator) generateSendAsync(
 	gf.P("            if (body is not null)")
 	gf.P("            {")
 	gf.P(
-		`                request.Content = new StringContent(SerializeRequest(body), Encoding.UTF8, "application/json");`,
+		`                request.Content = new StringContent(SerializeRequest(body), Encoding.UTF8, contentType);`,
 	)
 	gf.P("            }")
-	gf.P("            using var response = await _httpClient.SendAsync(request, cancellationToken);")
+	gf.P("            using var timeoutCancellation = timeout is null ? null : new CancellationTokenSource(timeout.Value);")
+	gf.P("            using var linkedCancellation = timeoutCancellation is null ? null : CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeoutCancellation.Token);")
+	gf.P("            var effectiveCancellationToken = linkedCancellation?.Token ?? cancellationToken;")
+	gf.P("            using var response = await _httpClient.SendAsync(request, effectiveCancellationToken);")
 	gf.P(
-		`            var responseBody = response.Content is null ? string.Empty : await response.Content.ReadAsStringAsync(cancellationToken);`,
+		`            var responseBody = response.Content is null ? string.Empty : await response.Content.ReadAsStringAsync(effectiveCancellationToken);`,
 	)
 	gf.P("            var responseHeaders = CollectResponseHeaders(response);")
 	gf.P("            if (!response.IsSuccessStatusCode)")

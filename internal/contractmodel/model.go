@@ -158,6 +158,7 @@ type Method struct {
 	Path         string
 	PathParams   []string
 	Headers      []*Header
+	Stream       bool
 }
 
 type Service struct {
@@ -453,6 +454,7 @@ func collectServices(files []*protogen.File, table *symbols) []*Service {
 					Path:         fullPath,
 					PathParams:   pathParams,
 					Headers:      headersFromAnnotation(annotations.GetMethodHeaders(method)),
+					Stream:       httpConfig != nil && httpConfig.Stream,
 				})
 			}
 			result = append(result, &Service{

@@ -270,11 +270,15 @@ namespace Test.Contracts
     {
         public HttpClient? HttpClient { get; set; }
         public Dictionary<string, string>? DefaultHeaders { get; set; }
+        public TimeSpan? Timeout { get; set; }
+        public string ContentType { get; set; } = "application/json";
     }
 
     public sealed class WidgetServiceCallOptions
     {
         public Dictionary<string, string>? Headers { get; set; }
+        public TimeSpan? Timeout { get; set; }
+        public string? ContentType { get; set; }
     }
 
     public interface IWidgetServiceClient
@@ -288,6 +292,8 @@ namespace Test.Contracts
         private readonly string _baseUrl;
         private readonly HttpClient _httpClient;
         private readonly Dictionary<string, string> _defaultHeaders;
+        private readonly TimeSpan? _timeout;
+        private readonly string _contentType;
         private static readonly JsonSerializerOptions JsonOptions = new()
         {
             PropertyNamingPolicy = null,
@@ -301,20 +307,32 @@ namespace Test.Contracts
             _defaultHeaders = options?.DefaultHeaders is null
                 ? new Dictionary<string, string>()
                 : new Dictionary<string, string>(options.DefaultHeaders);
+            _timeout = options?.Timeout;
+            _contentType = options?.ContentType ?? "application/json";
         }
 
         public async Task<Widget> GetWidgetAsync(GetWidgetRequest req, WidgetServiceCallOptions? options = null, CancellationToken cancellationToken = default)
         {
+            var contentType = options?.ContentType ?? _contentType;
+            if (!string.Equals(contentType, "application/json", StringComparison.OrdinalIgnoreCase))
+            {
+                throw new NotSupportedException("Only application/json is implemented by the C# client generator.");
+            }
             var path = "/api/v1/widgets/{id}";
             path = path.Replace("{id}", Uri.EscapeDataString(FormatPathValue(req.Id)));
             var query = new List<string>();
             var requestUri = query.Count == 0 ? path : path + "?" + string.Join("&", query);
             var headers = BuildHeaders(options);
-            return await SendAsync<Widget>(HttpMethod.Get, requestUri, null, headers, cancellationToken);
+            return await SendAsync<Widget>(HttpMethod.Get, requestUri, null, headers, contentType, options?.Timeout ?? _timeout, cancellationToken);
         }
 
         public async Task<Widget> SearchWidgetsAsync(SearchWidgetsRequest req, WidgetServiceCallOptions? options = null, CancellationToken cancellationToken = default)
         {
+            var contentType = options?.ContentType ?? _contentType;
+            if (!string.Equals(contentType, "application/json", StringComparison.OrdinalIgnoreCase))
+            {
+                throw new NotSupportedException("Only application/json is implemented by the C# client generator.");
+            }
             var path = "/api/v1/widgets";
             var query = new List<string>();
             if (!string.IsNullOrEmpty(req.OwnerId))
@@ -330,12 +348,13 @@ namespace Test.Contracts
             }
             var requestUri = query.Count == 0 ? path : path + "?" + string.Join("&", query);
             var headers = BuildHeaders(options);
-            return await SendAsync<Widget>(HttpMethod.Get, requestUri, null, headers, cancellationToken);
+            return await SendAsync<Widget>(HttpMethod.Get, requestUri, null, headers, contentType, options?.Timeout ?? _timeout, cancellationToken);
         }
 
         private Dictionary<string, string> BuildHeaders(WidgetServiceCallOptions? options)
         {
             var headers = new Dictionary<string, string>(_defaultHeaders);
+            headers["Accept"] = "application/json";
             if (options?.Headers is not null)
             {
                 foreach (var pair in options.Headers)
@@ -346,7 +365,7 @@ namespace Test.Contracts
             return headers;
         }
 
-        private async Task<TResponse> SendAsync<TResponse>(HttpMethod method, string requestUri, object? body, Dictionary<string, string> headers, CancellationToken cancellationToken) where TResponse : new()
+        private async Task<TResponse> SendAsync<TResponse>(HttpMethod method, string requestUri, object? body, Dictionary<string, string> headers, string contentType, TimeSpan? timeout, CancellationToken cancellationToken) where TResponse : new()
         {
             using var request = new HttpRequestMessage(method, _baseUrl + requestUri);
             foreach (var header in headers)
@@ -355,10 +374,13 @@ namespace Test.Contracts
             }
             if (body is not null)
             {
-                request.Content = new StringContent(SerializeRequest(body), Encoding.UTF8, "application/json");
+                request.Content = new StringContent(SerializeRequest(body), Encoding.UTF8, contentType);
             }
-            using var response = await _httpClient.SendAsync(request, cancellationToken);
-            var responseBody = response.Content is null ? string.Empty : await response.Content.ReadAsStringAsync(cancellationToken);
+            using var timeoutCancellation = timeout is null ? null : new CancellationTokenSource(timeout.Value);
+            using var linkedCancellation = timeoutCancellation is null ? null : CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeoutCancellation.Token);
+            var effectiveCancellationToken = linkedCancellation?.Token ?? cancellationToken;
+            using var response = await _httpClient.SendAsync(request, effectiveCancellationToken);
+            var responseBody = response.Content is null ? string.Empty : await response.Content.ReadAsStringAsync(effectiveCancellationToken);
             var responseHeaders = CollectResponseHeaders(response);
             if (!response.IsSuccessStatusCode)
             {
@@ -769,11 +791,15 @@ namespace Test.Contracts
     {
         public HttpClient? HttpClient { get; set; }
         public Dictionary<string, string>? DefaultHeaders { get; set; }
+        public TimeSpan? Timeout { get; set; }
+        public string ContentType { get; set; } = "application/json";
     }
 
     public sealed class AdminServiceCallOptions
     {
         public Dictionary<string, string>? Headers { get; set; }
+        public TimeSpan? Timeout { get; set; }
+        public string? ContentType { get; set; }
     }
 
     public interface IAdminServiceClient
@@ -786,6 +812,8 @@ namespace Test.Contracts
         private readonly string _baseUrl;
         private readonly HttpClient _httpClient;
         private readonly Dictionary<string, string> _defaultHeaders;
+        private readonly TimeSpan? _timeout;
+        private readonly string _contentType;
         private static readonly JsonSerializerOptions JsonOptions = new()
         {
             PropertyNamingPolicy = null,
@@ -799,21 +827,29 @@ namespace Test.Contracts
             _defaultHeaders = options?.DefaultHeaders is null
                 ? new Dictionary<string, string>()
                 : new Dictionary<string, string>(options.DefaultHeaders);
+            _timeout = options?.Timeout;
+            _contentType = options?.ContentType ?? "application/json";
         }
 
         public async Task<Empty> ResetWidgetAsync(GetWidgetRequest req, AdminServiceCallOptions? options = null, CancellationToken cancellationToken = default)
         {
+            var contentType = options?.ContentType ?? _contentType;
+            if (!string.Equals(contentType, "application/json", StringComparison.OrdinalIgnoreCase))
+            {
+                throw new NotSupportedException("Only application/json is implemented by the C# client generator.");
+            }
             var path = "/api/v1/admin/widgets/{id}:reset";
             path = path.Replace("{id}", Uri.EscapeDataString(FormatPathValue(req.Id)));
             var query = new List<string>();
             var requestUri = query.Count == 0 ? path : path + "?" + string.Join("&", query);
             var headers = BuildHeaders(options);
-            return await SendAsync<Empty>(HttpMethod.Post, requestUri, req, headers, cancellationToken);
+            return await SendAsync<Empty>(HttpMethod.Post, requestUri, req, headers, contentType, options?.Timeout ?? _timeout, cancellationToken);
         }
 
         private Dictionary<string, string> BuildHeaders(AdminServiceCallOptions? options)
         {
             var headers = new Dictionary<string, string>(_defaultHeaders);
+            headers["Accept"] = "application/json";
             if (options?.Headers is not null)
             {
                 foreach (var pair in options.Headers)
@@ -824,7 +860,7 @@ namespace Test.Contracts
             return headers;
         }
 
-        private async Task<TResponse> SendAsync<TResponse>(HttpMethod method, string requestUri, object? body, Dictionary<string, string> headers, CancellationToken cancellationToken) where TResponse : new()
+        private async Task<TResponse> SendAsync<TResponse>(HttpMethod method, string requestUri, object? body, Dictionary<string, string> headers, string contentType, TimeSpan? timeout, CancellationToken cancellationToken) where TResponse : new()
         {
             using var request = new HttpRequestMessage(method, _baseUrl + requestUri);
             foreach (var header in headers)
@@ -833,10 +869,13 @@ namespace Test.Contracts
             }
             if (body is not null)
             {
-                request.Content = new StringContent(SerializeRequest(body), Encoding.UTF8, "application/json");
+                request.Content = new StringContent(SerializeRequest(body), Encoding.UTF8, contentType);
             }
-            using var response = await _httpClient.SendAsync(request, cancellationToken);
-            var responseBody = response.Content is null ? string.Empty : await response.Content.ReadAsStringAsync(cancellationToken);
+            using var timeoutCancellation = timeout is null ? null : new CancellationTokenSource(timeout.Value);
+            using var linkedCancellation = timeoutCancellation is null ? null : CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeoutCancellation.Token);
+            var effectiveCancellationToken = linkedCancellation?.Token ?? cancellationToken;
+            using var response = await _httpClient.SendAsync(request, effectiveCancellationToken);
+            var responseBody = response.Content is null ? string.Empty : await response.Content.ReadAsStringAsync(effectiveCancellationToken);
             var responseHeaders = CollectResponseHeaders(response);
             if (!response.IsSuccessStatusCode)
             {
