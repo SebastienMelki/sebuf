@@ -961,10 +961,7 @@ func (g *Generator) generateNewtonsoftJSONNormalizationHelpers(
 		if field == nil {
 			continue
 		}
-		jsonName := field.JSONName
-		if jsonName == "" {
-			jsonName = field.Name
-		}
+		jsonName := field.Name
 		gf.P(
 			`                "`, message.Name,
 			`" => token is JObject obj && obj.TryGetValue("`, jsonName,
@@ -986,10 +983,7 @@ func (g *Generator) generateNewtonsoftJSONNormalizationHelpers(
 		if field == nil {
 			continue
 		}
-		jsonName := field.JSONName
-		if jsonName == "" {
-			jsonName = field.Name
-		}
+		jsonName := field.Name
 		gf.P(`                "`, message.Name, `" => new JObject { ["`, jsonName, `"] = token },`)
 	}
 	gf.P("                _ => NormalizeResponseToken(messageType, token)")
@@ -1069,10 +1063,7 @@ func (g *Generator) generateSystemTextJSONNormalizationHelpers(
 		if field == nil {
 			continue
 		}
-		jsonName := field.JSONName
-		if jsonName == "" {
-			jsonName = field.Name
-		}
+		jsonName := field.Name
 		gf.P(
 			`                "`, message.Name,
 			`" => token is JsonObject obj && obj["`, jsonName,
@@ -1094,10 +1085,7 @@ func (g *Generator) generateSystemTextJSONNormalizationHelpers(
 		if field == nil {
 			continue
 		}
-		jsonName := field.JSONName
-		if jsonName == "" {
-			jsonName = field.Name
-		}
+		jsonName := field.Name
 		gf.P(`                "`, message.Name, `" => new JsonObject { ["`, jsonName, `"] = token.DeepClone() },`)
 	}
 	gf.P("                _ => NormalizeResponseNode(messageType, token)")
@@ -1465,10 +1453,7 @@ func (g *Generator) generateNewtonsoftFieldNormalization(
 	if field == nil {
 		return
 	}
-	jsonName := field.JSONName
-	if jsonName == "" {
-		jsonName = field.Name
-	}
+	jsonName := field.Name
 
 	if needsEnumEncodingNormalization(field) {
 		g.generateNewtonsoftEnumEncodingNormalization(gf, field, jsonName, serialize)
@@ -1974,10 +1959,7 @@ func (g *Generator) generateSystemTextFieldNormalization(
 	if field == nil {
 		return
 	}
-	jsonName := field.JSONName
-	if jsonName == "" {
-		jsonName = field.Name
-	}
+	jsonName := field.Name
 
 	if needsEnumEncodingNormalization(field) {
 		g.generateSystemTextEnumEncodingNormalization(gf, field, jsonName, serialize)
@@ -2246,10 +2228,7 @@ func oneofVariantJSONFieldsForVariant(
 		}
 		fields := make([]string, 0, len(child.Fields))
 		for _, field := range child.Fields {
-			jsonName := field.JSONName
-			if jsonName == "" {
-				jsonName = field.Name
-			}
+			jsonName := field.Name
 			fields = append(fields, jsonName)
 		}
 		return fields

@@ -544,18 +544,18 @@ namespace Test.Contracts
             {
                 return token;
             }
-            if (obj.TryGetPropertyValue("metadataNull", out var MetadatanullEmptyBehavior))
+            if (obj.TryGetPropertyValue("metadata_null", out var MetadataNullEmptyBehavior))
             {
-                if (IsEmptyObject(MetadatanullEmptyBehavior))
+                if (IsEmptyObject(MetadataNullEmptyBehavior))
                 {
-                    obj["metadataNull"] = null;
+                    obj["metadata_null"] = null;
                 }
             }
-            if (obj.TryGetPropertyValue("metadataOmit", out var MetadataomitEmptyBehavior))
+            if (obj.TryGetPropertyValue("metadata_omit", out var MetadataOmitEmptyBehavior))
             {
-                if (ShouldOmitEmptyField(MetadataomitEmptyBehavior))
+                if (ShouldOmitEmptyField(MetadataOmitEmptyBehavior))
                 {
-                    obj.Remove("metadataOmit");
+                    obj.Remove("metadata_omit");
                 }
             }
             return obj;
@@ -567,18 +567,18 @@ namespace Test.Contracts
             {
                 return token;
             }
-            if (obj.TryGetPropertyValue("metadataNull", out var MetadatanullEmptyBehavior))
+            if (obj.TryGetPropertyValue("metadata_null", out var MetadataNullEmptyBehavior))
             {
-                if (IsEmptyObject(MetadatanullEmptyBehavior))
+                if (IsEmptyObject(MetadataNullEmptyBehavior))
                 {
-                    obj["metadataNull"] = null;
+                    obj["metadata_null"] = null;
                 }
             }
-            if (obj.TryGetPropertyValue("metadataOmit", out var MetadataomitEmptyBehavior))
+            if (obj.TryGetPropertyValue("metadata_omit", out var MetadataOmitEmptyBehavior))
             {
-                if (IsEmptyObject(MetadataomitEmptyBehavior))
+                if (IsEmptyObject(MetadataOmitEmptyBehavior))
                 {
-                    obj.Remove("metadataOmit");
+                    obj.Remove("metadata_omit");
                 }
             }
             return obj;
@@ -724,49 +724,49 @@ namespace Test.Contracts
             {
                 obj["payload"] = ReencodeBytes(objpayloadValue, "base64", "hex");
             }
-            if (obj["stateLabels"] is JsonObject StatelabelsEnumObject)
+            if (obj["state_labels"] is JsonObject StateLabelsEnumObject)
             {
-                foreach (var key in StatelabelsEnumObject.Select(pair => pair.Key).ToList())
+                foreach (var key in StateLabelsEnumObject.Select(pair => pair.Key).ToList())
                 {
-                    if (StatelabelsEnumObject[key] is JsonValue StatelabelsEnumObjectkeyNode && StatelabelsEnumObjectkeyNode.TryGetValue<long>(out var StatelabelsEnumObjectkeyValue))
+                    if (StateLabelsEnumObject[key] is JsonValue StateLabelsEnumObjectkeyNode && StateLabelsEnumObjectkeyNode.TryGetValue<long>(out var StateLabelsEnumObjectkeyValue))
                     {
-                        StatelabelsEnumObject[key] = EncodeEnumValue(typeof(WidgetState), StatelabelsEnumObjectkeyValue);
+                        StateLabelsEnumObject[key] = EncodeEnumValue(typeof(WidgetState), StateLabelsEnumObjectkeyValue);
                     }
                 }
             }
-            if (obj["stateHistory"] is JsonArray StatehistoryEnumArray)
+            if (obj["state_history"] is JsonArray StateHistoryEnumArray)
             {
-                for (var i = 0; i < StatehistoryEnumArray.Count; i++)
+                for (var i = 0; i < StateHistoryEnumArray.Count; i++)
                 {
-                    if (StatehistoryEnumArray[i] is JsonValue StatehistoryEnumArrayiNode && StatehistoryEnumArrayiNode.TryGetValue<long>(out var StatehistoryEnumArrayiValue))
+                    if (StateHistoryEnumArray[i] is JsonValue StateHistoryEnumArrayiNode && StateHistoryEnumArrayiNode.TryGetValue<long>(out var StateHistoryEnumArrayiValue))
                     {
-                        StatehistoryEnumArray[i] = EncodeEnumValue(typeof(WidgetState), StatehistoryEnumArrayiValue);
+                        StateHistoryEnumArray[i] = EncodeEnumValue(typeof(WidgetState), StateHistoryEnumArrayiValue);
                     }
                 }
             }
-            if (obj["payloadChunks"] is JsonArray PayloadchunksBytesArray)
+            if (obj["payload_chunks"] is JsonArray PayloadChunksBytesArray)
             {
-                for (var i = 0; i < PayloadchunksBytesArray.Count; i++)
+                for (var i = 0; i < PayloadChunksBytesArray.Count; i++)
                 {
-                    if (PayloadchunksBytesArray[i] is JsonValue PayloadchunksBytesArrayiNode && PayloadchunksBytesArrayiNode.TryGetValue<string>(out var PayloadchunksBytesArrayiValue))
+                    if (PayloadChunksBytesArray[i] is JsonValue PayloadChunksBytesArrayiNode && PayloadChunksBytesArrayiNode.TryGetValue<string>(out var PayloadChunksBytesArrayiValue))
                     {
-                        PayloadchunksBytesArray[i] = ReencodeBytes(PayloadchunksBytesArrayiValue, "base64", "hex");
+                        PayloadChunksBytesArray[i] = ReencodeBytes(PayloadChunksBytesArrayiValue, "base64", "hex");
                     }
                 }
             }
-            if (obj["payloadsById"] is JsonObject PayloadsbyidBytesObject)
+            if (obj["payloads_by_id"] is JsonObject PayloadsByIdBytesObject)
             {
-                foreach (var key in PayloadsbyidBytesObject.Select(pair => pair.Key).ToList())
+                foreach (var key in PayloadsByIdBytesObject.Select(pair => pair.Key).ToList())
                 {
-                    if (PayloadsbyidBytesObject[key] is JsonValue PayloadsbyidBytesObjectkeyNode && PayloadsbyidBytesObjectkeyNode.TryGetValue<string>(out var PayloadsbyidBytesObjectkeyValue))
+                    if (PayloadsByIdBytesObject[key] is JsonValue PayloadsByIdBytesObjectkeyNode && PayloadsByIdBytesObjectkeyNode.TryGetValue<string>(out var PayloadsByIdBytesObjectkeyValue))
                     {
-                        PayloadsbyidBytesObject[key] = ReencodeBytes(PayloadsbyidBytesObjectkeyValue, "base64", "hex");
+                        PayloadsByIdBytesObject[key] = ReencodeBytes(PayloadsByIdBytesObjectkeyValue, "base64", "hex");
                     }
                 }
             }
-            if (obj["displayState"] is JsonValue objdisplayStateNode && objdisplayStateNode.TryGetValue<long>(out var objdisplayStateValue))
+            if (obj["display_state"] is JsonValue objdisplay_stateNode && objdisplay_stateNode.TryGetValue<long>(out var objdisplay_stateValue))
             {
-                obj["displayState"] = EncodeEnumValue(typeof(WidgetState), objdisplayStateValue);
+                obj["display_state"] = EncodeEnumValue(typeof(WidgetState), objdisplay_stateValue);
             }
             return obj;
         }
@@ -781,49 +781,49 @@ namespace Test.Contracts
             {
                 obj["payload"] = ReencodeBytes(objpayloadValue, "hex", "base64");
             }
-            if (obj["stateLabels"] is JsonObject StatelabelsEnumObject)
+            if (obj["state_labels"] is JsonObject StateLabelsEnumObject)
             {
-                foreach (var key in StatelabelsEnumObject.Select(pair => pair.Key).ToList())
+                foreach (var key in StateLabelsEnumObject.Select(pair => pair.Key).ToList())
                 {
-                    if (StatelabelsEnumObject[key] is JsonValue StatelabelsEnumObjectkeyNode && StatelabelsEnumObjectkeyNode.TryGetValue<string>(out var StatelabelsEnumObjectkeyValue))
+                    if (StateLabelsEnumObject[key] is JsonValue StateLabelsEnumObjectkeyNode && StateLabelsEnumObjectkeyNode.TryGetValue<string>(out var StateLabelsEnumObjectkeyValue))
                     {
-                        StatelabelsEnumObject[key] = DecodeEnumValue(typeof(WidgetState), StatelabelsEnumObjectkeyValue);
+                        StateLabelsEnumObject[key] = DecodeEnumValue(typeof(WidgetState), StateLabelsEnumObjectkeyValue);
                     }
                 }
             }
-            if (obj["stateHistory"] is JsonArray StatehistoryEnumArray)
+            if (obj["state_history"] is JsonArray StateHistoryEnumArray)
             {
-                for (var i = 0; i < StatehistoryEnumArray.Count; i++)
+                for (var i = 0; i < StateHistoryEnumArray.Count; i++)
                 {
-                    if (StatehistoryEnumArray[i] is JsonValue StatehistoryEnumArrayiNode && StatehistoryEnumArrayiNode.TryGetValue<string>(out var StatehistoryEnumArrayiValue))
+                    if (StateHistoryEnumArray[i] is JsonValue StateHistoryEnumArrayiNode && StateHistoryEnumArrayiNode.TryGetValue<string>(out var StateHistoryEnumArrayiValue))
                     {
-                        StatehistoryEnumArray[i] = DecodeEnumValue(typeof(WidgetState), StatehistoryEnumArrayiValue);
+                        StateHistoryEnumArray[i] = DecodeEnumValue(typeof(WidgetState), StateHistoryEnumArrayiValue);
                     }
                 }
             }
-            if (obj["payloadChunks"] is JsonArray PayloadchunksBytesArray)
+            if (obj["payload_chunks"] is JsonArray PayloadChunksBytesArray)
             {
-                for (var i = 0; i < PayloadchunksBytesArray.Count; i++)
+                for (var i = 0; i < PayloadChunksBytesArray.Count; i++)
                 {
-                    if (PayloadchunksBytesArray[i] is JsonValue PayloadchunksBytesArrayiNode && PayloadchunksBytesArrayiNode.TryGetValue<string>(out var PayloadchunksBytesArrayiValue))
+                    if (PayloadChunksBytesArray[i] is JsonValue PayloadChunksBytesArrayiNode && PayloadChunksBytesArrayiNode.TryGetValue<string>(out var PayloadChunksBytesArrayiValue))
                     {
-                        PayloadchunksBytesArray[i] = ReencodeBytes(PayloadchunksBytesArrayiValue, "hex", "base64");
+                        PayloadChunksBytesArray[i] = ReencodeBytes(PayloadChunksBytesArrayiValue, "hex", "base64");
                     }
                 }
             }
-            if (obj["payloadsById"] is JsonObject PayloadsbyidBytesObject)
+            if (obj["payloads_by_id"] is JsonObject PayloadsByIdBytesObject)
             {
-                foreach (var key in PayloadsbyidBytesObject.Select(pair => pair.Key).ToList())
+                foreach (var key in PayloadsByIdBytesObject.Select(pair => pair.Key).ToList())
                 {
-                    if (PayloadsbyidBytesObject[key] is JsonValue PayloadsbyidBytesObjectkeyNode && PayloadsbyidBytesObjectkeyNode.TryGetValue<string>(out var PayloadsbyidBytesObjectkeyValue))
+                    if (PayloadsByIdBytesObject[key] is JsonValue PayloadsByIdBytesObjectkeyNode && PayloadsByIdBytesObjectkeyNode.TryGetValue<string>(out var PayloadsByIdBytesObjectkeyValue))
                     {
-                        PayloadsbyidBytesObject[key] = ReencodeBytes(PayloadsbyidBytesObjectkeyValue, "hex", "base64");
+                        PayloadsByIdBytesObject[key] = ReencodeBytes(PayloadsByIdBytesObjectkeyValue, "hex", "base64");
                     }
                 }
             }
-            if (obj["displayState"] is JsonValue objdisplayStateNode && objdisplayStateNode.TryGetValue<string>(out var objdisplayStateValue))
+            if (obj["display_state"] is JsonValue objdisplay_stateNode && objdisplay_stateNode.TryGetValue<string>(out var objdisplay_stateValue))
             {
-                obj["displayState"] = DecodeEnumValue(typeof(WidgetState), objdisplayStateValue);
+                obj["display_state"] = DecodeEnumValue(typeof(WidgetState), objdisplay_stateValue);
             }
             return obj;
         }
@@ -1178,18 +1178,18 @@ namespace Test.Contracts
             {
                 return token;
             }
-            if (obj.TryGetPropertyValue("metadataNull", out var MetadatanullEmptyBehavior))
+            if (obj.TryGetPropertyValue("metadata_null", out var MetadataNullEmptyBehavior))
             {
-                if (IsEmptyObject(MetadatanullEmptyBehavior))
+                if (IsEmptyObject(MetadataNullEmptyBehavior))
                 {
-                    obj["metadataNull"] = null;
+                    obj["metadata_null"] = null;
                 }
             }
-            if (obj.TryGetPropertyValue("metadataOmit", out var MetadataomitEmptyBehavior))
+            if (obj.TryGetPropertyValue("metadata_omit", out var MetadataOmitEmptyBehavior))
             {
-                if (ShouldOmitEmptyField(MetadataomitEmptyBehavior))
+                if (ShouldOmitEmptyField(MetadataOmitEmptyBehavior))
                 {
-                    obj.Remove("metadataOmit");
+                    obj.Remove("metadata_omit");
                 }
             }
             return obj;
@@ -1201,18 +1201,18 @@ namespace Test.Contracts
             {
                 return token;
             }
-            if (obj.TryGetPropertyValue("metadataNull", out var MetadatanullEmptyBehavior))
+            if (obj.TryGetPropertyValue("metadata_null", out var MetadataNullEmptyBehavior))
             {
-                if (IsEmptyObject(MetadatanullEmptyBehavior))
+                if (IsEmptyObject(MetadataNullEmptyBehavior))
                 {
-                    obj["metadataNull"] = null;
+                    obj["metadata_null"] = null;
                 }
             }
-            if (obj.TryGetPropertyValue("metadataOmit", out var MetadataomitEmptyBehavior))
+            if (obj.TryGetPropertyValue("metadata_omit", out var MetadataOmitEmptyBehavior))
             {
-                if (IsEmptyObject(MetadataomitEmptyBehavior))
+                if (IsEmptyObject(MetadataOmitEmptyBehavior))
                 {
-                    obj.Remove("metadataOmit");
+                    obj.Remove("metadata_omit");
                 }
             }
             return obj;
@@ -1358,49 +1358,49 @@ namespace Test.Contracts
             {
                 obj["payload"] = ReencodeBytes(objpayloadValue, "base64", "hex");
             }
-            if (obj["stateLabels"] is JsonObject StatelabelsEnumObject)
+            if (obj["state_labels"] is JsonObject StateLabelsEnumObject)
             {
-                foreach (var key in StatelabelsEnumObject.Select(pair => pair.Key).ToList())
+                foreach (var key in StateLabelsEnumObject.Select(pair => pair.Key).ToList())
                 {
-                    if (StatelabelsEnumObject[key] is JsonValue StatelabelsEnumObjectkeyNode && StatelabelsEnumObjectkeyNode.TryGetValue<long>(out var StatelabelsEnumObjectkeyValue))
+                    if (StateLabelsEnumObject[key] is JsonValue StateLabelsEnumObjectkeyNode && StateLabelsEnumObjectkeyNode.TryGetValue<long>(out var StateLabelsEnumObjectkeyValue))
                     {
-                        StatelabelsEnumObject[key] = EncodeEnumValue(typeof(WidgetState), StatelabelsEnumObjectkeyValue);
+                        StateLabelsEnumObject[key] = EncodeEnumValue(typeof(WidgetState), StateLabelsEnumObjectkeyValue);
                     }
                 }
             }
-            if (obj["stateHistory"] is JsonArray StatehistoryEnumArray)
+            if (obj["state_history"] is JsonArray StateHistoryEnumArray)
             {
-                for (var i = 0; i < StatehistoryEnumArray.Count; i++)
+                for (var i = 0; i < StateHistoryEnumArray.Count; i++)
                 {
-                    if (StatehistoryEnumArray[i] is JsonValue StatehistoryEnumArrayiNode && StatehistoryEnumArrayiNode.TryGetValue<long>(out var StatehistoryEnumArrayiValue))
+                    if (StateHistoryEnumArray[i] is JsonValue StateHistoryEnumArrayiNode && StateHistoryEnumArrayiNode.TryGetValue<long>(out var StateHistoryEnumArrayiValue))
                     {
-                        StatehistoryEnumArray[i] = EncodeEnumValue(typeof(WidgetState), StatehistoryEnumArrayiValue);
+                        StateHistoryEnumArray[i] = EncodeEnumValue(typeof(WidgetState), StateHistoryEnumArrayiValue);
                     }
                 }
             }
-            if (obj["payloadChunks"] is JsonArray PayloadchunksBytesArray)
+            if (obj["payload_chunks"] is JsonArray PayloadChunksBytesArray)
             {
-                for (var i = 0; i < PayloadchunksBytesArray.Count; i++)
+                for (var i = 0; i < PayloadChunksBytesArray.Count; i++)
                 {
-                    if (PayloadchunksBytesArray[i] is JsonValue PayloadchunksBytesArrayiNode && PayloadchunksBytesArrayiNode.TryGetValue<string>(out var PayloadchunksBytesArrayiValue))
+                    if (PayloadChunksBytesArray[i] is JsonValue PayloadChunksBytesArrayiNode && PayloadChunksBytesArrayiNode.TryGetValue<string>(out var PayloadChunksBytesArrayiValue))
                     {
-                        PayloadchunksBytesArray[i] = ReencodeBytes(PayloadchunksBytesArrayiValue, "base64", "hex");
+                        PayloadChunksBytesArray[i] = ReencodeBytes(PayloadChunksBytesArrayiValue, "base64", "hex");
                     }
                 }
             }
-            if (obj["payloadsById"] is JsonObject PayloadsbyidBytesObject)
+            if (obj["payloads_by_id"] is JsonObject PayloadsByIdBytesObject)
             {
-                foreach (var key in PayloadsbyidBytesObject.Select(pair => pair.Key).ToList())
+                foreach (var key in PayloadsByIdBytesObject.Select(pair => pair.Key).ToList())
                 {
-                    if (PayloadsbyidBytesObject[key] is JsonValue PayloadsbyidBytesObjectkeyNode && PayloadsbyidBytesObjectkeyNode.TryGetValue<string>(out var PayloadsbyidBytesObjectkeyValue))
+                    if (PayloadsByIdBytesObject[key] is JsonValue PayloadsByIdBytesObjectkeyNode && PayloadsByIdBytesObjectkeyNode.TryGetValue<string>(out var PayloadsByIdBytesObjectkeyValue))
                     {
-                        PayloadsbyidBytesObject[key] = ReencodeBytes(PayloadsbyidBytesObjectkeyValue, "base64", "hex");
+                        PayloadsByIdBytesObject[key] = ReencodeBytes(PayloadsByIdBytesObjectkeyValue, "base64", "hex");
                     }
                 }
             }
-            if (obj["displayState"] is JsonValue objdisplayStateNode && objdisplayStateNode.TryGetValue<long>(out var objdisplayStateValue))
+            if (obj["display_state"] is JsonValue objdisplay_stateNode && objdisplay_stateNode.TryGetValue<long>(out var objdisplay_stateValue))
             {
-                obj["displayState"] = EncodeEnumValue(typeof(WidgetState), objdisplayStateValue);
+                obj["display_state"] = EncodeEnumValue(typeof(WidgetState), objdisplay_stateValue);
             }
             return obj;
         }
@@ -1415,49 +1415,49 @@ namespace Test.Contracts
             {
                 obj["payload"] = ReencodeBytes(objpayloadValue, "hex", "base64");
             }
-            if (obj["stateLabels"] is JsonObject StatelabelsEnumObject)
+            if (obj["state_labels"] is JsonObject StateLabelsEnumObject)
             {
-                foreach (var key in StatelabelsEnumObject.Select(pair => pair.Key).ToList())
+                foreach (var key in StateLabelsEnumObject.Select(pair => pair.Key).ToList())
                 {
-                    if (StatelabelsEnumObject[key] is JsonValue StatelabelsEnumObjectkeyNode && StatelabelsEnumObjectkeyNode.TryGetValue<string>(out var StatelabelsEnumObjectkeyValue))
+                    if (StateLabelsEnumObject[key] is JsonValue StateLabelsEnumObjectkeyNode && StateLabelsEnumObjectkeyNode.TryGetValue<string>(out var StateLabelsEnumObjectkeyValue))
                     {
-                        StatelabelsEnumObject[key] = DecodeEnumValue(typeof(WidgetState), StatelabelsEnumObjectkeyValue);
+                        StateLabelsEnumObject[key] = DecodeEnumValue(typeof(WidgetState), StateLabelsEnumObjectkeyValue);
                     }
                 }
             }
-            if (obj["stateHistory"] is JsonArray StatehistoryEnumArray)
+            if (obj["state_history"] is JsonArray StateHistoryEnumArray)
             {
-                for (var i = 0; i < StatehistoryEnumArray.Count; i++)
+                for (var i = 0; i < StateHistoryEnumArray.Count; i++)
                 {
-                    if (StatehistoryEnumArray[i] is JsonValue StatehistoryEnumArrayiNode && StatehistoryEnumArrayiNode.TryGetValue<string>(out var StatehistoryEnumArrayiValue))
+                    if (StateHistoryEnumArray[i] is JsonValue StateHistoryEnumArrayiNode && StateHistoryEnumArrayiNode.TryGetValue<string>(out var StateHistoryEnumArrayiValue))
                     {
-                        StatehistoryEnumArray[i] = DecodeEnumValue(typeof(WidgetState), StatehistoryEnumArrayiValue);
+                        StateHistoryEnumArray[i] = DecodeEnumValue(typeof(WidgetState), StateHistoryEnumArrayiValue);
                     }
                 }
             }
-            if (obj["payloadChunks"] is JsonArray PayloadchunksBytesArray)
+            if (obj["payload_chunks"] is JsonArray PayloadChunksBytesArray)
             {
-                for (var i = 0; i < PayloadchunksBytesArray.Count; i++)
+                for (var i = 0; i < PayloadChunksBytesArray.Count; i++)
                 {
-                    if (PayloadchunksBytesArray[i] is JsonValue PayloadchunksBytesArrayiNode && PayloadchunksBytesArrayiNode.TryGetValue<string>(out var PayloadchunksBytesArrayiValue))
+                    if (PayloadChunksBytesArray[i] is JsonValue PayloadChunksBytesArrayiNode && PayloadChunksBytesArrayiNode.TryGetValue<string>(out var PayloadChunksBytesArrayiValue))
                     {
-                        PayloadchunksBytesArray[i] = ReencodeBytes(PayloadchunksBytesArrayiValue, "hex", "base64");
+                        PayloadChunksBytesArray[i] = ReencodeBytes(PayloadChunksBytesArrayiValue, "hex", "base64");
                     }
                 }
             }
-            if (obj["payloadsById"] is JsonObject PayloadsbyidBytesObject)
+            if (obj["payloads_by_id"] is JsonObject PayloadsByIdBytesObject)
             {
-                foreach (var key in PayloadsbyidBytesObject.Select(pair => pair.Key).ToList())
+                foreach (var key in PayloadsByIdBytesObject.Select(pair => pair.Key).ToList())
                 {
-                    if (PayloadsbyidBytesObject[key] is JsonValue PayloadsbyidBytesObjectkeyNode && PayloadsbyidBytesObjectkeyNode.TryGetValue<string>(out var PayloadsbyidBytesObjectkeyValue))
+                    if (PayloadsByIdBytesObject[key] is JsonValue PayloadsByIdBytesObjectkeyNode && PayloadsByIdBytesObjectkeyNode.TryGetValue<string>(out var PayloadsByIdBytesObjectkeyValue))
                     {
-                        PayloadsbyidBytesObject[key] = ReencodeBytes(PayloadsbyidBytesObjectkeyValue, "hex", "base64");
+                        PayloadsByIdBytesObject[key] = ReencodeBytes(PayloadsByIdBytesObjectkeyValue, "hex", "base64");
                     }
                 }
             }
-            if (obj["displayState"] is JsonValue objdisplayStateNode && objdisplayStateNode.TryGetValue<string>(out var objdisplayStateValue))
+            if (obj["display_state"] is JsonValue objdisplay_stateNode && objdisplay_stateNode.TryGetValue<string>(out var objdisplay_stateValue))
             {
-                obj["displayState"] = DecodeEnumValue(typeof(WidgetState), objdisplayStateValue);
+                obj["display_state"] = DecodeEnumValue(typeof(WidgetState), objdisplay_stateValue);
             }
             return obj;
         }
