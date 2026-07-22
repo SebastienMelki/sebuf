@@ -1,0 +1,60 @@
+syntax = "proto3";
+
+package testdata.enumnested;
+
+option go_package = "github.com/SebastienMelki/sebuf/internal/httpgen/testdata/enumnested;enumnested";
+
+import "sebuf/http/annotations.proto";
+
+// Grade carries custom enum_value mappings.
+enum Grade {
+  GRADE_UNSPECIFIED = 0;
+  GRADE_A = 1 [(sebuf.http.enum_value) = "a"];
+  GRADE_B = 2 [(sebuf.http.enum_value) = "b"];
+}
+
+// Tier has NO enum_value mappings; the generated marshaler must leave it as the
+// proto value name (it should not appear in the enum-field patching code).
+enum Tier {
+  TIER_UNSPECIFIED = 0;
+  TIER_ONE = 1;
+  TIER_TWO = 2;
+}
+
+// Item is the leaf message that directly holds custom-enum fields. It also holds
+// an unannotated enum (tier) that must be left untouched.
+message Item {
+  Grade grade = 1;
+  repeated Grade grades = 2;
+  Tier tier = 3;
+}
+
+// ItemGroup nests Item both singular and repeated. The multi-word field names
+// (lead_item, item_list) exercise the UseProtoNames path: the marshaler must patch
+// whichever key protojson emits (camelCase or snake_case).
+message ItemGroup {
+  Item lead_item = 1;
+  repeated Item item_list = 2;
+}
+
+// GetItemsResponse nests ItemGroup, making the enum two levels deep from the
+// response the server marshals: response -> item_group -> lead_item/item_list -> grade.
+message GetItemsResponse {
+  ItemGroup item_group = 1;
+}
+
+message GetItemsRequest {
+  string id = 1;
+}
+
+// NestedEnumService returns a response whose custom enums are nested two levels deep.
+service NestedEnumService {
+  option (sebuf.http.service_config) = {base_path: "/api/v1"};
+
+  rpc GetItems(GetItemsRequest) returns (GetItemsResponse) {
+    option (sebuf.http.config) = {
+      path: "/items/{id}"
+      method: HTTP_METHOD_GET
+    };
+  }
+}

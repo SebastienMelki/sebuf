@@ -1,0 +1,53 @@
+syntax = "proto3";
+
+package testdata.oneof_field_typing;
+
+option go_package = "github.com/SebastienMelki/sebuf/internal/httpgen/testdata/oneoffieldtyping;oneoffieldtyping";
+
+import "google/protobuf/timestamp.proto";
+import "sebuf/http/annotations.proto";
+
+// Color enum with custom enum_value mappings.
+enum Color {
+  COLOR_UNSPECIFIED = 0 [(sebuf.http.enum_value) = "none"];
+  COLOR_RED = 1 [(sebuf.http.enum_value) = "red"];
+  COLOR_BLUE = 2 [(sebuf.http.enum_value) = "blue"];
+}
+
+// Message variant, to prove message-typed oneof members are unchanged.
+message TextPayload {
+  string body = 1;
+}
+
+// OneofFieldTyping exercises an un-annotated oneof whose variants must pick up
+// the same JSON-aware field typing that normal fields use:
+//   - an enum variant emits the enum union (Color), not plain string;
+//   - an enum variant with NUMBER encoding emits number;
+//   - a google.protobuf.Timestamp variant emits string (RFC3339 default), and
+//     the Timestamp message is skipped from the generated output;
+//   - a Timestamp variant with UNIX_SECONDS emits number;
+//   - message and scalar variants keep their existing shapes.
+message OneofFieldTyping {
+  string id = 1;
+  oneof value {
+    Color color = 2;
+    Color color_num = 3 [(sebuf.http.enum_encoding) = ENUM_ENCODING_NUMBER];
+    google.protobuf.Timestamp when = 4;
+    google.protobuf.Timestamp when_unix = 5 [(sebuf.http.timestamp_format) = TIMESTAMP_FORMAT_UNIX_SECONDS];
+    TextPayload text = 6;
+    string note = 7;
+  }
+}
+
+service OneofFieldTypingService {
+  option (sebuf.http.service_config) = {
+    base_path: "/api/v1"
+  };
+
+  rpc TestOneofFieldTyping(OneofFieldTyping) returns (OneofFieldTyping) {
+    option (sebuf.http.config) = {
+      path: "/oneof-field-typing"
+      method: HTTP_METHOD_POST
+    };
+  }
+}

@@ -8,7 +8,7 @@ export interface GetOptionBarsRequest {
 }
 
 export interface GetOptionBarsResponse {
-  bars: Record<string, OptionBar[]>;
+  bars: { [key: string]: OptionBar[] };
   nextPageToken: string;
 }
 
@@ -24,7 +24,7 @@ export interface OptionBar {
 }
 
 export interface RootMapResponse {
-  people: Record<string, OptionBar>;
+  people: { [key: string]: OptionBar };
 }
 
 export interface RootRepeatedResponse {
@@ -32,6 +32,6 @@ export interface RootRepeatedResponse {
 }
 
 export interface RootMapWithValueUnwrapResponse {
-  data: Record<string, OptionBar[]>;
+  data: { [key: string]: OptionBar[] };
 }
 

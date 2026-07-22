@@ -22,7 +22,7 @@ export interface Resource {
   id: string;
   name: string;
   description: string;
-  metadata: Record<string, string>;
+  metadata: { [key: string]: string };
   createdAt: string;
   updatedAt: string;
   status: ResourceStatus;
@@ -49,14 +49,14 @@ export interface GetNestedResourceRequest {
 export interface CreateResourceRequest {
   name: string;
   description: string;
-  metadata: Record<string, string>;
+  metadata: { [key: string]: string };
 }
 
 export interface UpdateResourceRequest {
   resourceId: string;
   name: string;
   description: string;
-  metadata: Record<string, string>;
+  metadata: { [key: string]: string };
 }
 
 export interface PatchResourceRequest {

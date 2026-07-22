@@ -98,6 +98,9 @@ func checkMarshalJSONConflict(message *protogen.Message) error {
 	if hasBytesEncodingFields(message) {
 		conflicts = append(conflicts, "bytes_encoding")
 	}
+	if hasCustomEnumFields(message) {
+		conflicts = append(conflicts, "enum_value")
+	}
 
 	if len(conflicts) > 0 {
 		return fmt.Errorf(

@@ -9,6 +9,8 @@ import (
 	"sort"
 	"strings"
 	"testing"
+
+	"github.com/SebastienMelki/sebuf/internal/tscommon/plugintest"
 )
 
 // TestTSClientGenGoldenFiles tests TypeScript client generation against golden files.
@@ -52,9 +54,19 @@ func TestTSClientGenGoldenFiles(t *testing.T) {
 		{name: "bytes encoding", protoFiles: []string{"bytes_encoding.proto"}},
 		{name: "flatten", protoFiles: []string{"flatten.proto"}},
 		{name: "oneof discriminator", protoFiles: []string{"oneof_discriminator.proto"}},
+		{name: "multi-word oneof name", protoFiles: []string{"multi_word_oneof.proto"}},
+		{name: "two un-annotated oneofs in one message", protoFiles: []string{"two_oneofs.proto"}},
+		{name: "un-annotated oneof with enum and timestamp variants", protoFiles: []string{"oneof_field_typing.proto"}},
+		{name: "flatten oneof unset arm guards child keys", protoFiles: []string{"flatten_oneof_unset.proto"}},
 		{name: "SSE streaming", protoFiles: []string{"sse.proto"}},
 		{name: "empty request body", protoFiles: []string{"empty_request_body.proto"}},
-		{name: "multi-word oneof name", protoFiles: []string{"multi_word_oneof.proto"}},
+		{name: "record map collision", protoFiles: []string{"record_map_collision.proto"}},
+		{
+			name:             "reserved error-helper names",
+			protoFiles:       []string{"reserved_name.proto"},
+			assertImportFile: "reserved_name_client.ts",
+			assertImport:     `ValidationError as ValidationError_1`,
+		},
 		{
 			name:             "cross-package imports",
 			protoFiles:       []string{"crosspkg/common/v1/types.proto", "crosspkg/shop/v1/service.proto"},
@@ -96,14 +108,7 @@ func TestTSClientGenGoldenFiles(t *testing.T) {
 		t.Fatalf("Failed to create golden directory: %v", mkdirErr)
 	}
 
-	pluginPath := filepath.Join(projectRoot, "bin", "protoc-gen-ts-client")
-	if _, buildStatErr := os.Stat(pluginPath); os.IsNotExist(buildStatErr) {
-		buildCmd := exec.Command("make", "build")
-		buildCmd.Dir = projectRoot
-		if buildErr := buildCmd.Run(); buildErr != nil {
-			t.Fatalf("Failed to build plugin: %v", buildErr)
-		}
-	}
+	pluginPath := plugintest.Build(t, projectRoot, "protoc-gen-ts-client")
 
 	updateGolden := os.Getenv("UPDATE_GOLDEN") == "1"
 
@@ -204,14 +209,7 @@ func TestTSClientGenESGoldenFiles(t *testing.T) {
 		t.Fatalf("Failed to create golden directory: %v", mkdirErr)
 	}
 
-	pluginPath := filepath.Join(projectRoot, "bin", "protoc-gen-ts-client")
-	if _, buildStatErr := os.Stat(pluginPath); os.IsNotExist(buildStatErr) {
-		buildCmd := exec.Command("make", "build")
-		buildCmd.Dir = projectRoot
-		if buildErr := buildCmd.Run(); buildErr != nil {
-			t.Fatalf("Failed to build plugin: %v", buildErr)
-		}
-	}
+	pluginPath := plugintest.Build(t, projectRoot, "protoc-gen-ts-client")
 
 	updateGolden := os.Getenv("UPDATE_GOLDEN") == "1"
 
@@ -310,6 +308,27 @@ func generatedTSFiles(t *testing.T, dir string) []string {
 	return files
 }
 
+// readGoldenConcat reads and concatenates the named golden files. In the modules
+// layout a message's interfaces and oneof union types live in the per-proto type
+// module while the client module imports them, so oneof-shape assertions read both.
+func readGoldenConcat(t *testing.T, names ...string) string {
+	t.Helper()
+	wd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("Failed to get working directory: %v", err)
+	}
+	var sb strings.Builder
+	for _, name := range names {
+		goldenPath := filepath.Join(wd, "testdata", "golden", name)
+		content, readErr := os.ReadFile(goldenPath)
+		if readErr != nil {
+			t.Fatalf("Failed to read golden file %s: %v", goldenPath, readErr)
+		}
+		sb.Write(content)
+	}
+	return sb.String()
+}
+
 // TestMultiWordOneofNameDoesNotLeak asserts a multi-word oneof name
 // (super_title_image) surfaces only as the PascalCase union type name and never
 // leaks into the generated TypeScript as a raw snake_case wrapper property. In
@@ -317,20 +336,7 @@ func generatedTSFiles(t *testing.T, dir string) []string {
 // imports it, so both emitted files are checked. See internal/tscommon/types.go
 // (GenerateOneofDiscriminatedUnionTypeCtx / GenerateStandardInterfaceCtx).
 func TestMultiWordOneofNameDoesNotLeak(t *testing.T) {
-	wd, err := os.Getwd()
-	if err != nil {
-		t.Fatalf("Failed to get working directory: %v", err)
-	}
-
-	var ts string
-	for _, golden := range []string{"multi_word_oneof.ts", "multi_word_oneof_client.ts"} {
-		goldenPath := filepath.Join(wd, "testdata", "golden", golden)
-		content, readErr := os.ReadFile(goldenPath)
-		if readErr != nil {
-			t.Fatalf("Failed to read golden file %s: %v", goldenPath, readErr)
-		}
-		ts += string(content)
-	}
+	ts := readGoldenConcat(t, "multi_word_oneof.ts", "multi_word_oneof_client.ts")
 
 	// The oneof name renders as the PascalCase discriminated-union type name.
 	if !strings.Contains(ts, "MultiWordEventSuperTitleImage") {
@@ -342,6 +348,70 @@ func TestMultiWordOneofNameDoesNotLeak(t *testing.T) {
 	if strings.Contains(ts, "super_title_image") {
 		t.Error("generated TS must not contain the raw snake_case oneof name super_title_image")
 	}
+}
+
+// TestTwoOneofsRenderAsIndependentPresenceUnions asserts that a message with two
+// distinct un-annotated oneofs renders as an intersection of a base interface and
+// one presence-discriminated union per oneof, and that each union's `?: never`
+// presence guards cover only its own siblings — the two oneofs are independent, so
+// neither union references the other's variant keys. In the modules layout these
+// union types live in the type module.
+func TestTwoOneofsRenderAsIndependentPresenceUnions(t *testing.T) {
+	ts := readGoldenConcat(t, "two_oneofs.ts", "two_oneofs_client.ts")
+
+	// The message type is the intersection of the base and BOTH presence unions.
+	if !strings.Contains(ts, "export type TwoOneofs = TwoOneofsBase & TwoOneofsA & TwoOneofsB;") {
+		t.Error("expected TwoOneofs to be an intersection of TwoOneofsBase and both oneof unions")
+	}
+
+	// Union A: its own arms plus an all-never arm, guarding only its own siblings
+	// (x, y) — never the other oneof's keys (p, q).
+	unionA := `export type TwoOneofsA =
+  | { x: TypeX; y?: never }
+  | { y: TypeY; x?: never }
+  | { x?: never; y?: never };`
+	if !strings.Contains(ts, unionA) {
+		t.Errorf("expected TwoOneofsA presence union with only its own sibling guards, got:\n%s", ts)
+	}
+
+	// Union B: independent of A — arms + all-never arm guarding only p, q.
+	unionB := `export type TwoOneofsB =
+  | { p: TypeP; q?: never }
+  | { q: TypeQ; p?: never }
+  | { p?: never; q?: never };`
+	if !strings.Contains(ts, unionB) {
+		t.Errorf("expected TwoOneofsB presence union with only its own sibling guards, got:\n%s", ts)
+	}
+
+	// The two oneofs are independent: neither union guards against the other's keys.
+	if strings.Contains(unionAOf(ts), "p?: never") || strings.Contains(unionAOf(ts), "q?: never") {
+		t.Error("TwoOneofsA must not reference oneof B's variant keys (p, q)")
+	}
+	if strings.Contains(unionBOf(ts), "x?: never") || strings.Contains(unionBOf(ts), "y?: never") {
+		t.Error("TwoOneofsB must not reference oneof A's variant keys (x, y)")
+	}
+}
+
+// unionAOf / unionBOf extract the TwoOneofsA / TwoOneofsB union declaration text so
+// cross-oneof leakage can be asserted without matching against the whole file.
+func unionAOf(ts string) string {
+	return sliceBetween(ts, "export type TwoOneofsA =", "export type TwoOneofsB =")
+}
+
+func unionBOf(ts string) string {
+	return sliceBetween(ts, "export type TwoOneofsB =", "export interface TwoOneofsBase")
+}
+
+func sliceBetween(s, start, end string) string {
+	i := strings.Index(s, start)
+	if i < 0 {
+		return ""
+	}
+	j := strings.Index(s[i:], end)
+	if j < 0 {
+		return s[i:]
+	}
+	return s[i : i+j]
 }
 
 func updateGoldenFile(t *testing.T, goldenPath string, content []byte) {

@@ -9,6 +9,8 @@ import (
 	"sort"
 	"strings"
 	"testing"
+
+	"github.com/SebastienMelki/sebuf/internal/tscommon/plugintest"
 )
 
 // TestTSServerGenGoldenFiles tests TypeScript server generation against golden files.
@@ -52,9 +54,17 @@ func TestTSServerGenGoldenFiles(t *testing.T) {
 		{name: "bytes encoding", protoFiles: []string{"bytes_encoding.proto"}},
 		{name: "flatten", protoFiles: []string{"flatten.proto"}},
 		{name: "oneof discriminator", protoFiles: []string{"oneof_discriminator.proto"}},
+		{name: "multi-word oneof name", protoFiles: []string{"multi_word_oneof.proto"}},
+		{name: "two un-annotated oneofs in one message", protoFiles: []string{"two_oneofs.proto"}},
 		{name: "SSE streaming", protoFiles: []string{"sse.proto"}},
 		{name: "empty request body", protoFiles: []string{"empty_request_body.proto"}},
-		{name: "multi-word oneof name", protoFiles: []string{"multi_word_oneof.proto"}},
+		{name: "record map collision", protoFiles: []string{"record_map_collision.proto"}},
+		{
+			name:             "reserved error-helper names",
+			protoFiles:       []string{"reserved_name.proto"},
+			assertImportFile: "reserved_name_server.ts",
+			assertImport:     `ValidationError as ValidationError_1`,
+		},
 		{
 			name:             "cross-package imports",
 			protoFiles:       []string{"crosspkg/common/v1/types.proto", "crosspkg/shop/v1/service.proto"},
@@ -96,14 +106,7 @@ func TestTSServerGenGoldenFiles(t *testing.T) {
 		t.Fatalf("Failed to create golden directory: %v", mkdirErr)
 	}
 
-	pluginPath := filepath.Join(projectRoot, "bin", "protoc-gen-ts-server")
-	if _, buildStatErr := os.Stat(pluginPath); os.IsNotExist(buildStatErr) {
-		buildCmd := exec.Command("make", "build")
-		buildCmd.Dir = projectRoot
-		if buildErr := buildCmd.Run(); buildErr != nil {
-			t.Fatalf("Failed to build plugin: %v", buildErr)
-		}
-	}
+	pluginPath := plugintest.Build(t, projectRoot, "protoc-gen-ts-server")
 
 	updateGolden := os.Getenv("UPDATE_GOLDEN") == "1"
 
@@ -205,14 +208,7 @@ func TestTSServerGenESGoldenFiles(t *testing.T) {
 		t.Fatalf("Failed to create golden directory: %v", mkdirErr)
 	}
 
-	pluginPath := filepath.Join(projectRoot, "bin", "protoc-gen-ts-server")
-	if _, buildStatErr := os.Stat(pluginPath); os.IsNotExist(buildStatErr) {
-		buildCmd := exec.Command("make", "build")
-		buildCmd.Dir = projectRoot
-		if buildErr := buildCmd.Run(); buildErr != nil {
-			t.Fatalf("Failed to build plugin: %v", buildErr)
-		}
-	}
+	pluginPath := plugintest.Build(t, projectRoot, "protoc-gen-ts-server")
 
 	updateGolden := os.Getenv("UPDATE_GOLDEN") == "1"
 
@@ -355,16 +351,7 @@ func TestTSServerGenValidationErrors(t *testing.T) {
 
 	projectRoot := filepath.Join(baseDir, "..", "..")
 	protoDir := filepath.Join(baseDir, "testdata", "proto")
-	pluginPath := filepath.Join(projectRoot, "bin", "protoc-gen-ts-server")
-
-	// Build plugin if needed
-	if _, statErr := os.Stat(pluginPath); os.IsNotExist(statErr) {
-		buildCmd := exec.Command("make", "build")
-		buildCmd.Dir = projectRoot
-		if buildErr := buildCmd.Run(); buildErr != nil {
-			t.Fatalf("Failed to build plugin: %v", buildErr)
-		}
-	}
+	pluginPath := plugintest.Build(t, projectRoot, "protoc-gen-ts-server")
 
 	testCases := []struct {
 		name      string

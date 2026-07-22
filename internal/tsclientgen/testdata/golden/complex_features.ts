@@ -19,7 +19,7 @@ export interface Note {
   priority: Priority;
   status: Status;
   tags: Tag[];
-  metadata: Record<string, string>;
+  metadata: { [key: string]: string };
   dueDate?: string;
   address?: Address;
 }
@@ -45,7 +45,7 @@ export interface CreateNoteRequest {
   priority: Priority;
   status: Status;
   tags: Tag[];
-  metadata: Record<string, string>;
+  metadata: { [key: string]: string };
   dueDate?: string;
   address?: Address;
 }
@@ -70,7 +70,7 @@ export interface GetNoteMapRequest {
 }
 
 export interface NoteMap {
-  notes: Record<string, Note>;
+  notes: { [key: string]: Note };
 }
 
 export interface GetBarsBySymbolRequest {
@@ -78,7 +78,7 @@ export interface GetBarsBySymbolRequest {
 }
 
 export interface BarsBySymbol {
-  data: Record<string, Bar[]>;
+  data: { [key: string]: Bar[] };
 }
 
 export interface BarWrapper {
@@ -96,7 +96,7 @@ export interface GetCombinedUnwrapRequest {
 }
 
 export interface CombinedUnwrap {
-  data: Record<string, Bar[]>;
+  data: { [key: string]: Bar[] };
 }
 
 export type Priority = "PRIORITY_UNSPECIFIED" | "PRIORITY_LOW" | "PRIORITY_MEDIUM" | "PRIORITY_HIGH" | "PRIORITY_URGENT";

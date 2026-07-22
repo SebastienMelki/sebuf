@@ -55,17 +55,26 @@ func CollectAllServiceMessages(plugin *protogen.Plugin) *MessageSet {
 	return ms
 }
 
-// CheckReservedNames returns an error if any collected message would shadow the
-// shared error helpers hoisted into the generated errors module.
-func CheckReservedNames(ms *MessageSet) error {
-	// Symbols emitted by the shared errors module; a proto message with one of
-	// these names would shadow the helpers.
-	reserved := map[string]bool{"ValidationError": true, "ApiError": true, "FieldViolation": true}
-	for _, msg := range ms.OrderedMessages() {
-		if reserved[string(msg.Desc.Name())] {
+// validatePathMode returns an error unless every generated file's output
+// prefix equals its source-relative proto path. Type modules are emitted at
+// the source-relative path (ModuleForFile) while service modules are emitted
+// at GeneratedFilenamePrefix; under any other path mode (protoc's default
+// paths=import, or module=) the two diverge, scattering type and service
+// modules across different directories and breaking the per-package barrels —
+// so fail loudly instead of emitting a subtly broken layout.
+func validatePathMode(plugin *protogen.Plugin) error {
+	for _, file := range plugin.Files {
+		if !file.Generate {
+			continue
+		}
+		want := ModuleForFile(file.Desc.Path())
+		if file.GeneratedFilenamePrefix != want {
 			return fmt.Errorf(
-				"message %q collides with a reserved error-helper name (ValidationError, ApiError, FieldViolation); rename it",
-				msg.Desc.FullName(),
+				"the TypeScript modules layout requires paths=source_relative: "+
+					"%q would generate to %q instead of %q; "+
+					"add paths=source_relative to the plugin options "+
+					"(opt: paths=source_relative in buf.gen.yaml)",
+				file.Desc.Path(), file.GeneratedFilenamePrefix, want,
 			)
 		}
 	}
@@ -74,20 +83,27 @@ func CheckReservedNames(ms *MessageSet) error {
 
 // EmitSharedModules emits one canonical type module per proto file (<proto>.ts)
 // plus a single shared errors module (errors.ts). Both TS generators call this;
-// the emitted files are byte-identical between them (neutral header), so running
-// client and server against the same output directory yields consistent type
-// modules. It returns the output-relative filenames (ending in ".ts") of the
-// type modules it emitted, so callers can fold them into per-package barrels.
+// the emitted files are byte-identical between them (neutral header). Note the
+// per-package barrels are not (see EmitPackageBarrels), so client and server
+// still require distinct output directories. It returns the output-relative
+// filenames (ending in ".ts") of the type modules it emitted, so callers can
+// fold them into per-package barrels.
+//
+// A proto type whose emitted TS name equals an error helper (ApiError,
+// ValidationError, FieldViolation) is fine: the type module declares it
+// normally, and service modules import it under a deterministic alias because
+// ImportTracker pre-reserves the helper names.
+//
+// In protobuf-es mode the message/enum modules are owned by protoc-gen-es
+// (<proto>_pb.ts); sebuf must not emit its hand-rolled type modules or they
+// would clash. The shared errors module is still sebuf's to emit — the
+// generated client imports ApiError/ValidationError from it.
 func EmitSharedModules(plugin *protogen.Plugin, runtime MessageRuntime) ([]string, error) {
-	global := CollectAllServiceMessages(plugin)
-	if err := CheckReservedNames(global); err != nil {
+	if err := validatePathMode(plugin); err != nil {
 		return nil, err
 	}
+	global := CollectAllServiceMessages(plugin)
 
-	// In protobuf-es mode the message/enum modules are owned by protoc-gen-es
-	// (<proto>_pb.ts); sebuf must not emit its hand-rolled type modules or they
-	// would clash. The shared errors module is still sebuf's to emit — the
-	// generated client imports ApiError/ValidationError from it.
 	var emitted []string
 	if runtime != MessageRuntimeES {
 		msgsBySrc := global.MessagesBySourceFile()
@@ -111,6 +127,11 @@ func EmitSharedModules(plugin *protogen.Plugin, runtime MessageRuntime) ([]strin
 // and carry a ".js" extension to match the relative-import convention. The
 // output root, where the shared errors module lives, never receives a barrel:
 // aggregating the packages at the root is the consumer's concern.
+//
+// Unlike the type modules and errors.ts, barrels are NOT byte-identical
+// between the client and server generators — each re-exports its own service
+// module — so the two generators must use distinct output directories (see
+// docs/client-generation.md).
 func EmitPackageBarrels(plugin *protogen.Plugin, moduleFiles []string) {
 	byDir := map[string][]string{}
 	for _, f := range moduleFiles {

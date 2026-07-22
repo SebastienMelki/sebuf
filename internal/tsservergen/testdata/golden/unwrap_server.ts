@@ -2,7 +2,7 @@
 // source: unwrap.proto
 
 import { FieldViolation, ValidationError } from "./errors.js";
-import type { GetOptionBarsRequest, GetOptionBarsResponse, OptionBar, OptionBarsList } from "./unwrap.js";
+import type { GetOptionBarsRequest, GetOptionBarsResponse, OptionBar } from "./unwrap.js";
 
 export interface ServerContext {
   request: Request;
@@ -78,9 +78,9 @@ export function createOptionDataServiceRoutes(
 
 export interface UnwrapServiceHandler {
   getOptionBars(ctx: ServerContext, req: GetOptionBarsRequest): Promise<GetOptionBarsResponse>;
-  getRootMap(ctx: ServerContext, req: GetOptionBarsRequest): Promise<Record<string, OptionBar>>;
+  getRootMap(ctx: ServerContext, req: GetOptionBarsRequest): Promise<{ [key: string]: OptionBar }>;
   getRootRepeated(ctx: ServerContext, req: GetOptionBarsRequest): Promise<OptionBar[]>;
-  getRootMapWithValueUnwrap(ctx: ServerContext, req: GetOptionBarsRequest): Promise<Record<string, OptionBar[]>>;
+  getRootMapWithValueUnwrap(ctx: ServerContext, req: GetOptionBarsRequest): Promise<{ [key: string]: OptionBar[] }>;
 }
 
 export function createUnwrapServiceRoutes(
@@ -152,7 +152,7 @@ export function createUnwrapServiceRoutes(
           };
 
           const result = await handler.getRootMap(ctx, body);
-          return new Response(JSON.stringify(result as Record<string, OptionBar>), {
+          return new Response(JSON.stringify(result as { [key: string]: OptionBar }), {
             status: 200,
             headers: { "Content-Type": "application/json" },
           });
@@ -238,7 +238,7 @@ export function createUnwrapServiceRoutes(
           };
 
           const result = await handler.getRootMapWithValueUnwrap(ctx, body);
-          return new Response(JSON.stringify(result as Record<string, OptionBar[]>), {
+          return new Response(JSON.stringify(result as { [key: string]: OptionBar[] }), {
             status: 200,
             headers: { "Content-Type": "application/json" },
           });

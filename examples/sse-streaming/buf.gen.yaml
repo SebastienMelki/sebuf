@@ -38,6 +38,7 @@ plugins:
   - local: ../../bin/protoc-gen-ts-client
     out: ./ts-client/generated
     opt: paths=source_relative
+    strategy: all
 
   # OpenAPI v3.1 specification generation
   - local: ../../bin/protoc-gen-openapiv3
