@@ -66,9 +66,9 @@ namespace Test.Contracts
     public sealed class Item
     {
         [JsonProperty("id")]
-        public string Id { get; set; }
+        public string Id { get; set; } = string.Empty;
         [JsonProperty("tags")]
-        public List<string> Tags { get; set; }
+        public List<string> Tags { get; set; } = new();
         [JsonProperty("meta")]
         public Dictionary<string, object>? Meta { get; set; }
         [JsonProperty("state")]
@@ -80,15 +80,15 @@ namespace Test.Contracts
     public sealed class ItemDetails
     {
         [JsonProperty("note")]
-        public string Note { get; set; }
+        public string Note { get; set; } = string.Empty;
         [JsonProperty("scores")]
-        public List<int> Scores { get; set; }
+        public List<int> Scores { get; set; } = new();
     }
 
     public sealed class FetchItemRequest
     {
         [JsonProperty("id")]
-        public string Id { get; set; }
+        public string Id { get; set; } = string.Empty;
     }
 
     public sealed class ContractServiceClientOptions
@@ -307,9 +307,9 @@ namespace Test.Contracts
             }
             if (obj.TryGetValue("state", out var StateEnumToken))
             {
-                if (obj["state"].Type == JTokenType.Integer)
+                if (obj["state"]?.Type == JTokenType.Integer)
                 {
-                    obj["state"] = EncodeEnumValue(typeof(ItemState), obj["state"].Value<long>());
+                    obj["state"] = EncodeEnumValue(typeof(ItemState), obj["state"]!.Value<long>());
                 }
             }
             return obj;
@@ -323,9 +323,9 @@ namespace Test.Contracts
             }
             if (obj.TryGetValue("state", out var StateEnumToken))
             {
-                if (obj["state"].Type == JTokenType.String)
+                if (obj["state"]?.Type == JTokenType.String)
                 {
-                    obj["state"] = DecodeEnumValue(typeof(ItemState), obj["state"].Value<string>()!);
+                    obj["state"] = DecodeEnumValue(typeof(ItemState), obj["state"]!.Value<string>()!);
                 }
             }
             return obj;

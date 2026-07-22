@@ -66,11 +66,11 @@ namespace Test.Contracts
     public sealed class Widget
     {
         [JsonPropertyName("id")]
-        public string Id { get; set; }
+        public string Id { get; set; } = string.Empty;
         [JsonPropertyName("display_name")]
         public string? DisplayName { get; set; }
         [JsonPropertyName("scores")]
-        public Dictionary<string, int> Scores { get; set; }
+        public Dictionary<string, int> Scores { get; set; } = new();
         [JsonPropertyName("meta")]
         public Dictionary<string, object>? Meta { get; set; }
         [JsonPropertyName("created_at")]
@@ -82,23 +82,23 @@ namespace Test.Contracts
         [JsonPropertyName("meta_note")]
         public string? MetaNote { get; set; }
         [JsonPropertyName("tags")]
-        public List<string> Tags { get; set; }
+        public List<string> Tags { get; set; } = new();
         [JsonPropertyName("owner_id")]
-        public string OwnerId { get; set; }
+        public string OwnerId { get; set; } = string.Empty;
         [JsonPropertyName("payload")]
-        public byte[] Payload { get; set; }
+        public byte[] Payload { get; set; } = Array.Empty<byte>();
         [JsonPropertyName("version")]
         public long Version { get; set; }
         [JsonPropertyName("state_labels")]
-        public Dictionary<string, WidgetState> StateLabels { get; set; }
+        public Dictionary<string, WidgetState> StateLabels { get; set; } = new();
         [JsonPropertyName("profiles_by_id")]
-        public Dictionary<string, WidgetProfile> ProfilesById { get; set; }
+        public Dictionary<string, WidgetProfile> ProfilesById { get; set; } = new();
         [JsonPropertyName("state_history")]
-        public List<WidgetState> StateHistory { get; set; }
+        public List<WidgetState> StateHistory { get; set; } = new();
         [JsonPropertyName("payload_chunks")]
-        public List<byte[]> PayloadChunks { get; set; }
+        public List<byte[]> PayloadChunks { get; set; } = new();
         [JsonPropertyName("payloads_by_id")]
-        public Dictionary<string, byte[]> PayloadsById { get; set; }
+        public Dictionary<string, byte[]> PayloadsById { get; set; } = new();
         [JsonPropertyName("display_state")]
         public WidgetState DisplayState { get; set; }
     }
@@ -106,7 +106,7 @@ namespace Test.Contracts
     public sealed class WidgetProfile
     {
         [JsonPropertyName("note")]
-        public string Note { get; set; }
+        public string Note { get; set; } = string.Empty;
     }
 
     public sealed class ShapeEnvelope
@@ -174,7 +174,7 @@ namespace Test.Contracts
     public sealed class DeepNestLevel1Level2
     {
         [JsonPropertyName("code")]
-        public string Code { get; set; }
+        public string Code { get; set; } = string.Empty;
     }
 
     public sealed class WellKnownHolder
@@ -198,9 +198,9 @@ namespace Test.Contracts
     public sealed class LoginError
     {
         [JsonPropertyName("reason")]
-        public string Reason { get; set; }
+        public string Reason { get; set; } = string.Empty;
         [JsonPropertyName("email")]
-        public string Email { get; set; }
+        public string Email { get; set; } = string.Empty;
         [JsonPropertyName("retry_after_seconds")]
         public int RetryAfterSeconds { get; set; }
     }
@@ -226,15 +226,15 @@ namespace Test.Contracts
     public sealed class GetWidgetRequest
     {
         [JsonPropertyName("id")]
-        public string Id { get; set; }
+        public string Id { get; set; } = string.Empty;
     }
 
     public sealed class SearchWidgetsRequest
     {
         [JsonPropertyName("owner_id")]
-        public string OwnerId { get; set; }
+        public string OwnerId { get; set; } = string.Empty;
         [JsonPropertyName("tag_ids")]
-        public List<string> TagIds { get; set; }
+        public List<string> TagIds { get; set; } = new();
     }
 
     public sealed class Empty

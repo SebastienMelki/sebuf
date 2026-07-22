@@ -66,11 +66,11 @@ namespace Test.Contracts
     public sealed class Widget
     {
         [JsonProperty("id")]
-        public string Id { get; set; }
+        public string Id { get; set; } = string.Empty;
         [JsonProperty("display_name")]
         public string? DisplayName { get; set; }
         [JsonProperty("scores")]
-        public Dictionary<string, int> Scores { get; set; }
+        public Dictionary<string, int> Scores { get; set; } = new();
         [JsonProperty("meta")]
         public Dictionary<string, object>? Meta { get; set; }
         [JsonProperty("created_at")]
@@ -82,23 +82,23 @@ namespace Test.Contracts
         [JsonProperty("meta_note")]
         public string? MetaNote { get; set; }
         [JsonProperty("tags")]
-        public List<string> Tags { get; set; }
+        public List<string> Tags { get; set; } = new();
         [JsonProperty("owner_id")]
-        public string OwnerId { get; set; }
+        public string OwnerId { get; set; } = string.Empty;
         [JsonProperty("payload")]
-        public byte[] Payload { get; set; }
+        public byte[] Payload { get; set; } = Array.Empty<byte>();
         [JsonProperty("version")]
         public long Version { get; set; }
         [JsonProperty("state_labels")]
-        public Dictionary<string, WidgetState> StateLabels { get; set; }
+        public Dictionary<string, WidgetState> StateLabels { get; set; } = new();
         [JsonProperty("profiles_by_id")]
-        public Dictionary<string, WidgetProfile> ProfilesById { get; set; }
+        public Dictionary<string, WidgetProfile> ProfilesById { get; set; } = new();
         [JsonProperty("state_history")]
-        public List<WidgetState> StateHistory { get; set; }
+        public List<WidgetState> StateHistory { get; set; } = new();
         [JsonProperty("payload_chunks")]
-        public List<byte[]> PayloadChunks { get; set; }
+        public List<byte[]> PayloadChunks { get; set; } = new();
         [JsonProperty("payloads_by_id")]
-        public Dictionary<string, byte[]> PayloadsById { get; set; }
+        public Dictionary<string, byte[]> PayloadsById { get; set; } = new();
         [JsonProperty("display_state")]
         public WidgetState DisplayState { get; set; }
     }
@@ -106,7 +106,7 @@ namespace Test.Contracts
     public sealed class WidgetProfile
     {
         [JsonProperty("note")]
-        public string Note { get; set; }
+        public string Note { get; set; } = string.Empty;
     }
 
     public sealed class ShapeEnvelope
@@ -174,7 +174,7 @@ namespace Test.Contracts
     public sealed class DeepNestLevel1Level2
     {
         [JsonProperty("code")]
-        public string Code { get; set; }
+        public string Code { get; set; } = string.Empty;
     }
 
     public sealed class WellKnownHolder
@@ -198,9 +198,9 @@ namespace Test.Contracts
     public sealed class LoginError
     {
         [JsonProperty("reason")]
-        public string Reason { get; set; }
+        public string Reason { get; set; } = string.Empty;
         [JsonProperty("email")]
-        public string Email { get; set; }
+        public string Email { get; set; } = string.Empty;
         [JsonProperty("retry_after_seconds")]
         public int RetryAfterSeconds { get; set; }
     }
@@ -226,15 +226,15 @@ namespace Test.Contracts
     public sealed class GetWidgetRequest
     {
         [JsonProperty("id")]
-        public string Id { get; set; }
+        public string Id { get; set; } = string.Empty;
     }
 
     public sealed class SearchWidgetsRequest
     {
         [JsonProperty("owner_id")]
-        public string OwnerId { get; set; }
+        public string OwnerId { get; set; } = string.Empty;
         [JsonProperty("tag_ids")]
-        public List<string> TagIds { get; set; }
+        public List<string> TagIds { get; set; } = new();
     }
 
     public sealed class Empty
@@ -709,18 +709,18 @@ namespace Test.Contracts
             }
             if (obj.TryGetValue("payload", out var PayloadBytesToken))
             {
-                if (obj["payload"].Type == JTokenType.String)
+                if (obj["payload"]?.Type == JTokenType.String)
                 {
-                    obj["payload"] = ReencodeBytes(obj["payload"].Value<string>()!, "base64", "hex");
+                    obj["payload"] = ReencodeBytes(obj["payload"]!.Value<string>()!, "base64", "hex");
                 }
             }
             if (obj.TryGetValue("stateLabels", out var StatelabelsEnumMap) && StatelabelsEnumMap is JObject StatelabelsEnumObject)
             {
                 foreach (var property in StatelabelsEnumObject.Properties().ToList())
                 {
-                    if (property.Value.Type == JTokenType.Integer)
+                    if (property.Value?.Type == JTokenType.Integer)
                     {
-                        property.Value = EncodeEnumValue(typeof(WidgetState), property.Value.Value<long>());
+                        property.Value = EncodeEnumValue(typeof(WidgetState), property.Value!.Value<long>());
                     }
                 }
             }
@@ -728,9 +728,9 @@ namespace Test.Contracts
             {
                 for (var i = 0; i < StatehistoryEnumArray.Count; i++)
                 {
-                    if (StatehistoryEnumArray[i].Type == JTokenType.Integer)
+                    if (StatehistoryEnumArray[i]?.Type == JTokenType.Integer)
                     {
-                        StatehistoryEnumArray[i] = EncodeEnumValue(typeof(WidgetState), StatehistoryEnumArray[i].Value<long>());
+                        StatehistoryEnumArray[i] = EncodeEnumValue(typeof(WidgetState), StatehistoryEnumArray[i]!.Value<long>());
                     }
                 }
             }
@@ -738,9 +738,9 @@ namespace Test.Contracts
             {
                 for (var i = 0; i < PayloadchunksBytesArray.Count; i++)
                 {
-                    if (PayloadchunksBytesArray[i].Type == JTokenType.String)
+                    if (PayloadchunksBytesArray[i]?.Type == JTokenType.String)
                     {
-                        PayloadchunksBytesArray[i] = ReencodeBytes(PayloadchunksBytesArray[i].Value<string>()!, "base64", "hex");
+                        PayloadchunksBytesArray[i] = ReencodeBytes(PayloadchunksBytesArray[i]!.Value<string>()!, "base64", "hex");
                     }
                 }
             }
@@ -748,17 +748,17 @@ namespace Test.Contracts
             {
                 foreach (var property in PayloadsbyidBytesObject.Properties().ToList())
                 {
-                    if (property.Value.Type == JTokenType.String)
+                    if (property.Value?.Type == JTokenType.String)
                     {
-                        property.Value = ReencodeBytes(property.Value.Value<string>()!, "base64", "hex");
+                        property.Value = ReencodeBytes(property.Value!.Value<string>()!, "base64", "hex");
                     }
                 }
             }
             if (obj.TryGetValue("displayState", out var DisplaystateEnumToken))
             {
-                if (obj["displayState"].Type == JTokenType.Integer)
+                if (obj["displayState"]?.Type == JTokenType.Integer)
                 {
-                    obj["displayState"] = EncodeEnumValue(typeof(WidgetState), obj["displayState"].Value<long>());
+                    obj["displayState"] = EncodeEnumValue(typeof(WidgetState), obj["displayState"]!.Value<long>());
                 }
             }
             return obj;
@@ -772,18 +772,18 @@ namespace Test.Contracts
             }
             if (obj.TryGetValue("payload", out var PayloadBytesToken))
             {
-                if (obj["payload"].Type == JTokenType.String)
+                if (obj["payload"]?.Type == JTokenType.String)
                 {
-                    obj["payload"] = ReencodeBytes(obj["payload"].Value<string>()!, "hex", "base64");
+                    obj["payload"] = ReencodeBytes(obj["payload"]!.Value<string>()!, "hex", "base64");
                 }
             }
             if (obj.TryGetValue("stateLabels", out var StatelabelsEnumMap) && StatelabelsEnumMap is JObject StatelabelsEnumObject)
             {
                 foreach (var property in StatelabelsEnumObject.Properties().ToList())
                 {
-                    if (property.Value.Type == JTokenType.String)
+                    if (property.Value?.Type == JTokenType.String)
                     {
-                        property.Value = DecodeEnumValue(typeof(WidgetState), property.Value.Value<string>()!);
+                        property.Value = DecodeEnumValue(typeof(WidgetState), property.Value!.Value<string>()!);
                     }
                 }
             }
@@ -791,9 +791,9 @@ namespace Test.Contracts
             {
                 for (var i = 0; i < StatehistoryEnumArray.Count; i++)
                 {
-                    if (StatehistoryEnumArray[i].Type == JTokenType.String)
+                    if (StatehistoryEnumArray[i]?.Type == JTokenType.String)
                     {
-                        StatehistoryEnumArray[i] = DecodeEnumValue(typeof(WidgetState), StatehistoryEnumArray[i].Value<string>()!);
+                        StatehistoryEnumArray[i] = DecodeEnumValue(typeof(WidgetState), StatehistoryEnumArray[i]!.Value<string>()!);
                     }
                 }
             }
@@ -801,9 +801,9 @@ namespace Test.Contracts
             {
                 for (var i = 0; i < PayloadchunksBytesArray.Count; i++)
                 {
-                    if (PayloadchunksBytesArray[i].Type == JTokenType.String)
+                    if (PayloadchunksBytesArray[i]?.Type == JTokenType.String)
                     {
-                        PayloadchunksBytesArray[i] = ReencodeBytes(PayloadchunksBytesArray[i].Value<string>()!, "hex", "base64");
+                        PayloadchunksBytesArray[i] = ReencodeBytes(PayloadchunksBytesArray[i]!.Value<string>()!, "hex", "base64");
                     }
                 }
             }
@@ -811,17 +811,17 @@ namespace Test.Contracts
             {
                 foreach (var property in PayloadsbyidBytesObject.Properties().ToList())
                 {
-                    if (property.Value.Type == JTokenType.String)
+                    if (property.Value?.Type == JTokenType.String)
                     {
-                        property.Value = ReencodeBytes(property.Value.Value<string>()!, "hex", "base64");
+                        property.Value = ReencodeBytes(property.Value!.Value<string>()!, "hex", "base64");
                     }
                 }
             }
             if (obj.TryGetValue("displayState", out var DisplaystateEnumToken))
             {
-                if (obj["displayState"].Type == JTokenType.String)
+                if (obj["displayState"]?.Type == JTokenType.String)
                 {
-                    obj["displayState"] = DecodeEnumValue(typeof(WidgetState), obj["displayState"].Value<string>()!);
+                    obj["displayState"] = DecodeEnumValue(typeof(WidgetState), obj["displayState"]!.Value<string>()!);
                 }
             }
             return obj;
@@ -1316,18 +1316,18 @@ namespace Test.Contracts
             }
             if (obj.TryGetValue("payload", out var PayloadBytesToken))
             {
-                if (obj["payload"].Type == JTokenType.String)
+                if (obj["payload"]?.Type == JTokenType.String)
                 {
-                    obj["payload"] = ReencodeBytes(obj["payload"].Value<string>()!, "base64", "hex");
+                    obj["payload"] = ReencodeBytes(obj["payload"]!.Value<string>()!, "base64", "hex");
                 }
             }
             if (obj.TryGetValue("stateLabels", out var StatelabelsEnumMap) && StatelabelsEnumMap is JObject StatelabelsEnumObject)
             {
                 foreach (var property in StatelabelsEnumObject.Properties().ToList())
                 {
-                    if (property.Value.Type == JTokenType.Integer)
+                    if (property.Value?.Type == JTokenType.Integer)
                     {
-                        property.Value = EncodeEnumValue(typeof(WidgetState), property.Value.Value<long>());
+                        property.Value = EncodeEnumValue(typeof(WidgetState), property.Value!.Value<long>());
                     }
                 }
             }
@@ -1335,9 +1335,9 @@ namespace Test.Contracts
             {
                 for (var i = 0; i < StatehistoryEnumArray.Count; i++)
                 {
-                    if (StatehistoryEnumArray[i].Type == JTokenType.Integer)
+                    if (StatehistoryEnumArray[i]?.Type == JTokenType.Integer)
                     {
-                        StatehistoryEnumArray[i] = EncodeEnumValue(typeof(WidgetState), StatehistoryEnumArray[i].Value<long>());
+                        StatehistoryEnumArray[i] = EncodeEnumValue(typeof(WidgetState), StatehistoryEnumArray[i]!.Value<long>());
                     }
                 }
             }
@@ -1345,9 +1345,9 @@ namespace Test.Contracts
             {
                 for (var i = 0; i < PayloadchunksBytesArray.Count; i++)
                 {
-                    if (PayloadchunksBytesArray[i].Type == JTokenType.String)
+                    if (PayloadchunksBytesArray[i]?.Type == JTokenType.String)
                     {
-                        PayloadchunksBytesArray[i] = ReencodeBytes(PayloadchunksBytesArray[i].Value<string>()!, "base64", "hex");
+                        PayloadchunksBytesArray[i] = ReencodeBytes(PayloadchunksBytesArray[i]!.Value<string>()!, "base64", "hex");
                     }
                 }
             }
@@ -1355,17 +1355,17 @@ namespace Test.Contracts
             {
                 foreach (var property in PayloadsbyidBytesObject.Properties().ToList())
                 {
-                    if (property.Value.Type == JTokenType.String)
+                    if (property.Value?.Type == JTokenType.String)
                     {
-                        property.Value = ReencodeBytes(property.Value.Value<string>()!, "base64", "hex");
+                        property.Value = ReencodeBytes(property.Value!.Value<string>()!, "base64", "hex");
                     }
                 }
             }
             if (obj.TryGetValue("displayState", out var DisplaystateEnumToken))
             {
-                if (obj["displayState"].Type == JTokenType.Integer)
+                if (obj["displayState"]?.Type == JTokenType.Integer)
                 {
-                    obj["displayState"] = EncodeEnumValue(typeof(WidgetState), obj["displayState"].Value<long>());
+                    obj["displayState"] = EncodeEnumValue(typeof(WidgetState), obj["displayState"]!.Value<long>());
                 }
             }
             return obj;
@@ -1379,18 +1379,18 @@ namespace Test.Contracts
             }
             if (obj.TryGetValue("payload", out var PayloadBytesToken))
             {
-                if (obj["payload"].Type == JTokenType.String)
+                if (obj["payload"]?.Type == JTokenType.String)
                 {
-                    obj["payload"] = ReencodeBytes(obj["payload"].Value<string>()!, "hex", "base64");
+                    obj["payload"] = ReencodeBytes(obj["payload"]!.Value<string>()!, "hex", "base64");
                 }
             }
             if (obj.TryGetValue("stateLabels", out var StatelabelsEnumMap) && StatelabelsEnumMap is JObject StatelabelsEnumObject)
             {
                 foreach (var property in StatelabelsEnumObject.Properties().ToList())
                 {
-                    if (property.Value.Type == JTokenType.String)
+                    if (property.Value?.Type == JTokenType.String)
                     {
-                        property.Value = DecodeEnumValue(typeof(WidgetState), property.Value.Value<string>()!);
+                        property.Value = DecodeEnumValue(typeof(WidgetState), property.Value!.Value<string>()!);
                     }
                 }
             }
@@ -1398,9 +1398,9 @@ namespace Test.Contracts
             {
                 for (var i = 0; i < StatehistoryEnumArray.Count; i++)
                 {
-                    if (StatehistoryEnumArray[i].Type == JTokenType.String)
+                    if (StatehistoryEnumArray[i]?.Type == JTokenType.String)
                     {
-                        StatehistoryEnumArray[i] = DecodeEnumValue(typeof(WidgetState), StatehistoryEnumArray[i].Value<string>()!);
+                        StatehistoryEnumArray[i] = DecodeEnumValue(typeof(WidgetState), StatehistoryEnumArray[i]!.Value<string>()!);
                     }
                 }
             }
@@ -1408,9 +1408,9 @@ namespace Test.Contracts
             {
                 for (var i = 0; i < PayloadchunksBytesArray.Count; i++)
                 {
-                    if (PayloadchunksBytesArray[i].Type == JTokenType.String)
+                    if (PayloadchunksBytesArray[i]?.Type == JTokenType.String)
                     {
-                        PayloadchunksBytesArray[i] = ReencodeBytes(PayloadchunksBytesArray[i].Value<string>()!, "hex", "base64");
+                        PayloadchunksBytesArray[i] = ReencodeBytes(PayloadchunksBytesArray[i]!.Value<string>()!, "hex", "base64");
                     }
                 }
             }
@@ -1418,17 +1418,17 @@ namespace Test.Contracts
             {
                 foreach (var property in PayloadsbyidBytesObject.Properties().ToList())
                 {
-                    if (property.Value.Type == JTokenType.String)
+                    if (property.Value?.Type == JTokenType.String)
                     {
-                        property.Value = ReencodeBytes(property.Value.Value<string>()!, "hex", "base64");
+                        property.Value = ReencodeBytes(property.Value!.Value<string>()!, "hex", "base64");
                     }
                 }
             }
             if (obj.TryGetValue("displayState", out var DisplaystateEnumToken))
             {
-                if (obj["displayState"].Type == JTokenType.String)
+                if (obj["displayState"]?.Type == JTokenType.String)
                 {
-                    obj["displayState"] = DecodeEnumValue(typeof(WidgetState), obj["displayState"].Value<string>()!);
+                    obj["displayState"] = DecodeEnumValue(typeof(WidgetState), obj["displayState"]!.Value<string>()!);
                 }
             }
             return obj;

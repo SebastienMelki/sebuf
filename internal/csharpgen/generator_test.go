@@ -235,6 +235,31 @@ func TestCSharpTypeMappings(t *testing.T) {
 	}
 }
 
+func TestCSharpPropertyInitializer(t *testing.T) {
+	tests := []struct {
+		typ  string
+		want string
+	}{
+		{typ: "string", want: "string.Empty"},
+		{typ: "byte[]", want: "Array.Empty<byte>()"},
+		{typ: "List<Widget>", want: "new()"},
+		{typ: "Dictionary<string, Widget>", want: "new()"},
+		{typ: "object", want: "new object()"},
+		{typ: "string?", want: ""},
+		{typ: "Widget?", want: ""},
+		{typ: "int", want: ""},
+		{typ: "WidgetState", want: ""},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.typ, func(t *testing.T) {
+			if got := csharpPropertyInitializer(tt.typ); got != tt.want {
+				t.Fatalf("csharpPropertyInitializer(%q) = %q, want %q", tt.typ, got, tt.want)
+			}
+		})
+	}
+}
+
 func TestContainerEncodingNormalizationPredicates(t *testing.T) {
 	enumRef := &contractmodel.TypeRef{Kind: contractmodel.KindEnum, Name: "WidgetState"}
 	bytesRef := &contractmodel.TypeRef{Kind: contractmodel.KindScalar, Name: "bytes"}
@@ -981,8 +1006,8 @@ func TestGeneratePackage(t *testing.T) {
 		"private static string NormalizeResponseJson(Type responseType, string json)",
 		"private static JToken NormalizeSerializedWidget(JToken token)",
 		"private static JToken NormalizeResponseWidget(JToken token)",
-		`obj["state"] = EncodeEnumValue(typeof(WidgetState), obj["state"].Value<long>());`,
-		`obj["state"] = DecodeEnumValue(typeof(WidgetState), obj["state"].Value<string>()!);`,
+		`obj["state"] = EncodeEnumValue(typeof(WidgetState), obj["state"]!.Value<long>());`,
+		`obj["state"] = DecodeEnumValue(typeof(WidgetState), obj["state"]!.Value<string>()!);`,
 		"private static string EncodeEnumValue(Type enumType, long value)",
 		"private static long DecodeEnumValue(Type enumType, string value)",
 		`obj["kind"] = "circle_shape";`,

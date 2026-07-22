@@ -100,10 +100,11 @@ func (g *Generator) generatePackage(pkg *contractmodel.Package) error {
 }
 
 type generatedProperty struct {
-	jsonName  string
-	name      string
-	typ       string
-	converter string
+	jsonName    string
+	name        string
+	typ         string
+	converter   string
+	initializer string
 }
 
 func (g *Generator) messageProperties(
@@ -155,7 +156,14 @@ func (g *Generator) generateMessages(
 			if property.converter != "" {
 				gf.P("        ", property.converter)
 			}
-			gf.P("        public ", property.typ, " ", property.name, " { get; set; }")
+			if property.initializer != "" {
+				gf.P(
+					"        public ", property.typ, " ", property.name,
+					" { get; set; } = ", property.initializer, ";",
+				)
+			} else {
+				gf.P("        public ", property.typ, " ", property.name, " { get; set; }")
+			}
 		}
 		gf.P("    }")
 		gf.P()
@@ -1280,15 +1288,15 @@ func (g *Generator) generateNewtonsoftEnumTokenAssignment(
 	indent string,
 ) {
 	if serialize {
-		gf.P(indent, "if (", target, ".Type == JTokenType.Integer)")
+		gf.P(indent, "if (", target, "?.Type == JTokenType.Integer)")
 		gf.P(indent, "{")
-		gf.P(indent, "    ", target, " = EncodeEnumValue(typeof(", enumType, "), ", target, ".Value<long>());")
+		gf.P(indent, "    ", target, " = EncodeEnumValue(typeof(", enumType, "), ", target, "!.Value<long>());")
 		gf.P(indent, "}")
 		return
 	}
-	gf.P(indent, "if (", target, ".Type == JTokenType.String)")
+	gf.P(indent, "if (", target, "?.Type == JTokenType.String)")
 	gf.P(indent, "{")
-	gf.P(indent, "    ", target, " = DecodeEnumValue(typeof(", enumType, "), ", target, ".Value<string>()!);")
+	gf.P(indent, "    ", target, " = DecodeEnumValue(typeof(", enumType, "), ", target, "!.Value<string>()!);")
 	gf.P(indent, "}")
 }
 
@@ -1336,9 +1344,9 @@ func (g *Generator) generateNewtonsoftBytesTokenAssignment(
 	if !serialize {
 		from, to = to, from
 	}
-	gf.P(indent, "if (", target, ".Type == JTokenType.String)")
+	gf.P(indent, "if (", target, "?.Type == JTokenType.String)")
 	gf.P(indent, "{")
-	gf.P(indent, "    ", target, ` = ReencodeBytes(`, target, `.Value<string>()!, "`, from, `", "`, to, `");`)
+	gf.P(indent, "    ", target, ` = ReencodeBytes(`, target, `!.Value<string>()!, "`, from, `", "`, to, `");`)
 	gf.P(indent, "}")
 }
 
@@ -2503,11 +2511,33 @@ func (g *Generator) appendProperty(
 	}
 	usedJSONNames[jsonName] = true
 	*properties = append(*properties, generatedProperty{
-		jsonName:  jsonName,
-		name:      name,
-		typ:       typ,
-		converter: converter,
+		jsonName:    jsonName,
+		name:        name,
+		typ:         typ,
+		converter:   converter,
+		initializer: csharpPropertyInitializer(typ),
 	})
+}
+
+// csharpPropertyInitializer preserves protobuf's non-null collection, bytes,
+// string, and dynamic-object defaults while satisfying nullable reference type
+// analysis for DTOs constructed before deserialization populates their fields.
+func csharpPropertyInitializer(typ string) string {
+	if strings.HasSuffix(typ, "?") {
+		return ""
+	}
+	switch {
+	case typ == csharpStringType:
+		return "string.Empty"
+	case typ == csharpObjectType:
+		return "new object()"
+	case strings.HasSuffix(typ, "[]"):
+		return "Array.Empty<" + strings.TrimSuffix(typ, "[]") + ">()"
+	case strings.HasPrefix(typ, "List<"), strings.HasPrefix(typ, "Dictionary<"):
+		return "new()"
+	default:
+		return ""
+	}
 }
 
 func childMessage(messageIndex map[string]*contractmodel.Message, field *contractmodel.Field) *contractmodel.Message {
