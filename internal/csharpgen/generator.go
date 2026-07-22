@@ -761,7 +761,39 @@ func (g *Generator) generateJSONNormalizationHelpers(
 	} else {
 		g.generateSystemTextJSONNormalizationHelpers(gf, messages, messageIndex)
 	}
+	g.generateEnumEncodingHelpers(gf)
 	g.generateBytesEncodingHelpers(gf)
+}
+
+func (g *Generator) generateEnumEncodingHelpers(gf *protogen.GeneratedFile) {
+	gf.P("        private static string EncodeEnumValue(Type enumType, long value)")
+	gf.P("        {")
+	gf.P("            var enumValue = Enum.ToObject(enumType, value);")
+	gf.P("            var name = Enum.GetName(enumType, enumValue) ?? value.ToString();")
+	gf.P("            var member = enumType.GetMember(name).FirstOrDefault();")
+	gf.P("            var mapping = member?.GetCustomAttributes(typeof(EnumMemberAttribute), false)")
+	gf.P("                .OfType<EnumMemberAttribute>().FirstOrDefault()?.Value;")
+	gf.P("            return mapping ?? name;")
+	gf.P("        }")
+	gf.P()
+	gf.P("        private static long DecodeEnumValue(Type enumType, string value)")
+	gf.P("        {")
+	gf.P("            foreach (var member in enumType.GetFields().Where(field => field.IsStatic))")
+	gf.P("            {")
+	gf.P("                var mapping = member.GetCustomAttributes(typeof(EnumMemberAttribute), false)")
+	gf.P("                    .OfType<EnumMemberAttribute>().FirstOrDefault()?.Value;")
+	gf.P("                if (string.Equals(mapping ?? member.Name, value, StringComparison.Ordinal))")
+	gf.P("                {")
+	gf.P("                    return Convert.ToInt64(member.GetValue(null));")
+	gf.P("                }")
+	gf.P("            }")
+	gf.P("            if (long.TryParse(value, out var numericValue))")
+	gf.P("            {")
+	gf.P("                return numericValue;")
+	gf.P("            }")
+	gf.P(`            throw new InvalidOperationException($"Unknown {enumType.Name} wire value '{value}'.");`)
+	gf.P("        }")
+	gf.P()
 }
 
 //nolint:funlen // Code generation for JSON normalization is intentionally verbose.
@@ -1090,6 +1122,30 @@ func (g *Generator) generateNewtonsoftRootUnwrapNormalizationBody(
 	}
 	field := message.Fields[0]
 	if field.Repeated {
+		if ref := enumTypeRef(field); ref != nil && needsEnumEncodingNormalization(field) {
+			gf.P("            if (token is not JArray array)")
+			gf.P("            {")
+			gf.P("                return token;")
+			gf.P("            }")
+			gf.P("            for (var i = 0; i < array.Count; i++)")
+			gf.P("            {")
+			g.generateNewtonsoftEnumTokenAssignment(gf, "array[i]", ref.Name, serialize, "                ")
+			gf.P("            }")
+			gf.P("            return array;")
+			return
+		}
+		if needsBytesEncodingNormalization(field) {
+			gf.P("            if (token is not JArray array)")
+			gf.P("            {")
+			gf.P("                return token;")
+			gf.P("            }")
+			gf.P("            for (var i = 0; i < array.Count; i++)")
+			gf.P("            {")
+			g.generateNewtonsoftBytesTokenAssignment(gf, "array[i]", field, serialize, "                ")
+			gf.P("            }")
+			gf.P("            return array;")
+			return
+		}
 		if field.Type == nil || field.Type.Kind != contractmodel.KindMessage ||
 			!messageNeedsJSONNormalization(messageIndex[field.Type.Name], messageIndex) {
 			gf.P("            return token;")
@@ -1112,6 +1168,30 @@ func (g *Generator) generateNewtonsoftRootUnwrapNormalizationBody(
 	}
 	if !field.IsMap || field.Type == nil || field.Type.MapValue == nil {
 		gf.P("            return token;")
+		return
+	}
+	if ref := enumTypeRef(field); ref != nil && needsEnumEncodingNormalization(field) {
+		gf.P("            if (token is not JObject obj)")
+		gf.P("            {")
+		gf.P("                return token;")
+		gf.P("            }")
+		gf.P("            foreach (var property in obj.Properties().ToList())")
+		gf.P("            {")
+		g.generateNewtonsoftEnumTokenAssignment(gf, "property.Value", ref.Name, serialize, "                ")
+		gf.P("            }")
+		gf.P("            return obj;")
+		return
+	}
+	if needsBytesEncodingNormalization(field) {
+		gf.P("            if (token is not JObject obj)")
+		gf.P("            {")
+		gf.P("                return token;")
+		gf.P("            }")
+		gf.P("            foreach (var property in obj.Properties().ToList())")
+		gf.P("            {")
+		g.generateNewtonsoftBytesTokenAssignment(gf, "property.Value", field, serialize, "                ")
+		gf.P("            }")
+		gf.P("            return obj;")
 		return
 	}
 	childMessage := field.Type.MapValue.Kind == contractmodel.KindMessage &&
@@ -1155,6 +1235,113 @@ func (g *Generator) generateNewtonsoftRootUnwrapNormalizationBody(
 	gf.P("            return obj;")
 }
 
+func (g *Generator) generateNewtonsoftEnumEncodingNormalization(
+	gf *protogen.GeneratedFile,
+	field *contractmodel.Field,
+	jsonName string,
+	serialize bool,
+) {
+	ref := enumTypeRef(field)
+	if ref == nil {
+		return
+	}
+	base := pascalCase(jsonName) + "Enum"
+	if field.IsMap {
+		gf.P(`            if (obj.TryGetValue("`, jsonName, `", out var `, base, `Map) && `, base, `Map is JObject `, base, `Object)`)
+		gf.P("            {")
+		gf.P("                foreach (var property in ", base, "Object.Properties().ToList())")
+		gf.P("                {")
+		g.generateNewtonsoftEnumTokenAssignment(gf, "property.Value", ref.Name, serialize, "                    ")
+		gf.P("                }")
+		gf.P("            }")
+		return
+	}
+	if field.Repeated {
+		gf.P(`            if (obj.TryGetValue("`, jsonName, `", out var `, base, `List) && `, base, `List is JArray `, base, `Array)`)
+		gf.P("            {")
+		gf.P("                for (var i = 0; i < ", base, "Array.Count; i++)")
+		gf.P("                {")
+		g.generateNewtonsoftEnumTokenAssignment(gf, base+"Array[i]", ref.Name, serialize, "                    ")
+		gf.P("                }")
+		gf.P("            }")
+		return
+	}
+	gf.P(`            if (obj.TryGetValue("`, jsonName, `", out var `, base, `Token))`)
+	gf.P("            {")
+	g.generateNewtonsoftEnumTokenAssignment(gf, `obj["`+jsonName+`"]`, ref.Name, serialize, "                ")
+	gf.P("            }")
+}
+
+func (g *Generator) generateNewtonsoftEnumTokenAssignment(
+	gf *protogen.GeneratedFile,
+	target string,
+	enumType string,
+	serialize bool,
+	indent string,
+) {
+	if serialize {
+		gf.P(indent, "if (", target, ".Type == JTokenType.Integer)")
+		gf.P(indent, "{")
+		gf.P(indent, "    ", target, " = EncodeEnumValue(typeof(", enumType, "), ", target, ".Value<long>());")
+		gf.P(indent, "}")
+		return
+	}
+	gf.P(indent, "if (", target, ".Type == JTokenType.String)")
+	gf.P(indent, "{")
+	gf.P(indent, "    ", target, " = DecodeEnumValue(typeof(", enumType, "), ", target, ".Value<string>()!);")
+	gf.P(indent, "}")
+}
+
+func (g *Generator) generateNewtonsoftBytesEncodingNormalization(
+	gf *protogen.GeneratedFile,
+	field *contractmodel.Field,
+	jsonName string,
+	serialize bool,
+) {
+	base := pascalCase(jsonName) + "Bytes"
+	if field.IsMap {
+		gf.P(`            if (obj.TryGetValue("`, jsonName, `", out var `, base, `Map) && `, base, `Map is JObject `, base, `Object)`)
+		gf.P("            {")
+		gf.P("                foreach (var property in ", base, "Object.Properties().ToList())")
+		gf.P("                {")
+		g.generateNewtonsoftBytesTokenAssignment(gf, "property.Value", field, serialize, "                    ")
+		gf.P("                }")
+		gf.P("            }")
+		return
+	}
+	if field.Repeated {
+		gf.P(`            if (obj.TryGetValue("`, jsonName, `", out var `, base, `List) && `, base, `List is JArray `, base, `Array)`)
+		gf.P("            {")
+		gf.P("                for (var i = 0; i < ", base, "Array.Count; i++)")
+		gf.P("                {")
+		g.generateNewtonsoftBytesTokenAssignment(gf, base+"Array[i]", field, serialize, "                    ")
+		gf.P("                }")
+		gf.P("            }")
+		return
+	}
+	gf.P(`            if (obj.TryGetValue("`, jsonName, `", out var `, base, `Token))`)
+	gf.P("            {")
+	g.generateNewtonsoftBytesTokenAssignment(gf, `obj["`+jsonName+`"]`, field, serialize, "                ")
+	gf.P("            }")
+}
+
+func (g *Generator) generateNewtonsoftBytesTokenAssignment(
+	gf *protogen.GeneratedFile,
+	target string,
+	field *contractmodel.Field,
+	serialize bool,
+	indent string,
+) {
+	from, to := base64Encoding, bytesEncodingName(field.Annotations.BytesEncoding)
+	if !serialize {
+		from, to = to, from
+	}
+	gf.P(indent, "if (", target, ".Type == JTokenType.String)")
+	gf.P(indent, "{")
+	gf.P(indent, "    ", target, ` = ReencodeBytes(`, target, `.Value<string>()!, "`, from, `", "`, to, `");`)
+	gf.P(indent, "}")
+}
+
 //nolint:funlen,gocognit,nestif,golines // Branching mirrors generated JSON normalization cases.
 func (g *Generator) generateNewtonsoftFieldNormalization(
 	gf *protogen.GeneratedFile,
@@ -1170,27 +1357,11 @@ func (g *Generator) generateNewtonsoftFieldNormalization(
 		jsonName = field.Name
 	}
 
+	if needsEnumEncodingNormalization(field) {
+		g.generateNewtonsoftEnumEncodingNormalization(gf, field, jsonName, serialize)
+	}
 	if needsBytesEncodingNormalization(field) {
-		gf.P(
-			`            if (obj.TryGetValue("`, jsonName,
-			`", out var `, pascalCase(jsonName), `Token) && `,
-			pascalCase(jsonName), `Token.Type == JTokenType.String)`,
-		)
-		gf.P("            {")
-		if serialize {
-			gf.P(
-				`                obj["`, jsonName, `"] = ReencodeBytes(`, pascalCase(jsonName),
-				`Token.Value<string>()!, "`, base64Encoding, `", "`,
-				bytesEncodingName(field.Annotations.BytesEncoding), `");`,
-			)
-		} else {
-			gf.P(
-				`                obj["`, jsonName, `"] = ReencodeBytes(`, pascalCase(jsonName),
-				`Token.Value<string>()!, "`, bytesEncodingName(field.Annotations.BytesEncoding),
-				`", "`, base64Encoding, `");`,
-			)
-		}
-		gf.P("            }")
+		g.generateNewtonsoftBytesEncodingNormalization(gf, field, jsonName, serialize)
 	}
 
 	if emptyBehaviorNeedsNormalization(field) {
@@ -1450,6 +1621,30 @@ func (g *Generator) generateSystemTextRootUnwrapNormalizationBody(
 	}
 	field := message.Fields[0]
 	if field.Repeated {
+		if ref := enumTypeRef(field); ref != nil && needsEnumEncodingNormalization(field) {
+			gf.P("            if (token is not JsonArray array)")
+			gf.P("            {")
+			gf.P("                return token;")
+			gf.P("            }")
+			gf.P("            for (var i = 0; i < array.Count; i++)")
+			gf.P("            {")
+			g.generateSystemTextEnumNodeAssignment(gf, "array[i]", ref.Name, serialize, "                ")
+			gf.P("            }")
+			gf.P("            return array;")
+			return
+		}
+		if needsBytesEncodingNormalization(field) {
+			gf.P("            if (token is not JsonArray array)")
+			gf.P("            {")
+			gf.P("                return token;")
+			gf.P("            }")
+			gf.P("            for (var i = 0; i < array.Count; i++)")
+			gf.P("            {")
+			g.generateSystemTextBytesNodeAssignment(gf, "array[i]", field, serialize, "                ")
+			gf.P("            }")
+			gf.P("            return array;")
+			return
+		}
 		if field.Type == nil || field.Type.Kind != contractmodel.KindMessage ||
 			!messageNeedsJSONNormalization(messageIndex[field.Type.Name], messageIndex) {
 			gf.P("            return token;")
@@ -1476,6 +1671,30 @@ func (g *Generator) generateSystemTextRootUnwrapNormalizationBody(
 	}
 	if !field.IsMap || field.Type == nil || field.Type.MapValue == nil {
 		gf.P("            return token;")
+		return
+	}
+	if ref := enumTypeRef(field); ref != nil && needsEnumEncodingNormalization(field) {
+		gf.P("            if (token is not JsonObject obj)")
+		gf.P("            {")
+		gf.P("                return token;")
+		gf.P("            }")
+		gf.P("            foreach (var key in obj.Select(pair => pair.Key).ToList())")
+		gf.P("            {")
+		g.generateSystemTextEnumNodeAssignment(gf, "obj[key]", ref.Name, serialize, "                ")
+		gf.P("            }")
+		gf.P("            return obj;")
+		return
+	}
+	if needsBytesEncodingNormalization(field) {
+		gf.P("            if (token is not JsonObject obj)")
+		gf.P("            {")
+		gf.P("                return token;")
+		gf.P("            }")
+		gf.P("            foreach (var key in obj.Select(pair => pair.Key).ToList())")
+		gf.P("            {")
+		g.generateSystemTextBytesNodeAssignment(gf, "obj[key]", field, serialize, "                ")
+		gf.P("            }")
+		gf.P("            return obj;")
 		return
 	}
 	childMessage := field.Type.MapValue.Kind == contractmodel.KindMessage &&
@@ -1525,6 +1744,112 @@ func (g *Generator) generateSystemTextRootUnwrapNormalizationBody(
 	gf.P("            return obj;")
 }
 
+func (g *Generator) generateSystemTextEnumEncodingNormalization(
+	gf *protogen.GeneratedFile,
+	field *contractmodel.Field,
+	jsonName string,
+	serialize bool,
+) {
+	ref := enumTypeRef(field)
+	if ref == nil {
+		return
+	}
+	base := pascalCase(jsonName) + "Enum"
+	if field.IsMap {
+		gf.P(`            if (obj["`, jsonName, `"] is JsonObject `, base, `Object)`)
+		gf.P("            {")
+		gf.P("                foreach (var key in ", base, "Object.Select(pair => pair.Key).ToList())")
+		gf.P("                {")
+		g.generateSystemTextEnumNodeAssignment(gf, base+"Object[key]", ref.Name, serialize, "                    ")
+		gf.P("                }")
+		gf.P("            }")
+		return
+	}
+	if field.Repeated {
+		gf.P(`            if (obj["`, jsonName, `"] is JsonArray `, base, `Array)`)
+		gf.P("            {")
+		gf.P("                for (var i = 0; i < ", base, "Array.Count; i++)")
+		gf.P("                {")
+		g.generateSystemTextEnumNodeAssignment(gf, base+"Array[i]", ref.Name, serialize, "                    ")
+		gf.P("                }")
+		gf.P("            }")
+		return
+	}
+	g.generateSystemTextEnumNodeAssignment(gf, `obj["`+jsonName+`"]`, ref.Name, serialize, "            ")
+}
+
+func (g *Generator) generateSystemTextEnumNodeAssignment(
+	gf *protogen.GeneratedFile,
+	target string,
+	enumType string,
+	serialize bool,
+	indent string,
+) {
+	valueName := strings.NewReplacer("[", "", "]", "", `"`, "", ".", "").Replace(target)
+	if serialize {
+		gf.P(indent, "if (", target, " is JsonValue ", valueName, "Node && ", valueName,
+			"Node.TryGetValue<long>(out var ", valueName, "Value))")
+		gf.P(indent, "{")
+		gf.P(indent, "    ", target, " = EncodeEnumValue(typeof(", enumType, "), ", valueName, "Value);")
+		gf.P(indent, "}")
+		return
+	}
+	gf.P(indent, "if (", target, " is JsonValue ", valueName, "Node && ", valueName,
+		"Node.TryGetValue<string>(out var ", valueName, "Value))")
+	gf.P(indent, "{")
+	gf.P(indent, "    ", target, " = DecodeEnumValue(typeof(", enumType, "), ", valueName, "Value);")
+	gf.P(indent, "}")
+}
+
+func (g *Generator) generateSystemTextBytesEncodingNormalization(
+	gf *protogen.GeneratedFile,
+	field *contractmodel.Field,
+	jsonName string,
+	serialize bool,
+) {
+	base := pascalCase(jsonName) + "Bytes"
+	if field.IsMap {
+		gf.P(`            if (obj["`, jsonName, `"] is JsonObject `, base, `Object)`)
+		gf.P("            {")
+		gf.P("                foreach (var key in ", base, "Object.Select(pair => pair.Key).ToList())")
+		gf.P("                {")
+		g.generateSystemTextBytesNodeAssignment(gf, base+"Object[key]", field, serialize, "                    ")
+		gf.P("                }")
+		gf.P("            }")
+		return
+	}
+	if field.Repeated {
+		gf.P(`            if (obj["`, jsonName, `"] is JsonArray `, base, `Array)`)
+		gf.P("            {")
+		gf.P("                for (var i = 0; i < ", base, "Array.Count; i++)")
+		gf.P("                {")
+		g.generateSystemTextBytesNodeAssignment(gf, base+"Array[i]", field, serialize, "                    ")
+		gf.P("                }")
+		gf.P("            }")
+		return
+	}
+	g.generateSystemTextBytesNodeAssignment(gf, `obj["`+jsonName+`"]`, field, serialize, "            ")
+}
+
+func (g *Generator) generateSystemTextBytesNodeAssignment(
+	gf *protogen.GeneratedFile,
+	target string,
+	field *contractmodel.Field,
+	serialize bool,
+	indent string,
+) {
+	from, to := base64Encoding, bytesEncodingName(field.Annotations.BytesEncoding)
+	if !serialize {
+		from, to = to, from
+	}
+	valueName := strings.NewReplacer("[", "", "]", "", `"`, "", ".", "").Replace(target)
+	gf.P(indent, "if (", target, " is JsonValue ", valueName, "Node && ", valueName,
+		"Node.TryGetValue<string>(out var ", valueName, "Value))")
+	gf.P(indent, "{")
+	gf.P(indent, "    ", target, ` = ReencodeBytes(`, valueName, `Value, "`, from, `", "`, to, `");`)
+	gf.P(indent, "}")
+}
+
 //nolint:funlen,gocognit,nestif,golines // Branching mirrors generated JSON normalization cases.
 func (g *Generator) generateSystemTextFieldNormalization(
 	gf *protogen.GeneratedFile,
@@ -1540,28 +1865,11 @@ func (g *Generator) generateSystemTextFieldNormalization(
 		jsonName = field.Name
 	}
 
+	if needsEnumEncodingNormalization(field) {
+		g.generateSystemTextEnumEncodingNormalization(gf, field, jsonName, serialize)
+	}
 	if needsBytesEncodingNormalization(field) {
-		gf.P(
-			`            if (obj["`, jsonName, `"] is JsonValue `,
-			pascalCase(jsonName), `Token && `,
-			pascalCase(jsonName), `Token.TryGetValue<string>(out var `,
-			pascalCase(jsonName), `Value))`,
-		)
-		gf.P("            {")
-		if serialize {
-			gf.P(
-				`                obj["`, jsonName, `"] = ReencodeBytes(`, pascalCase(jsonName),
-				`Value, "`, base64Encoding, `", "`,
-				bytesEncodingName(field.Annotations.BytesEncoding), `");`,
-			)
-		} else {
-			gf.P(
-				`                obj["`, jsonName, `"] = ReencodeBytes(`, pascalCase(jsonName),
-				`Value, "`, bytesEncodingName(field.Annotations.BytesEncoding),
-				`", "`, base64Encoding, `");`,
-			)
-		}
-		gf.P("            }")
+		g.generateSystemTextBytesEncodingNormalization(gf, field, jsonName, serialize)
 	}
 
 	if emptyBehaviorNeedsNormalization(field) {
@@ -1688,6 +1996,9 @@ func messageNeedsJSONNormalization(
 	}
 	if isRootUnwrapMessage(message) {
 		field := message.Fields[0]
+		if needsEnumEncodingNormalization(field) || needsBytesEncodingNormalization(field) {
+			return true
+		}
 		if field.Repeated && field.Type != nil && field.Type.Kind == contractmodel.KindMessage {
 			return messageNeedsJSONNormalization(messageIndex[field.Type.Name], messageIndex)
 		}
@@ -1699,6 +2010,9 @@ func messageNeedsJSONNormalization(
 	}
 	for _, field := range message.Fields {
 		if emptyBehaviorNeedsNormalization(field) {
+			return true
+		}
+		if needsEnumEncodingNormalization(field) {
 			return true
 		}
 		if needsBytesEncodingNormalization(field) {
@@ -1824,11 +2138,41 @@ func mapValueUsesUnwrap(message *contractmodel.Message) bool {
 }
 
 func needsBytesEncodingNormalization(field *contractmodel.Field) bool {
-	return field != nil &&
-		field.Type != nil &&
-		field.Type.Name == bytesTypeName &&
+	return bytesTypeRef(field) != nil &&
 		field.Annotations.BytesEncoding != sebufhttp.BytesEncoding_BYTES_ENCODING_UNSPECIFIED &&
 		field.Annotations.BytesEncoding != sebufhttp.BytesEncoding_BYTES_ENCODING_BASE64
+}
+
+func bytesTypeRef(field *contractmodel.Field) *contractmodel.TypeRef {
+	if field == nil || field.Type == nil {
+		return nil
+	}
+	if field.Type.Kind == contractmodel.KindScalar && field.Type.Name == bytesTypeName {
+		return field.Type
+	}
+	if field.IsMap && field.Type.MapValue != nil &&
+		field.Type.MapValue.Kind == contractmodel.KindScalar && field.Type.MapValue.Name == bytesTypeName {
+		return field.Type.MapValue
+	}
+	return nil
+}
+
+func enumTypeRef(field *contractmodel.Field) *contractmodel.TypeRef {
+	if field == nil || field.Type == nil {
+		return nil
+	}
+	if field.Type.Kind == contractmodel.KindEnum {
+		return field.Type
+	}
+	if field.IsMap && field.Type.MapValue != nil && field.Type.MapValue.Kind == contractmodel.KindEnum {
+		return field.Type.MapValue
+	}
+	return nil
+}
+
+func needsEnumEncodingNormalization(field *contractmodel.Field) bool {
+	return enumTypeRef(field) != nil &&
+		field.Annotations.EnumEncoding != sebufhttp.EnumEncoding_ENUM_ENCODING_NUMBER
 }
 
 func emptyBehaviorNeedsNormalization(field *contractmodel.Field) bool {
@@ -2329,16 +2673,10 @@ func csharpScalar(field *contractmodel.Field) string {
 }
 
 func (g *Generator) enumConverterAttribute(field *contractmodel.Field) string {
-	if field.Type == nil || field.Type.Kind != contractmodel.KindEnum {
-		return ""
-	}
-	if field.Annotations.EnumEncoding == sebufhttp.EnumEncoding_ENUM_ENCODING_NUMBER {
-		return ""
-	}
-	if g.useNewtonsoft() {
-		return `[JsonConverter(typeof(StringEnumConverter))]`
-	}
-	return `[JsonConverter(typeof(JsonStringEnumConverter))]`
+	// Enum wire encoding is normalized at the message boundary. Property-level
+	// converters cannot correctly cover repeated or map enum values and
+	// System.Text.Json's built-in converter does not honor EnumMember mappings.
+	return ""
 }
 
 func shouldUseNullableType(field *contractmodel.Field, ref *contractmodel.TypeRef, forceNullable bool) bool {

@@ -235,6 +235,59 @@ func TestCSharpTypeMappings(t *testing.T) {
 	}
 }
 
+func TestContainerEncodingNormalizationPredicates(t *testing.T) {
+	enumRef := &contractmodel.TypeRef{Kind: contractmodel.KindEnum, Name: "WidgetState"}
+	bytesRef := &contractmodel.TypeRef{Kind: contractmodel.KindScalar, Name: "bytes"}
+	stringRef := &contractmodel.TypeRef{Kind: contractmodel.KindScalar, Name: "string"}
+
+	for _, field := range []*contractmodel.Field{
+		{Name: "state", Type: enumRef},
+		{Name: "states", Type: enumRef, Repeated: true},
+		{
+			Name:  "states_by_id",
+			IsMap: true,
+			Type: &contractmodel.TypeRef{
+				Kind: contractmodel.KindMap, MapKey: stringRef, MapValue: enumRef,
+			},
+		},
+	} {
+		if !needsEnumEncodingNormalization(field) {
+			t.Fatalf("expected enum field %q to require wire normalization", field.Name)
+		}
+	}
+	if needsEnumEncodingNormalization(&contractmodel.Field{
+		Name: "numeric_state",
+		Type: enumRef,
+		Annotations: contractmodel.FieldAnnotations{
+			EnumEncoding: sebufhttp.EnumEncoding_ENUM_ENCODING_NUMBER,
+		},
+	}) {
+		t.Fatal("numeric enum encoding must not require string normalization")
+	}
+
+	for _, field := range []*contractmodel.Field{
+		{
+			Name: "payload", Type: bytesRef,
+			Annotations: contractmodel.FieldAnnotations{BytesEncoding: sebufhttp.BytesEncoding_BYTES_ENCODING_HEX},
+		},
+		{
+			Name: "payloads", Type: bytesRef, Repeated: true,
+			Annotations: contractmodel.FieldAnnotations{BytesEncoding: sebufhttp.BytesEncoding_BYTES_ENCODING_HEX},
+		},
+		{
+			Name: "payloads_by_id", IsMap: true,
+			Type: &contractmodel.TypeRef{
+				Kind: contractmodel.KindMap, MapKey: stringRef, MapValue: bytesRef,
+			},
+			Annotations: contractmodel.FieldAnnotations{BytesEncoding: sebufhttp.BytesEncoding_BYTES_ENCODING_HEX},
+		},
+	} {
+		if !needsBytesEncodingNormalization(field) {
+			t.Fatalf("expected bytes field %q to require wire normalization", field.Name)
+		}
+	}
+}
+
 func TestMessageProperties(t *testing.T) {
 	gen := &Generator{opts: Options{JSONLib: "newtonsoft"}}
 	profile := &contractmodel.Message{
@@ -886,7 +939,6 @@ func TestGeneratePackage(t *testing.T) {
 		"public enum WidgetState",
 		`[EnumMember(Value = "ready")]`,
 		"StateUnspecified = 0",
-		`[JsonConverter(typeof(StringEnumConverter))]`,
 		"public WidgetState? State { get; set; }",
 		"public string? DisplayName { get; set; }",
 		`[JsonProperty("meta")]`,
@@ -929,6 +981,10 @@ func TestGeneratePackage(t *testing.T) {
 		"private static string NormalizeResponseJson(Type responseType, string json)",
 		"private static JToken NormalizeSerializedWidget(JToken token)",
 		"private static JToken NormalizeResponseWidget(JToken token)",
+		`obj["state"] = EncodeEnumValue(typeof(WidgetState), obj["state"].Value<long>());`,
+		`obj["state"] = DecodeEnumValue(typeof(WidgetState), obj["state"].Value<string>()!);`,
+		"private static string EncodeEnumValue(Type enumType, long value)",
+		"private static long DecodeEnumValue(Type enumType, string value)",
 		`obj["kind"] = "circle_shape";`,
 		`obj.Remove("width");`,
 		`obj.Remove("height");`,

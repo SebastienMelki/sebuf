@@ -27,6 +27,10 @@ message Widget {
   int64 version = 12 [(sebuf.http.int64_encoding) = INT64_ENCODING_NUMBER];
   map<string, State> state_labels = 13;
   map<string, Profile> profiles_by_id = 14;
+  repeated State state_history = 15;
+  repeated bytes payload_chunks = 16 [(sebuf.http.bytes_encoding) = BYTES_ENCODING_HEX];
+  map<string, bytes> payloads_by_id = 17 [(sebuf.http.bytes_encoding) = BYTES_ENCODING_HEX];
+  State display_state = 18;
 
   enum State {
     STATE_UNSPECIFIED = 0;

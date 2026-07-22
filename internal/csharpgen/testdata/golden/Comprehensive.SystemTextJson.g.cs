@@ -93,6 +93,14 @@ namespace Test.Contracts
         public Dictionary<string, WidgetState> StateLabels { get; set; }
         [JsonPropertyName("profiles_by_id")]
         public Dictionary<string, WidgetProfile> ProfilesById { get; set; }
+        [JsonPropertyName("state_history")]
+        public List<WidgetState> StateHistory { get; set; }
+        [JsonPropertyName("payload_chunks")]
+        public List<byte[]> PayloadChunks { get; set; }
+        [JsonPropertyName("payloads_by_id")]
+        public Dictionary<string, byte[]> PayloadsById { get; set; }
+        [JsonPropertyName("display_state")]
+        public WidgetState DisplayState { get; set; }
     }
 
     public sealed class WidgetProfile
@@ -715,9 +723,53 @@ namespace Test.Contracts
             {
                 return token;
             }
-            if (obj["payload"] is JsonValue PayloadToken && PayloadToken.TryGetValue<string>(out var PayloadValue))
+            if (obj["payload"] is JsonValue objpayloadNode && objpayloadNode.TryGetValue<string>(out var objpayloadValue))
             {
-                obj["payload"] = ReencodeBytes(PayloadValue, "base64", "hex");
+                obj["payload"] = ReencodeBytes(objpayloadValue, "base64", "hex");
+            }
+            if (obj["stateLabels"] is JsonObject StatelabelsEnumObject)
+            {
+                foreach (var key in StatelabelsEnumObject.Select(pair => pair.Key).ToList())
+                {
+                    if (StatelabelsEnumObject[key] is JsonValue StatelabelsEnumObjectkeyNode && StatelabelsEnumObjectkeyNode.TryGetValue<long>(out var StatelabelsEnumObjectkeyValue))
+                    {
+                        StatelabelsEnumObject[key] = EncodeEnumValue(typeof(WidgetState), StatelabelsEnumObjectkeyValue);
+                    }
+                }
+            }
+            if (obj["stateHistory"] is JsonArray StatehistoryEnumArray)
+            {
+                for (var i = 0; i < StatehistoryEnumArray.Count; i++)
+                {
+                    if (StatehistoryEnumArray[i] is JsonValue StatehistoryEnumArrayiNode && StatehistoryEnumArrayiNode.TryGetValue<long>(out var StatehistoryEnumArrayiValue))
+                    {
+                        StatehistoryEnumArray[i] = EncodeEnumValue(typeof(WidgetState), StatehistoryEnumArrayiValue);
+                    }
+                }
+            }
+            if (obj["payloadChunks"] is JsonArray PayloadchunksBytesArray)
+            {
+                for (var i = 0; i < PayloadchunksBytesArray.Count; i++)
+                {
+                    if (PayloadchunksBytesArray[i] is JsonValue PayloadchunksBytesArrayiNode && PayloadchunksBytesArrayiNode.TryGetValue<string>(out var PayloadchunksBytesArrayiValue))
+                    {
+                        PayloadchunksBytesArray[i] = ReencodeBytes(PayloadchunksBytesArrayiValue, "base64", "hex");
+                    }
+                }
+            }
+            if (obj["payloadsById"] is JsonObject PayloadsbyidBytesObject)
+            {
+                foreach (var key in PayloadsbyidBytesObject.Select(pair => pair.Key).ToList())
+                {
+                    if (PayloadsbyidBytesObject[key] is JsonValue PayloadsbyidBytesObjectkeyNode && PayloadsbyidBytesObjectkeyNode.TryGetValue<string>(out var PayloadsbyidBytesObjectkeyValue))
+                    {
+                        PayloadsbyidBytesObject[key] = ReencodeBytes(PayloadsbyidBytesObjectkeyValue, "base64", "hex");
+                    }
+                }
+            }
+            if (obj["displayState"] is JsonValue objdisplayStateNode && objdisplayStateNode.TryGetValue<long>(out var objdisplayStateValue))
+            {
+                obj["displayState"] = EncodeEnumValue(typeof(WidgetState), objdisplayStateValue);
             }
             return obj;
         }
@@ -728,11 +780,83 @@ namespace Test.Contracts
             {
                 return token;
             }
-            if (obj["payload"] is JsonValue PayloadToken && PayloadToken.TryGetValue<string>(out var PayloadValue))
+            if (obj["payload"] is JsonValue objpayloadNode && objpayloadNode.TryGetValue<string>(out var objpayloadValue))
             {
-                obj["payload"] = ReencodeBytes(PayloadValue, "hex", "base64");
+                obj["payload"] = ReencodeBytes(objpayloadValue, "hex", "base64");
+            }
+            if (obj["stateLabels"] is JsonObject StatelabelsEnumObject)
+            {
+                foreach (var key in StatelabelsEnumObject.Select(pair => pair.Key).ToList())
+                {
+                    if (StatelabelsEnumObject[key] is JsonValue StatelabelsEnumObjectkeyNode && StatelabelsEnumObjectkeyNode.TryGetValue<string>(out var StatelabelsEnumObjectkeyValue))
+                    {
+                        StatelabelsEnumObject[key] = DecodeEnumValue(typeof(WidgetState), StatelabelsEnumObjectkeyValue);
+                    }
+                }
+            }
+            if (obj["stateHistory"] is JsonArray StatehistoryEnumArray)
+            {
+                for (var i = 0; i < StatehistoryEnumArray.Count; i++)
+                {
+                    if (StatehistoryEnumArray[i] is JsonValue StatehistoryEnumArrayiNode && StatehistoryEnumArrayiNode.TryGetValue<string>(out var StatehistoryEnumArrayiValue))
+                    {
+                        StatehistoryEnumArray[i] = DecodeEnumValue(typeof(WidgetState), StatehistoryEnumArrayiValue);
+                    }
+                }
+            }
+            if (obj["payloadChunks"] is JsonArray PayloadchunksBytesArray)
+            {
+                for (var i = 0; i < PayloadchunksBytesArray.Count; i++)
+                {
+                    if (PayloadchunksBytesArray[i] is JsonValue PayloadchunksBytesArrayiNode && PayloadchunksBytesArrayiNode.TryGetValue<string>(out var PayloadchunksBytesArrayiValue))
+                    {
+                        PayloadchunksBytesArray[i] = ReencodeBytes(PayloadchunksBytesArrayiValue, "hex", "base64");
+                    }
+                }
+            }
+            if (obj["payloadsById"] is JsonObject PayloadsbyidBytesObject)
+            {
+                foreach (var key in PayloadsbyidBytesObject.Select(pair => pair.Key).ToList())
+                {
+                    if (PayloadsbyidBytesObject[key] is JsonValue PayloadsbyidBytesObjectkeyNode && PayloadsbyidBytesObjectkeyNode.TryGetValue<string>(out var PayloadsbyidBytesObjectkeyValue))
+                    {
+                        PayloadsbyidBytesObject[key] = ReencodeBytes(PayloadsbyidBytesObjectkeyValue, "hex", "base64");
+                    }
+                }
+            }
+            if (obj["displayState"] is JsonValue objdisplayStateNode && objdisplayStateNode.TryGetValue<string>(out var objdisplayStateValue))
+            {
+                obj["displayState"] = DecodeEnumValue(typeof(WidgetState), objdisplayStateValue);
             }
             return obj;
+        }
+
+        private static string EncodeEnumValue(Type enumType, long value)
+        {
+            var enumValue = Enum.ToObject(enumType, value);
+            var name = Enum.GetName(enumType, enumValue) ?? value.ToString();
+            var member = enumType.GetMember(name).FirstOrDefault();
+            var mapping = member?.GetCustomAttributes(typeof(EnumMemberAttribute), false)
+                .OfType<EnumMemberAttribute>().FirstOrDefault()?.Value;
+            return mapping ?? name;
+        }
+
+        private static long DecodeEnumValue(Type enumType, string value)
+        {
+            foreach (var member in enumType.GetFields().Where(field => field.IsStatic))
+            {
+                var mapping = member.GetCustomAttributes(typeof(EnumMemberAttribute), false)
+                    .OfType<EnumMemberAttribute>().FirstOrDefault()?.Value;
+                if (string.Equals(mapping ?? member.Name, value, StringComparison.Ordinal))
+                {
+                    return Convert.ToInt64(member.GetValue(null));
+                }
+            }
+            if (long.TryParse(value, out var numericValue))
+            {
+                return numericValue;
+            }
+            throw new InvalidOperationException($"Unknown {enumType.Name} wire value '{value}'.");
         }
 
         private static string EncodeBytes(byte[] bytes, string encoding)
@@ -1210,9 +1334,53 @@ namespace Test.Contracts
             {
                 return token;
             }
-            if (obj["payload"] is JsonValue PayloadToken && PayloadToken.TryGetValue<string>(out var PayloadValue))
+            if (obj["payload"] is JsonValue objpayloadNode && objpayloadNode.TryGetValue<string>(out var objpayloadValue))
             {
-                obj["payload"] = ReencodeBytes(PayloadValue, "base64", "hex");
+                obj["payload"] = ReencodeBytes(objpayloadValue, "base64", "hex");
+            }
+            if (obj["stateLabels"] is JsonObject StatelabelsEnumObject)
+            {
+                foreach (var key in StatelabelsEnumObject.Select(pair => pair.Key).ToList())
+                {
+                    if (StatelabelsEnumObject[key] is JsonValue StatelabelsEnumObjectkeyNode && StatelabelsEnumObjectkeyNode.TryGetValue<long>(out var StatelabelsEnumObjectkeyValue))
+                    {
+                        StatelabelsEnumObject[key] = EncodeEnumValue(typeof(WidgetState), StatelabelsEnumObjectkeyValue);
+                    }
+                }
+            }
+            if (obj["stateHistory"] is JsonArray StatehistoryEnumArray)
+            {
+                for (var i = 0; i < StatehistoryEnumArray.Count; i++)
+                {
+                    if (StatehistoryEnumArray[i] is JsonValue StatehistoryEnumArrayiNode && StatehistoryEnumArrayiNode.TryGetValue<long>(out var StatehistoryEnumArrayiValue))
+                    {
+                        StatehistoryEnumArray[i] = EncodeEnumValue(typeof(WidgetState), StatehistoryEnumArrayiValue);
+                    }
+                }
+            }
+            if (obj["payloadChunks"] is JsonArray PayloadchunksBytesArray)
+            {
+                for (var i = 0; i < PayloadchunksBytesArray.Count; i++)
+                {
+                    if (PayloadchunksBytesArray[i] is JsonValue PayloadchunksBytesArrayiNode && PayloadchunksBytesArrayiNode.TryGetValue<string>(out var PayloadchunksBytesArrayiValue))
+                    {
+                        PayloadchunksBytesArray[i] = ReencodeBytes(PayloadchunksBytesArrayiValue, "base64", "hex");
+                    }
+                }
+            }
+            if (obj["payloadsById"] is JsonObject PayloadsbyidBytesObject)
+            {
+                foreach (var key in PayloadsbyidBytesObject.Select(pair => pair.Key).ToList())
+                {
+                    if (PayloadsbyidBytesObject[key] is JsonValue PayloadsbyidBytesObjectkeyNode && PayloadsbyidBytesObjectkeyNode.TryGetValue<string>(out var PayloadsbyidBytesObjectkeyValue))
+                    {
+                        PayloadsbyidBytesObject[key] = ReencodeBytes(PayloadsbyidBytesObjectkeyValue, "base64", "hex");
+                    }
+                }
+            }
+            if (obj["displayState"] is JsonValue objdisplayStateNode && objdisplayStateNode.TryGetValue<long>(out var objdisplayStateValue))
+            {
+                obj["displayState"] = EncodeEnumValue(typeof(WidgetState), objdisplayStateValue);
             }
             return obj;
         }
@@ -1223,11 +1391,83 @@ namespace Test.Contracts
             {
                 return token;
             }
-            if (obj["payload"] is JsonValue PayloadToken && PayloadToken.TryGetValue<string>(out var PayloadValue))
+            if (obj["payload"] is JsonValue objpayloadNode && objpayloadNode.TryGetValue<string>(out var objpayloadValue))
             {
-                obj["payload"] = ReencodeBytes(PayloadValue, "hex", "base64");
+                obj["payload"] = ReencodeBytes(objpayloadValue, "hex", "base64");
+            }
+            if (obj["stateLabels"] is JsonObject StatelabelsEnumObject)
+            {
+                foreach (var key in StatelabelsEnumObject.Select(pair => pair.Key).ToList())
+                {
+                    if (StatelabelsEnumObject[key] is JsonValue StatelabelsEnumObjectkeyNode && StatelabelsEnumObjectkeyNode.TryGetValue<string>(out var StatelabelsEnumObjectkeyValue))
+                    {
+                        StatelabelsEnumObject[key] = DecodeEnumValue(typeof(WidgetState), StatelabelsEnumObjectkeyValue);
+                    }
+                }
+            }
+            if (obj["stateHistory"] is JsonArray StatehistoryEnumArray)
+            {
+                for (var i = 0; i < StatehistoryEnumArray.Count; i++)
+                {
+                    if (StatehistoryEnumArray[i] is JsonValue StatehistoryEnumArrayiNode && StatehistoryEnumArrayiNode.TryGetValue<string>(out var StatehistoryEnumArrayiValue))
+                    {
+                        StatehistoryEnumArray[i] = DecodeEnumValue(typeof(WidgetState), StatehistoryEnumArrayiValue);
+                    }
+                }
+            }
+            if (obj["payloadChunks"] is JsonArray PayloadchunksBytesArray)
+            {
+                for (var i = 0; i < PayloadchunksBytesArray.Count; i++)
+                {
+                    if (PayloadchunksBytesArray[i] is JsonValue PayloadchunksBytesArrayiNode && PayloadchunksBytesArrayiNode.TryGetValue<string>(out var PayloadchunksBytesArrayiValue))
+                    {
+                        PayloadchunksBytesArray[i] = ReencodeBytes(PayloadchunksBytesArrayiValue, "hex", "base64");
+                    }
+                }
+            }
+            if (obj["payloadsById"] is JsonObject PayloadsbyidBytesObject)
+            {
+                foreach (var key in PayloadsbyidBytesObject.Select(pair => pair.Key).ToList())
+                {
+                    if (PayloadsbyidBytesObject[key] is JsonValue PayloadsbyidBytesObjectkeyNode && PayloadsbyidBytesObjectkeyNode.TryGetValue<string>(out var PayloadsbyidBytesObjectkeyValue))
+                    {
+                        PayloadsbyidBytesObject[key] = ReencodeBytes(PayloadsbyidBytesObjectkeyValue, "hex", "base64");
+                    }
+                }
+            }
+            if (obj["displayState"] is JsonValue objdisplayStateNode && objdisplayStateNode.TryGetValue<string>(out var objdisplayStateValue))
+            {
+                obj["displayState"] = DecodeEnumValue(typeof(WidgetState), objdisplayStateValue);
             }
             return obj;
+        }
+
+        private static string EncodeEnumValue(Type enumType, long value)
+        {
+            var enumValue = Enum.ToObject(enumType, value);
+            var name = Enum.GetName(enumType, enumValue) ?? value.ToString();
+            var member = enumType.GetMember(name).FirstOrDefault();
+            var mapping = member?.GetCustomAttributes(typeof(EnumMemberAttribute), false)
+                .OfType<EnumMemberAttribute>().FirstOrDefault()?.Value;
+            return mapping ?? name;
+        }
+
+        private static long DecodeEnumValue(Type enumType, string value)
+        {
+            foreach (var member in enumType.GetFields().Where(field => field.IsStatic))
+            {
+                var mapping = member.GetCustomAttributes(typeof(EnumMemberAttribute), false)
+                    .OfType<EnumMemberAttribute>().FirstOrDefault()?.Value;
+                if (string.Equals(mapping ?? member.Name, value, StringComparison.Ordinal))
+                {
+                    return Convert.ToInt64(member.GetValue(null));
+                }
+            }
+            if (long.TryParse(value, out var numericValue))
+            {
+                return numericValue;
+            }
+            throw new InvalidOperationException($"Unknown {enumType.Name} wire value '{value}'.");
         }
 
         private static string EncodeBytes(byte[] bytes, string encoding)

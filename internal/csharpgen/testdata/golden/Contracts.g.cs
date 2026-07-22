@@ -72,7 +72,6 @@ namespace Test.Contracts
         [JsonProperty("meta")]
         public Dictionary<string, object>? Meta { get; set; }
         [JsonProperty("state")]
-        [JsonConverter(typeof(StringEnumConverter))]
         public ItemState State { get; set; }
         [JsonProperty("details")]
         public ItemDetails? Details { get; set; }
@@ -249,12 +248,115 @@ namespace Test.Contracts
 
         private static string NormalizeSerializedJson(object value, string json)
         {
-            return json;
+            var token = JToken.Parse(json);
+            var normalized = NormalizeSerializedToken(value.GetType(), token);
+            return normalized.ToString(Formatting.None);
         }
 
         private static string NormalizeResponseJson(Type responseType, string json)
         {
-            return json;
+            var token = JToken.Parse(json);
+            var normalized = NormalizeResponseToken(responseType, token);
+            return normalized.ToString(Formatting.None);
+        }
+
+        private static JToken NormalizeSerializedToken(Type messageType, JToken token)
+        {
+            return messageType.Name switch
+            {
+                "Item" => NormalizeSerializedItem(token),
+                _ => token
+            };
+        }
+        private static JToken NormalizeResponseToken(Type messageType, JToken token)
+        {
+            return messageType.Name switch
+            {
+                "Item" => NormalizeResponseItem(token),
+                _ => token
+            };
+        }
+        private static JToken NormalizeMapValueForSerialization(JToken token, Type messageType)
+        {
+            return messageType.Name switch
+            {
+                _ => NormalizeSerializedToken(messageType, token)
+            };
+        }
+        private static JToken NormalizeMapValueForResponse(JToken token, Type messageType)
+        {
+            return messageType.Name switch
+            {
+                _ => NormalizeResponseToken(messageType, token)
+            };
+        }
+        private static bool IsEmptyObject(JToken token)
+        {
+            return token is JObject obj && !obj.Properties().Any();
+        }
+        private static bool ShouldOmitEmptyField(JToken token)
+        {
+            return token.Type == JTokenType.Null || IsEmptyObject(token);
+        }
+
+        private static JToken NormalizeSerializedItem(JToken token)
+        {
+            if (token is not JObject obj)
+            {
+                return token;
+            }
+            if (obj.TryGetValue("state", out var StateEnumToken))
+            {
+                if (obj["state"].Type == JTokenType.Integer)
+                {
+                    obj["state"] = EncodeEnumValue(typeof(ItemState), obj["state"].Value<long>());
+                }
+            }
+            return obj;
+        }
+
+        private static JToken NormalizeResponseItem(JToken token)
+        {
+            if (token is not JObject obj)
+            {
+                return token;
+            }
+            if (obj.TryGetValue("state", out var StateEnumToken))
+            {
+                if (obj["state"].Type == JTokenType.String)
+                {
+                    obj["state"] = DecodeEnumValue(typeof(ItemState), obj["state"].Value<string>()!);
+                }
+            }
+            return obj;
+        }
+
+        private static string EncodeEnumValue(Type enumType, long value)
+        {
+            var enumValue = Enum.ToObject(enumType, value);
+            var name = Enum.GetName(enumType, enumValue) ?? value.ToString();
+            var member = enumType.GetMember(name).FirstOrDefault();
+            var mapping = member?.GetCustomAttributes(typeof(EnumMemberAttribute), false)
+                .OfType<EnumMemberAttribute>().FirstOrDefault()?.Value;
+            return mapping ?? name;
+        }
+
+        private static long DecodeEnumValue(Type enumType, string value)
+        {
+            foreach (var member in enumType.GetFields().Where(field => field.IsStatic))
+            {
+                var mapping = member.GetCustomAttributes(typeof(EnumMemberAttribute), false)
+                    .OfType<EnumMemberAttribute>().FirstOrDefault()?.Value;
+                if (string.Equals(mapping ?? member.Name, value, StringComparison.Ordinal))
+                {
+                    return Convert.ToInt64(member.GetValue(null));
+                }
+            }
+            if (long.TryParse(value, out var numericValue))
+            {
+                return numericValue;
+            }
+            throw new InvalidOperationException($"Unknown {enumType.Name} wire value '{value}'.");
         }
 
         private static string EncodeBytes(byte[] bytes, string encoding)
