@@ -183,7 +183,7 @@ func writeWireFormattingProgram(t *testing.T, outputDir string) {
 	if err != nil {
 		t.Fatalf("read runtime compile project: %v", err)
 	}
-	project = bytes.Replace(project, []byte("<TargetFramework>net8.0</TargetFramework>"), []byte("<TargetFramework>net10.0</TargetFramework>\n    <OutputType>Exe</OutputType>\n    <UseAppHost>false</UseAppHost>"), 1)
+	project = bytes.Replace(project, []byte("<TargetFramework>net8.0</TargetFramework>"), []byte("<TargetFramework>net8.0</TargetFramework>\n    <OutputType>Exe</OutputType>\n    <UseAppHost>false</UseAppHost>"), 1)
 	if err := os.WriteFile(projectPath, project, 0o644); err != nil {
 		t.Fatalf("set runtime compile project output type: %v", err)
 	}
