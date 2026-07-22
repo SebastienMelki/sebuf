@@ -1,0 +1,72 @@
+syntax = "proto3";
+
+package suggestion.v1;
+
+import "sebuf/http/annotations.proto";
+
+// RiskLevel is ANNOTATED with enum_value -> serializes as "low"/"medium"/"high".
+enum RiskLevel {
+  RISK_LEVEL_UNSPECIFIED = 0;
+  RISK_LEVEL_LOW = 1 [(sebuf.http.enum_value) = "low"];
+  RISK_LEVEL_MEDIUM = 2 [(sebuf.http.enum_value) = "medium"];
+  RISK_LEVEL_HIGH = 3 [(sebuf.http.enum_value) = "high"];
+}
+
+// OptionType is ANNOTATED and lives on a nested message (two levels below the
+// response), exercising transitive/recursive nesting.
+enum OptionType {
+  OPTION_TYPE_UNSPECIFIED = 0;
+  OPTION_TYPE_CALL = 1 [(sebuf.http.enum_value) = "call"];
+  OPTION_TYPE_PUT = 2 [(sebuf.http.enum_value) = "put"];
+}
+
+// Sentiment is NOT annotated (no enum_value) -> serializes as the proto name
+// ("SENTIMENT_BULLISH"), whether it appears directly or nested.
+enum Sentiment {
+  SENTIMENT_UNSPECIFIED = 0;
+  SENTIMENT_BULLISH = 1;
+  SENTIMENT_BEARISH = 2;
+}
+
+// OptionsContract holds a nested annotated enum (type) and a nested unannotated
+// enum (sentiment).
+message OptionsContract {
+  string symbol = 1;
+  OptionType type = 2; // annotated, nested -> "call"
+  Sentiment sentiment = 3; // unannotated, nested -> "SENTIMENT_BULLISH"
+  double strike_price = 4;
+}
+
+// EasyOptionSuggestion has a nested message (contract) plus a directly-held
+// annotated enum (risk_level).
+message EasyOptionSuggestion {
+  OptionsContract options_contract = 1;
+  double probability_of_profit = 2;
+  RiskLevel risk_level = 3; // annotated, nested one level -> "low"
+}
+
+// GetEasyOptionsResponse is the message the server marshals. It carries enums
+// BOTH directly (overall_risk, market_sentiment) and nested (via data), so the
+// example covers the full matrix: annotated/unannotated x direct/nested.
+message GetEasyOptionsResponse {
+  repeated EasyOptionSuggestion option_suggestions = 1;
+  RiskLevel overall_risk = 2; // annotated, direct (unnested) -> "low"
+  Sentiment market_sentiment = 3; // unannotated, direct (unnested) -> "SENTIMENT_BULLISH"
+}
+
+message GetEasyOptionsRequest {
+  string underlying_symbol = 1;
+  // Echoes the requested risk level back, proving request parsing accepts "low".
+  RiskLevel requested_risk = 2;
+}
+
+service SuggestionService {
+  option (sebuf.http.service_config) = {base_path: "/api/v1"};
+
+  rpc GetEasyOptions(GetEasyOptionsRequest) returns (GetEasyOptionsResponse) {
+    option (sebuf.http.config) = {
+      path: "/suggestions"
+      method: HTTP_METHOD_POST
+    };
+  }
+}

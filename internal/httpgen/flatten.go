@@ -139,6 +139,10 @@ func detectMarshalJSONConflicts(msg *protogen.Message) []string {
 		}
 	}
 
+	if hasCustomEnumFields(msg) {
+		conflicts = append(conflicts, "enum_value")
+	}
+
 	return conflicts
 }
 

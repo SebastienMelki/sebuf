@@ -2,7 +2,7 @@
 // source: complex_features.proto
 
 import { ApiError, ValidationError } from "./errors.js";
-import type { Bar, BarWrapper, BarsBySymbol, CreateNoteRequest, GetBarsBySymbolRequest, GetCombinedUnwrapRequest, GetNoteListRequest, GetNoteMapRequest, GetNoteRequest, ListNotesRequest, ListNotesResponse, Note, UpdateNoteRequest } from "./complex_features.js";
+import type { Bar, BarsBySymbol, CreateNoteRequest, GetBarsBySymbolRequest, GetCombinedUnwrapRequest, GetNoteListRequest, GetNoteMapRequest, GetNoteRequest, ListNotesRequest, ListNotesResponse, Note, UpdateNoteRequest } from "./complex_features.js";
 
 export interface FeatureServiceClientOptions {
   fetch?: typeof fetch;
@@ -173,7 +173,7 @@ export class FeatureServiceClient {
     return await resp.json() as Note[];
   }
 
-  async getNoteMap(req: GetNoteMapRequest, options?: FeatureServiceCallOptions): Promise<Record<string, Note>> {
+  async getNoteMap(req: GetNoteMapRequest, options?: FeatureServiceCallOptions): Promise<{ [key: string]: Note }> {
     const path = "/api/v1/notes/map";
     const url = this.baseURL + path;
 
@@ -196,7 +196,7 @@ export class FeatureServiceClient {
       return this.handleError(resp);
     }
 
-    return await resp.json() as Record<string, Note>;
+    return await resp.json() as { [key: string]: Note };
   }
 
   async getBarsBySymbol(req: GetBarsBySymbolRequest, options?: FeatureServiceCallOptions): Promise<BarsBySymbol> {
@@ -225,7 +225,7 @@ export class FeatureServiceClient {
     return await resp.json() as BarsBySymbol;
   }
 
-  async getCombinedUnwrap(req: GetCombinedUnwrapRequest, options?: FeatureServiceCallOptions): Promise<Record<string, Bar[]>> {
+  async getCombinedUnwrap(req: GetCombinedUnwrapRequest, options?: FeatureServiceCallOptions): Promise<{ [key: string]: Bar[] }> {
     const path = "/api/v1/bars/combined";
     const url = this.baseURL + path;
 
@@ -248,7 +248,7 @@ export class FeatureServiceClient {
       return this.handleError(resp);
     }
 
-    return await resp.json() as Record<string, Bar[]>;
+    return await resp.json() as { [key: string]: Bar[] };
   }
 
   private async handleError(resp: Response): Promise<never> {

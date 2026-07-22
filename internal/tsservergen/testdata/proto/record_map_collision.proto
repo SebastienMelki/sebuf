@@ -1,0 +1,45 @@
+// Regression fixture for issue #200: a proto message named `Record` must not
+// collide with the TypeScript lib utility type `Record<K, V>` used for map
+// fields. Map fields must emit an index signature ({ [key: string]: T }) so a
+// same-module `interface Record { ... }` declaration cannot shadow the generic.
+syntax = "proto3";
+
+package test.tsclientgen;
+
+option go_package = "github.com/SebastienMelki/sebuf/internal/tsclientgen/testdata/generated;generated";
+
+import "sebuf/http/annotations.proto";
+
+// A valid proto message named exactly `Record`. In the modules layout this
+// emits a top-level `interface Record { ... }` in the same type module as the
+// messages below, which would shadow the lib `Record<K, V>` generic if map
+// fields were still emitted as `Record<string, T>`.
+message Record {
+  string id = 1;
+  string value = 2;
+}
+
+// Message with map fields whose emission previously used `Record<string, T>`.
+// The scalar-valued map proves the container syntax changed; the message-valued
+// map proves the value ref (to the `Record` message above) still resolves.
+message Container {
+  map<string, string> labels = 1;
+  map<string, Record> records = 2;
+}
+
+message GetContainerRequest {
+  string id = 1;
+}
+
+service RecordService {
+  option (sebuf.http.service_config) = {
+    base_path: "/api/v1"
+  };
+
+  rpc GetContainer(GetContainerRequest) returns (Container) {
+    option (sebuf.http.config) = {
+      path: "/containers/{id}"
+      method: HTTP_METHOD_GET
+    };
+  }
+}

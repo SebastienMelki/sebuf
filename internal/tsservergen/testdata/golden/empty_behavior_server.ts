@@ -2,7 +2,7 @@
 // source: empty_behavior.proto
 
 import { FieldViolation, ValidationError } from "./errors.js";
-import type { GetResponseRequest, Response } from "./empty_behavior.js";
+import type { GetResponseRequest, Response as Response_1 } from "./empty_behavior.js";
 
 export interface ServerContext {
   request: Request;
@@ -22,7 +22,7 @@ export interface RouteDescriptor {
 }
 
 export interface EmptyBehaviorServiceHandler {
-  getResponse(ctx: ServerContext, req: GetResponseRequest): Promise<Response>;
+  getResponse(ctx: ServerContext, req: GetResponseRequest): Promise<Response_1>;
 }
 
 export function createEmptyBehaviorServiceRoutes(
@@ -51,7 +51,7 @@ export function createEmptyBehaviorServiceRoutes(
           };
 
           const result = await handler.getResponse(ctx, body);
-          return new Response(JSON.stringify(result as Response), {
+          return new Response(JSON.stringify(result as Response_1), {
             status: 200,
             headers: { "Content-Type": "application/json" },
           });

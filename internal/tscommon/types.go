@@ -286,18 +286,20 @@ func TSFieldTypeCtx(ctx *EmitContext, field *protogen.Field) string {
 	// Handle map fields
 	if field.Desc.IsMap() {
 		valueField := field.Message.Fields[1] // map value is always second field of map entry
-		valueType := TSFieldTypeCtx(ctx, valueField)
 
-		// Check if the map value is a message with unwrap annotation
+		// Check if the map value is a message with unwrap annotation. Resolve
+		// the unwrapped inner type directly so the (collapsed) wrapper message
+		// is never referenced — referencing it would record a cross-module
+		// import that the emitted code never uses.
 		if valueField.Desc.Kind() == protoreflect.MessageKind && valueField.Message != nil {
 			unwrapField := annotations.FindUnwrapField(valueField.Message)
 			if unwrapField != nil && !unwrapField.Desc.IsMap() {
 				// Map-value unwrap: collapse wrapper to inner type array
-				valueType = TSElementTypeCtx(ctx, unwrapField) + "[]"
+				return fmt.Sprintf("{ [key: string]: %s[] }", TSElementTypeCtx(ctx, unwrapField))
 			}
 		}
 
-		return fmt.Sprintf("Record<string, %s>", valueType)
+		return fmt.Sprintf("{ [key: string]: %s }", TSFieldTypeCtx(ctx, valueField))
 	}
 
 	// Handle repeated fields
@@ -366,17 +368,18 @@ func RootUnwrapTSTypeCtx(ctx *EmitContext, msg *protogen.Message) string {
 
 	if field.Desc.IsMap() {
 		valueField := field.Message.Fields[1]
-		valueType := TSFieldTypeCtx(ctx, valueField)
 
-		// Check for combined unwrap: root map + value unwrap
+		// Check for combined unwrap: root map + value unwrap. Resolve the
+		// unwrapped inner type directly so the (collapsed) wrapper message is
+		// never referenced and no unused import is recorded.
 		if valueField.Desc.Kind() == protoreflect.MessageKind && valueField.Message != nil {
 			unwrapField := annotations.FindUnwrapField(valueField.Message)
 			if unwrapField != nil {
-				valueType = TSElementTypeCtx(ctx, unwrapField) + "[]"
+				return fmt.Sprintf("{ [key: string]: %s[] }", TSElementTypeCtx(ctx, unwrapField))
 			}
 		}
 
-		return fmt.Sprintf("Record<string, %s>", valueType)
+		return fmt.Sprintf("{ [key: string]: %s }", TSFieldTypeCtx(ctx, valueField))
 	}
 
 	if field.Desc.IsList() {
@@ -553,8 +556,7 @@ func GenerateOneofDiscriminatedUnionTypeCtx(
 	var branches []string
 	for i, variant := range info.Variants {
 		var branch string
-		switch {
-		case info.Flatten && variant.IsMessage:
+		if info.Flatten && variant.IsMessage {
 			// Flattened: { discriminator: "value", ...variant fields }
 			branch = fmt.Sprintf("{ %s: \"%s\"", info.Discriminator, variant.DiscriminatorVal)
 			var sb strings.Builder
@@ -565,43 +567,39 @@ func GenerateOneofDiscriminatedUnionTypeCtx(
 			}
 			branch += sb.String()
 			branch += " }"
-		case variant.IsMessage:
-			// Non-flattened message. The generated MarshalJSON keeps the variant's
+		} else {
+			// Non-flattened variant. The generated MarshalJSON keeps the variant's
 			// JSON key where protojson put it — directly on the parent object,
 			// next to the discriminator — so the arm carries both, with sibling
-			// variant keys typed `?: never` for presence narrowing.
+			// variant keys typed `?: never` for presence narrowing. The payload
+			// type flows through TSFieldTypeCtx so enum/timestamp/message/scalar
+			// variants pick up the same JSON-aware typing as normal fields (and
+			// message/enum variants record their module imports in modules mode).
+			// (Flatten+scalar is rejected by validateOneofFlatten, so a scalar
+			// variant only ever reaches this non-flatten branch.)
 			branch = nonFlattenedOneofBranch(
 				info, variant.DiscriminatorVal, jsonNames, i,
-				ctx.RefMessage(variant.Field.Message),
+				TSFieldTypeCtx(ctx, variant.Field),
 			)
-		default:
-			// Non-flattened scalar: same flat shape with the scalar's TS type.
-			if info.Flatten {
-				branch = fmt.Sprintf(
-					"{ %s: \"%s\"; %s?: %s }",
-					info.Discriminator,
-					variant.DiscriminatorVal,
-					jsonNames[i],
-					TSScalarTypeForField(variant.Field),
-				)
-			} else {
-				branch = nonFlattenedOneofBranch(
-					info, variant.DiscriminatorVal, jsonNames, i,
-					TSScalarTypeForField(variant.Field),
-				)
-			}
 		}
 		branches = append(branches, branch)
 	}
 
 	// Unset arm: proto3 oneofs may have no member set, in which case the
-	// generated MarshalJSON omits the discriminator entirely.
+	// generated MarshalJSON omits the discriminator entirely. The arm must
+	// guard every key the set arms could promote onto the parent object, or a
+	// partial payload lacking the discriminator would spuriously type-check as
+	// "nothing set". For non-flattened oneofs those keys are the variant JSON
+	// keys; for flattened oneofs they are the promoted child field keys of
+	// every variant.
 	var unset strings.Builder
 	fmt.Fprintf(&unset, "{ %s?: never", info.Discriminator)
-	if !info.Flatten {
-		for _, jsonName := range jsonNames {
-			fmt.Fprintf(&unset, "; %s?: never", jsonName)
-		}
+	guardedKeys := jsonNames
+	if info.Flatten {
+		guardedKeys = flattenedChildJSONNames(info)
+	}
+	for _, jsonName := range guardedKeys {
+		fmt.Fprintf(&unset, "; %s?: never", jsonName)
 	}
 	unset.WriteString(" }")
 	branches = append(branches, unset.String())
@@ -640,6 +638,32 @@ func nonFlattenedOneofBranch(
 	return sb.String()
 }
 
+// flattenedChildJSONNames returns the unique JSON names of every flattened
+// variant's child fields, in variant order then field order, deduplicated.
+// These are the keys a flattened oneof promotes onto the parent object; the
+// unset arm guards them so a discriminator-less partial payload (e.g.
+// { body: "x" }) does not spuriously type-check as "nothing set". Only message
+// variants contribute keys — flatten variants are always messages, enforced by
+// validateOneofFlatten.
+func flattenedChildJSONNames(info *annotations.OneofDiscriminatorInfo) []string {
+	seen := make(map[string]bool)
+	var names []string
+	for _, variant := range info.Variants {
+		if !variant.IsMessage {
+			continue
+		}
+		for _, childField := range variant.Field.Message.Fields {
+			jsonName := childField.Desc.JSONName()
+			if seen[jsonName] {
+				continue
+			}
+			seen[jsonName] = true
+			names = append(names, jsonName)
+		}
+	}
+	return names
+}
+
 // generatePresenceOneofUnionType renders a oneof that has no wire discriminator
 // (no oneof_config annotation) as a union discriminated by key presence, matching
 // protojson serialization: exactly the set member's JSON key appears on the parent
@@ -657,11 +681,12 @@ func generatePresenceOneofUnionType(
 	tsTypes := make([]string, len(info.Variants))
 	for i, variant := range info.Variants {
 		jsonNames[i] = variant.Field.Desc.JSONName()
-		if variant.IsMessage {
-			tsTypes[i] = ctx.RefMessage(variant.Field.Message)
-		} else {
-			tsTypes[i] = TSScalarTypeForField(variant.Field)
-		}
+		// Route the payload through the same field-typing path normal fields
+		// use so enum variants emit the enum union (or numeric encoding) and
+		// google.protobuf.Timestamp variants emit string/number per
+		// timestamp_format — not a hand-computed scalar/message-name type.
+		// The ctx variant records message/enum module imports in modules mode.
+		tsTypes[i] = TSFieldTypeCtx(ctx, variant.Field)
 	}
 
 	var branches []string

@@ -887,7 +887,8 @@ func (g *Generator) generateQueryParamField(p tscommon.Printer, qp annotations.Q
 	jsonName := qp.FieldJSONName
 	paramName := qp.ParamName
 
-	// Handle repeated fields: use getAll() for multi-value params
+	// Handle repeated fields: use getAll() for multi-value params, converting
+	// each element to the field's type (getAll always yields strings).
 	if qp.Field != nil && qp.Field.Desc.IsList() {
 		switch {
 		case qp.Field.Desc.Kind() == protoreflect.EnumKind && qp.Field.Enum != nil:
@@ -899,6 +900,12 @@ func (g *Generator) generateQueryParamField(p tscommon.Printer, qp annotations.Q
 			// from getAll() to number[]/bigint[]/boolean[] (string[] passes through).
 			getAll := fmt.Sprintf(`params.getAll("%s")`, paramName)
 			p(`            %s: %s,`, jsonName, esQueryListInitExpr(qp.Field, getAll))
+		case tscommon.TSScalarTypeForField(qp.Field) == tscommon.TSNumber:
+			// Hand-rolled: coerce each string element to number.
+			p(`            %s: params.getAll("%s").map(Number),`, jsonName, paramName)
+		case tscommon.TSScalarTypeForField(qp.Field) == tscommon.TSBoolean:
+			// Hand-rolled: coerce each string element to boolean.
+			p(`            %s: params.getAll("%s").map(v => v === "true"),`, jsonName, paramName)
 		default:
 			p(`            %s: params.getAll("%s"),`, jsonName, paramName)
 		}

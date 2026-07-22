@@ -88,6 +88,58 @@ func TestImportTracker_RenderOrdering(t *testing.T) {
 	}
 }
 
+func TestImportTracker_ReservedErrorHelperNames(t *testing.T) {
+	tr := NewImportTracker()
+	// A proto type or enum whose emitted TS name equals an error helper must be
+	// aliased away from the reserved name, even before any errors import exists.
+	for _, reserved := range []string{"ApiError", "FieldViolation", "ValidationError"} {
+		if got := tr.NeedType("./types", reserved); got != reserved+"_1" {
+			t.Errorf("NeedType(%q) = %q, want %q", reserved, got, reserved+"_1")
+		}
+	}
+	// Non-reserved names are unaffected.
+	if got := tr.NeedType("./types", "WrapperValidationError"); got != "WrapperValidationError" {
+		t.Errorf("non-colliding name should keep bare name, got %q", got)
+	}
+}
+
+func TestUsedErrorSymbols_WordBoundary(t *testing.T) {
+	tests := []struct {
+		name  string
+		lines []string
+		want  []string
+	}{
+		{
+			name:  "direct uses",
+			lines: []string{"throw new ApiError(1, m, b);", "if (e instanceof ValidationError) {"},
+			want:  []string{"ApiError", "ValidationError"},
+		},
+		{
+			name:  "aliased colliding import does not count",
+			lines: []string{"async getThing(): Promise<ValidationError_1> {", "codes: ApiError_1[];"},
+			want:  nil,
+		},
+		{
+			name:  "embedding identifiers do not count",
+			lines: []string{"const e: MyValidationError = x;", "type NotAnApiErrorish = string;"},
+			want:  nil,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := UsedErrorSymbols(tt.lines)
+			if len(got) != len(tt.want) {
+				t.Fatalf("UsedErrorSymbols = %v, want %v", got, tt.want)
+			}
+			for i := range got {
+				if got[i] != tt.want[i] {
+					t.Fatalf("UsedErrorSymbols = %v, want %v", got, tt.want)
+				}
+			}
+		})
+	}
+}
+
 func TestImportTracker_Empty(t *testing.T) {
 	tr := NewImportTracker()
 	if !tr.Empty() {
