@@ -22,16 +22,44 @@ namespace Test.Contracts
         StateReady = 1,
     }
 
-    public sealed class ApiException : Exception
+    public class ApiException : Exception
     {
         public int StatusCode { get; }
         public string ResponseBody { get; }
+        public IReadOnlyDictionary<string, IEnumerable<string>> Headers { get; }
 
-        public ApiException(int statusCode, string responseBody)
-            : base($\"Request failed with status {statusCode}: {responseBody}\")
+        public ApiException(
+            int statusCode,
+            string responseBody,
+            IReadOnlyDictionary<string, IEnumerable<string>>? headers = null)
+            : base($"Request failed with status {statusCode}: {responseBody}")
         {
             StatusCode = statusCode;
             ResponseBody = responseBody;
+            Headers = headers ?? new Dictionary<string, IEnumerable<string>>();
+        }
+    }
+
+    public sealed class FieldViolation
+    {
+        [JsonPropertyName("field")]
+        public string Field { get; set; } = string.Empty;
+        [JsonPropertyName("description")]
+        public string Description { get; set; } = string.Empty;
+    }
+
+    public sealed class ValidationException : ApiException
+    {
+        public IReadOnlyList<FieldViolation> Violations { get; }
+
+        public ValidationException(
+            int statusCode,
+            string responseBody,
+            IReadOnlyDictionary<string, IEnumerable<string>> headers,
+            IReadOnlyList<FieldViolation> violations)
+            : base(statusCode, responseBody, headers)
+        {
+            Violations = violations;
         }
     }
 
@@ -159,6 +187,20 @@ namespace Test.Contracts
     {
     }
 
+    public sealed class LoginError
+    {
+        [JsonPropertyName("reason")]
+        public string Reason { get; set; }
+        [JsonPropertyName("email")]
+        public string Email { get; set; }
+        [JsonPropertyName("retry_after_seconds")]
+        public int RetryAfterSeconds { get; set; }
+    }
+
+    public sealed class ConflictError
+    {
+    }
+
     public sealed class EmptyBehaviorHolder
     {
         [JsonPropertyName("metadata_preserve")]
@@ -189,6 +231,39 @@ namespace Test.Contracts
 
     public sealed class Empty
     {
+    }
+
+    public sealed class ConflictErrorException : ApiException
+    {
+        public ConflictError Payload { get; }
+
+        public ConflictErrorException(
+            int statusCode,
+            string responseBody,
+            IReadOnlyDictionary<string, IEnumerable<string>> headers,
+            ConflictError payload)
+            : base(statusCode, responseBody, headers)
+        {
+            Payload = payload;
+        }
+    }
+
+    public sealed class LoginErrorException : ApiException
+    {
+        public LoginError Payload { get; }
+        public string Reason => Payload.Reason;
+        public string Email => Payload.Email;
+        public int RetryAfterSeconds => Payload.RetryAfterSeconds;
+
+        public LoginErrorException(
+            int statusCode,
+            string responseBody,
+            IReadOnlyDictionary<string, IEnumerable<string>> headers,
+            LoginError payload)
+            : base(statusCode, responseBody, headers)
+        {
+            Payload = payload;
+        }
     }
 
     public sealed class WidgetServiceClientOptions
@@ -284,9 +359,10 @@ namespace Test.Contracts
             }
             using var response = await _httpClient.SendAsync(request, cancellationToken);
             var responseBody = response.Content is null ? string.Empty : await response.Content.ReadAsStringAsync(cancellationToken);
+            var responseHeaders = CollectResponseHeaders(response);
             if (!response.IsSuccessStatusCode)
             {
-                throw new ApiException((int)response.StatusCode, responseBody);
+                throw CreateApiException((int)response.StatusCode, responseBody, responseHeaders);
             }
             if (typeof(TResponse) == typeof(Empty) && string.IsNullOrWhiteSpace(responseBody))
             {
@@ -298,6 +374,60 @@ namespace Test.Contracts
             }
             var result = DeserializeResponse<TResponse>(responseBody);
             return result is null ? new TResponse() : result;
+        }
+
+        private static IReadOnlyDictionary<string, IEnumerable<string>> CollectResponseHeaders(
+            HttpResponseMessage response)
+        {
+            var headers = new Dictionary<string, IEnumerable<string>>(StringComparer.OrdinalIgnoreCase);
+            foreach (var header in response.Headers)
+            {
+                headers[header.Key] = header.Value.ToArray();
+            }
+            if (response.Content is not null)
+            {
+                foreach (var header in response.Content.Headers)
+                {
+                    headers[header.Key] = header.Value.ToArray();
+                }
+            }
+            return headers;
+        }
+
+        private static ApiException CreateApiException(
+            int statusCode,
+            string responseBody,
+            IReadOnlyDictionary<string, IEnumerable<string>> headers)
+        {
+            if (!string.IsNullOrWhiteSpace(responseBody))
+            {
+                try
+                {
+                    if (JsonNode.Parse(responseBody) is not JsonObject parsed)
+                    {
+                        return new ApiException(statusCode, responseBody, headers);
+                    }
+                    if (statusCode == 400 && parsed["violations"] is JsonArray violationArray)
+                    {
+                        var violations = violationArray.Deserialize<List<FieldViolation>>(JsonOptions)
+                            ?? new List<FieldViolation>();
+                        return new ValidationException(statusCode, responseBody, headers, violations);
+                    }
+                    if (parsed.ContainsKey("reason") && parsed.ContainsKey("email") && parsed.ContainsKey("retry_after_seconds"))
+                    {
+                        var payload = DeserializeResponse<LoginError>(responseBody);
+                        if (payload is not null)
+                        {
+                            return new LoginErrorException(statusCode, responseBody, headers, payload);
+                        }
+                    }
+                }
+                catch (JsonException)
+                {
+                    // Malformed or non-JSON error bodies fall back to ApiException.
+                }
+            }
+            return new ApiException(statusCode, responseBody, headers);
         }
 
         private string SerializeRequest(object value)
@@ -707,9 +837,10 @@ namespace Test.Contracts
             }
             using var response = await _httpClient.SendAsync(request, cancellationToken);
             var responseBody = response.Content is null ? string.Empty : await response.Content.ReadAsStringAsync(cancellationToken);
+            var responseHeaders = CollectResponseHeaders(response);
             if (!response.IsSuccessStatusCode)
             {
-                throw new ApiException((int)response.StatusCode, responseBody);
+                throw CreateApiException((int)response.StatusCode, responseBody, responseHeaders);
             }
             if (typeof(TResponse) == typeof(Empty) && string.IsNullOrWhiteSpace(responseBody))
             {
@@ -721,6 +852,60 @@ namespace Test.Contracts
             }
             var result = DeserializeResponse<TResponse>(responseBody);
             return result is null ? new TResponse() : result;
+        }
+
+        private static IReadOnlyDictionary<string, IEnumerable<string>> CollectResponseHeaders(
+            HttpResponseMessage response)
+        {
+            var headers = new Dictionary<string, IEnumerable<string>>(StringComparer.OrdinalIgnoreCase);
+            foreach (var header in response.Headers)
+            {
+                headers[header.Key] = header.Value.ToArray();
+            }
+            if (response.Content is not null)
+            {
+                foreach (var header in response.Content.Headers)
+                {
+                    headers[header.Key] = header.Value.ToArray();
+                }
+            }
+            return headers;
+        }
+
+        private static ApiException CreateApiException(
+            int statusCode,
+            string responseBody,
+            IReadOnlyDictionary<string, IEnumerable<string>> headers)
+        {
+            if (!string.IsNullOrWhiteSpace(responseBody))
+            {
+                try
+                {
+                    if (JsonNode.Parse(responseBody) is not JsonObject parsed)
+                    {
+                        return new ApiException(statusCode, responseBody, headers);
+                    }
+                    if (statusCode == 400 && parsed["violations"] is JsonArray violationArray)
+                    {
+                        var violations = violationArray.Deserialize<List<FieldViolation>>(JsonOptions)
+                            ?? new List<FieldViolation>();
+                        return new ValidationException(statusCode, responseBody, headers, violations);
+                    }
+                    if (parsed.ContainsKey("reason") && parsed.ContainsKey("email") && parsed.ContainsKey("retry_after_seconds"))
+                    {
+                        var payload = DeserializeResponse<LoginError>(responseBody);
+                        if (payload is not null)
+                        {
+                            return new LoginErrorException(statusCode, responseBody, headers, payload);
+                        }
+                    }
+                }
+                catch (JsonException)
+                {
+                    // Malformed or non-JSON error bodies fall back to ApiException.
+                }
+            }
+            return new ApiException(statusCode, responseBody, headers);
         }
 
         private string SerializeRequest(object value)

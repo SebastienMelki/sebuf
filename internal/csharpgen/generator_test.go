@@ -807,6 +807,29 @@ func TestGeneratePackage(t *testing.T) {
 				},
 			},
 			{
+				Name: "LoginError",
+				Fields: []*contractmodel.Field{
+					{
+						Name:     "reason",
+						JSONName: "reason",
+						Type:     &contractmodel.TypeRef{Kind: contractmodel.KindScalar, Name: "string"},
+					},
+					{
+						Name:     "email",
+						JSONName: "email",
+						Type:     &contractmodel.TypeRef{Kind: contractmodel.KindScalar, Name: "string"},
+					},
+					{
+						Name:     "retry_after_seconds",
+						JSONName: "retryAfterSeconds",
+						Type:     &contractmodel.TypeRef{Kind: contractmodel.KindScalar, Name: "int32"},
+					},
+				},
+			},
+			{
+				Name: "ConflictError",
+			},
+			{
 				Name: "GetWidgetRequest",
 				Fields: []*contractmodel.Field{
 					{
@@ -880,7 +903,19 @@ func TestGeneratePackage(t *testing.T) {
 		"public sealed class RootRepeatedResponse : List<Widget>",
 		"public sealed class RootMapResponse : Dictionary<string, Widget>",
 		"public sealed class RootMapWithValueUnwrapResponse : Dictionary<string, OptionBarsList>",
-		"public sealed class ApiException : Exception",
+		"public class ApiException : Exception",
+		"public IReadOnlyDictionary<string, IEnumerable<string>> Headers { get; }",
+		"public sealed class ValidationException : ApiException",
+		"public IReadOnlyList<FieldViolation> Violations { get; }",
+		"public sealed class LoginErrorException : ApiException",
+		"public LoginError Payload { get; }",
+		"public string Reason => Payload.Reason;",
+		"public int RetryAfterSeconds => Payload.RetryAfterSeconds;",
+		"var responseHeaders = CollectResponseHeaders(response);",
+		"throw CreateApiException((int)response.StatusCode, responseBody, responseHeaders);",
+		`if (statusCode == 400 && parsed["violations"] is JArray violationArray)`,
+		`parsed.Property("reason") is not null && parsed.Property("email") is not null && parsed.Property("retry_after_seconds") is not null`,
+		"return new LoginErrorException(statusCode, responseBody, headers, payload);",
 		"public sealed class WidgetServiceClientOptions",
 		"public sealed class WidgetServiceCallOptions",
 		"public interface IWidgetServiceClient",

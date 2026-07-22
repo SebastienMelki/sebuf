@@ -92,6 +92,7 @@ func (g *Generator) generatePackage(pkg *contractmodel.Package) error {
 	g.generateEnums(gf, pkg.Enums)
 	g.generateAPIException(gf)
 	g.generateMessages(gf, messages, messageIndex)
+	g.generateTypedErrorExceptions(gf, messages, messageIndex)
 	g.generateServiceClients(gf, pkg.Services, messageIndex)
 	g.generateServices(gf, pkg.Services)
 	gf.P("}")
@@ -193,19 +194,87 @@ func hasMessageNamed(messages []*contractmodel.Message, name string) bool {
 }
 
 func (g *Generator) generateAPIException(gf *protogen.GeneratedFile) {
-	gf.P("    public sealed class ApiException : Exception")
+	gf.P("    public class ApiException : Exception")
 	gf.P("    {")
 	gf.P("        public int StatusCode { get; }")
 	gf.P("        public string ResponseBody { get; }")
+	gf.P("        public IReadOnlyDictionary<string, IEnumerable<string>> Headers { get; }")
 	gf.P()
-	gf.P("        public ApiException(int statusCode, string responseBody)")
-	gf.P(`            : base($\"Request failed with status {statusCode}: {responseBody}\")`)
+	gf.P("        public ApiException(")
+	gf.P("            int statusCode,")
+	gf.P("            string responseBody,")
+	gf.P("            IReadOnlyDictionary<string, IEnumerable<string>>? headers = null)")
+	gf.P(`            : base($"Request failed with status {statusCode}: {responseBody}")`)
 	gf.P("        {")
 	gf.P("            StatusCode = statusCode;")
 	gf.P("            ResponseBody = responseBody;")
+	gf.P("            Headers = headers ?? new Dictionary<string, IEnumerable<string>>();")
 	gf.P("        }")
 	gf.P("    }")
 	gf.P()
+	gf.P("    public sealed class FieldViolation")
+	gf.P("    {")
+	gf.P("        ", g.jsonAttribute("field"))
+	gf.P("        public string Field { get; set; } = string.Empty;")
+	gf.P("        ", g.jsonAttribute("description"))
+	gf.P("        public string Description { get; set; } = string.Empty;")
+	gf.P("    }")
+	gf.P()
+	gf.P("    public sealed class ValidationException : ApiException")
+	gf.P("    {")
+	gf.P("        public IReadOnlyList<FieldViolation> Violations { get; }")
+	gf.P()
+	gf.P("        public ValidationException(")
+	gf.P("            int statusCode,")
+	gf.P("            string responseBody,")
+	gf.P("            IReadOnlyDictionary<string, IEnumerable<string>> headers,")
+	gf.P("            IReadOnlyList<FieldViolation> violations)")
+	gf.P("            : base(statusCode, responseBody, headers)")
+	gf.P("        {")
+	gf.P("            Violations = violations;")
+	gf.P("        }")
+	gf.P("    }")
+	gf.P()
+}
+
+func (g *Generator) generateTypedErrorExceptions(
+	gf *protogen.GeneratedFile,
+	messages []*contractmodel.Message,
+	messageIndex map[string]*contractmodel.Message,
+) {
+	for _, message := range errorMessages(messages) {
+		gf.P("    public sealed class ", message.Name, "Exception : ApiException")
+		gf.P("    {")
+		gf.P("        public ", message.Name, " Payload { get; }")
+		for _, property := range g.messageProperties(message, messageIndex) {
+			gf.P("        public ", property.typ, " ", property.name, " => Payload.", property.name, ";")
+		}
+		gf.P()
+		gf.P("        public ", message.Name, "Exception(")
+		gf.P("            int statusCode,")
+		gf.P("            string responseBody,")
+		gf.P("            IReadOnlyDictionary<string, IEnumerable<string>> headers,")
+		gf.P("            ", message.Name, " payload)")
+		gf.P("            : base(statusCode, responseBody, headers)")
+		gf.P("        {")
+		gf.P("            Payload = payload;")
+		gf.P("        }")
+		gf.P("    }")
+		gf.P()
+	}
+}
+
+func errorMessages(messages []*contractmodel.Message) []*contractmodel.Message {
+	errors := make([]*contractmodel.Message, 0)
+	for _, message := range messages {
+		if strings.HasSuffix(message.Name, "Error") {
+			errors = append(errors, message)
+		}
+	}
+	sort.Slice(errors, func(i, j int) bool {
+		return errors[i].Name < errors[j].Name
+	})
+	return errors
 }
 
 func (g *Generator) generateServices(gf *protogen.GeneratedFile, services []*contractmodel.Service) {
@@ -444,14 +513,17 @@ func (g *Generator) generateServiceClientHelpers(
 	gf.P("            return headers;")
 	gf.P("        }")
 	gf.P()
-	g.generateSendAsync(gf)
+	g.generateSendAsync(gf, messageIndex)
 	g.generateSerializeRequest(gf)
 	g.generateDeserializeResponse(gf)
 	g.generateJSONNormalizationHelpers(gf, messageIndex)
 	g.generatePathAndQueryHelpers(gf)
 }
 
-func (g *Generator) generateSendAsync(gf *protogen.GeneratedFile) {
+func (g *Generator) generateSendAsync(
+	gf *protogen.GeneratedFile,
+	messageIndex map[string]*contractmodel.Message,
+) {
 	gf.P(
 		"        private async Task<TResponse> SendAsync<TResponse>(",
 		"HttpMethod method, string requestUri, object? body, Dictionary<string, string> headers, CancellationToken cancellationToken) where TResponse : new()",
@@ -472,9 +544,10 @@ func (g *Generator) generateSendAsync(gf *protogen.GeneratedFile) {
 	gf.P(
 		`            var responseBody = response.Content is null ? string.Empty : await response.Content.ReadAsStringAsync(cancellationToken);`,
 	)
+	gf.P("            var responseHeaders = CollectResponseHeaders(response);")
 	gf.P("            if (!response.IsSuccessStatusCode)")
 	gf.P("            {")
-	gf.P("                throw new ApiException((int)response.StatusCode, responseBody);")
+	gf.P("                throw CreateApiException((int)response.StatusCode, responseBody, responseHeaders);")
 	gf.P("            }")
 	gf.P("            if (typeof(TResponse) == typeof(", emptyTypeName, ") && string.IsNullOrWhiteSpace(responseBody))")
 	gf.P("            {")
@@ -488,6 +561,129 @@ func (g *Generator) generateSendAsync(gf *protogen.GeneratedFile) {
 	gf.P("            return result is null ? new TResponse() : result;")
 	gf.P("        }")
 	gf.P()
+	g.generateErrorFactory(gf, messageIndex)
+}
+
+func (g *Generator) generateErrorFactory(
+	gf *protogen.GeneratedFile,
+	messageIndex map[string]*contractmodel.Message,
+) {
+	gf.P("        private static IReadOnlyDictionary<string, IEnumerable<string>> CollectResponseHeaders(")
+	gf.P("            HttpResponseMessage response)")
+	gf.P("        {")
+	gf.P("            var headers = new Dictionary<string, IEnumerable<string>>(StringComparer.OrdinalIgnoreCase);")
+	gf.P("            foreach (var header in response.Headers)")
+	gf.P("            {")
+	gf.P("                headers[header.Key] = header.Value.ToArray();")
+	gf.P("            }")
+	gf.P("            if (response.Content is not null)")
+	gf.P("            {")
+	gf.P("                foreach (var header in response.Content.Headers)")
+	gf.P("                {")
+	gf.P("                    headers[header.Key] = header.Value.ToArray();")
+	gf.P("                }")
+	gf.P("            }")
+	gf.P("            return headers;")
+	gf.P("        }")
+	gf.P()
+	gf.P("        private static ApiException CreateApiException(")
+	gf.P("            int statusCode,")
+	gf.P("            string responseBody,")
+	gf.P("            IReadOnlyDictionary<string, IEnumerable<string>> headers)")
+	gf.P("        {")
+	gf.P("            if (!string.IsNullOrWhiteSpace(responseBody))")
+	gf.P("            {")
+	gf.P("                try")
+	gf.P("                {")
+	if g.useNewtonsoft() {
+		g.generateNewtonsoftErrorDispatch(gf, messageIndex)
+	} else {
+		g.generateSystemTextErrorDispatch(gf, messageIndex)
+	}
+	gf.P("                }")
+	gf.P("                catch (JsonException)")
+	gf.P("                {")
+	gf.P("                    // Malformed or non-JSON error bodies fall back to ApiException.")
+	gf.P("                }")
+	gf.P("            }")
+	gf.P("            return new ApiException(statusCode, responseBody, headers);")
+	gf.P("        }")
+	gf.P()
+}
+
+func (g *Generator) generateNewtonsoftErrorDispatch(
+	gf *protogen.GeneratedFile,
+	messageIndex map[string]*contractmodel.Message,
+) {
+	gf.P("                    var parsed = JObject.Parse(responseBody);")
+	gf.P(`                    if (statusCode == 400 && parsed["violations"] is JArray violationArray)`)
+	gf.P("                    {")
+	gf.P("                        var violations = violationArray.ToObject<List<FieldViolation>>()")
+	gf.P("                            ?? new List<FieldViolation>();")
+	gf.P("                        return new ValidationException(statusCode, responseBody, headers, violations);")
+	gf.P("                    }")
+	for _, message := range errorMessagesFromIndex(messageIndex) {
+		properties := g.messageProperties(message, messageIndex)
+		if len(properties) == 0 {
+			continue
+		}
+		conditions := make([]string, 0, len(properties))
+		for _, property := range properties {
+			conditions = append(conditions, `parsed.Property("`+property.jsonName+`") is not null`)
+		}
+		gf.P("                    if (", strings.Join(conditions, " && "), ")")
+		gf.P("                    {")
+		gf.P("                        var payload = DeserializeResponse<", message.Name, ">(responseBody);")
+		gf.P("                        if (payload is not null)")
+		gf.P("                        {")
+		gf.P("                            return new ", message.Name, "Exception(statusCode, responseBody, headers, payload);")
+		gf.P("                        }")
+		gf.P("                    }")
+	}
+}
+
+func (g *Generator) generateSystemTextErrorDispatch(
+	gf *protogen.GeneratedFile,
+	messageIndex map[string]*contractmodel.Message,
+) {
+	gf.P("                    if (JsonNode.Parse(responseBody) is not JsonObject parsed)")
+	gf.P("                    {")
+	gf.P("                        return new ApiException(statusCode, responseBody, headers);")
+	gf.P("                    }")
+	gf.P(`                    if (statusCode == 400 && parsed["violations"] is JsonArray violationArray)`)
+	gf.P("                    {")
+	gf.P("                        var violations = violationArray.Deserialize<List<FieldViolation>>(JsonOptions)")
+	gf.P("                            ?? new List<FieldViolation>();")
+	gf.P("                        return new ValidationException(statusCode, responseBody, headers, violations);")
+	gf.P("                    }")
+	for _, message := range errorMessagesFromIndex(messageIndex) {
+		properties := g.messageProperties(message, messageIndex)
+		if len(properties) == 0 {
+			continue
+		}
+		conditions := make([]string, 0, len(properties))
+		for _, property := range properties {
+			conditions = append(conditions, `parsed.ContainsKey("`+property.jsonName+`")`)
+		}
+		gf.P("                    if (", strings.Join(conditions, " && "), ")")
+		gf.P("                    {")
+		gf.P("                        var payload = DeserializeResponse<", message.Name, ">(responseBody);")
+		gf.P("                        if (payload is not null)")
+		gf.P("                        {")
+		gf.P("                            return new ", message.Name, "Exception(statusCode, responseBody, headers, payload);")
+		gf.P("                        }")
+		gf.P("                    }")
+	}
+}
+
+func errorMessagesFromIndex(
+	messageIndex map[string]*contractmodel.Message,
+) []*contractmodel.Message {
+	messages := make([]*contractmodel.Message, 0, len(messageIndex))
+	for _, message := range messageIndex {
+		messages = append(messages, message)
+	}
+	return errorMessages(messages)
 }
 
 func (g *Generator) generateSerializeRequest(gf *protogen.GeneratedFile) {

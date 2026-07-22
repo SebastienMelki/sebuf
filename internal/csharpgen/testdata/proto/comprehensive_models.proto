@@ -102,6 +102,14 @@ message WellKnownHolder {
 
 message EmptyMessage {}
 
+message LoginError {
+  string reason = 1;
+  string email = 2;
+  int32 retry_after_seconds = 3;
+}
+
+message ConflictError {}
+
 message EmptyBehaviorHolder {
   EmptyMessage metadata_preserve = 1;
   EmptyMessage metadata_null = 2 [(sebuf.http.empty_behavior) = EMPTY_BEHAVIOR_NULL];
