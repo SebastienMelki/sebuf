@@ -1,0 +1,113 @@
+syntax = "proto3";
+
+package test.contracts.v1;
+
+option go_package = "github.com/SebastienMelki/sebuf/internal/testcontracts;testcontracts";
+
+import "google/protobuf/any.proto";
+import "google/protobuf/duration.proto";
+import "google/protobuf/field_mask.proto";
+import "google/protobuf/struct.proto";
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/wrappers.proto";
+import "sebuf/http/annotations.proto";
+
+message Widget {
+  string id = 1;
+  optional string display_name = 2 [(sebuf.http.nullable) = true];
+  map<string, int32> scores = 3;
+  google.protobuf.Struct meta = 4;
+  google.protobuf.Timestamp created_at = 5 [(sebuf.http.timestamp_format) = TIMESTAMP_FORMAT_UNIX_MILLIS];
+  google.protobuf.StringValue alias = 6;
+  State state = 7 [(sebuf.http.enum_encoding) = ENUM_ENCODING_NUMBER];
+  Profile profile = 8 [(sebuf.http.flatten) = true, (sebuf.http.flatten_prefix) = "meta_"];
+  repeated string tags = 9 [(sebuf.http.unwrap) = true];
+  string owner_id = 10 [(sebuf.http.query) = { name: "owner", required: true }];
+  bytes payload = 11 [(sebuf.http.bytes_encoding) = BYTES_ENCODING_HEX];
+  int64 version = 12 [(sebuf.http.int64_encoding) = INT64_ENCODING_NUMBER];
+  map<string, State> state_labels = 13;
+  map<string, Profile> profiles_by_id = 14;
+
+  enum State {
+    STATE_UNSPECIFIED = 0;
+    STATE_READY = 1 [(sebuf.http.enum_value) = "ready"];
+  }
+
+  message Profile {
+    string note = 1;
+  }
+}
+
+message ShapeEnvelope {
+  oneof shape {
+    option (sebuf.http.oneof_config) = {
+      discriminator: "kind"
+      flatten: true
+    };
+
+    Circle circle = 1 [(sebuf.http.oneof_value) = "circle_shape"];
+    Rectangle rectangle = 2;
+  }
+
+  message Circle {
+    double radius = 1;
+  }
+
+  message Rectangle {
+    double width = 1;
+    double height = 2;
+  }
+}
+
+message NestedShapeEnvelope {
+  oneof shape {
+    option (sebuf.http.oneof_config) = {
+      discriminator: "kind"
+      flatten: false
+    };
+
+    NestedCircle circle = 1 [(sebuf.http.oneof_value) = "circle_shape"];
+    NestedRectangle rectangle = 2;
+  }
+
+  message NestedCircle {
+    double radius = 1;
+  }
+
+  message NestedRectangle {
+    double width = 1;
+    double height = 2;
+  }
+}
+
+message DeepNest {
+  Level1 level1 = 1;
+
+  message Level1 {
+    Level2 level2 = 1;
+
+    message Level2 {
+      string code = 1;
+    }
+  }
+}
+
+message WellKnownHolder {
+  google.protobuf.Any any_value = 1;
+  google.protobuf.Duration ttl = 2;
+  google.protobuf.FieldMask mask = 3;
+  google.protobuf.ListValue items = 4;
+  google.protobuf.Value raw_value = 5;
+}
+
+message EmptyMessage {}
+
+message EmptyBehaviorHolder {
+  EmptyMessage metadata_preserve = 1;
+  EmptyMessage metadata_null = 2 [(sebuf.http.empty_behavior) = EMPTY_BEHAVIOR_NULL];
+  EmptyMessage metadata_omit = 3 [(sebuf.http.empty_behavior) = EMPTY_BEHAVIOR_OMIT];
+}
+
+message TagList {
+  repeated string values = 1 [(sebuf.http.unwrap) = true];
+}
