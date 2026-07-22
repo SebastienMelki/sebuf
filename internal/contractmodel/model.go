@@ -64,8 +64,11 @@ const (
 )
 
 type TypeRef struct {
-	Kind      Kind
-	Name      string
+	Kind Kind
+	Name string
+	// Package is the declaring protobuf package for message and enum types.
+	// It is empty for scalars, well-known types, and legacy hand-built models.
+	Package   string
 	WellKnown WellKnownType
 	MapKey    *TypeRef
 	MapValue  *TypeRef
@@ -118,6 +121,7 @@ type EnumValue struct {
 type Enum struct {
 	Name      string
 	ProtoName string
+	Package   string
 	Values    []*EnumValue
 }
 
@@ -145,20 +149,23 @@ type Unwrap struct {
 type Message struct {
 	Name      string
 	ProtoName string
+	Package   string
 	Fields    []*Field
 	Oneofs    []*Oneof
 	Unwrap    *Unwrap
 }
 
 type Method struct {
-	Name         string
-	InputType    string
-	ResponseType string
-	HTTPMethod   string
-	Path         string
-	PathParams   []string
-	Headers      []*Header
-	Stream       bool
+	Name            string
+	InputType       string
+	InputPackage    string
+	ResponseType    string
+	ResponsePackage string
+	HTTPMethod      string
+	Path            string
+	PathParams      []string
+	Headers         []*Header
+	Stream          bool
 }
 
 type Service struct {
@@ -177,8 +184,13 @@ type Package struct {
 }
 
 type symbols struct {
-	messages map[protoreflect.FullName]string
-	enums    map[protoreflect.FullName]string
+	messages map[protoreflect.FullName]symbol
+	enums    map[protoreflect.FullName]symbol
+}
+
+type symbol struct {
+	Name    string
+	Package string
 }
 
 func Packages(files []*protogen.File) []*Package {
@@ -200,6 +212,10 @@ func Packages(files []*protogen.File) []*Package {
 	}
 	sort.Strings(names)
 
+	// Build one symbol table for the entire request. A package-local table loses
+	// the declaring package for imported request, response, field, and enum types,
+	// making generators unable to qualify same-named symbols safely.
+	table := buildSymbols(files)
 	packages := make([]*Package, 0, len(names))
 	for _, name := range names {
 		filesForPackage := byPackage[name]
@@ -207,7 +223,6 @@ func Packages(files []*protogen.File) []*Package {
 			return filesForPackage[i].Desc.Path() < filesForPackage[j].Desc.Path()
 		})
 
-		table := buildSymbols(filesForPackage)
 		pkg := &Package{
 			Name:        name,
 			SourceFiles: sourceFiles(filesForPackage),
@@ -231,12 +246,14 @@ func sourceFiles(files []*protogen.File) []string {
 
 func buildSymbols(files []*protogen.File) *symbols {
 	table := &symbols{
-		messages: make(map[protoreflect.FullName]string),
-		enums:    make(map[protoreflect.FullName]string),
+		messages: make(map[protoreflect.FullName]symbol),
+		enums:    make(map[protoreflect.FullName]symbol),
 	}
 	for _, file := range files {
 		for _, enum := range file.Enums {
-			table.enums[enum.Desc.FullName()] = string(enum.Desc.Name())
+			table.enums[enum.Desc.FullName()] = symbol{
+				Name: string(enum.Desc.Name()), Package: string(file.Desc.Package()),
+			}
 		}
 		for _, msg := range file.Messages {
 			walkMessageSymbols(msg, nil, table)
@@ -247,12 +264,16 @@ func buildSymbols(files []*protogen.File) *symbols {
 
 func walkMessageSymbols(msg *protogen.Message, parents []string, table *symbols) {
 	name := append(append([]string{}, parents...), string(msg.Desc.Name()))
-	symbol := strings.Join(name, "")
+	symbolName := strings.Join(name, "")
 	if !msg.Desc.IsMapEntry() {
-		table.messages[msg.Desc.FullName()] = symbol
+		table.messages[msg.Desc.FullName()] = symbol{
+			Name: symbolName, Package: string(msg.Desc.ParentFile().Package()),
+		}
 	}
 	for _, enum := range msg.Enums {
-		table.enums[enum.Desc.FullName()] = symbol + string(enum.Desc.Name())
+		table.enums[enum.Desc.FullName()] = symbol{
+			Name: symbolName + string(enum.Desc.Name()), Package: string(enum.Desc.ParentFile().Package()),
+		}
 	}
 	for _, nested := range msg.Messages {
 		walkMessageSymbols(nested, name, table)
@@ -295,8 +316,9 @@ func buildEnum(enum *protogen.Enum, table *symbols) *Enum {
 		})
 	}
 	return &Enum{
-		Name:      table.enums[enum.Desc.FullName()],
+		Name:      table.enums[enum.Desc.FullName()].Name,
 		ProtoName: string(enum.Desc.Name()),
+		Package:   string(enum.Desc.ParentFile().Package()),
 		Values:    values,
 	}
 }
@@ -335,8 +357,9 @@ func collectMessage(msg *protogen.Message, table *symbols, out *[]*Message) {
 		}
 
 		message := &Message{
-			Name:      table.messages[msg.Desc.FullName()],
+			Name:      table.messages[msg.Desc.FullName()].Name,
 			ProtoName: string(msg.Desc.Name()),
+			Package:   string(msg.Desc.ParentFile().Package()),
 			Fields:    fields,
 			Oneofs:    collectOneofs(msg, table),
 			Unwrap:    collectUnwrap(msg, table),
@@ -447,14 +470,16 @@ func collectServices(files []*protogen.File, table *symbols) []*Service {
 				}
 
 				methods = append(methods, &Method{
-					Name:         method.GoName,
-					InputType:    resolveMessageName(method.Input, table),
-					ResponseType: resolveMessageName(method.Output, table),
-					HTTPMethod:   httpMethod,
-					Path:         fullPath,
-					PathParams:   pathParams,
-					Headers:      headersFromAnnotation(annotations.GetMethodHeaders(method)),
-					Stream:       httpConfig != nil && httpConfig.Stream,
+					Name:            method.GoName,
+					InputType:       resolveMessageName(method.Input, table),
+					InputPackage:    resolveMessagePackage(method.Input, table),
+					ResponseType:    resolveMessageName(method.Output, table),
+					ResponsePackage: resolveMessagePackage(method.Output, table),
+					HTTPMethod:      httpMethod,
+					Path:            fullPath,
+					PathParams:      pathParams,
+					Headers:         headersFromAnnotation(annotations.GetMethodHeaders(method)),
+					Stream:          httpConfig != nil && httpConfig.Stream,
 				})
 			}
 			result = append(result, &Service{
@@ -487,14 +512,27 @@ func resolveMessageName(message *protogen.Message, table *symbols) string {
 	if message == nil {
 		return ""
 	}
-	if name, ok := table.messages[message.Desc.FullName()]; ok {
-		return name
+	if resolved, ok := table.messages[message.Desc.FullName()]; ok {
+		return resolved.Name
 	}
 	return string(message.Desc.Name())
 }
 
+func resolveMessagePackage(message *protogen.Message, table *symbols) string {
+	if message == nil {
+		return ""
+	}
+	if resolved, ok := table.messages[message.Desc.FullName()]; ok {
+		return resolved.Package
+	}
+	return string(message.Desc.ParentFile().Package())
+}
+
 func resolveMessageType(message *protogen.Message, table *symbols) *TypeRef {
-	return &TypeRef{Kind: KindMessage, Name: resolveMessageName(message, table)}
+	return &TypeRef{
+		Kind: KindMessage, Name: resolveMessageName(message, table),
+		Package: resolveMessagePackage(message, table),
+	}
 }
 
 func resolveType(field *protogen.Field, table *symbols) *TypeRef {
@@ -514,10 +552,13 @@ func resolveNonMapType(field *protogen.Field, table *symbols) *TypeRef {
 	//nolint:exhaustive // scalar kinds intentionally fall through to scalarTypeRef in the default case
 	switch field.Desc.Kind() {
 	case protoreflect.EnumKind:
-		if name, ok := table.enums[field.Enum.Desc.FullName()]; ok {
-			return &TypeRef{Kind: KindEnum, Name: name}
+		if resolved, ok := table.enums[field.Enum.Desc.FullName()]; ok {
+			return &TypeRef{Kind: KindEnum, Name: resolved.Name, Package: resolved.Package}
 		}
-		return &TypeRef{Kind: KindEnum, Name: string(field.Enum.Desc.Name())}
+		return &TypeRef{
+			Kind: KindEnum, Name: string(field.Enum.Desc.Name()),
+			Package: string(field.Enum.Desc.ParentFile().Package()),
+		}
 	case protoreflect.MessageKind, protoreflect.GroupKind:
 		if ref := wellKnownTypeRef(field.Message.Desc.FullName()); ref != nil {
 			return ref

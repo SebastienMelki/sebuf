@@ -389,10 +389,6 @@ namespace Test.Contracts
             {
                 throw CreateApiException((int)response.StatusCode, responseBody, responseHeaders);
             }
-            if (typeof(TResponse) == typeof(Empty) && string.IsNullOrWhiteSpace(responseBody))
-            {
-                return new TResponse();
-            }
             if (string.IsNullOrWhiteSpace(responseBody))
             {
                 return new TResponse();
@@ -995,10 +991,6 @@ namespace Test.Contracts
             if (!response.IsSuccessStatusCode)
             {
                 throw CreateApiException((int)response.StatusCode, responseBody, responseHeaders);
-            }
-            if (typeof(TResponse) == typeof(Empty) && string.IsNullOrWhiteSpace(responseBody))
-            {
-                return new TResponse();
             }
             if (string.IsNullOrWhiteSpace(responseBody))
             {

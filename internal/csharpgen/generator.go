@@ -33,8 +33,11 @@ type Options struct {
 }
 
 type Generator struct {
-	plugin *protogen.Plugin
-	opts   Options
+	plugin               *protogen.Plugin
+	opts                 Options
+	packages             []*contractmodel.Package
+	currentPackage       string
+	usePackageNamespaces bool
 }
 
 func New(plugin *protogen.Plugin, opts Options) *Generator {
@@ -50,7 +53,9 @@ func NewOptions() (protogen.Options, *Options) {
 }
 
 func (g *Generator) Generate() error {
-	for _, pkg := range contractmodel.Packages(g.plugin.Files) {
+	g.packages = contractmodel.Packages(g.plugin.Files)
+	g.usePackageNamespaces = len(g.packages) > 1 || packagesUseCrossPackageTypes(g.packages)
+	for _, pkg := range g.packages {
 		if err := g.generatePackage(pkg); err != nil {
 			return err
 		}
@@ -59,11 +64,9 @@ func (g *Generator) Generate() error {
 }
 
 func (g *Generator) generatePackage(pkg *contractmodel.Package) error {
+	g.currentPackage = pkg.Name
 	messages := g.packageMessages(pkg)
-	messageIndex := make(map[string]*contractmodel.Message, len(messages))
-	for _, message := range messages {
-		messageIndex[message.Name] = message
-	}
+	messageIndex := g.messageIndex(pkg, messages)
 
 	packagePath := strings.ReplaceAll(pkg.Name, ".", "/")
 	gf := g.plugin.NewGeneratedFile(path.Join(packagePath, "Contracts.g.cs"), "")
@@ -87,7 +90,7 @@ func (g *Generator) generatePackage(pkg *contractmodel.Package) error {
 		gf.P("using System.Text.Json.Nodes;")
 	}
 	gf.P()
-	gf.P("namespace ", g.opts.Namespace)
+	gf.P("namespace ", g.packageNamespace(pkg.Name))
 	gf.P("{")
 	g.generateEnums(gf, pkg.Enums)
 	g.generateAPIException(gf)
@@ -97,6 +100,101 @@ func (g *Generator) generatePackage(pkg *contractmodel.Package) error {
 	g.generateServices(gf, pkg.Services)
 	gf.P("}")
 	return nil
+}
+
+func (g *Generator) messageIndex(
+	pkg *contractmodel.Package,
+	packageMessages []*contractmodel.Message,
+) map[string]*contractmodel.Message {
+	index := make(map[string]*contractmodel.Message)
+	for _, candidate := range g.packages {
+		for _, message := range candidate.Messages {
+			index[typeKey(candidate.Name, message.Name)] = message
+		}
+	}
+	for _, message := range packageMessages {
+		index[message.Name] = message
+		index[typeKey(pkg.Name, message.Name)] = message
+	}
+	return index
+}
+
+func typeKey(pkg, name string) string {
+	if pkg == "" {
+		return name
+	}
+	return pkg + "\x00" + name
+}
+
+func messageForRef(
+	messageIndex map[string]*contractmodel.Message,
+	ref *contractmodel.TypeRef,
+) *contractmodel.Message {
+	if ref == nil {
+		return nil
+	}
+	if message := messageIndex[typeKey(ref.Package, ref.Name)]; message != nil {
+		return message
+	}
+	return messageIndex[ref.Name]
+}
+
+func (g *Generator) packageNamespace(pkg string) string {
+	if !g.usePackageNamespaces {
+		return g.opts.Namespace
+	}
+	parts := strings.Split(pkg, ".")
+	for i, part := range parts {
+		parts[i] = csharpNamespaceSegment(part)
+	}
+	return g.opts.Namespace + "." + strings.Join(parts, ".")
+}
+
+func csharpNamespaceSegment(value string) string {
+	segment := pascalCase(value)
+	if segment == "" {
+		return "Default"
+	}
+	if segment[0] >= '0' && segment[0] <= '9' {
+		return "_" + segment
+	}
+	return segment
+}
+
+func packagesUseCrossPackageTypes(packages []*contractmodel.Package) bool {
+	for _, pkg := range packages {
+		for _, message := range pkg.Messages {
+			for _, field := range message.Fields {
+				if typeRefUsesOtherPackage(field.Type, pkg.Name) {
+					return true
+				}
+			}
+		}
+		for _, service := range pkg.Services {
+			for _, method := range service.Methods {
+				if isUserProtoPackage(method.InputPackage) && method.InputPackage != pkg.Name ||
+					isUserProtoPackage(method.ResponsePackage) && method.ResponsePackage != pkg.Name {
+					return true
+				}
+			}
+		}
+	}
+	return false
+}
+
+func isUserProtoPackage(pkg string) bool {
+	return pkg != "" && pkg != "google.protobuf"
+}
+
+func typeRefUsesOtherPackage(ref *contractmodel.TypeRef, currentPackage string) bool {
+	if ref == nil {
+		return false
+	}
+	if ref.Package != "" && ref.Package != currentPackage {
+		return true
+	}
+	return typeRefUsesOtherPackage(ref.MapKey, currentPackage) ||
+		typeRefUsesOtherPackage(ref.MapValue, currentPackage)
 }
 
 type generatedProperty struct {
@@ -142,7 +240,7 @@ func (g *Generator) generateMessages(
 ) {
 	for _, message := range messages {
 		if isRootUnwrapMessage(message) {
-			gf.P("    public sealed class ", message.Name, " : ", rootUnwrapBaseType(message))
+			gf.P("    public sealed class ", message.Name, " : ", g.rootUnwrapBaseType(message))
 			gf.P("    {")
 			gf.P("    }")
 			gf.P()
@@ -351,10 +449,10 @@ func (g *Generator) generateServiceClientInterface(gf *protogen.GeneratedFile, s
 	gf.P("    public interface I", service.Name, "Client")
 	gf.P("    {")
 	for _, method := range service.Methods {
-		responseType := clientResponseType(method)
+		responseType := g.clientResponseType(method)
 		gf.P(
 			"        Task<", responseType, "> ", method.Name,
-			"Async(", method.InputType, " req, ", service.Name,
+			"Async(", g.methodInputType(method), " req, ", service.Name,
 			"CallOptions? options = null, CancellationToken cancellationToken = default);",
 		)
 	}
@@ -420,11 +518,14 @@ func (g *Generator) generateServiceClientMethod(
 	method *contractmodel.Method,
 	messageIndex map[string]*contractmodel.Message,
 ) {
-	requestMessage := messageIndex[method.InputType]
-	responseType := clientResponseType(method)
+	requestMessage := messageIndex[typeKey(method.InputPackage, method.InputType)]
+	if requestMessage == nil {
+		requestMessage = messageIndex[method.InputType]
+	}
+	responseType := g.clientResponseType(method)
 	gf.P(
 		"        public async Task<", responseType, "> ", method.Name, "Async(",
-		method.InputType, " req, ", service.Name,
+		g.methodInputType(method), " req, ", service.Name,
 		"CallOptions? options = null, CancellationToken cancellationToken = default)",
 	)
 	gf.P("        {")
@@ -580,10 +681,6 @@ func (g *Generator) generateSendAsync(
 	gf.P("            {")
 	gf.P("                throw CreateApiException((int)response.StatusCode, responseBody, responseHeaders);")
 	gf.P("            }")
-	gf.P("            if (typeof(TResponse) == typeof(", emptyTypeName, ") && string.IsNullOrWhiteSpace(responseBody))")
-	gf.P("            {")
-	gf.P("                return new TResponse();")
-	gf.P("            }")
 	gf.P("            if (string.IsNullOrWhiteSpace(responseBody))")
 	gf.P("            {")
 	gf.P("                return new TResponse();")
@@ -653,7 +750,7 @@ func (g *Generator) generateNewtonsoftErrorDispatch(
 	gf.P("                            ?? new List<FieldViolation>();")
 	gf.P("                        return new ValidationException(statusCode, responseBody, headers, violations);")
 	gf.P("                    }")
-	for _, message := range errorMessagesFromIndex(messageIndex) {
+	for _, message := range g.errorMessagesFromIndex(messageIndex) {
 		properties := g.messageProperties(message, messageIndex)
 		if len(properties) == 0 {
 			continue
@@ -687,7 +784,7 @@ func (g *Generator) generateSystemTextErrorDispatch(
 	gf.P("                            ?? new List<FieldViolation>();")
 	gf.P("                        return new ValidationException(statusCode, responseBody, headers, violations);")
 	gf.P("                    }")
-	for _, message := range errorMessagesFromIndex(messageIndex) {
+	for _, message := range g.errorMessagesFromIndex(messageIndex) {
 		properties := g.messageProperties(message, messageIndex)
 		if len(properties) == 0 {
 			continue
@@ -707,11 +804,17 @@ func (g *Generator) generateSystemTextErrorDispatch(
 	}
 }
 
-func errorMessagesFromIndex(
+func (g *Generator) errorMessagesFromIndex(
 	messageIndex map[string]*contractmodel.Message,
 ) []*contractmodel.Message {
-	messages := make([]*contractmodel.Message, 0, len(messageIndex))
+	byName := make(map[string]*contractmodel.Message)
 	for _, message := range messageIndex {
+		if message.Package == "" || message.Package == g.currentPackage {
+			byName[message.Name] = message
+		}
+	}
+	messages := make([]*contractmodel.Message, 0, len(byName))
+	for _, message := range byName {
 		messages = append(messages, message)
 	}
 	return errorMessages(messages)
@@ -748,7 +851,7 @@ func (g *Generator) generateJSONNormalizationHelpers(
 	gf *protogen.GeneratedFile,
 	messageIndex map[string]*contractmodel.Message,
 ) {
-	messages := messagesRequiringJSONNormalization(messageIndex)
+	messages := g.messagesRequiringJSONNormalization(messageIndex)
 	if len(messages) == 0 {
 		gf.P("        private static string NormalizeSerializedJson(object value, string json)")
 		gf.P("        {")
@@ -1155,7 +1258,7 @@ func (g *Generator) generateNewtonsoftRootUnwrapNormalizationBody(
 			return
 		}
 		if field.Type == nil || field.Type.Kind != contractmodel.KindMessage ||
-			!messageNeedsJSONNormalization(messageIndex[field.Type.Name], messageIndex) {
+			!messageNeedsJSONNormalization(messageForRef(messageIndex, field.Type), messageIndex) {
 			gf.P("            return token;")
 			return
 		}
@@ -1166,9 +1269,9 @@ func (g *Generator) generateNewtonsoftRootUnwrapNormalizationBody(
 		gf.P("            for (var i = 0; i < array.Count; i++)")
 		gf.P("            {")
 		if serialize {
-			gf.P("                array[i] = NormalizeSerializedToken(typeof(", field.Type.Name, "), array[i]!);")
+			gf.P("                array[i] = NormalizeSerializedToken(typeof(", g.csharpNamedType(field.Type), "), array[i]!);")
 		} else {
-			gf.P("                array[i] = NormalizeResponseToken(typeof(", field.Type.Name, "), array[i]!);")
+			gf.P("                array[i] = NormalizeResponseToken(typeof(", g.csharpNamedType(field.Type), "), array[i]!);")
 		}
 		gf.P("            }")
 		gf.P("            return array;")
@@ -1203,7 +1306,7 @@ func (g *Generator) generateNewtonsoftRootUnwrapNormalizationBody(
 		return
 	}
 	childMessage := field.Type.MapValue.Kind == contractmodel.KindMessage &&
-		messageNeedsJSONNormalization(messageIndex[field.Type.MapValue.Name], messageIndex)
+		messageNeedsJSONNormalization(messageForRef(messageIndex, field.Type.MapValue), messageIndex)
 	if !childMessage {
 		gf.P("            return token;")
 		return
@@ -1215,27 +1318,27 @@ func (g *Generator) generateNewtonsoftRootUnwrapNormalizationBody(
 	gf.P("            foreach (var property in obj.Properties().ToList())")
 	gf.P("            {")
 	if serialize {
-		if mapValueUsesUnwrap(messageIndex[field.Type.MapValue.Name]) {
+		if mapValueUsesUnwrap(messageForRef(messageIndex, field.Type.MapValue)) {
 			gf.P(
 				"                property.Value = NormalizeMapValueForSerialization(",
-				"property.Value, typeof(", field.Type.MapValue.Name, "));",
+				"property.Value, typeof(", g.csharpNamedType(field.Type.MapValue), "));",
 			)
 		} else {
 			gf.P(
 				"                property.Value = NormalizeSerializedToken(",
-				"typeof(", field.Type.MapValue.Name, "), property.Value);",
+				"typeof(", g.csharpNamedType(field.Type.MapValue), "), property.Value);",
 			)
 		}
 	} else {
-		if mapValueUsesUnwrap(messageIndex[field.Type.MapValue.Name]) {
+		if mapValueUsesUnwrap(messageForRef(messageIndex, field.Type.MapValue)) {
 			gf.P(
 				"                property.Value = NormalizeMapValueForResponse(",
-				"property.Value, typeof(", field.Type.MapValue.Name, "));",
+				"property.Value, typeof(", g.csharpNamedType(field.Type.MapValue), "));",
 			)
 		} else {
 			gf.P(
 				"                property.Value = NormalizeResponseToken(",
-				"typeof(", field.Type.MapValue.Name, "), property.Value);",
+				"typeof(", g.csharpNamedType(field.Type.MapValue), "), property.Value);",
 			)
 		}
 	}
@@ -1377,33 +1480,33 @@ func (g *Generator) generateNewtonsoftFieldNormalization(
 	}
 
 	if field.IsMap && field.Type != nil && field.Type.MapValue != nil && field.Type.MapValue.Kind == contractmodel.KindMessage &&
-		messageNeedsJSONNormalization(messageIndex[field.Type.MapValue.Name], messageIndex) {
+		messageNeedsJSONNormalization(messageForRef(messageIndex, field.Type.MapValue), messageIndex) {
 		gf.P(`            if (obj.TryGetValue("`, jsonName, `", out var `, pascalCase(jsonName), `Map) && `, pascalCase(jsonName), `Map is JObject `, pascalCase(jsonName), `Object)`)
 		gf.P("            {")
 		gf.P("                foreach (var property in ", pascalCase(jsonName), "Object.Properties().ToList())")
 		gf.P("                {")
 		if serialize {
-			if mapValueUsesUnwrap(messageIndex[field.Type.MapValue.Name]) {
+			if mapValueUsesUnwrap(messageForRef(messageIndex, field.Type.MapValue)) {
 				gf.P(
 					"                    property.Value = NormalizeMapValueForSerialization(",
-					"property.Value, typeof(", field.Type.MapValue.Name, "));",
+					"property.Value, typeof(", g.csharpNamedType(field.Type.MapValue), "));",
 				)
 			} else {
 				gf.P(
 					"                    property.Value = NormalizeSerializedToken(",
-					"typeof(", field.Type.MapValue.Name, "), property.Value);",
+					"typeof(", g.csharpNamedType(field.Type.MapValue), "), property.Value);",
 				)
 			}
 		} else {
-			if mapValueUsesUnwrap(messageIndex[field.Type.MapValue.Name]) {
+			if mapValueUsesUnwrap(messageForRef(messageIndex, field.Type.MapValue)) {
 				gf.P(
 					"                    property.Value = NormalizeMapValueForResponse(",
-					"property.Value, typeof(", field.Type.MapValue.Name, "));",
+					"property.Value, typeof(", g.csharpNamedType(field.Type.MapValue), "));",
 				)
 			} else {
 				gf.P(
 					"                    property.Value = NormalizeResponseToken(",
-					"typeof(", field.Type.MapValue.Name, "), property.Value);",
+					"typeof(", g.csharpNamedType(field.Type.MapValue), "), property.Value);",
 				)
 			}
 		}
@@ -1412,7 +1515,8 @@ func (g *Generator) generateNewtonsoftFieldNormalization(
 		return
 	}
 
-	if field.Type != nil && field.Type.Kind == contractmodel.KindMessage && messageNeedsJSONNormalization(messageIndex[field.Type.Name], messageIndex) {
+	if field.Type != nil && field.Type.Kind == contractmodel.KindMessage &&
+		messageNeedsJSONNormalization(messageForRef(messageIndex, field.Type), messageIndex) {
 		if field.Repeated {
 			gf.P(`            if (obj.TryGetValue("`, jsonName, `", out var `, pascalCase(jsonName), `List) && `, pascalCase(jsonName), `List is JArray `, pascalCase(jsonName), `Array)`)
 			gf.P("            {")
@@ -1422,13 +1526,13 @@ func (g *Generator) generateNewtonsoftFieldNormalization(
 				gf.P(
 					"                    ", pascalCase(jsonName),
 					"Array[i] = NormalizeSerializedToken(typeof(",
-					field.Type.Name, "), ", pascalCase(jsonName), "Array[i]!);",
+					g.csharpNamedType(field.Type), "), ", pascalCase(jsonName), "Array[i]!);",
 				)
 			} else {
 				gf.P(
 					"                    ", pascalCase(jsonName),
 					"Array[i] = NormalizeResponseToken(typeof(",
-					field.Type.Name, "), ", pascalCase(jsonName), "Array[i]!);",
+					g.csharpNamedType(field.Type), "), ", pascalCase(jsonName), "Array[i]!);",
 				)
 			}
 			gf.P("                }")
@@ -1440,13 +1544,13 @@ func (g *Generator) generateNewtonsoftFieldNormalization(
 		if serialize {
 			gf.P(
 				"                obj[\"", jsonName,
-				"\"] = NormalizeSerializedToken(typeof(", field.Type.Name,
+				"\"] = NormalizeSerializedToken(typeof(", g.csharpNamedType(field.Type),
 				"), ", pascalCase(jsonName), "Child);",
 			)
 		} else {
 			gf.P(
 				"                obj[\"", jsonName,
-				"\"] = NormalizeResponseToken(typeof(", field.Type.Name,
+				"\"] = NormalizeResponseToken(typeof(", g.csharpNamedType(field.Type),
 				"), ", pascalCase(jsonName), "Child);",
 			)
 		}
@@ -1654,7 +1758,7 @@ func (g *Generator) generateSystemTextRootUnwrapNormalizationBody(
 			return
 		}
 		if field.Type == nil || field.Type.Kind != contractmodel.KindMessage ||
-			!messageNeedsJSONNormalization(messageIndex[field.Type.Name], messageIndex) {
+			!messageNeedsJSONNormalization(messageForRef(messageIndex, field.Type), messageIndex) {
 			gf.P("            return token;")
 			return
 		}
@@ -1669,9 +1773,9 @@ func (g *Generator) generateSystemTextRootUnwrapNormalizationBody(
 		gf.P("                    continue;")
 		gf.P("                }")
 		if serialize {
-			gf.P("                array[i] = NormalizeSerializedNode(typeof(", field.Type.Name, "), item);")
+			gf.P("                array[i] = NormalizeSerializedNode(typeof(", g.csharpNamedType(field.Type), "), item);")
 		} else {
-			gf.P("                array[i] = NormalizeResponseNode(typeof(", field.Type.Name, "), item);")
+			gf.P("                array[i] = NormalizeResponseNode(typeof(", g.csharpNamedType(field.Type), "), item);")
 		}
 		gf.P("            }")
 		gf.P("            return array;")
@@ -1706,7 +1810,7 @@ func (g *Generator) generateSystemTextRootUnwrapNormalizationBody(
 		return
 	}
 	childMessage := field.Type.MapValue.Kind == contractmodel.KindMessage &&
-		messageNeedsJSONNormalization(messageIndex[field.Type.MapValue.Name], messageIndex)
+		messageNeedsJSONNormalization(messageForRef(messageIndex, field.Type.MapValue), messageIndex)
 	if !childMessage {
 		gf.P("            return token;")
 		return
@@ -1720,30 +1824,30 @@ func (g *Generator) generateSystemTextRootUnwrapNormalizationBody(
 	if serialize {
 		gf.P("                if (obj[key] is JsonNode value)")
 		gf.P("                {")
-		if mapValueUsesUnwrap(messageIndex[field.Type.MapValue.Name]) {
+		if mapValueUsesUnwrap(messageForRef(messageIndex, field.Type.MapValue)) {
 			gf.P(
 				"                    obj[key] = NormalizeMapValueForSerialization(",
-				"value, typeof(", field.Type.MapValue.Name, "));",
+				"value, typeof(", g.csharpNamedType(field.Type.MapValue), "));",
 			)
 		} else {
 			gf.P(
 				"                    obj[key] = NormalizeSerializedNode(",
-				"typeof(", field.Type.MapValue.Name, "), value);",
+				"typeof(", g.csharpNamedType(field.Type.MapValue), "), value);",
 			)
 		}
 		gf.P("                }")
 	} else {
 		gf.P("                if (obj[key] is JsonNode value)")
 		gf.P("                {")
-		if mapValueUsesUnwrap(messageIndex[field.Type.MapValue.Name]) {
+		if mapValueUsesUnwrap(messageForRef(messageIndex, field.Type.MapValue)) {
 			gf.P(
 				"                    obj[key] = NormalizeMapValueForResponse(",
-				"value, typeof(", field.Type.MapValue.Name, "));",
+				"value, typeof(", g.csharpNamedType(field.Type.MapValue), "));",
 			)
 		} else {
 			gf.P(
 				"                    obj[key] = NormalizeResponseNode(",
-				"typeof(", field.Type.MapValue.Name, "), value);",
+				"typeof(", g.csharpNamedType(field.Type.MapValue), "), value);",
 			)
 		}
 		gf.P("                }")
@@ -1885,7 +1989,7 @@ func (g *Generator) generateSystemTextFieldNormalization(
 	}
 
 	if field.IsMap && field.Type != nil && field.Type.MapValue != nil && field.Type.MapValue.Kind == contractmodel.KindMessage &&
-		messageNeedsJSONNormalization(messageIndex[field.Type.MapValue.Name], messageIndex) {
+		messageNeedsJSONNormalization(messageForRef(messageIndex, field.Type.MapValue), messageIndex) {
 		gf.P(`            if (obj["`, jsonName, `"] is JsonObject `, pascalCase(jsonName), `Object)`)
 		gf.P("            {")
 		gf.P("                foreach (var key in ", pascalCase(jsonName), "Object.Select(pair => pair.Key).ToList())")
@@ -1893,11 +1997,11 @@ func (g *Generator) generateSystemTextFieldNormalization(
 		gf.P("                    if (", pascalCase(jsonName), "Object[key] is JsonNode value)")
 		gf.P("                    {")
 		if serialize {
-			if mapValueUsesUnwrap(messageIndex[field.Type.MapValue.Name]) {
+			if mapValueUsesUnwrap(messageForRef(messageIndex, field.Type.MapValue)) {
 				gf.P(
 					"                        ", pascalCase(jsonName),
 					"Object[key] = NormalizeMapValueForSerialization(",
-					"value, typeof(", field.Type.MapValue.Name, "));",
+					"value, typeof(", g.csharpNamedType(field.Type.MapValue), "));",
 				)
 			} else {
 				gf.P(
@@ -1907,11 +2011,11 @@ func (g *Generator) generateSystemTextFieldNormalization(
 				)
 			}
 		} else {
-			if mapValueUsesUnwrap(messageIndex[field.Type.MapValue.Name]) {
+			if mapValueUsesUnwrap(messageForRef(messageIndex, field.Type.MapValue)) {
 				gf.P(
 					"                        ", pascalCase(jsonName),
 					"Object[key] = NormalizeMapValueForResponse(",
-					"value, typeof(", field.Type.MapValue.Name, "));",
+					"value, typeof(", g.csharpNamedType(field.Type.MapValue), "));",
 				)
 			} else {
 				gf.P(
@@ -1927,7 +2031,8 @@ func (g *Generator) generateSystemTextFieldNormalization(
 		return
 	}
 
-	if field.Type != nil && field.Type.Kind == contractmodel.KindMessage && messageNeedsJSONNormalization(messageIndex[field.Type.Name], messageIndex) {
+	if field.Type != nil && field.Type.Kind == contractmodel.KindMessage &&
+		messageNeedsJSONNormalization(messageForRef(messageIndex, field.Type), messageIndex) {
 		if field.Repeated {
 			gf.P(`            if (obj["`, jsonName, `"] is JsonArray `, pascalCase(jsonName), `Array)`)
 			gf.P("            {")
@@ -1941,13 +2046,13 @@ func (g *Generator) generateSystemTextFieldNormalization(
 				gf.P(
 					"                    ", pascalCase(jsonName),
 					"Array[i] = NormalizeSerializedNode(typeof(",
-					field.Type.Name, "), item);",
+					g.csharpNamedType(field.Type), "), item);",
 				)
 			} else {
 				gf.P(
 					"                    ", pascalCase(jsonName),
 					"Array[i] = NormalizeResponseNode(typeof(",
-					field.Type.Name, "), item);",
+					g.csharpNamedType(field.Type), "), item);",
 				)
 			}
 			gf.P("                }")
@@ -1959,13 +2064,13 @@ func (g *Generator) generateSystemTextFieldNormalization(
 		if serialize {
 			gf.P(
 				"                obj[\"", jsonName,
-				"\"] = NormalizeSerializedNode(typeof(", field.Type.Name,
+				"\"] = NormalizeSerializedNode(typeof(", g.csharpNamedType(field.Type),
 				"), child);",
 			)
 		} else {
 			gf.P(
 				"                obj[\"", jsonName,
-				"\"] = NormalizeResponseNode(typeof(", field.Type.Name,
+				"\"] = NormalizeResponseNode(typeof(", g.csharpNamedType(field.Type),
 				"), child);",
 			)
 		}
@@ -1973,20 +2078,29 @@ func (g *Generator) generateSystemTextFieldNormalization(
 	}
 }
 
-func messagesRequiringJSONNormalization(messageIndex map[string]*contractmodel.Message) []*contractmodel.Message {
+func (g *Generator) messagesRequiringJSONNormalization(
+	messageIndex map[string]*contractmodel.Message,
+) []*contractmodel.Message {
 	if len(messageIndex) == 0 {
 		return nil
 	}
-	names := make([]string, 0, len(messageIndex))
-	for name := range messageIndex {
-		if messageNeedsJSONNormalization(messageIndex[name], messageIndex) {
-			names = append(names, name)
+	byName := make(map[string]*contractmodel.Message)
+	for _, message := range messageIndex {
+		if message.Package != "" && message.Package != g.currentPackage {
+			continue
 		}
+		if messageNeedsJSONNormalization(message, messageIndex) {
+			byName[message.Name] = message
+		}
+	}
+	names := make([]string, 0, len(byName))
+	for name := range byName {
+		names = append(names, name)
 	}
 	sort.Strings(names)
 	result := make([]*contractmodel.Message, 0, len(names))
 	for _, name := range names {
-		result = append(result, messageIndex[name])
+		result = append(result, byName[name])
 	}
 	return result
 }
@@ -2008,11 +2122,11 @@ func messageNeedsJSONNormalization(
 			return true
 		}
 		if field.Repeated && field.Type != nil && field.Type.Kind == contractmodel.KindMessage {
-			return messageNeedsJSONNormalization(messageIndex[field.Type.Name], messageIndex)
+			return messageNeedsJSONNormalization(messageForRef(messageIndex, field.Type), messageIndex)
 		}
 		if field.IsMap && field.Type != nil && field.Type.MapValue != nil &&
 			field.Type.MapValue.Kind == contractmodel.KindMessage {
-			return messageNeedsJSONNormalization(messageIndex[field.Type.MapValue.Name], messageIndex)
+			return messageNeedsJSONNormalization(messageForRef(messageIndex, field.Type.MapValue), messageIndex)
 		}
 		return false
 	}
@@ -2028,11 +2142,11 @@ func messageNeedsJSONNormalization(
 		}
 		if field.IsMap && field.Type != nil && field.Type.MapValue != nil &&
 			field.Type.MapValue.Kind == contractmodel.KindMessage &&
-			messageNeedsJSONNormalization(messageIndex[field.Type.MapValue.Name], messageIndex) {
+			messageNeedsJSONNormalization(messageForRef(messageIndex, field.Type.MapValue), messageIndex) {
 			return true
 		}
 		if field.Type != nil && field.Type.Kind == contractmodel.KindMessage &&
-			messageNeedsJSONNormalization(messageIndex[field.Type.Name], messageIndex) {
+			messageNeedsJSONNormalization(messageForRef(messageIndex, field.Type), messageIndex) {
 			return true
 		}
 	}
@@ -2124,7 +2238,7 @@ func oneofVariantJSONFieldsForVariant(
 	messageIndex map[string]*contractmodel.Message,
 ) []string {
 	if oneof.Flatten && variant.IsMessage {
-		child := messageIndex[variant.Type.Name]
+		child := messageForRef(messageIndex, variant.Type)
 		if child == nil {
 			return nil
 		}
@@ -2339,6 +2453,27 @@ func clientResponseType(method *contractmodel.Method) string {
 	return method.ResponseType
 }
 
+func (g *Generator) methodInputType(method *contractmodel.Method) string {
+	if method.InputPackage == "google.protobuf" && method.InputType == emptyTypeName {
+		return emptyTypeName
+	}
+	return g.csharpNamedType(&contractmodel.TypeRef{
+		Kind: contractmodel.KindMessage, Name: method.InputType, Package: method.InputPackage,
+	})
+}
+
+func (g *Generator) clientResponseType(method *contractmodel.Method) string {
+	if method.ResponseType == "" {
+		return emptyTypeName
+	}
+	if method.ResponsePackage == "google.protobuf" && method.ResponseType == emptyTypeName {
+		return emptyTypeName
+	}
+	return g.csharpNamedType(&contractmodel.TypeRef{
+		Kind: contractmodel.KindMessage, Name: method.ResponseType, Package: method.ResponsePackage,
+	})
+}
+
 func csharpQueryCondition(field *contractmodel.Field, expr string) string {
 	if field == nil || field.Type == nil {
 		return expr + " != null"
@@ -2396,7 +2531,7 @@ func (g *Generator) appendStandardMessageProperties(
 			usedJSONNames,
 			field.Name,
 			pascalCase(field.Name),
-			csharpPropertyType(field, false),
+			g.csharpPropertyType(field, false),
 			g.enumConverterAttribute(field),
 		)
 	}
@@ -2434,7 +2569,7 @@ func (g *Generator) appendOneofProperties(
 				usedJSONNames,
 				variant.FieldName,
 				pascalCase(variant.FieldName),
-				csharpPropertyType(variantField, true),
+				g.csharpPropertyType(variantField, true),
 				g.enumConverterAttribute(variantField),
 			)
 		}
@@ -2459,7 +2594,7 @@ func (g *Generator) appendFlattenedProperties(
 			usedJSONNames,
 			jsonName,
 			pascalCase(jsonName),
-			csharpPropertyType(childField, true),
+			g.csharpPropertyType(childField, true),
 			g.enumConverterAttribute(childField),
 		)
 	}
@@ -2472,7 +2607,7 @@ func (g *Generator) appendFlattenedVariantProperties(
 	variant *contractmodel.OneofVariant,
 	messageIndex map[string]*contractmodel.Message,
 ) bool {
-	child := messageIndex[variant.Type.Name]
+	child := messageForRef(messageIndex, variant.Type)
 	if child == nil {
 		return false
 	}
@@ -2491,7 +2626,7 @@ func (g *Generator) appendFlattenedVariantProperties(
 			usedJSONNames,
 			jsonName,
 			pascalCase(jsonName),
-			csharpPropertyType(childField, true),
+			g.csharpPropertyType(childField, true),
 			g.enumConverterAttribute(childField),
 		)
 	}
@@ -2544,7 +2679,7 @@ func childMessage(messageIndex map[string]*contractmodel.Message, field *contrac
 	if field == nil || field.Type == nil || field.Type.Kind != contractmodel.KindMessage {
 		return nil
 	}
-	return messageIndex[field.Type.Name]
+	return messageForRef(messageIndex, field.Type)
 }
 
 func findField(message *contractmodel.Message, name string) *contractmodel.Field {
@@ -2560,18 +2695,24 @@ func isRootUnwrapMessage(message *contractmodel.Message) bool {
 	return message != nil && message.Unwrap != nil && message.Unwrap.IsRoot && len(message.Fields) == 1
 }
 
-func rootUnwrapBaseType(message *contractmodel.Message) string {
+func (g *Generator) rootUnwrapBaseType(message *contractmodel.Message) string {
 	if message == nil || len(message.Fields) == 0 {
 		return csharpObjectType
 	}
 	field := message.Fields[0]
 	if field.IsMap {
-		return csharpBaseType(field)
+		return g.csharpBaseType(field)
 	}
 	if field.Repeated && field.Type != nil {
-		return "List<" + csharpBaseType(&contractmodel.Field{Type: field.Type, Annotations: field.Annotations}) + ">"
+		return "List<" + g.csharpBaseType(&contractmodel.Field{Type: field.Type, Annotations: field.Annotations}) + ">"
 	}
-	return csharpPropertyType(field, false)
+	return g.csharpPropertyType(field, false)
+}
+
+// rootUnwrapBaseType keeps the package-local helper API used by focused unit
+// tests and by callers constructing contract models directly.
+func rootUnwrapBaseType(message *contractmodel.Message) string {
+	return (&Generator{}).rootUnwrapBaseType(message)
 }
 
 func (g *Generator) useNewtonsoft() bool {
@@ -2587,6 +2728,63 @@ func (g *Generator) jsonAttribute(name string) string {
 
 func csharpType(field *contractmodel.Field) string {
 	return csharpPropertyType(field, false)
+}
+
+func (g *Generator) csharpPropertyType(field *contractmodel.Field, forceNullable bool) string {
+	ref := field.Type
+	if ref == nil {
+		return csharpObjectType
+	}
+	base := g.csharpBaseType(field)
+	if field.Repeated {
+		if forceNullable {
+			return "List<" + base + ">?"
+		}
+		return "List<" + base + ">"
+	}
+	if field.IsMap {
+		if forceNullable {
+			return base + "?"
+		}
+		return base
+	}
+	if shouldUseNullableType(field, ref, forceNullable) {
+		return base + "?"
+	}
+	return base
+}
+
+func (g *Generator) csharpBaseType(field *contractmodel.Field) string {
+	ref := field.Type
+	if ref == nil {
+		return csharpObjectType
+	}
+
+	switch ref.Kind {
+	case contractmodel.KindMessage, contractmodel.KindEnum:
+		return g.csharpNamedType(ref)
+	case contractmodel.KindWellKnown:
+		return csharpWellKnownType(field)
+	case contractmodel.KindMap:
+		return fmt.Sprintf(
+			"Dictionary<%s, %s>", g.csharpBaseTypeForRef(ref.MapKey), g.csharpBaseTypeForRef(ref.MapValue),
+		)
+	case contractmodel.KindScalar:
+		return csharpScalar(field)
+	default:
+		return csharpObjectType
+	}
+}
+
+func (g *Generator) csharpBaseTypeForRef(ref *contractmodel.TypeRef) string {
+	return g.csharpBaseType(&contractmodel.Field{Type: ref})
+}
+
+func (g *Generator) csharpNamedType(ref *contractmodel.TypeRef) string {
+	if ref.Package == "" || ref.Package == g.currentPackage {
+		return ref.Name
+	}
+	return "global::" + g.packageNamespace(ref.Package) + "." + ref.Name
 }
 
 func csharpPropertyType(field *contractmodel.Field, forceNullable bool) string {
