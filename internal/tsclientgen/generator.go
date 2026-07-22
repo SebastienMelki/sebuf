@@ -32,6 +32,17 @@ func New(
 	return &Generator{plugin: plugin, runtime: runtime, errorHandling: errorHandling}
 }
 
+// recv is the member-access prefix for the client's shared config in generated
+// method bodies. The hand-rolled client is a class, so config lives on the
+// instance ("this."); the protobuf-es standalone functions read config from
+// per-call locals (baseURL/fetchFn) and a top-level handleError, so no prefix.
+func (g *Generator) recv() string {
+	if g.ctx.MessageRuntime == tscommon.MessageRuntimeES {
+		return ""
+	}
+	return "this."
+}
+
 // Generate emits one canonical type module per proto file, a shared errors
 // module, and one slimmed client module per service file.
 func (g *Generator) Generate() error {
@@ -67,14 +78,21 @@ func (g *Generator) generateServiceClient(p printer, service *protogen.Service) 
 		}
 	}
 
-	// Client options interface
-	g.generateClientOptionsInterface(p, service)
-
-	// Call options interface
-	g.generateCallOptionsInterface(p, service)
-
-	// Client class
-	g.generateClientClass(p, service)
+	// protobuf-es mode emits standalone, tree-shakeable per-RPC functions that
+	// take their config (baseURL/fetch/headers) per call; the hand-rolled runtime
+	// emits a configure-once client class.
+	if g.ctx.MessageRuntime == tscommon.MessageRuntimeES {
+		// Only services that declare typed headers need their own options type
+		// (extending the shared RequestOptions); the rest use the shared type.
+		if serviceHasHeaderProps(service) {
+			g.generateRequestOptionsInterface(p, service)
+		}
+		g.generateStandaloneFunctions(p, service)
+	} else {
+		g.generateClientOptionsInterface(p, service)
+		g.generateCallOptionsInterface(p, service)
+		g.generateClientClass(p, service)
+	}
 
 	_ = serviceName
 	return nil
@@ -200,6 +218,94 @@ func (g *Generator) generateConstructor(p printer, service *protogen.Service) {
 	p("  }")
 	p("")
 }
+
+// serviceHasHeaderProps reports whether the service declares any typed header
+// (service- or method-level), i.e. whether its RequestOptions needs extra typed
+// properties beyond the shared base.
+func serviceHasHeaderProps(service *protogen.Service) bool {
+	if len(annotations.GetServiceHeaders(service)) > 0 {
+		return true
+	}
+	for _, method := range service.Methods {
+		if len(annotations.GetMethodHeaders(method)) > 0 {
+			return true
+		}
+	}
+	return false
+}
+
+// esRequestOptionsType returns the options type name used in a standalone RPC
+// function's signature: the shared RequestOptions (imported from client.ts) for
+// header-less services, or the service's own {Service}RequestOptions (which
+// extends the shared base) when it declares typed headers.
+func (g *Generator) esRequestOptionsType(service *protogen.Service) string {
+	if serviceHasHeaderProps(service) {
+		return service.GoName + "RequestOptions"
+	}
+	return g.ctx.RefClient("RequestOptions", true)
+}
+
+// generateRequestOptionsInterface generates the {Service}RequestOptions interface
+// for a service that declares typed headers. It extends the shared RequestOptions
+// base (baseURL/fetch/headers/signal) and adds only the typed service-/method-
+// level header properties, so the common fields are not duplicated per service.
+func (g *Generator) generateRequestOptionsInterface(p printer, service *protogen.Service) {
+	serviceName := service.GoName
+	base := g.ctx.RefClient("RequestOptions", true)
+
+	p("export interface %sRequestOptions extends %s {", serviceName, base)
+
+	// Typed properties for service- and method-level headers (deduped).
+	seen := make(map[string]bool)
+	for _, header := range annotations.GetServiceHeaders(service) {
+		propName := headerNameToPropertyName(header.GetName())
+		if seen[propName] {
+			continue
+		}
+		seen[propName] = true
+		p("  %s?: string;", propName)
+	}
+	for _, method := range service.Methods {
+		for _, header := range annotations.GetMethodHeaders(method) {
+			propName := headerNameToPropertyName(header.GetName())
+			if seen[propName] {
+				continue
+			}
+			seen[propName] = true
+			p("  %s?: string;", propName)
+		}
+	}
+
+	p("}")
+	p("")
+}
+
+// generateStandaloneFunctions emits the protobuf-es client as one top-level
+// exported function per RPC (plus a shared, unexported handleError when needed).
+// Standalone functions let bundlers tree-shake unused RPCs — the whole service
+// is not pulled in just because one method is imported.
+func (g *Generator) generateStandaloneFunctions(p printer, service *protogen.Service) {
+	for _, method := range service.Methods {
+		g.generateRPCMethod(p, service, method)
+	}
+
+	// Shared error handler. Omitted when unreferenced (Result mode with no SSE
+	// method) so it does not trip noUnusedLocals.
+	if g.handleErrorNeeded(service) {
+		g.generateHandleError(p)
+		p("")
+	}
+}
+
+// generateESConfigPrologue emits the per-call config setup at the top of a
+// standalone protobuf-es function body: baseURL normalization and fetch
+// resolution from the required options argument.
+func (g *Generator) generateESConfigPrologue(p printer) {
+	p(`    const baseURL = options.baseURL.replace(/\/+$/, "");`)
+	p("    const fetchFn = options.fetch ?? globalThis.fetch;")
+}
+
+// rpcMethodConfig holds the configuration for generating an RPC method.
 
 // rpcMethodConfig holds the configuration for generating an RPC method.
 type rpcMethodConfig struct {
@@ -331,8 +437,15 @@ func (g *Generator) generateRPCMethod(p printer, service *protogen.Service, meth
 	}
 
 	reqParam := cfg.requestParamName()
-	p("  async %s(%s: %s, options?: %sCallOptions): Promise<%s> {",
-		tsMethodName, reqParam, inputType, cfg.serviceName, returnType)
+	if es {
+		// Standalone, tree-shakeable function; config passed per call.
+		p("export async function %s(%s: %s, options: %s): Promise<%s> {",
+			tsMethodName, reqParam, inputType, g.esRequestOptionsType(service), returnType)
+		g.generateESConfigPrologue(p)
+	} else {
+		p("  async %s(%s: %s, options?: %sCallOptions): Promise<%s> {",
+			tsMethodName, reqParam, inputType, cfg.serviceName, returnType)
+	}
 
 	// Build URL with path params
 	g.generateURLBuilding(p, cfg)
@@ -346,7 +459,11 @@ func (g *Generator) generateRPCMethod(p printer, service *protogen.Service, meth
 	// Handle response
 	g.generateResponseHandling(p, outputType, resSchema)
 
-	p("  }")
+	if es {
+		p("}")
+	} else {
+		p("  }")
+	}
 	p("")
 }
 
@@ -379,8 +496,14 @@ func (g *Generator) generateSSERPCMethod(
 	tsMethodName := annotations.LowerFirst(cfg.methodName)
 
 	reqParam := cfg.requestParamName()
-	p("  async *%s(%s: %s, options?: %sCallOptions): AsyncGenerator<%s> {",
-		tsMethodName, reqParam, inputType, cfg.serviceName, outputType)
+	if es {
+		p("export async function* %s(%s: %s, options: %s): AsyncGenerator<%s> {",
+			tsMethodName, reqParam, inputType, g.esRequestOptionsType(service), outputType)
+		g.generateESConfigPrologue(p)
+	} else {
+		p("  async *%s(%s: %s, options?: %sCallOptions): AsyncGenerator<%s> {",
+			tsMethodName, reqParam, inputType, cfg.serviceName, outputType)
+	}
 
 	// Build URL with path params
 	g.generateURLBuilding(p, cfg)
@@ -394,7 +517,11 @@ func (g *Generator) generateSSERPCMethod(
 	// SSE stream parsing
 	g.generateSSEStreamParsing(p, outputType, resSchema)
 
-	p("  }")
+	if es {
+		p("}")
+	} else {
+		p("  }")
+	}
 	p("")
 }
 
@@ -402,7 +529,9 @@ func (g *Generator) generateSSERPCMethod(
 func (g *Generator) generateSSEHeaderMerging(p printer, service *protogen.Service, method *protogen.Method) {
 	p("    const headers: Record<string, string> = {")
 	p(`      "Accept": "text/event-stream",`)
-	p("      ...this.defaultHeaders,")
+	if g.ctx.MessageRuntime != tscommon.MessageRuntimeES {
+		p("      ...%sdefaultHeaders,", g.recv())
+	}
 	p("      ...options?.headers,")
 	p("    };")
 
@@ -434,14 +563,14 @@ func (g *Generator) generateSSEFetchCall(p printer, cfg *rpcMethodConfig, reqSch
 		if reqSchema != "" {
 			body = fmt.Sprintf("JSON.stringify(toJson(%s, create(%s, req)))", reqSchema, reqSchema)
 		}
-		p("    const resp = await this.fetchFn(url, {")
+		p("    const resp = await %sfetchFn(url, {", g.recv())
 		p(`      method: "%s",`, cfg.httpMethod)
 		p("      headers,")
 		p("      body: %s,", body)
 		p("      signal: options?.signal,")
 		p("    });")
 	} else {
-		p("    const resp = await this.fetchFn(url, {")
+		p("    const resp = await %sfetchFn(url, {", g.recv())
 		p(`      method: "%s",`, cfg.httpMethod)
 		p("      headers,")
 		p("      signal: options?.signal,")
@@ -450,7 +579,7 @@ func (g *Generator) generateSSEFetchCall(p printer, cfg *rpcMethodConfig, reqSch
 	p("")
 
 	p("    if (!resp.ok) {")
-	p("      return this.handleError(resp);")
+	p("      return %shandleError(resp);", g.recv())
 	p("    }")
 	p("")
 }
@@ -498,7 +627,13 @@ func (g *Generator) resolveOutputType(method *protogen.Method) string {
 
 // generateURLBuilding generates URL construction with path and query params.
 func (g *Generator) generateURLBuilding(p printer, cfg *rpcMethodConfig) {
-	p(`    let path = "%s";`, cfg.fullPath)
+	// `path` is only reassigned when there are path params to substitute; declare
+	// it const otherwise so the generated code reflects that it never changes.
+	pathDecl := "const"
+	if len(cfg.pathParams) > 0 {
+		pathDecl = "let"
+	}
+	p(`    %s path = "%s";`, pathDecl, cfg.fullPath)
 
 	// Path parameter substitution
 	for _, param := range cfg.pathParams {
@@ -537,9 +672,9 @@ func (g *Generator) generateURLBuilding(p printer, cfg *rpcMethodConfig) {
 					qp.FieldJSONName, qp.FieldJSONName, check, qp.ParamName, qp.FieldJSONName)
 			}
 		}
-		p(`    const url = this.baseURL + path + (params.toString() ? "?" + params.toString() : "");`)
+		p(`    const url = %sbaseURL + path + (params.toString() ? "?" + params.toString() : "");`, g.recv())
 	} else {
-		p("    const url = this.baseURL + path;")
+		p("    const url = %sbaseURL + path;", g.recv())
 	}
 
 	p("")
@@ -549,7 +684,9 @@ func (g *Generator) generateURLBuilding(p printer, cfg *rpcMethodConfig) {
 func (g *Generator) generateHeaderMerging(p printer, service *protogen.Service, method *protogen.Method) {
 	p("    const headers: Record<string, string> = {")
 	p(`      "Content-Type": "application/json",`)
-	p("      ...this.defaultHeaders,")
+	if g.ctx.MessageRuntime != tscommon.MessageRuntimeES {
+		p("      ...%sdefaultHeaders,", g.recv())
+	}
 	p("      ...options?.headers,")
 	p("    };")
 
@@ -581,14 +718,14 @@ func (g *Generator) generateFetchCall(p printer, cfg *rpcMethodConfig, reqSchema
 		if reqSchema != "" {
 			body = fmt.Sprintf("JSON.stringify(toJson(%s, create(%s, req)))", reqSchema, reqSchema)
 		}
-		p("    const resp = await this.fetchFn(url, {")
+		p("    const resp = await %sfetchFn(url, {", g.recv())
 		p(`      method: "%s",`, cfg.httpMethod)
 		p("      headers,")
 		p("      body: %s,", body)
 		p("      signal: options?.signal,")
 		p("    });")
 	} else {
-		p("    const resp = await this.fetchFn(url, {")
+		p("    const resp = await %sfetchFn(url, {", g.recv())
 		p(`      method: "%s",`, cfg.httpMethod)
 		p("      headers,")
 		p("      signal: options?.signal,")
@@ -614,7 +751,7 @@ func (g *Generator) generateResponseHandling(p printer, outputType, resSchema st
 	}
 
 	p("    if (!resp.ok) {")
-	p("      return this.handleError(resp);")
+	p("      return %shandleError(resp);", g.recv())
 	p("    }")
 	p("")
 	if resSchema != "" {
@@ -624,9 +761,16 @@ func (g *Generator) generateResponseHandling(p printer, outputType, resSchema st
 	p("    return await resp.json() as %s;", outputType)
 }
 
-// generateHandleError generates the private error handler method.
+// generateHandleError generates the error handler. In the hand-rolled class it is
+// a private method; in protobuf-es mode it is a top-level (unexported) function
+// shared by the standalone RPC functions in the file.
 func (g *Generator) generateHandleError(p printer) {
-	p("  private async handleError(resp: Response): Promise<never> {")
+	es := g.ctx.MessageRuntime == tscommon.MessageRuntimeES
+	if es {
+		p("async function handleError(resp: Response): Promise<never> {")
+	} else {
+		p("  private async handleError(resp: Response): Promise<never> {")
+	}
 	p("    const body = await resp.text();")
 	p("    if (resp.status === 400) {")
 	p("      try {")
@@ -639,5 +783,9 @@ func (g *Generator) generateHandleError(p printer) {
 	p("      }")
 	p("    }")
 	p("    throw new ApiError(resp.status, `Request failed with status ${resp.status}`, body);")
-	p("  }")
+	if es {
+		p("}")
+	} else {
+		p("  }")
+	}
 }

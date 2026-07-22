@@ -26,7 +26,7 @@ export class TwoOneofsServiceClient {
   }
 
   async testTwoOneofs(req: TwoOneofs, options?: TwoOneofsServiceCallOptions): Promise<TwoOneofs> {
-    let path = "/api/v1/two-oneofs";
+    const path = "/api/v1/two-oneofs";
     const url = this.baseURL + path;
 
     const headers: Record<string, string> = {

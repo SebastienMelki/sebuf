@@ -26,7 +26,7 @@ export class MultiWordOneofServiceClient {
   }
 
   async testMultiWordEvent(req: MultiWordEvent, options?: MultiWordOneofServiceCallOptions): Promise<MultiWordEvent> {
-    let path = "/api/v1/events/multi-word";
+    const path = "/api/v1/events/multi-word";
     const url = this.baseURL + path;
 
     const headers: Record<string, string> = {

@@ -4,42 +4,23 @@
 import { create, fromJson, toJson, type MessageInitShape } from "@bufbuild/protobuf";
 import { decodeError } from "./result.js";
 import { AccountSchema, GetAccountRequestSchema, LoginRequestSchema } from "./result_errors_pb.js";
+import type { RequestOptions } from "./client.js";
 import type { ClientError, Result } from "./result.js";
 import type { Account } from "./result_errors_pb.js";
 
-export interface AccountServiceClientOptions {
-  fetch?: typeof fetch;
-  defaultHeaders?: Record<string, string>;
-}
-
-export interface AccountServiceCallOptions {
-  headers?: Record<string, string>;
-  signal?: AbortSignal;
-}
-
-export class AccountServiceClient {
-  private baseURL: string;
-  private fetchFn: typeof fetch;
-  private defaultHeaders: Record<string, string>;
-
-  constructor(baseURL: string, options?: AccountServiceClientOptions) {
-    this.baseURL = baseURL.replace(/\/+$/, "");
-    this.fetchFn = options?.fetch ?? globalThis.fetch;
-    this.defaultHeaders = { ...options?.defaultHeaders };
-  }
-
-  async getAccount(req: MessageInitShape<typeof GetAccountRequestSchema>, options?: AccountServiceCallOptions): Promise<Result<Account, ClientError>> {
+export async function getAccount(req: MessageInitShape<typeof GetAccountRequestSchema>, options: RequestOptions): Promise<Result<Account, ClientError>> {
+    const baseURL = options.baseURL.replace(/\/+$/, "");
+    const fetchFn = options.fetch ?? globalThis.fetch;
     let path = "/api/v1/accounts/{id}";
     path = path.replace("{id}", encodeURIComponent(String(req.id)));
-    const url = this.baseURL + path;
+    const url = baseURL + path;
 
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
-      ...this.defaultHeaders,
       ...options?.headers,
     };
 
-    const resp = await this.fetchFn(url, {
+    const resp = await fetchFn(url, {
       method: "GET",
       headers,
       signal: options?.signal,
@@ -50,19 +31,20 @@ export class AccountServiceClient {
     }
 
     return { ok: true, data: fromJson(AccountSchema, await resp.json(), { ignoreUnknownFields: true }) };
-  }
+}
 
-  async login(req: MessageInitShape<typeof LoginRequestSchema>, options?: AccountServiceCallOptions): Promise<Result<Account, ClientError>> {
-    let path = "/api/v1/login";
-    const url = this.baseURL + path;
+export async function login(req: MessageInitShape<typeof LoginRequestSchema>, options: RequestOptions): Promise<Result<Account, ClientError>> {
+    const baseURL = options.baseURL.replace(/\/+$/, "");
+    const fetchFn = options.fetch ?? globalThis.fetch;
+    const path = "/api/v1/login";
+    const url = baseURL + path;
 
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
-      ...this.defaultHeaders,
       ...options?.headers,
     };
 
-    const resp = await this.fetchFn(url, {
+    const resp = await fetchFn(url, {
       method: "POST",
       headers,
       body: JSON.stringify(toJson(LoginRequestSchema, create(LoginRequestSchema, req))),
@@ -74,7 +56,5 @@ export class AccountServiceClient {
     }
 
     return { ok: true, data: fromJson(AccountSchema, await resp.json(), { ignoreUnknownFields: true }) };
-  }
-
 }
 

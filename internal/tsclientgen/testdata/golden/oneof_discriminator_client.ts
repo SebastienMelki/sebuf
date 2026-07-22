@@ -26,7 +26,7 @@ export class OneofDiscriminatorServiceClient {
   }
 
   async testFlattenedEvent(req: FlattenedEvent, options?: OneofDiscriminatorServiceCallOptions): Promise<FlattenedEvent> {
-    let path = "/api/v1/events/flattened";
+    const path = "/api/v1/events/flattened";
     const url = this.baseURL + path;
 
     const headers: Record<string, string> = {
@@ -50,7 +50,7 @@ export class OneofDiscriminatorServiceClient {
   }
 
   async testNestedEvent(req: NestedEvent, options?: OneofDiscriminatorServiceCallOptions): Promise<NestedEvent> {
-    let path = "/api/v1/events/nested";
+    const path = "/api/v1/events/nested";
     const url = this.baseURL + path;
 
     const headers: Record<string, string> = {
@@ -74,7 +74,7 @@ export class OneofDiscriminatorServiceClient {
   }
 
   async testPlainEvent(req: PlainEvent, options?: OneofDiscriminatorServiceCallOptions): Promise<PlainEvent> {
-    let path = "/api/v1/events/plain";
+    const path = "/api/v1/events/plain";
     const url = this.baseURL + path;
 
     const headers: Record<string, string> = {

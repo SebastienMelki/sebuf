@@ -26,7 +26,7 @@ export class OneofFieldTypingServiceClient {
   }
 
   async testOneofFieldTyping(req: OneofFieldTyping, options?: OneofFieldTypingServiceCallOptions): Promise<OneofFieldTyping> {
-    let path = "/api/v1/oneof-field-typing";
+    const path = "/api/v1/oneof-field-typing";
     const url = this.baseURL + path;
 
     const headers: Record<string, string> = {

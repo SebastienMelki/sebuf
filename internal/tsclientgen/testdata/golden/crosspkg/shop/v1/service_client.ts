@@ -26,7 +26,7 @@ export class ShopServiceClient {
   }
 
   async getItem(req: GetItemRequest, options?: ShopServiceCallOptions): Promise<GetItemResponse> {
-    let path = "/api/v1/get-item";
+    const path = "/api/v1/get-item";
     const url = this.baseURL + path;
 
     const headers: Record<string, string> = {

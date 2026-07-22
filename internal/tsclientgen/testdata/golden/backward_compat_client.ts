@@ -26,7 +26,7 @@ export class NoAnnotationsServiceClient {
   }
 
   async simpleAction(req: SimpleRequest, options?: NoAnnotationsServiceCallOptions): Promise<SimpleResponse> {
-    let path = "/simpleAction";
+    const path = "/simpleAction";
     const url = this.baseURL + path;
 
     const headers: Record<string, string> = {
@@ -50,7 +50,7 @@ export class NoAnnotationsServiceClient {
   }
 
   async anotherAction(req: AnotherRequest, options?: NoAnnotationsServiceCallOptions): Promise<AnotherResponse> {
-    let path = "/anotherAction";
+    const path = "/anotherAction";
     const url = this.baseURL + path;
 
     const headers: Record<string, string> = {
@@ -111,7 +111,7 @@ export class BasePathOnlyServiceClient {
   }
 
   async actionOne(req: ActionRequest, options?: BasePathOnlyServiceCallOptions): Promise<ActionResponse> {
-    let path = "/api/v2/actionOne";
+    const path = "/api/v2/actionOne";
     const url = this.baseURL + path;
 
     const headers: Record<string, string> = {
@@ -135,7 +135,7 @@ export class BasePathOnlyServiceClient {
   }
 
   async actionTwo(req: ActionRequest, options?: BasePathOnlyServiceCallOptions): Promise<ActionResponse> {
-    let path = "/api/v2/actionTwo";
+    const path = "/api/v2/actionTwo";
     const url = this.baseURL + path;
 
     const headers: Record<string, string> = {

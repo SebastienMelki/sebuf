@@ -15,6 +15,11 @@ func (g *Generator) generateModules() error {
 	if err != nil {
 		return err
 	}
+	// In protobuf-es mode the standalone RPC functions share a base RequestOptions
+	// interface; emit the shared client.ts once.
+	if g.runtime == tscommon.MessageRuntimeES {
+		tscommon.EmitClientModule(g.plugin)
+	}
 	// In protobuf-es + Result mode the client returns a typed Result union and
 	// never throws; emit the shared result.ts (Result type, ClientError union,
 	// decodeError) that the client modules import.
