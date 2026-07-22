@@ -11,7 +11,9 @@ import (
 // its request/response types and the error helpers, then a per-package barrel
 // (index.ts) re-exporting each package directory's modules.
 func (g *Generator) generateModules() error {
-	moduleFiles, err := tscommon.EmitSharedModules(g.plugin)
+	moduleFiles, err := tscommon.EmitSharedModulesWithOptions(g.plugin, tscommon.GenerateOptions{
+		UseProtoFieldNames: g.useProtoFieldNames(),
+	})
 	if err != nil {
 		return err
 	}
@@ -33,7 +35,11 @@ func (g *Generator) emitClientModule(file *protogen.File) string {
 	module := file.GeneratedFilenamePrefix + "_client"
 	gf := g.plugin.NewGeneratedFile(module+".ts", "")
 	tracker := tscommon.NewImportTracker()
-	g.ctx = &tscommon.EmitContext{SelfModule: module, Imports: tracker}
+	g.ctx = &tscommon.EmitContext{
+		SelfModule:         module,
+		Imports:            tracker,
+		UseProtoFieldNames: g.useProtoFieldNames(),
+	}
 	defer func() { g.ctx = nil }()
 
 	var body []string
