@@ -74,6 +74,7 @@ func (g *Generator) generatePackage(pkg *contractmodel.Package) error {
 	gf.P("#nullable enable")
 	gf.P("using System;")
 	gf.P("using System.Collections.Generic;")
+	gf.P("using System.Globalization;")
 	gf.P("using System.Linq;")
 	gf.P("using System.Net.Http;")
 	gf.P("using System.Runtime.Serialization;")
@@ -542,9 +543,10 @@ func (g *Generator) generateServiceClientMethod(
 	gf.P("            }")
 	gf.P(`            var path = "`, method.Path, `";`)
 	for _, pathParam := range method.PathParams {
+		pathField := requestFieldByName(requestMessage, pathParam)
 		gf.P(
 			`            path = path.Replace("{`, pathParam, `}", Uri.EscapeDataString(FormatPathValue(req.`,
-			pascalCase(pathParam), ")));",
+			pascalCase(pathParam), csharpWireFormatArgs(pathField), ")));",
 		)
 	}
 	if requestMessage != nil {
@@ -597,7 +599,7 @@ func (g *Generator) generateQueryString(
 			gf.P(
 				`                    query.Add(Uri.EscapeDataString("`,
 				paramName,
-				`") + "=" + Uri.EscapeDataString(FormatQueryValue(item)));`,
+				`") + "=" + Uri.EscapeDataString(FormatQueryValue(item`, csharpWireFormatArgs(field), ")));",
 			)
 			gf.P("                }")
 			gf.P("            }")
@@ -609,7 +611,7 @@ func (g *Generator) generateQueryString(
 			`                query.Add(Uri.EscapeDataString("`,
 			paramName,
 			`") + "=" + Uri.EscapeDataString(FormatQueryValue(req.`,
-			prop,
+			prop, csharpWireFormatArgs(field),
 			")));",
 		)
 		gf.P("            }")
@@ -2386,16 +2388,63 @@ func bytesEncodingName(encoding sebufhttp.BytesEncoding) string {
 }
 
 func (g *Generator) generatePathAndQueryHelpers(gf *protogen.GeneratedFile) {
-	gf.P("        private static string FormatPathValue(object? value)")
+	gf.P("        private static string FormatPathValue(object? value, Type? enumType = null, bool enumAsNumber = false)")
 	gf.P("        {")
-	gf.P(`            return value?.ToString() ?? string.Empty;`)
+	gf.P("            return FormatWireValue(value, enumType, enumAsNumber);")
 	gf.P("        }")
 	gf.P()
-	gf.P("        private static string FormatQueryValue(object? value)")
+	gf.P("        private static string FormatQueryValue(object? value, Type? enumType = null, bool enumAsNumber = false)")
 	gf.P("        {")
-	gf.P(`            return value?.ToString() ?? string.Empty;`)
+	gf.P("            return FormatWireValue(value, enumType, enumAsNumber);")
 	gf.P("        }")
 	gf.P()
+	gf.P("        private static string FormatWireValue(object? value, Type? enumType, bool enumAsNumber)")
+	gf.P("        {")
+	gf.P("            if (value is null)")
+	gf.P("            {")
+	gf.P("                return string.Empty;")
+	gf.P("            }")
+	gf.P("            if (enumType is not null)")
+	gf.P("            {")
+	gf.P("                if (enumAsNumber)")
+	gf.P("                {")
+	gf.P("                    return Convert.ToInt64(value, CultureInfo.InvariantCulture).ToString(CultureInfo.InvariantCulture);")
+	gf.P("                }")
+	gf.P("                var name = Enum.GetName(enumType, value) ?? Convert.ToInt64(value, CultureInfo.InvariantCulture).ToString(CultureInfo.InvariantCulture);")
+	gf.P("                var member = enumType.GetMember(name).FirstOrDefault();")
+	gf.P("                var mapping = member?.GetCustomAttributes(typeof(EnumMemberAttribute), false)")
+	gf.P("                    .OfType<EnumMemberAttribute>().FirstOrDefault()?.Value;")
+	gf.P("                return mapping ?? name;")
+	gf.P("            }")
+	gf.P("            if (value is bool boolean)")
+	gf.P("            {")
+	gf.P(`                return boolean ? "true" : "false";`)
+	gf.P("            }")
+	gf.P("            return value is IFormattable formattable")
+	gf.P("                ? formattable.ToString(null, CultureInfo.InvariantCulture) ?? string.Empty")
+	gf.P("                : value.ToString() ?? string.Empty;")
+	gf.P("        }")
+	gf.P()
+}
+
+func requestFieldByName(message *contractmodel.Message, name string) *contractmodel.Field {
+	if message == nil {
+		return nil
+	}
+	for _, field := range message.Fields {
+		if field.Name == name {
+			return field
+		}
+	}
+	return nil
+}
+
+func csharpWireFormatArgs(field *contractmodel.Field) string {
+	ref := enumTypeRef(field)
+	if ref == nil {
+		return ""
+	}
+	return ", typeof(" + ref.Name + "), " + fmt.Sprintf("%t", field.Annotations.EnumEncoding == sebufhttp.EnumEncoding_ENUM_ENCODING_NUMBER)
 }
 
 func serviceCallHeaders(service *contractmodel.Service) []*contractmodel.Header {
@@ -2880,15 +2929,24 @@ func csharpWellKnownType(field *contractmodel.Field) string {
 func csharpScalar(field *contractmodel.Field) string {
 	kind := field.Type.Name
 	switch kind {
-	case csharpDoubleType, "float":
+	case csharpDoubleType:
 		return csharpDoubleType
-	case "int64", "uint64", "fixed64", "sfixed64", "sint64":
+	case "float":
+		return "float"
+	case "int64", "sfixed64", "sint64":
 		if field.Annotations.Int64Encoding != sebufhttp.Int64Encoding_INT64_ENCODING_NUMBER {
 			return csharpStringType
 		}
 		return csharpLongType
-	case "int32", "fixed32", "uint32", "sfixed32", "sint32":
+	case "uint64", "fixed64":
+		if field.Annotations.Int64Encoding != sebufhttp.Int64Encoding_INT64_ENCODING_NUMBER {
+			return csharpStringType
+		}
+		return "ulong"
+	case "int32", "sfixed32", "sint32":
 		return "int"
+	case "uint32", "fixed32":
+		return "uint"
 	case csharpBoolType:
 		return csharpBoolType
 	case csharpStringType:

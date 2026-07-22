@@ -2,6 +2,7 @@
 #nullable enable
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Net.Http;
 using System.Runtime.Serialization;
@@ -891,14 +892,41 @@ namespace Test.Contracts
             return value + new string('=', 4 - remainder);
         }
 
-        private static string FormatPathValue(object? value)
+        private static string FormatPathValue(object? value, Type? enumType = null, bool enumAsNumber = false)
         {
-            return value?.ToString() ?? string.Empty;
+            return FormatWireValue(value, enumType, enumAsNumber);
         }
 
-        private static string FormatQueryValue(object? value)
+        private static string FormatQueryValue(object? value, Type? enumType = null, bool enumAsNumber = false)
         {
-            return value?.ToString() ?? string.Empty;
+            return FormatWireValue(value, enumType, enumAsNumber);
+        }
+
+        private static string FormatWireValue(object? value, Type? enumType, bool enumAsNumber)
+        {
+            if (value is null)
+            {
+                return string.Empty;
+            }
+            if (enumType is not null)
+            {
+                if (enumAsNumber)
+                {
+                    return Convert.ToInt64(value, CultureInfo.InvariantCulture).ToString(CultureInfo.InvariantCulture);
+                }
+                var name = Enum.GetName(enumType, value) ?? Convert.ToInt64(value, CultureInfo.InvariantCulture).ToString(CultureInfo.InvariantCulture);
+                var member = enumType.GetMember(name).FirstOrDefault();
+                var mapping = member?.GetCustomAttributes(typeof(EnumMemberAttribute), false)
+                    .OfType<EnumMemberAttribute>().FirstOrDefault()?.Value;
+                return mapping ?? name;
+            }
+            if (value is bool boolean)
+            {
+                return boolean ? "true" : "false";
+            }
+            return value is IFormattable formattable
+                ? formattable.ToString(null, CultureInfo.InvariantCulture) ?? string.Empty
+                : value.ToString() ?? string.Empty;
         }
 
     }
@@ -1494,14 +1522,41 @@ namespace Test.Contracts
             return value + new string('=', 4 - remainder);
         }
 
-        private static string FormatPathValue(object? value)
+        private static string FormatPathValue(object? value, Type? enumType = null, bool enumAsNumber = false)
         {
-            return value?.ToString() ?? string.Empty;
+            return FormatWireValue(value, enumType, enumAsNumber);
         }
 
-        private static string FormatQueryValue(object? value)
+        private static string FormatQueryValue(object? value, Type? enumType = null, bool enumAsNumber = false)
         {
-            return value?.ToString() ?? string.Empty;
+            return FormatWireValue(value, enumType, enumAsNumber);
+        }
+
+        private static string FormatWireValue(object? value, Type? enumType, bool enumAsNumber)
+        {
+            if (value is null)
+            {
+                return string.Empty;
+            }
+            if (enumType is not null)
+            {
+                if (enumAsNumber)
+                {
+                    return Convert.ToInt64(value, CultureInfo.InvariantCulture).ToString(CultureInfo.InvariantCulture);
+                }
+                var name = Enum.GetName(enumType, value) ?? Convert.ToInt64(value, CultureInfo.InvariantCulture).ToString(CultureInfo.InvariantCulture);
+                var member = enumType.GetMember(name).FirstOrDefault();
+                var mapping = member?.GetCustomAttributes(typeof(EnumMemberAttribute), false)
+                    .OfType<EnumMemberAttribute>().FirstOrDefault()?.Value;
+                return mapping ?? name;
+            }
+            if (value is bool boolean)
+            {
+                return boolean ? "true" : "false";
+            }
+            return value is IFormattable formattable
+                ? formattable.ToString(null, CultureInfo.InvariantCulture) ?? string.Empty
+                : value.ToString() ?? string.Empty;
         }
 
     }

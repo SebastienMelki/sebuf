@@ -120,6 +120,34 @@ func TestCSharpTypeMappings(t *testing.T) {
 		t.Fatalf("number int64 csharpType = %q, want %q", got, "long")
 	}
 
+	for _, tt := range []struct {
+		name     string
+		encoding sebufhttp.Int64Encoding
+		want     string
+	}{
+		{name: "float", want: "float"},
+		{name: "uint32", want: "uint"},
+		{name: "fixed32", want: "uint"},
+		{name: "uint64", want: "string"},
+		{name: "fixed64", want: "string"},
+		{name: "uint64_number", encoding: sebufhttp.Int64Encoding_INT64_ENCODING_NUMBER, want: "ulong"},
+		{name: "fixed64_number", encoding: sebufhttp.Int64Encoding_INT64_ENCODING_NUMBER, want: "ulong"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			fieldName := strings.TrimSuffix(tt.name, "_number")
+			field := &contractmodel.Field{
+				Name: fieldName,
+				Type: &contractmodel.TypeRef{Kind: contractmodel.KindScalar, Name: fieldName},
+				Annotations: contractmodel.FieldAnnotations{
+					Int64Encoding: tt.encoding,
+				},
+			}
+			if got := csharpType(field); got != tt.want {
+				t.Fatalf("%s csharpType = %q, want %q", tt.name, got, tt.want)
+			}
+		})
+	}
+
 	timestampString := &contractmodel.Field{
 		Name: "created_at",
 		Type: &contractmodel.TypeRef{Kind: contractmodel.KindWellKnown, WellKnown: contractmodel.WellKnownTimestamp},
@@ -1076,6 +1104,58 @@ func TestCSharpGenSSEMethodFailsExplicitly(t *testing.T) {
 	}
 	if strings.Contains(output, "SendAsync<Event>(HttpMethod.Get") {
 		t.Fatalf("SSE method must not be generated as a JSON request:\n%s", output)
+	}
+}
+
+func TestCSharpWireFormattingIsInvariantAndHonorsEnumEncoding(t *testing.T) {
+	plugin := newCSharpTestPlugin(t)
+	gen := New(plugin, Options{Namespace: "Test.Contracts", JSONLib: "system_text_json"})
+	enumRef := &contractmodel.TypeRef{Kind: contractmodel.KindEnum, Name: "Mode"}
+	pkg := &contractmodel.Package{
+		Name: "test.wire",
+		Enums: []*contractmodel.Enum{{
+			Name: "Mode",
+			Values: []*contractmodel.EnumValue{
+				{Name: "MODE_UNSPECIFIED", JSONValue: "MODE_UNSPECIFIED", Number: 0},
+				{Name: "MODE_READY", JSONValue: "ready-wire", Number: 1},
+			},
+		}},
+		Messages: []*contractmodel.Message{{
+			Name: "WireRequest",
+			Fields: []*contractmodel.Field{
+				{Name: "mode", Type: enumRef, Annotations: contractmodel.FieldAnnotations{EnumEncoding: sebufhttp.EnumEncoding_ENUM_ENCODING_STRING, Query: &contractmodel.Query{Name: "mode"}}},
+				{Name: "numeric_mode", Type: enumRef, Annotations: contractmodel.FieldAnnotations{EnumEncoding: sebufhttp.EnumEncoding_ENUM_ENCODING_NUMBER, Query: &contractmodel.Query{Name: "numeric_mode"}}},
+				{Name: "enabled", Type: &contractmodel.TypeRef{Kind: contractmodel.KindScalar, Name: "bool"}, Annotations: contractmodel.FieldAnnotations{Query: &contractmodel.Query{Name: "enabled"}}},
+				{Name: "ratio", Type: &contractmodel.TypeRef{Kind: contractmodel.KindScalar, Name: "float"}, Annotations: contractmodel.FieldAnnotations{Query: &contractmodel.Query{Name: "ratio"}}},
+				{Name: "max_u32", Type: &contractmodel.TypeRef{Kind: contractmodel.KindScalar, Name: "uint32"}, Annotations: contractmodel.FieldAnnotations{Query: &contractmodel.Query{Name: "max_u32"}}},
+				{Name: "max_u64", Type: &contractmodel.TypeRef{Kind: contractmodel.KindScalar, Name: "uint64"}, Annotations: contractmodel.FieldAnnotations{Int64Encoding: sebufhttp.Int64Encoding_INT64_ENCODING_NUMBER, Query: &contractmodel.Query{Name: "max_u64"}}},
+			},
+		}},
+		Services: []*contractmodel.Service{{
+			Name: "WireService",
+			Methods: []*contractmodel.Method{{
+				Name: "GetWire", InputType: "WireRequest", ResponseType: "WireRequest", HTTPMethod: "GET", Path: "/wire/{mode}", PathParams: []string{"mode"},
+			}},
+		}},
+	}
+	if err := gen.generatePackage(pkg); err != nil {
+		t.Fatalf("generatePackage() error = %v", err)
+	}
+	output := generatedCSharpContent(t, plugin, "test/wire/Contracts.g.cs")
+	for _, want := range []string{
+		"public float Ratio { get; set; }",
+		"public uint MaxU32 { get; set; }",
+		"public ulong MaxU64 { get; set; }",
+		`FormatPathValue(req.Mode, typeof(Mode), false)`,
+		`FormatQueryValue(req.NumericMode, typeof(Mode), true)`,
+		"using System.Globalization;",
+		`return boolean ? "true" : "false";`,
+		"formattable.ToString(null, CultureInfo.InvariantCulture)",
+		"mapping ?? name;",
+	} {
+		if !strings.Contains(output, want) {
+			t.Fatalf("generated wire formatting missing %q:\n%s", want, output)
+		}
 	}
 }
 

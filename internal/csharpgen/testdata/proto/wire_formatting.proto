@@ -1,0 +1,42 @@
+syntax = "proto3";
+
+package test.wire.v1;
+
+option go_package = "github.com/SebastienMelki/sebuf/internal/testwire;testwire";
+
+import "sebuf/http/annotations.proto";
+
+enum Mode {
+  MODE_UNSPECIFIED = 0;
+  MODE_READY = 1 [(sebuf.http.enum_value) = "ready-wire"];
+}
+
+message GetWireRequest {
+  Mode mode = 1 [(sebuf.http.query) = { name: "mode" }];
+  Mode numeric_mode = 2 [
+    (sebuf.http.enum_encoding) = ENUM_ENCODING_NUMBER,
+    (sebuf.http.query) = { name: "numeric_mode" }
+  ];
+  bool enabled = 3 [(sebuf.http.query) = { name: "enabled" }];
+  float ratio = 4 [(sebuf.http.query) = { name: "ratio" }];
+  uint32 max_u32 = 5 [(sebuf.http.query) = { name: "max_u32" }];
+  uint64 max_u64 = 6 [
+    (sebuf.http.int64_encoding) = INT64_ENCODING_NUMBER,
+    (sebuf.http.query) = { name: "max_u64" }
+  ];
+}
+
+message WireResponse {}
+
+// The generated transport has a shared empty-response fast path named Empty.
+// Keep this fixture self-contained while exercising a non-empty response.
+message Empty {}
+
+service WireService {
+  rpc GetWire(GetWireRequest) returns (WireResponse) {
+    option (sebuf.http.config) = {
+      method: HTTP_METHOD_GET
+      path: "/wire/{mode}"
+    };
+  }
+}

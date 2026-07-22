@@ -85,6 +85,49 @@ func assertCrossPackageOutput(t *testing.T, outputDir string) {
 	}
 }
 
+func TestGeneratedWireFormattingIsInvariant(t *testing.T) {
+	if _, err := exec.LookPath("protoc"); err != nil {
+		t.Skip("protoc not found; generated C# runtime validation requires protoc")
+	}
+	if _, err := exec.LookPath("dotnet"); err != nil {
+		t.Skip("dotnet SDK not found; generated C# runtime validation requires dotnet")
+	}
+
+	workingDir, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("get working directory: %v", err)
+	}
+	projectRoot := filepath.Join(workingDir, "..", "..")
+	protoDir := filepath.Join(workingDir, "testdata", "proto")
+	pluginPath := plugintest.Build(t, projectRoot, "protoc-gen-csharp-http")
+	outputDir := t.TempDir()
+	args := []string{
+		"--plugin=protoc-gen-csharp-http=" + pluginPath,
+		"--csharp-http_out=" + outputDir,
+		"--csharp-http_opt=namespace=Test.Wire,json_lib=system_text_json",
+		"--proto_path=" + protoDir,
+		"--proto_path=" + filepath.Join(projectRoot, "proto"),
+		"wire_formatting.proto",
+	}
+	cmd := exec.Command("protoc", args...)
+	cmd.Dir = protoDir
+	if output, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("protoc generation: %v\n%s", err, output)
+	}
+	writeCompileProject(t, outputDir, "system_text_json")
+	writeWireFormattingProgram(t, outputDir)
+	cmd = exec.Command("dotnet", "restore", "Compile.csproj", "--nologo", "--ignore-failed-sources")
+	cmd.Dir = outputDir
+	if output, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("restore generated invariant wire-formatting runtime test: %v\n%s", err, output)
+	}
+	cmd = exec.Command("dotnet", "run", "--project", "Compile.csproj", "--no-restore", "--nologo", "--verbosity", "minimal")
+	cmd.Dir = outputDir
+	if output, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("generated invariant wire-formatting runtime test failed: %v\n%s", err, output)
+	}
+}
+
 func runProtoc(t *testing.T, protoDir, projectRoot, pluginPath, outputDir, jsonLib string) {
 	t.Helper()
 	args := []string{
@@ -130,5 +173,69 @@ func writeCompileProject(t *testing.T, outputDir, jsonLib string) {
 `, packageReference)
 	if err := os.WriteFile(filepath.Join(outputDir, "Compile.csproj"), []byte(project), 0o644); err != nil {
 		t.Fatalf("write C# compile project: %v", err)
+	}
+}
+
+func writeWireFormattingProgram(t *testing.T, outputDir string) {
+	t.Helper()
+	projectPath := filepath.Join(outputDir, "Compile.csproj")
+	project, err := os.ReadFile(projectPath)
+	if err != nil {
+		t.Fatalf("read runtime compile project: %v", err)
+	}
+	project = bytes.Replace(project, []byte("<TargetFramework>net8.0</TargetFramework>"), []byte("<TargetFramework>net10.0</TargetFramework>\n    <OutputType>Exe</OutputType>\n    <UseAppHost>false</UseAppHost>"), 1)
+	if err := os.WriteFile(projectPath, project, 0o644); err != nil {
+		t.Fatalf("set runtime compile project output type: %v", err)
+	}
+	const program = `using System;
+using System.Globalization;
+using System.Net;
+using System.Net.Http;
+using System.Threading;
+using System.Threading.Tasks;
+using Test.Wire;
+
+sealed class CaptureHandler : HttpMessageHandler
+{
+    public Uri? RequestUri { get; private set; }
+    protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+    {
+        RequestUri = request.RequestUri;
+        return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StringContent("{}")
+        });
+    }
+}
+
+static class Program
+{
+    static async Task Main()
+    {
+        CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("de-DE");
+        var handler = new CaptureHandler();
+        var client = new WireServiceClient("https://example.test", new WireServiceClientOptions
+        {
+            HttpClient = new HttpClient(handler)
+        });
+        await client.GetWireAsync(new GetWireRequest
+        {
+            Mode = Mode.ModeReady,
+            NumericMode = Mode.ModeReady,
+            Enabled = true,
+            Ratio = 1.5f,
+            MaxU32 = uint.MaxValue,
+            MaxU64 = ulong.MaxValue
+        });
+        const string expected = "/wire/ready-wire?mode=ready-wire&numeric_mode=1&enabled=true&ratio=1.5&max_u32=4294967295&max_u64=18446744073709551615";
+        if (handler.RequestUri?.PathAndQuery != expected)
+        {
+            throw new InvalidOperationException($"Expected {expected}, got {handler.RequestUri?.PathAndQuery}");
+        }
+    }
+}
+`
+	if err := os.WriteFile(filepath.Join(outputDir, "Program.cs"), []byte(program), 0o644); err != nil {
+		t.Fatalf("write invariant wire-formatting program: %v", err)
 	}
 }
