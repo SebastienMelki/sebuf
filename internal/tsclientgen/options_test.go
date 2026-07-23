@@ -10,14 +10,16 @@ import (
 	"github.com/SebastienMelki/sebuf/internal/tscommon/plugintest"
 )
 
-var allMessageFixture = []string{
-	"allmessages/v1/messages.proto",
-	"allmessages/v1/service.proto",
+func allMessageFixture() []string {
+	return []string{
+		"allmessages/v1/messages.proto",
+		"allmessages/v1/service.proto",
+	}
 }
 
 func TestGenerateEmitsEveryDeclarationFromMessageOnlyCrossFile(t *testing.T) {
 	protoDir, projectRoot := tsClientTestDirs(t)
-	plugin := buildInProcessPlugin(t, protoDir, projectRoot, allMessageFixture)
+	plugin := buildInProcessPlugin(t, protoDir, projectRoot, allMessageFixture())
 
 	if err := New(plugin).Generate(); err != nil {
 		t.Fatalf("Generate() failed: %v", err)
@@ -39,7 +41,7 @@ func TestGenerateEmitsEveryDeclarationFromMessageOnlyCrossFile(t *testing.T) {
 
 func TestFieldNamesProtoCoversTypesPathAndQueryAccess(t *testing.T) {
 	protoDir, projectRoot := tsClientTestDirs(t)
-	plugin := buildInProcessPlugin(t, protoDir, projectRoot, allMessageFixture)
+	plugin := buildInProcessPlugin(t, protoDir, projectRoot, allMessageFixture())
 
 	gen := NewWithOptions(plugin, Options{FieldNames: protoFieldNames})
 	if err := gen.Generate(); err != nil {
@@ -73,7 +75,7 @@ func TestFieldNamesProtoCoversTypesPathAndQueryAccess(t *testing.T) {
 
 func TestFieldNamesRejectsUnknownValue(t *testing.T) {
 	protoDir, projectRoot := tsClientTestDirs(t)
-	plugin := buildInProcessPlugin(t, protoDir, projectRoot, allMessageFixture)
+	plugin := buildInProcessPlugin(t, protoDir, projectRoot, allMessageFixture())
 
 	err := NewWithOptions(plugin, Options{FieldNames: "invalid"}).Generate()
 	if err == nil || !strings.Contains(err.Error(), "field_names must be json or proto") {
@@ -92,7 +94,7 @@ func TestFieldNamesProtoPluginOption(t *testing.T) {
 		"--proto_path=" + protoDir,
 		"--proto_path=" + filepath.Join(projectRoot, "proto"),
 	}
-	args = append(args, allMessageFixture...)
+	args = append(args, allMessageFixture()...)
 	cmd := exec.Command("protoc", args...)
 	cmd.Dir = protoDir
 	if output, err := cmd.CombinedOutput(); err != nil {
@@ -108,7 +110,7 @@ func TestFieldNamesProtoPluginOption(t *testing.T) {
 	}
 }
 
-func tsClientTestDirs(t *testing.T) (protoDir, projectRoot string) {
+func tsClientTestDirs(t *testing.T) (string, string) {
 	t.Helper()
 	baseDir, err := os.Getwd()
 	if err != nil {
