@@ -778,6 +778,76 @@ set the `EmitDefaultValues` flag. That flag is therefore not needed for
 TypeScript correctness in this mode (unknown/extra fields on the wire are also
 ignored rather than causing an error).
 
+### Typed Result returns (`ts_error_handling=result`)
+
+By default a generated es-mode client method returns the decoded message and
+**throws** on failure (`ValidationError` / `ApiError`). Passing the additional
+plugin option **`ts_error_handling=result`** (es-mode only — it fails loud
+without `ts_runtime=protobuf-es`) switches **unary** methods to **return a typed
+discriminated `Result`** instead of throwing, so error handling is checked by the
+compiler:
+
+```yaml
+  - local: protoc-gen-ts-client
+    out: ./generated
+    opt:
+      - paths=source_relative
+      - ts_runtime=protobuf-es
+      - ts_error_handling=result
+    strategy: all
+```
+
+Each unary method returns `Promise<Result<T, ClientError>>`:
+
+```ts
+export type Result<T, E> =
+  | { ok: true; data: T; error?: undefined }
+  | { ok: false; data?: undefined; error: E };
+```
+
+`ok` is the discriminant, and `data` / `error` are always present (the inactive
+one `undefined`), so you can narrow on `r.ok` **or** destructure
+`const { data, error }`.
+
+`ClientError` is the union of the two built-ins plus **every proto-defined
+`*Error` message** in the schema. sebuf has no per-RPC error declaration (any
+handler may return any `*Error`), so — mirroring the Python client — a shared
+`result.ts` carries a structural registry and a `decodeError` that picks the
+first `*Error` whose JSON marker keys are all present in the body (400-with-
+`violations` → `ValidationError`; no match → `ApiError`). Disambiguation relies
+on each `*Error` having a **distinct, non-empty** field set; a zero-field
+`*Error` message is skipped at match time so it never shadows the errors after
+it in the registry. Proto errors are protobuf-es messages, so they carry a
+`$typeName` discriminant:
+
+```ts
+const r = await client.getAccount({ id });
+if (!r.ok) {
+  const e = r.error;
+  if (e instanceof ValidationError) {
+    console.log(e.violations);
+  } else if (e instanceof ApiError) {
+    console.log(e.statusCode, e.body);
+  } else {
+    switch (e.$typeName) {
+      case "test.resulterr.NotFoundError":
+        console.log(e.resourceType, e.resourceId);
+        break;
+      case "test.resulterr.LoginError":
+        console.log(e.reason, e.retryAfterSeconds);
+        break;
+    }
+  }
+  return;
+}
+r.data; // Account (typed, non-null)
+```
+
+**Scope:** unary methods only. **SSE** methods keep their `AsyncGenerator<T>`
+shape and still throw on a failed stream-open (the single-`Result` shape doesn't
+fit a stream). Hand-rolled mode and the default (throwing) es-mode are
+unchanged.
+
 ### Known limitations
 
 - **`sebuf.http` JSON-mapping annotations are not honored (fail-loud).** As
