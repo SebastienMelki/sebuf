@@ -648,6 +648,224 @@ try {
 
 The proto definition serves as the single source of truth for error shapes — both server and client use the same generated interface for type safety across the wire.
 
+## protobuf-es runtime (TypeScript)
+
+By default the TypeScript generators emit their own plain-interface types (the
+per-proto type module `<proto>.ts` described above). Passing
+`ts_runtime=protobuf-es` switches both the client and server generators into
+**protobuf-es transport mode**: instead of declaring their own interfaces, they
+consume the message types and schemas emitted by
+[`protoc-gen-es`](https://github.com/bufbuild/protobuf-es) (the `<proto>_pb.ts`
+files) and serialize on the wire through protobuf-es's `fromJson`/`toJson`. This
+gives you protobuf-es's spec-compliant **canonical proto3 JSON** encoding
+(defaults, `bigint`, oneofs, well-known types) for free, shared across your whole
+app.
+
+> **Wire contract — read this before enabling es-mode.** es-mode speaks
+> **canonical protojson** and applies **none** of sebuf's `sebuf.http`
+> JSON-mapping annotations (`unwrap`, `oneof_config` flatten, `flatten` /
+> `flatten_prefix`, `enum_value`, `timestamp_format`, `bytes_encoding`,
+> `nullable`, `empty_behavior`, `enum_encoding`, `int64_encoding`). A sebuf Go
+> server, by contrast, layers an annotation-aware transform
+> (`MarshalJSONSebuf`) on top of protojson that deliberately diverges from
+> canonical protojson wherever one of those annotations is set. es-mode does
+> **not** yet have the TypeScript equivalent of that transform layer, so for any
+> annotated proto it is on a **different, incompatible wire** than the sebuf Go
+> server (and than the default hand-rolled TS output). It is therefore only
+> wire-compatible with a sebuf server for protos that use **none** of those
+> annotations. This is not left to chance: the generator **walks each RPC's
+> request/response message closure and fails loud at generation time** if it
+> finds any such annotation (see `CheckESMessageAnnotations` in
+> `internal/tscommon/es_guard.go`). Use the default hand-rolled runtime for
+> services that rely on JSON-mapping annotations.
+
+### buf.gen.yaml shape
+
+In this mode you run `protoc-gen-es` **and** the sebuf ts-client (or ts-server)
+plugin together, into the same output directory. protoc-gen-es emits the
+`<proto>_pb.ts` message schemas; the sebuf plugin emits the transport
+client/server that imports them. Both sebuf plugins still require
+`strategy: all` (see the sections above):
+
+```yaml
+version: v2
+plugins:
+  # 1. protoc-gen-es: emits <proto>_pb.ts message classes + schemas
+  - local: protoc-gen-es
+    out: ./generated
+    opt:
+      - target=ts
+      - import_extension=js
+  # 2. sebuf ts-client in protobuf-es transport mode
+  - local: protoc-gen-ts-client
+    out: ./generated
+    opt:
+      - paths=source_relative
+      - ts_runtime=protobuf-es
+    strategy: all
+  # (and/or) sebuf ts-server in the same mode
+  - local: protoc-gen-ts-server
+    out: ./generated
+    opt:
+      - paths=source_relative
+      - ts_runtime=protobuf-es
+    strategy: all
+```
+
+The exact plugin options mirror what the generator's golden tests invoke:
+`--es_opt=target=ts,import_extension=js` for protoc-gen-es, and
+`--ts-client_opt=paths=source_relative,ts_runtime=protobuf-es` /
+`--ts-server_opt=paths=source_relative,ts_runtime=protobuf-es` for the sebuf
+plugins.
+
+### Runtime dependency
+
+protobuf-es transport mode has a runtime dependency on **`@bufbuild/protobuf`
+v2** (the `<proto>_pb.ts` files and the generated transport both import
+`create`, `fromJson`, `toJson`, `MessageInitShape`, and the message/`*Schema`
+symbols from it). Install it in the consuming project:
+
+```bash
+npm install @bufbuild/protobuf
+```
+
+The generated goldens were produced with `@bufbuild/protoc-gen-es@2.12.1`.
+
+The generated transport import only pulls in the `@bufbuild/protobuf` symbols a
+given file actually uses (e.g. a GET-only client imports just `fromJson` and
+`MessageInitShape`, not `create`/`toJson`), so the output compiles cleanly under
+strict `noUnusedLocals`.
+
+### Consumer-facing differences
+
+Compared to the default plain-interface mode, code that uses the generated
+client/server sees protobuf-es's types and conventions:
+
+- **Branded messages.** Message types are protobuf-es branded types
+  (`Message<"pkg.Name"> & {...}`), not structural interfaces. You cannot pass an
+  arbitrary object literal where a full message is expected.
+- **`create()` for construction; `MessageInitShape` on the boundaries.** To
+  build a message value use protobuf-es's `create(SchemaSymbol, {...})`. Client
+  methods and server handlers do not force you to call `create()` yourself,
+  though: client methods accept `MessageInitShape<typeof RequestSchema>` (the
+  loose init shape), and server handler methods **return**
+  `MessageInitShape<typeof ResponseSchema>` — the generated code calls
+  `create()` for you before encoding. So handlers can `return { ... }` with a
+  plain init object.
+- **Oneofs as `{ case, value }`.** A protobuf oneof is a discriminated union
+  (`{ case: "bigText"; value: TextContent } | { case: "bigImage"; value:
+  ImageContent } | { case: undefined; value?: undefined }`), not sibling
+  optional fields.
+- **int64 as `bigint`.** 64-bit integer fields (`int64`, `uint64`, `sint64`,
+  `fixed64`, `sfixed64`) are represented as `bigint`, following protobuf-es.
+
+### Server-streaming (SSE)
+
+Server-streaming RPCs **are** supported in protobuf-es mode. On the client, a
+streaming RPC is an `async function*` returning `AsyncGenerator<T>` that yields
+each event decoded with `fromJson(...)`; on the server, the handler returns a
+`ReadableStream<MessageInitShape<typeof EventSchema>>` and the generated route
+encodes each value with `toJson(create(EventSchema, value))` into an SSE
+`data:` frame. Both directions go through protobuf-es's canonical JSON.
+
+### Server `EmitDefaultValues` is not required for TS correctness
+
+In protobuf-es transport mode the client decodes every response with
+`fromJson(Schema, ..., { ignoreUnknownFields: true })`. protobuf-es's `fromJson`
+fills in proto3 default values for any field the server omitted, so the
+consumer always gets a fully-populated message even when the server does **not**
+set the `EmitDefaultValues` flag. That flag is therefore not needed for
+TypeScript correctness in this mode (unknown/extra fields on the wire are also
+ignored rather than causing an error).
+
+### Known limitations
+
+- **`sebuf.http` JSON-mapping annotations are not honored (fail-loud).** As
+  described in the wire-contract note above, es-mode emits canonical protojson
+  and does not apply any JSON-mapping annotation. The generator rejects, at
+  generation time, any RPC whose request/response message closure carries one —
+  with an error such as `ts_runtime=protobuf-es: field User.status uses the
+  enum_value JSON-mapping annotation (reachable from the response of
+  UserService.GetUser), which es-mode cannot honor`. Porting the sebuf transform
+  layer to TypeScript (so annotated protos round-trip byte-for-byte with the Go
+  server) is tracked as future work; until then, use hand-rolled mode for those
+  services.
+- **Enum path AND query parameters are not yet supported.** protobuf-es enums
+  are numeric, but path- and query-parameter values arrive as strings on the
+  wire; safely bridging the two requires a name↔number conversion that is not
+  yet implemented. This applies to enum path parameters, enum query parameters,
+  and repeated enum query parameters. Rather than emit code that fails a
+  downstream `tsc` (with a confusing `TS2307: Cannot find module './<proto>.js'`,
+  because the hand-rolled enum type module is deliberately not emitted in
+  es-mode), **the generator now fails loud at generation time** with a clear
+  error, e.g. `ts_runtime=protobuf-es: enum query parameter "region" on
+  Service.Method is not yet supported`. Both the client and server generators
+  enforce this (see `checkNoEnumParamsES` in `internal/tsclientgen/generator.go`
+  and `internal/tsservergen/generator.go`). **String, integer, boolean, and
+  other scalar** path and query parameters work fine under
+  `ts_runtime=protobuf-es`.
+- **Prefer top-level messages for RPC input/output.** Nested-message local
+  names are reconciled to protoc-gen-es's underscore form (`Outer_Inner` /
+  `Outer_InnerSchema`, via `ESQualifiedName`), so nested messages used as RPC
+  I/O do resolve — but this was verified against
+  `@bufbuild/protoc-gen-es@2.12.1`; if you use a different protoc-gen-es version
+  and hit a naming mismatch, promoting the message to top level is the safe
+  workaround. The es golden typecheck tests (`es_typecheck_test.go` in both
+  generators) run `tsc --noEmit` over the goldens against the real
+  `@bufbuild/protobuf` package, so a naming divergence fails CI rather than a
+  consumer build.
+- **URL parameters do not route through the protobuf-es codec.** Only request
+  bodies, response bodies, and SSE events go through
+  `create`/`toJson`/`fromJson`. Path and query parameter values are derived
+  directly from strings: on the client they are string-coerced into the URL
+  (`encodeURIComponent(String(...))` / `URLSearchParams`); on the server they are
+  read off the URL and coerced back to the field's protobuf-es type before being
+  placed on the request message (numeric fields via `Number(...)`, 64-bit via
+  `BigInt(...)`, booleans via `=== "true"`, strings verbatim). URL parameters
+  have no protojson canonical form, so this coercion — rather than the codec — is
+  by design; it means codec guarantees (e.g. int64 string/number normalization)
+  do not apply to them.
+- **Path parameters are not compile-time required.** `MessageInitShape<...>`
+  makes every request field optional at the type level, so omitting a path
+  parameter field compiles and produces a URL containing the string
+  `"undefined"` at runtime. Hand-rolled mode's request interfaces mark such
+  fields required; in es-mode this check is deferred to the server's 4xx.
+
+### Roadmap — lifting the guard
+
+es-mode ships as a **preview**: correct and safe for protos that use no
+`sebuf.http` JSON-mapping annotation, and fail-loud for the rest. The plan to
+make it a true drop-in replacement for annotated protos — matching what the Go
+server does with `MarshalJSONSebuf` — is staged so the fail-loud guard can be
+lifted **one annotation at a time**, each only after it is proven wire-correct.
+
+1. **Conformance harness (prerequisite for everything below).** A cross-runtime
+   test that asserts es-mode's on-the-wire bytes are **byte-equivalent** to a
+   sebuf Go server for a given `(message, annotation)` case — encode *and*
+   decode. The Go marshal pipeline already has per-annotation consistency tests
+   (`internal/httpgen/*_consistency_test.go`) that pin the expected wire; those
+   become the oracle. Start with captured golden wire fixtures (deterministic, no
+   network), add a handful of live Go-server round-trips for the trickiest
+   annotations. This harness is what lets us trust each transform and is the gate
+   for removing an annotation from the guard.
+2. **Transform layer (the TS analog of `MarshalJSONSebuf`).** The Go layer is not
+   a bespoke serializer — it post-processes canonical protojson: `protojson`
+   marshal → rewrite only the annotated JSON keys → emit. The same shape ports to
+   TypeScript over `toJson`/`fromJson`. Because protobuf-es exposes the message
+   `Schema` (`DescMessage`) at runtime, this can be a single hand-written runtime
+   shim (`sebufToJson`/`sebufFromJson`) driven by a small per-field annotation
+   table the plugin emits — not per-message codegen. Implement annotation by
+   annotation; as each passes the conformance harness, drop it from
+   `CheckESMessageAnnotations`.
+3. **Suggested order** (cheapest / highest-value first): `int64_encoding`,
+   `enum_value`, `enum_encoding`, `timestamp_format`, `bytes_encoding`,
+   `nullable`, `empty_behavior`, then the structural ones — `flatten` /
+   `flatten_prefix`, `unwrap`, and `oneof_config` flatten. Each lands with its
+   own conformance case and a guard-lift in the same change.
+
+Until an annotation reaches step 2 with green conformance, es-mode rejects it at
+generation time — no silent wire divergence.
+
 ### Oneofs in TypeScript
 
 Both TypeScript generators render a protobuf `oneof` as a discriminated union that matches protojson exactly. The clients do no conversion — requests are `JSON.stringify`-ed and responses are cast with `as T` — so the generated types are the wire contract.

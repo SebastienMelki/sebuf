@@ -11,6 +11,11 @@ import (
 	"google.golang.org/protobuf/reflect/protoreflect"
 )
 
+// protobufESSymbolOrder is the canonical emission order of the protobuf-es
+// runtime symbols in the `@bufbuild/protobuf` import. MessageInitShape is a
+// type-only import; the rest are value imports.
+var protobufESSymbolOrder = []string{"create", "fromJson", "toJson", "MessageInitShape"}
+
 // errorsModule is the extensionless module path of the shared error-helpers
 // file emitted at the output root in modules mode.
 const errorsModule = "errors"
@@ -99,11 +104,16 @@ type importedSymbol struct {
 // ImportTracker collects the cross-module imports a single generated file needs
 // and renders the import block. It is only used in modules mode.
 type ImportTracker struct {
-	typeImports map[string][]importedSymbol // specifier -> imported type symbols
-	aliasOf     map[string]string           // "spec\x00symbol" -> local alias
-	usedAlias   map[string]string           // local alias -> owning "spec\x00symbol"
-	errorSyms   map[string]bool             // error helpers referenced (value import)
-	errorsSpec  string
+	typeImports  map[string][]importedSymbol // specifier -> imported type-only symbols
+	valueImports map[string][]importedSymbol // specifier -> imported value symbols
+	aliasOf      map[string]string           // "spec\x00symbol" -> local alias
+	usedAlias    map[string]string           // local alias -> owning "spec\x00symbol"
+	errorSyms    map[string]bool             // error helpers referenced (value import)
+	errorsSpec   string
+	// protobufESSyms records which protobuf-es runtime helpers
+	// (create/fromJson/toJson/MessageInitShape) the file actually references,
+	// so Render imports only those.
+	protobufESSyms map[string]bool
 }
 
 // NewImportTracker returns an empty tracker with the error-helper and global
@@ -111,10 +121,12 @@ type ImportTracker struct {
 // errors module or the globals the generated code relies on.
 func NewImportTracker() *ImportTracker {
 	t := &ImportTracker{
-		typeImports: map[string][]importedSymbol{},
-		aliasOf:     map[string]string{},
-		usedAlias:   map[string]string{},
-		errorSyms:   map[string]bool{},
+		typeImports:    map[string][]importedSymbol{},
+		valueImports:   map[string][]importedSymbol{},
+		aliasOf:        map[string]string{},
+		usedAlias:      map[string]string{},
+		errorSyms:      map[string]bool{},
+		protobufESSyms: map[string]bool{},
 	}
 	for _, name := range errorHelperNames() {
 		t.usedAlias[name] = reservedOwnerKey
@@ -125,14 +137,17 @@ func NewImportTracker() *ImportTracker {
 	return t
 }
 
-// NeedType records that `symbol` from module specifier `spec` is referenced and
-// returns the local name to use (aliased deterministically on collision).
-func (t *ImportTracker) NeedType(spec, symbol string) string {
+// assignAlias reserves a deterministic local binding for `symbol` imported from
+// `spec`, aliasing on collision. It reports the alias and whether this
+// (spec, symbol) pair was seen for the first time (so callers append to their
+// import map only once). Type and value imports share one alias namespace
+// because they occupy the same module-scope binding namespace in TypeScript.
+func (t *ImportTracker) assignAlias(spec, symbol string) (alias string, isNew bool) {
 	key := spec + "\x00" + symbol
 	if a, ok := t.aliasOf[key]; ok {
-		return a
+		return a, false
 	}
-	alias := symbol
+	alias = symbol
 	if owner, taken := t.usedAlias[alias]; taken && owner != key {
 		for i := 1; ; i++ {
 			cand := fmt.Sprintf("%s_%d", symbol, i)
@@ -144,8 +159,38 @@ func (t *ImportTracker) NeedType(spec, symbol string) string {
 	}
 	t.usedAlias[alias] = key
 	t.aliasOf[key] = alias
-	t.typeImports[spec] = append(t.typeImports[spec], importedSymbol{symbol: symbol, alias: alias})
+	return alias, true
+}
+
+// NeedType records that `symbol` from module specifier `spec` is referenced as a
+// type-only import and returns the local name to use (aliased deterministically
+// on collision).
+func (t *ImportTracker) NeedType(spec, symbol string) string {
+	alias, isNew := t.assignAlias(spec, symbol)
+	if isNew {
+		t.typeImports[spec] = append(t.typeImports[spec], importedSymbol{symbol: symbol, alias: alias})
+	}
 	return alias
+}
+
+// NeedValue records that `symbol` from module specifier `spec` is referenced as
+// a value import (e.g. a protobuf-es `*Schema` handle) and returns the local
+// name to use (aliased deterministically on collision).
+func (t *ImportTracker) NeedValue(spec, symbol string) string {
+	alias, isNew := t.assignAlias(spec, symbol)
+	if isNew {
+		t.valueImports[spec] = append(t.valueImports[spec], importedSymbol{symbol: symbol, alias: alias})
+	}
+	return alias
+}
+
+// NeedProtobufES records that the file references the given protobuf-es runtime
+// helpers, so Render emits only those symbols in the `@bufbuild/protobuf`
+// import.
+func (t *ImportTracker) NeedProtobufES(symbols ...string) {
+	for _, s := range symbols {
+		t.protobufESSyms[s] = true
+	}
 }
 
 // NeedErrors records that the given shared error helpers are referenced,
@@ -159,14 +204,31 @@ func (t *ImportTracker) NeedErrors(spec string, symbols ...string) {
 
 // Empty reports whether no imports were recorded.
 func (t *ImportTracker) Empty() bool {
-	return len(t.errorSyms) == 0 && len(t.typeImports) == 0
+	return len(t.protobufESSyms) == 0 && len(t.errorSyms) == 0 &&
+		len(t.valueImports) == 0 && len(t.typeImports) == 0
 }
 
-// Render writes the import block (value import for error helpers, then sorted
-// type-only imports). It emits a trailing blank line when anything was written.
+// Render writes the import block: the protobuf-es runtime import (es mode only,
+// listing only the referenced symbols), the value import for error helpers,
+// sorted value imports (protobuf-es `*Schema` handles), then sorted type-only
+// imports. It emits a trailing blank line when anything was written.
 func (t *ImportTracker) Render(p Printer) {
 	if t.Empty() {
 		return
+	}
+	if len(t.protobufESSyms) > 0 {
+		parts := make([]string, 0, len(protobufESSymbolOrder))
+		for _, s := range protobufESSymbolOrder {
+			if !t.protobufESSyms[s] {
+				continue
+			}
+			if s == "MessageInitShape" {
+				parts = append(parts, "type "+s)
+			} else {
+				parts = append(parts, s)
+			}
+		}
+		p(`import { %s } from "@bufbuild/protobuf";`, strings.Join(parts, ", "))
 	}
 	if len(t.errorSyms) > 0 {
 		syms := make([]string, 0, len(t.errorSyms))
@@ -176,13 +238,21 @@ func (t *ImportTracker) Render(p Printer) {
 		sort.Strings(syms)
 		p(`import { %s } from "%s";`, strings.Join(syms, ", "), t.errorsSpec)
 	}
-	specs := make([]string, 0, len(t.typeImports))
-	for s := range t.typeImports {
+	t.renderImportGroup(p, t.valueImports, false)
+	t.renderImportGroup(p, t.typeImports, true)
+	p("")
+}
+
+// renderImportGroup writes one sorted block of imports (by specifier, then by
+// symbol). typeOnly selects the `import type { ... }` form.
+func (t *ImportTracker) renderImportGroup(p Printer, group map[string][]importedSymbol, typeOnly bool) {
+	specs := make([]string, 0, len(group))
+	for s := range group {
 		specs = append(specs, s)
 	}
 	sort.Strings(specs)
 	for _, spec := range specs {
-		syms := append([]importedSymbol(nil), t.typeImports[spec]...)
+		syms := append([]importedSymbol(nil), group[spec]...)
 		sort.Slice(syms, func(i, j int) bool { return syms[i].symbol < syms[j].symbol })
 		parts := make([]string, 0, len(syms))
 		for _, is := range syms {
@@ -192,9 +262,12 @@ func (t *ImportTracker) Render(p Printer) {
 				parts = append(parts, fmt.Sprintf("%s as %s", is.symbol, is.alias))
 			}
 		}
-		p(`import type { %s } from "%s";`, strings.Join(parts, ", "), spec)
+		if typeOnly {
+			p(`import type { %s } from "%s";`, strings.Join(parts, ", "), spec)
+		} else {
+			p(`import { %s } from "%s";`, strings.Join(parts, ", "), spec)
+		}
 	}
-	p("")
 }
 
 // EmitContext threads the module-emission state through the (otherwise
@@ -204,6 +277,9 @@ func (t *ImportTracker) Render(p Printer) {
 type EmitContext struct {
 	SelfModule string // extensionless module path of the file being written
 	Imports    *ImportTracker
+	// MessageRuntime selects the TypeScript message representation. The zero
+	// value (MessageRuntimeHandRolled) preserves the historical default.
+	MessageRuntime MessageRuntime
 }
 
 func (c *EmitContext) modules() bool {
@@ -237,6 +313,46 @@ func (c *EmitContext) ref(symbol string, file protoreflect.FileDescriptor) strin
 		return symbol
 	}
 	return c.Imports.NeedType(RelativeImportSpecifier(c.SelfModule, mod), symbol)
+}
+
+// pbModuleSpec returns the relative import specifier for the protoc-gen-es
+// message module (`<proto>_pb.js`) that owns msg, relative to the file being
+// written.
+func (c *EmitContext) pbModuleSpec(file protoreflect.FileDescriptor) string {
+	return RelativeImportSpecifier(c.SelfModule, ModuleForFile(file.Path())+"_pb")
+}
+
+// RefMessagePb returns the local TypeScript name for a message type imported
+// from its protoc-gen-es `<proto>_pb.js` module, recording a type-only import.
+// Used in protobuf-es runtime mode where messages come from protoc-gen-es rather
+// than the hand-rolled type modules.
+func (c *EmitContext) RefMessagePb(msg *protogen.Message) string {
+	if msg == nil {
+		return ""
+	}
+	return c.Imports.NeedType(c.pbModuleSpec(msg.Desc.ParentFile()), ESQualifiedName(msg.Desc))
+}
+
+// RefMessageSchema returns the local name for a message's protobuf-es `*Schema`
+// runtime handle (imported as a value from its `<proto>_pb.js` module) and
+// records the value import. The schema is passed to create/toJson/fromJson.
+func (c *EmitContext) RefMessageSchema(msg *protogen.Message) string {
+	if msg == nil {
+		return ""
+	}
+	return c.Imports.NeedValue(c.pbModuleSpec(msg.Desc.ParentFile()), ESQualifiedName(msg.Desc)+"Schema")
+}
+
+// NeedProtobufES records that the file references the given protobuf-es runtime
+// helpers (a subset of create/fromJson/toJson/MessageInitShape). Generators call
+// it at each es-mode emission site, so the import list mirrors actual usage; it
+// is a no-op outside protobuf-es runtime mode — hand-rolled output must never
+// import @bufbuild/protobuf, whatever the emitted code happens to contain.
+func (c *EmitContext) NeedProtobufES(symbols ...string) {
+	if c.MessageRuntime != MessageRuntimeES || !c.modules() || len(symbols) == 0 {
+		return
+	}
+	c.Imports.NeedProtobufES(symbols...)
 }
 
 // NeedErrors records that this file references the given shared error helpers.

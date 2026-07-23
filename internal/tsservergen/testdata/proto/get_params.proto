@@ -1,0 +1,83 @@
+syntax = "proto3";
+
+package test.getparams;
+
+option go_package = "github.com/SebastienMelki/sebuf/internal/httpgen/testdata/generated;generated";
+
+import "sebuf/http/annotations.proto";
+
+// GetParamsService exercises unary RPCs with path and query parameters under
+// protobuf-es mode: a string path param, scalar (non-enum) query params, and
+// non-string (numeric/bool) path params that must be coerced from their raw URL
+// string form into the strongly typed protobuf-es message shapes. This locks
+// down the path/query surface that the POST-unary and GET-streaming es fixtures
+// do not cover.
+service GetParamsService {
+  option (sebuf.http.service_config) = {
+    base_path: "/api/v1"
+  };
+
+  rpc GetItem(GetItemRequest) returns (Item) {
+    option (sebuf.http.config) = {
+      path: "/items/{item_id}"
+      method: HTTP_METHOD_GET
+    };
+  }
+
+  // Non-string path params on a GET: item_number (bigint), version (number),
+  // and draft (boolean) must be coerced from their raw string form when the
+  // request object is built via create(<Req>Schema, {...}).
+  rpc GetItemVersion(GetItemVersionRequest) returns (Item) {
+    option (sebuf.http.config) = {
+      path: "/items/{item_number}/versions/{version}/draft/{draft}"
+      method: HTTP_METHOD_GET
+    };
+  }
+
+  // Non-string path param merged into a POST body: item_number (bigint) must be
+  // coerced before assignment onto the branded request message.
+  rpc UpdateItem(UpdateItemRequest) returns (Item) {
+    option (sebuf.http.config) = {
+      path: "/items/{item_number}"
+      method: HTTP_METHOD_POST
+    };
+  }
+}
+
+message GetItemRequest {
+  // String path parameter.
+  string item_id = 1;
+  // Scalar query parameters (no enum).
+  string query = 2 [(sebuf.http.query) = { name: "q" }];
+  int32 limit = 3 [(sebuf.http.query) = { name: "limit" }];
+  bool include_archived = 4 [(sebuf.http.query) = { name: "include_archived" }];
+  // Single-value 64-bit query param: on the server this must be coerced from the
+  // raw URL string into a bigint under protobuf-es mode (TSScalarTypeForField
+  // reports int64 as string, so the plain string default would mis-type it).
+  int64 cursor = 9 [(sebuf.http.query) = { name: "cursor" }];
+  // Repeated (non-enum) query parameters. On the server these arrive as a
+  // getAll() string[] and must be coerced to the protobuf-es element type
+  // (string[] passthrough, number[]/bigint[]/boolean[] mapped).
+  repeated string tags = 5 [(sebuf.http.query) = { name: "tags" }];
+  repeated int32 sizes = 6 [(sebuf.http.query) = { name: "sizes" }];
+  repeated int64 ids = 7 [(sebuf.http.query) = { name: "ids" }];
+  repeated bool flags = 8 [(sebuf.http.query) = { name: "flags" }];
+}
+
+message GetItemVersionRequest {
+  // Non-string path parameters (coerced from URL strings).
+  int64 item_number = 1;
+  int32 version = 2;
+  bool draft = 3;
+}
+
+message UpdateItemRequest {
+  // Non-string path parameter merged into the request body.
+  int64 item_number = 1;
+  string name = 2;
+}
+
+message Item {
+  string id = 1;
+  string name = 2;
+}

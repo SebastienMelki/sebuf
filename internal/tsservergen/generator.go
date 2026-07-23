@@ -19,11 +19,13 @@ type Generator struct {
 	// ctx carries the emission state (self module + import tracker) for the
 	// service file currently being written.
 	ctx *tscommon.EmitContext
+	// runtime selects the TypeScript message representation.
+	runtime tscommon.MessageRuntime
 }
 
 // New creates a new TypeScript server generator.
-func New(plugin *protogen.Plugin) *Generator {
-	return &Generator{plugin: plugin}
+func New(plugin *protogen.Plugin, runtime tscommon.MessageRuntime) *Generator {
+	return &Generator{plugin: plugin, runtime: runtime}
 }
 
 // Generate emits one canonical type module per proto file, a shared errors
@@ -185,15 +187,28 @@ func (g *Generator) isSSEMethod(method *protogen.Method) bool {
 	return config != nil && config.Stream
 }
 
-// generateHandlerInterface generates the XxxServiceHandler interface.
+// generateHandlerInterface generates the XxxServiceHandler interface. In
+// protobuf-es mode the handler receives the decoded request as its branded
+// protoc-gen-es message type (imported from <proto>_pb.js) and returns a
+// MessageInitShape of the response schema, so implementations may return either
+// a plain init object or an already-branded message; the generated route wraps
+// the return value in create(...) before encoding.
 func (g *Generator) generateHandlerInterface(p tscommon.Printer, service *protogen.Service) {
 	serviceName := service.GoName
+	es := g.ctx.MessageRuntime == tscommon.MessageRuntimeES
 
 	p("export interface %sHandler {", serviceName)
 	for _, method := range service.Methods {
 		methodName := annotations.LowerFirst(method.GoName)
-		inputType := g.ctx.RefMessage(method.Input)
-		outputType := g.resolveOutputType(method)
+		var inputType, outputType string
+		if es {
+			inputType = g.ctx.RefMessagePb(method.Input)
+			outputType = "MessageInitShape<typeof " + g.ctx.RefMessageSchema(method.Output) + ">"
+			g.ctx.NeedProtobufES("MessageInitShape")
+		} else {
+			inputType = g.ctx.RefMessage(method.Input)
+			outputType = g.resolveOutputType(method)
+		}
 		if g.isSSEMethod(method) {
 			p("  %s(ctx: ServerContext, req: %s): ReadableStream<%s>;", methodName, inputType, outputType)
 		} else {
@@ -260,6 +275,32 @@ func (g *Generator) buildRPCRouteConfig(service *protogen.Service, method *proto
 		return nil, fmt.Errorf("service %s, method %s: %w", serviceName, methodName, err)
 	}
 
+	queryParams := annotations.GetQueryParams(method.Input)
+
+	// Enum path/query parameters are not representable in protobuf-es mode
+	// (numeric enums vs string URL params); fail loud rather than emit code that
+	// fails downstream tsc. Body/response messages carrying JSON-mapping
+	// annotations es-mode cannot honor are rejected the same way.
+	if g.ctx.MessageRuntime == tscommon.MessageRuntimeES {
+		if enumErr := checkNoEnumParamsES(serviceName, methodName, pathParamFields, queryParams); enumErr != nil {
+			return nil, enumErr
+		}
+		role := "response"
+		if httpConfig != nil && httpConfig.Stream {
+			role = "SSE event"
+		}
+		if annErr := tscommon.CheckESMessageAnnotations(
+			serviceName, methodName, "request", method.Input,
+		); annErr != nil {
+			return nil, annErr
+		}
+		if annErr := tscommon.CheckESMessageAnnotations(
+			serviceName, methodName, role, method.Output,
+		); annErr != nil {
+			return nil, annErr
+		}
+	}
+
 	return &rpcRouteConfig{
 		serviceName:     serviceName,
 		methodName:      methodName,
@@ -267,9 +308,30 @@ func (g *Generator) buildRPCRouteConfig(service *protogen.Service, method *proto
 		fullPath:        fullPath,
 		pathParams:      pathParams,
 		pathParamFields: pathParamFields,
-		queryParams:     annotations.GetQueryParams(method.Input),
+		queryParams:     queryParams,
 		hasBody:         httpMethod == "POST" || httpMethod == "PUT" || httpMethod == "PATCH",
 	}, nil
+}
+
+// checkNoEnumParamsES reports a generation-time error if any path or query
+// parameter is enum-typed (including repeated enum query params), which
+// protobuf-es mode cannot yet represent. See UnsupportedEnumParamError.
+func checkNoEnumParamsES(
+	service, method string,
+	pathParamFields []pathParamField,
+	queryParams []annotations.QueryParam,
+) error {
+	for _, ppf := range pathParamFields {
+		if ppf.field != nil && ppf.field.Desc.Kind() == protoreflect.EnumKind {
+			return tscommon.UnsupportedEnumParamError("path", ppf.protoName, service, method)
+		}
+	}
+	for _, qp := range queryParams {
+		if qp.Field != nil && qp.Field.Desc.Kind() == protoreflect.EnumKind {
+			return tscommon.UnsupportedEnumParamError("query", qp.FieldName, service, method)
+		}
+	}
+	return nil
 }
 
 // resolvePathParamFields validates that every path parameter has a matching field
@@ -374,7 +436,7 @@ func (g *Generator) generateRouteEntry(p tscommon.Printer, service *protogen.Ser
 	}
 
 	tsMethodName := annotations.LowerFirst(cfg.methodName)
-	outputType := g.resolveOutputType(method)
+	es := g.ctx.MessageRuntime == tscommon.MessageRuntimeES
 
 	p("    {")
 	p(`      method: "%s",`, cfg.httpMethod)
@@ -413,8 +475,17 @@ func (g *Generator) generateRouteEntry(p tscommon.Printer, service *protogen.Ser
 	// Call handler
 	p("          const result = await handler.%s(ctx, body);", tsMethodName)
 
-	// Return JSON response
-	p("          return new Response(JSON.stringify(result as %s), {", outputType)
+	// Return JSON response. In protobuf-es mode the result is normalized through
+	// create(...) and serialized with toJson(...) so the wire shape matches the
+	// canonical protojson encoding (Go-server parity); otherwise it is raw-cast.
+	if es {
+		resSchema := g.ctx.RefMessageSchema(method.Output)
+		g.ctx.NeedProtobufES("create", "toJson")
+		p("          return new Response(JSON.stringify(toJson(%s, create(%s, result))), {", resSchema, resSchema)
+	} else {
+		outputType := g.resolveOutputType(method)
+		p("          return new Response(JSON.stringify(result as %s), {", outputType)
+	}
 	p("            status: 200,")
 	p(`            headers: { "Content-Type": "application/json" },`)
 	p("          });")
@@ -452,6 +523,7 @@ func (g *Generator) generateSSERouteEntry(
 	cfg *rpcRouteConfig,
 ) error {
 	tsMethodName := annotations.LowerFirst(cfg.methodName)
+	es := g.ctx.MessageRuntime == tscommon.MessageRuntimeES
 
 	p("    {")
 	p(`      method: "%s",`, cfg.httpMethod)
@@ -498,7 +570,16 @@ func (g *Generator) generateSSERouteEntry(
 	p("                while (true) {")
 	p("                  const { done, value } = await reader.read();")
 	p("                  if (done) break;")
-	p("                  controller.enqueue(encoder.encode(`data: ${JSON.stringify(value)}\\n\\n`));")
+	// In protobuf-es mode each yielded event is normalized through create(...)
+	// and serialized with toJson(...) for canonical protojson (Go-server parity);
+	// otherwise the value is stringified directly (no raw cast needed here).
+	valueExpr := "value"
+	if es {
+		resSchema := g.ctx.RefMessageSchema(method.Output)
+		g.ctx.NeedProtobufES("create", "toJson")
+		valueExpr = fmt.Sprintf("toJson(%s, create(%s, value))", resSchema, resSchema)
+	}
+	p("                  controller.enqueue(encoder.encode(`data: ${JSON.stringify(%s)}\\n\\n`));", valueExpr)
 	p("                }")
 	p("                controller.close();")
 	p("              } catch (err) {")
@@ -551,13 +632,98 @@ func (g *Generator) emitPathParamAssignment(
 	suffix string,
 ) {
 	if ppf.field != nil && ppf.field.Desc.Kind() == protoreflect.EnumKind && ppf.field.Enum != nil {
+		// Hand-rolled mode only: enums are string unions here, so the cast is
+		// sound. protobuf-es mode rejects enum path params before emission (see
+		// checkNoEnumParamsES).
 		enumName := g.ctx.RefEnum(ppf.field.Enum)
 		p(
 			"%s%s: pathParams[\"%s\"] as %s%s",
 			prefix, ppf.jsonName, ppf.protoName, enumName, suffix,
 		)
+	} else if g.ctx.MessageRuntime == tscommon.MessageRuntimeES {
+		// protobuf-es MessageInitShape is strongly typed, so a raw string path
+		// param won't assign to a numeric/bool field. Coerce to the field's type.
+		raw := fmt.Sprintf("pathParams[%q]", ppf.protoName)
+		p("%s%s: %s%s", prefix, ppf.jsonName, esPathParamInitExpr(ppf.field, raw), suffix)
 	} else {
 		p("%s%s: pathParams[\"%s\"]%s", prefix, ppf.jsonName, ppf.protoName, suffix)
+	}
+}
+
+// esPathParamInitExpr returns the TypeScript expression that coerces the raw
+// string path param expression `raw` into the type protobuf-es expects for
+// field. Path params arrive as strings on the wire but protobuf-es messages type
+// numeric fields as number, 64-bit fields as bigint, and bool as boolean.
+// Enum fields never reach here (rejected up front by checkNoEnumParamsES);
+// string and any other kind pass through unchanged.
+func esPathParamInitExpr(field *protogen.Field, raw string) string {
+	if field == nil {
+		return raw
+	}
+	switch field.Desc.Kind() {
+	case protoreflect.BoolKind:
+		return raw + ` === "true"`
+	case protoreflect.Int32Kind, protoreflect.Sint32Kind, protoreflect.Sfixed32Kind,
+		protoreflect.Uint32Kind, protoreflect.Fixed32Kind,
+		protoreflect.FloatKind, protoreflect.DoubleKind:
+		return "Number(" + raw + ")"
+	case protoreflect.Int64Kind, protoreflect.Sint64Kind, protoreflect.Sfixed64Kind,
+		protoreflect.Uint64Kind, protoreflect.Fixed64Kind:
+		return "BigInt(" + raw + ")"
+	default:
+		return raw
+	}
+}
+
+// esQueryListInitExpr returns the TypeScript expression that coerces a
+// `getAll()` string[] into the element type protobuf-es expects for a repeated
+// query-param field. Query values arrive as strings, but protobuf-es types a
+// `repeated int32` as `number[]`, a repeated 64-bit field as `bigint[]`, and a
+// `repeated bool` as `boolean[]`. Enum lists never reach here in es-mode
+// (rejected up front by checkNoEnumParamsES); string lists pass through.
+func esQueryListInitExpr(field *protogen.Field, getAll string) string {
+	if field == nil {
+		return getAll
+	}
+	switch field.Desc.Kind() {
+	case protoreflect.BoolKind:
+		return getAll + `.map((v) => v === "true")`
+	case protoreflect.Int32Kind, protoreflect.Sint32Kind, protoreflect.Sfixed32Kind,
+		protoreflect.Uint32Kind, protoreflect.Fixed32Kind,
+		protoreflect.FloatKind, protoreflect.DoubleKind:
+		return getAll + ".map(Number)"
+	case protoreflect.Int64Kind, protoreflect.Sint64Kind, protoreflect.Sfixed64Kind,
+		protoreflect.Uint64Kind, protoreflect.Fixed64Kind:
+		return getAll + ".map(BigInt)"
+	default:
+		return getAll
+	}
+}
+
+// esQueryScalarInitExpr returns the TypeScript expression that reads a single
+// query value and coerces it into the type protobuf-es expects for field.
+// Query values arrive as strings (or null when absent), but protobuf-es types a
+// 32-bit/float field as number, a 64-bit field as bigint, and bool as boolean.
+// The number/bool/string forms match the hand-rolled emission byte-for-byte; the
+// only es-specific difference is wrapping 64-bit fields in BigInt(). Enum fields
+// never reach here in es-mode (rejected up front by checkNoEnumParamsES).
+func esQueryScalarInitExpr(field *protogen.Field, paramName string) string {
+	get := fmt.Sprintf(`params.get(%q)`, paramName)
+	if field == nil {
+		return get + ` ?? ""`
+	}
+	switch field.Desc.Kind() {
+	case protoreflect.BoolKind:
+		return get + ` === "true"`
+	case protoreflect.Int32Kind, protoreflect.Sint32Kind, protoreflect.Sfixed32Kind,
+		protoreflect.Uint32Kind, protoreflect.Fixed32Kind,
+		protoreflect.FloatKind, protoreflect.DoubleKind:
+		return "Number(" + get + ` ?? "0")`
+	case protoreflect.Int64Kind, protoreflect.Sint64Kind, protoreflect.Sfixed64Kind,
+		protoreflect.Uint64Kind, protoreflect.Fixed64Kind:
+		return "BigInt(" + get + ` ?? "0")`
+	default:
+		return get + ` ?? ""`
 	}
 }
 
@@ -569,11 +735,18 @@ func (g *Generator) generatePathParamMerge(p tscommon.Printer, cfg *rpcRouteConf
 	}
 	for _, ppf := range cfg.pathParamFields {
 		if ppf.field != nil && ppf.field.Desc.Kind() == protoreflect.EnumKind && ppf.field.Enum != nil {
+			// Hand-rolled mode only: protobuf-es mode rejects enum path params
+			// before emission (see checkNoEnumParamsES).
 			enumName := g.ctx.RefEnum(ppf.field.Enum)
 			p(
 				"          body.%s = pathParams[\"%s\"] as %s;",
 				ppf.jsonName, ppf.protoName, enumName,
 			)
+		} else if g.ctx.MessageRuntime == tscommon.MessageRuntimeES {
+			// body is a branded protobuf-es message (from fromJson); its numeric/
+			// bool fields won't accept a raw string, so coerce to the field's type.
+			raw := fmt.Sprintf("pathParams[%q]", ppf.protoName)
+			p("          body.%s = %s;", ppf.jsonName, esPathParamInitExpr(ppf.field, raw))
 		} else {
 			p("          body.%s = pathParams[\"%s\"];", ppf.jsonName, ppf.protoName)
 		}
@@ -640,10 +813,19 @@ func (g *Generator) generatePathParamExtraction(p tscommon.Printer, cfg *rpcRout
 	p("")
 }
 
-// generateBodyParsing generates code to parse JSON request body.
+// generateBodyParsing generates code to parse JSON request body. In protobuf-es
+// mode the JSON body is decoded through fromJson with ignoreUnknownFields
+// (forward-compat, mandatory), yielding a branded message; otherwise it is
+// raw-cast to the request type.
 func (g *Generator) generateBodyParsing(p tscommon.Printer, method *protogen.Method, tsMethodName string) {
-	inputType := g.ctx.RefMessage(method.Input)
-	p("          const body = await req.json() as %s;", inputType)
+	if g.ctx.MessageRuntime == tscommon.MessageRuntimeES {
+		reqSchema := g.ctx.RefMessageSchema(method.Input)
+		g.ctx.NeedProtobufES("fromJson")
+		p("          const body = fromJson(%s, await req.json(), { ignoreUnknownFields: true });", reqSchema)
+	} else {
+		inputType := g.ctx.RefMessage(method.Input)
+		p("          const body = await req.json() as %s;", inputType)
+	}
 
 	// Optional validation hook
 	p("          if (options?.validateRequest) {")
@@ -655,23 +837,45 @@ func (g *Generator) generateBodyParsing(p tscommon.Printer, method *protogen.Met
 	p("")
 }
 
-// generateQueryParamParsing generates code to parse query parameters.
+// generateQueryParamParsing generates code to parse query parameters. In
+// protobuf-es mode the request object built from path/query params is wrapped in
+// create(<Req>Schema, {...}) so the handler receives a real branded message
+// (never a raw cast); otherwise it is a type-annotated object literal.
 func (g *Generator) generateQueryParamParsing(
 	p tscommon.Printer,
 	cfg *rpcRouteConfig,
 	method *protogen.Method,
 	tsMethodName string,
 ) {
-	inputType := g.ctx.RefMessage(method.Input)
+	es := g.ctx.MessageRuntime == tscommon.MessageRuntimeES
+	var inputType, reqSchema string
+	if es {
+		reqSchema = g.ctx.RefMessageSchema(method.Input)
+		g.ctx.NeedProtobufES("create")
+	} else {
+		inputType = g.ctx.RefMessage(method.Input)
+	}
+
+	// bodyOpen/bodyClose bracket the request object literal. In es mode the
+	// literal is passed to create(...); otherwise it is a typed literal.
+	bodyOpen := fmt.Sprintf("          const body: %s = {", inputType)
+	bodyClose := "          };"
+	if es {
+		bodyOpen = fmt.Sprintf("          const body = create(%s, {", reqSchema)
+		bodyClose = "          });"
+	}
 
 	if len(cfg.queryParams) == 0 {
-		if len(cfg.pathParamFields) > 0 {
-			p("          const body: %s = {", inputType)
+		switch {
+		case len(cfg.pathParamFields) > 0:
+			p(bodyOpen)
 			for _, ppf := range cfg.pathParamFields {
 				g.emitPathParamAssignment(p, ppf, "            ", ",")
 			}
-			p("          };")
-		} else {
+			p(bodyClose)
+		case es:
+			p("          const body = create(%s, {});", reqSchema)
+		default:
 			p("          const body = {} as %s;", inputType)
 		}
 		p("")
@@ -685,7 +889,7 @@ func (g *Generator) generateQueryParamParsing(
 		p("          const url = new URL(req.url, \"http://localhost\");")
 		p("          const params = url.searchParams;")
 	}
-	p("          const body: %s = {", inputType)
+	p(bodyOpen)
 	// Include path param fields in the literal so TS sees all required properties
 	for _, ppf := range cfg.pathParamFields {
 		g.emitPathParamAssignment(p, ppf, "            ", ",")
@@ -693,7 +897,7 @@ func (g *Generator) generateQueryParamParsing(
 	for _, qp := range cfg.queryParams {
 		g.generateQueryParamField(p, qp)
 	}
-	p("          };")
+	p(bodyClose)
 
 	// Optional validation hook
 	p("          if (options?.validateRequest) {")
@@ -713,14 +917,21 @@ func (g *Generator) generateQueryParamField(p tscommon.Printer, qp annotations.Q
 	// Handle repeated fields: use getAll() for multi-value params, converting
 	// each element to the field's type (getAll always yields strings).
 	if qp.Field != nil && qp.Field.Desc.IsList() {
-		if qp.Field.Desc.Kind() == protoreflect.EnumKind && qp.Field.Enum != nil {
+		switch {
+		case qp.Field.Desc.Kind() == protoreflect.EnumKind && qp.Field.Enum != nil:
+			// Hand-rolled only: enums are string unions here. es-mode rejects enum
+			// query params before emission (see checkNoEnumParamsES).
 			p(`            %s: params.getAll("%s") as %s[],`, jsonName, paramName, g.ctx.RefEnum(qp.Field.Enum))
-			return
-		}
-		switch tscommon.TSScalarTypeForField(qp.Field) {
-		case tscommon.TSNumber:
+		case g.ctx.MessageRuntime == tscommon.MessageRuntimeES:
+			// protobuf-es element types are strongly typed; coerce the string[]
+			// from getAll() to number[]/bigint[]/boolean[] (string[] passes through).
+			getAll := fmt.Sprintf(`params.getAll("%s")`, paramName)
+			p(`            %s: %s,`, jsonName, esQueryListInitExpr(qp.Field, getAll))
+		case tscommon.TSScalarTypeForField(qp.Field) == tscommon.TSNumber:
+			// Hand-rolled: coerce each string element to number.
 			p(`            %s: params.getAll("%s").map(Number),`, jsonName, paramName)
-		case tscommon.TSBoolean:
+		case tscommon.TSScalarTypeForField(qp.Field) == tscommon.TSBoolean:
+			// Hand-rolled: coerce each string element to boolean.
 			p(`            %s: params.getAll("%s").map(v => v === "true"),`, jsonName, paramName)
 		default:
 			p(`            %s: params.getAll("%s"),`, jsonName, paramName)
@@ -739,6 +950,16 @@ func (g *Generator) generateQueryParamField(p tscommon.Printer, qp annotations.Q
 				unspecified,
 				g.ctx.RefEnum(qp.Field.Enum),
 			)
+			return
+		}
+
+		if g.ctx.MessageRuntime == tscommon.MessageRuntimeES {
+			// protobuf-es MessageInitShape is strongly typed: a 64-bit field expects
+			// bigint, a 32-bit/float field expects number, bool expects boolean.
+			// TSScalarTypeForField reports int64 as TSString (the hand-rolled shape),
+			// so it would fall through to the string default and mis-type the field.
+			// Coerce to the field's protobuf-es type instead.
+			p(`            %s: %s,`, jsonName, esQueryScalarInitExpr(qp.Field, paramName))
 			return
 		}
 

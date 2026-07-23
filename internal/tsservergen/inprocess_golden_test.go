@@ -11,6 +11,8 @@ import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/descriptorpb"
 	"google.golang.org/protobuf/types/pluginpb"
+
+	"github.com/SebastienMelki/sebuf/internal/tscommon"
 )
 
 // TestTSServerGenInProcess drives the server generator in-process against the
@@ -35,7 +37,7 @@ func TestTSServerGenInProcess(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			plugin := buildInProcessPlugin(t, protoDir, projectRoot, tc.protoFiles)
 
-			gen := New(plugin)
+			gen := New(plugin, tscommon.MessageRuntimeHandRolled)
 			if genErr := gen.Generate(); genErr != nil {
 				t.Fatalf("Generate() failed: %v", genErr)
 			}
@@ -80,12 +82,91 @@ func TestTSServerGenInProcessValidationErrors(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			plugin := buildInProcessPlugin(t, protoDir, projectRoot, []string{tc.protoFile})
-			genErr := New(plugin).Generate()
+			genErr := New(plugin, tscommon.MessageRuntimeHandRolled).Generate()
 			if genErr == nil {
 				t.Fatalf("expected Generate() to fail for %s, but it succeeded", tc.protoFile)
 			}
 			if !strings.Contains(genErr.Error(), tc.wantErr) {
 				t.Errorf("expected error to contain %q, got: %v", tc.wantErr, genErr)
+			}
+		})
+	}
+}
+
+// TestTSServerGenESRejectsEnumParams asserts that in protobuf-es mode the
+// generator fails loud (rather than emitting uncompilable output) when a method
+// has an enum-typed path or query parameter. query_params.proto has both an
+// enum query param (SearchAdvanced) and an enum path param (GetByRegion).
+func TestTSServerGenESRejectsEnumParams(t *testing.T) {
+	if _, err := exec.LookPath("protoc"); err != nil {
+		t.Skip("protoc not found, skipping in-process es enum-param test")
+	}
+
+	baseDir, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("Failed to get working directory: %v", err)
+	}
+	projectRoot := filepath.Join(baseDir, "..", "..")
+	protoDir := filepath.Join(baseDir, "testdata", "proto")
+
+	plugin := buildInProcessPlugin(t, protoDir, projectRoot, []string{"query_params.proto"})
+	genErr := New(plugin, tscommon.MessageRuntimeES).Generate()
+	if genErr == nil {
+		t.Fatal("expected Generate() to fail for enum path/query param in es mode, but it succeeded")
+	}
+	if !strings.Contains(genErr.Error(), "ts_runtime=protobuf-es: enum") ||
+		!strings.Contains(genErr.Error(), "is not yet supported") {
+		t.Errorf("expected enum-param unsupported error, got: %v", genErr)
+	}
+}
+
+// TestTSServerGenESRejectsAnnotatedMessages asserts that in protobuf-es mode the
+// generator fails loud when an RPC's request or response message closure carries
+// a sebuf.http JSON-mapping annotation es-mode cannot honor. es-mode serializes
+// with the canonical protojson codec, so any annotated proto would silently
+// disagree with a sebuf Go server; the guard rejects it at generation time
+// rather than emitting a second, incompatible wire format. Each fixture reuses
+// the existing per-annotation hand-rolled test proto.
+func TestTSServerGenESRejectsAnnotatedMessages(t *testing.T) {
+	if _, err := exec.LookPath("protoc"); err != nil {
+		t.Skip("protoc not found, skipping in-process es annotation-guard test")
+	}
+
+	baseDir, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("Failed to get working directory: %v", err)
+	}
+	projectRoot := filepath.Join(baseDir, "..", "..")
+	protoDir := filepath.Join(baseDir, "testdata", "proto")
+
+	cases := []struct {
+		protoFile string
+		wantToken string
+	}{
+		{"unwrap.proto", "unwrap"},
+		{"timestamp_format.proto", "timestamp_format"},
+		{"bytes_encoding.proto", "bytes_encoding"},
+		{"nullable.proto", "nullable"},
+		{"empty_behavior.proto", "empty_behavior"},
+		{"flatten.proto", "flatten"},
+		{"oneof_discriminator.proto", "oneof_config"},
+		{"enum_encoding.proto", "enum_value"},
+		{"int64_encoding.proto", "int64_encoding=NUMBER"},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.protoFile, func(t *testing.T) {
+			plugin := buildInProcessPlugin(t, protoDir, projectRoot, []string{tc.protoFile})
+			genErr := New(plugin, tscommon.MessageRuntimeES).Generate()
+			if genErr == nil {
+				t.Fatalf("expected Generate() to fail for %s in es mode, but it succeeded", tc.protoFile)
+			}
+			if !strings.Contains(genErr.Error(), "ts_runtime=protobuf-es:") ||
+				!strings.Contains(genErr.Error(), "cannot honor") {
+				t.Errorf("expected es JSON-mapping guard error, got: %v", genErr)
+			}
+			if !strings.Contains(genErr.Error(), tc.wantToken) {
+				t.Errorf("expected error to name annotation %q, got: %v", tc.wantToken, genErr)
 			}
 		})
 	}
@@ -108,7 +189,7 @@ func TestTSServerGenInProcessReservedName(t *testing.T) {
 	protoDir := filepath.Join(baseDir, "testdata", "proto")
 
 	plugin := buildInProcessPlugin(t, protoDir, projectRoot, []string{"reserved_name.proto"})
-	if genErr := New(plugin).Generate(); genErr != nil {
+	if genErr := New(plugin, tscommon.MessageRuntimeHandRolled).Generate(); genErr != nil {
 		t.Fatalf("Generate() failed: %v", genErr)
 	}
 
@@ -192,7 +273,7 @@ func TestTSServerGenInProcessRequiresSourceRelative(t *testing.T) {
 	protoDir := filepath.Join(baseDir, "testdata", "proto")
 
 	plugin := buildInProcessPluginParams(t, protoDir, projectRoot, []string{"query_params.proto"}, "")
-	genErr := New(plugin).Generate()
+	genErr := New(plugin, tscommon.MessageRuntimeHandRolled).Generate()
 	if genErr == nil {
 		t.Fatal("expected Generate() to fail under default path mode, but it succeeded")
 	}
