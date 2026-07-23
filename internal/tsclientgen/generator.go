@@ -488,9 +488,14 @@ func (g *Generator) generateURLBuilding(p printer, cfg *rpcMethodConfig) {
 
 			// Use field-aware zero check when field reference is available
 			var check string
-			if qp.Field != nil {
+			switch {
+			case qp.Field != nil && g.ctx.MessageRuntime == tscommon.MessageRuntimeES:
+				// protobuf-es types 64-bit fields as bigint, so the string-based
+				// "0" check would compare bigint to string; use the es-aware check.
+				check = esZeroCheckForField(qp.Field)
+			case qp.Field != nil:
 				check = tsZeroCheckForField(qp.Field)
-			} else {
+			default:
 				check = tsZeroCheck(qp.FieldKind)
 			}
 			if check == "" {

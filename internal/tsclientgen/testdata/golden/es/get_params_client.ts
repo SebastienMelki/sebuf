@@ -34,6 +34,7 @@ export class GetParamsServiceClient {
     if (req.query != null && req.query !== "") params.set("q", String(req.query));
     if (req.limit != null && req.limit !== 0) params.set("limit", String(req.limit));
     if (req.includeArchived) params.set("include_archived", String(req.includeArchived));
+    if (req.cursor != null && req.cursor !== 0n) params.set("cursor", String(req.cursor));
     if (req.tags && req.tags.length > 0) req.tags.forEach(v => params.append("tags", String(v)));
     if (req.sizes && req.sizes.length > 0) req.sizes.forEach(v => params.append("sizes", String(v)));
     if (req.ids && req.ids.length > 0) req.ids.forEach(v => params.append("ids", String(v)));

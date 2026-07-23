@@ -700,6 +700,33 @@ func esQueryListInitExpr(field *protogen.Field, getAll string) string {
 	}
 }
 
+// esQueryScalarInitExpr returns the TypeScript expression that reads a single
+// query value and coerces it into the type protobuf-es expects for field.
+// Query values arrive as strings (or null when absent), but protobuf-es types a
+// 32-bit/float field as number, a 64-bit field as bigint, and bool as boolean.
+// The number/bool/string forms match the hand-rolled emission byte-for-byte; the
+// only es-specific difference is wrapping 64-bit fields in BigInt(). Enum fields
+// never reach here in es-mode (rejected up front by checkNoEnumParamsES).
+func esQueryScalarInitExpr(field *protogen.Field, paramName string) string {
+	get := fmt.Sprintf(`params.get(%q)`, paramName)
+	if field == nil {
+		return get + ` ?? ""`
+	}
+	switch field.Desc.Kind() {
+	case protoreflect.BoolKind:
+		return get + ` === "true"`
+	case protoreflect.Int32Kind, protoreflect.Sint32Kind, protoreflect.Sfixed32Kind,
+		protoreflect.Uint32Kind, protoreflect.Fixed32Kind,
+		protoreflect.FloatKind, protoreflect.DoubleKind:
+		return "Number(" + get + ` ?? "0")`
+	case protoreflect.Int64Kind, protoreflect.Sint64Kind, protoreflect.Sfixed64Kind,
+		protoreflect.Uint64Kind, protoreflect.Fixed64Kind:
+		return "BigInt(" + get + ` ?? "0")`
+	default:
+		return get + ` ?? ""`
+	}
+}
+
 // generatePathParamMerge generates code to merge path params into the request body.
 // This ensures the handler receives a fully populated request, matching Go generator behavior.
 func (g *Generator) generatePathParamMerge(p tscommon.Printer, cfg *rpcRouteConfig, _ *protogen.Method) {
@@ -923,6 +950,16 @@ func (g *Generator) generateQueryParamField(p tscommon.Printer, qp annotations.Q
 				unspecified,
 				g.ctx.RefEnum(qp.Field.Enum),
 			)
+			return
+		}
+
+		if g.ctx.MessageRuntime == tscommon.MessageRuntimeES {
+			// protobuf-es MessageInitShape is strongly typed: a 64-bit field expects
+			// bigint, a 32-bit/float field expects number, bool expects boolean.
+			// TSScalarTypeForField reports int64 as TSString (the hand-rolled shape),
+			// so it would fall through to the string default and mis-type the field.
+			// Coerce to the field's protobuf-es type instead.
+			p(`            %s: %s,`, jsonName, esQueryScalarInitExpr(qp.Field, paramName))
 			return
 		}
 
