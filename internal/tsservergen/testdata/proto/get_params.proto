@@ -51,6 +51,10 @@ message GetItemRequest {
   string query = 2 [(sebuf.http.query) = { name: "q" }];
   int32 limit = 3 [(sebuf.http.query) = { name: "limit" }];
   bool include_archived = 4 [(sebuf.http.query) = { name: "include_archived" }];
+  // Single-value 64-bit query param: on the server this must be coerced from the
+  // raw URL string into a bigint under protobuf-es mode (TSScalarTypeForField
+  // reports int64 as string, so the plain string default would mis-type it).
+  int64 cursor = 9 [(sebuf.http.query) = { name: "cursor" }];
   // Repeated (non-enum) query parameters. On the server these arrive as a
   // getAll() string[] and must be coerced to the protobuf-es element type
   // (string[] passthrough, number[]/bigint[]/boolean[] mapped).

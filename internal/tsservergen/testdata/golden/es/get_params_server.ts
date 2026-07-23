@@ -50,6 +50,7 @@ export function createGetParamsServiceRoutes(
             query: params.get("q") ?? "",
             limit: Number(params.get("limit") ?? "0"),
             includeArchived: params.get("include_archived") === "true",
+            cursor: BigInt(params.get("cursor") ?? "0"),
             tags: params.getAll("tags"),
             sizes: params.getAll("sizes").map(Number),
             ids: params.getAll("ids").map(BigInt),

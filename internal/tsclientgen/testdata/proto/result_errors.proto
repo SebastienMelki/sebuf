@@ -55,3 +55,8 @@ message LoginError {
   string reason = 1;
   int32 retry_after_seconds = 2;
 }
+
+// Zero-field error message. It joins the ClientError union and the registry with
+// an empty key set; the `keys.length > 0` guard in decodeError ensures it never
+// shadows NotFoundError/LoginError by matching every response body.
+message InternalError {}
