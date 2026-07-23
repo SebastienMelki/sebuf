@@ -35,3 +35,33 @@ export interface RootMapWithValueUnwrapResponse {
   data: { [key: string]: OptionBar[] };
 }
 
+export interface IntList {
+  values: number[];
+}
+
+export interface ScalarMapResponse {
+  data: { [key: string]: number[] };
+}
+
+export interface RegularWrapper {
+  items: OptionBar[];
+}
+
+export interface MixedResponse {
+  unwrappedBars: { [key: string]: OptionBar[] };
+  regularBars: { [key: string]: RegularWrapper };
+  status: string;
+}
+
+export interface ScalarRootMapResponse {
+  counts: { [key: string]: number };
+}
+
+export interface ScalarRootRepeatedResponse {
+  names: string[];
+}
+
+export interface RootMapScalarListResponse {
+  groups: { [key: string]: number[] };
+}
+

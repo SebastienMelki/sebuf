@@ -32,8 +32,10 @@ func DirectPrinter(gf *protogen.GeneratedFile) Printer {
 }
 
 // CollectAllServiceMessages builds the transitive closure of every message/enum
-// referenced by any service across all generated files, plus proto-defined
-// "*Error" messages (matching CollectServiceMessages).
+// referenced by any service across all generated files. It also includes every
+// declaration in files selected for generation, so message-only files and
+// declarations that are not currently reachable from an RPC remain available
+// to consumers.
 func CollectAllServiceMessages(plugin *protogen.Plugin) *MessageSet {
 	ms := NewMessageSet()
 	for _, file := range plugin.Files {
@@ -47,9 +49,10 @@ func CollectAllServiceMessages(plugin *protogen.Plugin) *MessageSet {
 			}
 		}
 		for _, msg := range file.Messages {
-			if strings.HasSuffix(string(msg.Desc.Name()), "Error") {
-				ms.AddMessage(msg)
-			}
+			ms.AddDeclaredMessage(msg)
+		}
+		for _, enum := range file.Enums {
+			ms.AddEnum(enum)
 		}
 	}
 	return ms
@@ -94,6 +97,12 @@ func validatePathMode(plugin *protogen.Plugin) error {
 // normally, and service modules import it under a deterministic alias because
 // ImportTracker pre-reserves the helper names.
 func EmitSharedModules(plugin *protogen.Plugin) ([]string, error) {
+	return EmitSharedModulesWithOptions(plugin, GenerateOptions{})
+}
+
+// EmitSharedModulesWithOptions is EmitSharedModules with configurable
+// TypeScript declaration naming.
+func EmitSharedModulesWithOptions(plugin *protogen.Plugin, opts GenerateOptions) ([]string, error) {
 	if err := validatePathMode(plugin); err != nil {
 		return nil, err
 	}
@@ -103,7 +112,7 @@ func EmitSharedModules(plugin *protogen.Plugin) ([]string, error) {
 	enumsBySrc := global.EnumsBySourceFile()
 	var emitted []string
 	for _, src := range sortedSourceFiles(msgsBySrc, enumsBySrc) {
-		if name := emitTypeModule(plugin, src, msgsBySrc[src], enumsBySrc[src]); name != "" {
+		if name := emitTypeModule(plugin, src, msgsBySrc[src], enumsBySrc[src], opts); name != "" {
 			emitted = append(emitted, name)
 		}
 	}
@@ -178,6 +187,7 @@ func emitTypeModule(
 	srcPath string,
 	msgs []*protogen.Message,
 	enums []*protogen.Enum,
+	opts GenerateOptions,
 ) string {
 	if len(msgs) == 0 && len(enums) == 0 {
 		return ""
@@ -185,7 +195,11 @@ func emitTypeModule(
 	module := ModuleForFile(srcPath)
 	gf := plugin.NewGeneratedFile(module+".ts", "")
 	tracker := NewImportTracker()
-	ctx := &EmitContext{SelfModule: module, Imports: tracker}
+	ctx := &EmitContext{
+		SelfModule:         module,
+		Imports:            tracker,
+		UseProtoFieldNames: opts.UseProtoFieldNames,
+	}
 
 	var body []string
 	bp := BufferedPrinter(&body)

@@ -18,6 +18,19 @@ const (
 	TSBoolean = "boolean"
 )
 
+// GenerateOptions controls the shape of emitted TypeScript declarations.
+// The zero value follows protobuf's canonical JSON mapping.
+type GenerateOptions struct {
+	UseProtoFieldNames bool
+}
+
+func fieldName(ctx *EmitContext, field *protogen.Field) string {
+	if ctx != nil && ctx.UseProtoFieldNames {
+		return string(field.Desc.Name())
+	}
+	return field.Desc.JSONName()
+}
+
 // Printer is a function that prints a formatted line.
 type Printer func(format string, args ...interface{})
 
@@ -195,6 +208,19 @@ func (ms *MessageSet) AddMessage(msg *protogen.Message) {
 		if field.Desc.Kind() == protoreflect.EnumKind && field.Enum != nil {
 			ms.AddEnum(field.Enum)
 		}
+	}
+}
+
+// AddDeclaredMessage adds a declared message and every nested declaration,
+// including nested types that are not referenced by a field. AddMessage still
+// follows field references into other files.
+func (ms *MessageSet) AddDeclaredMessage(msg *protogen.Message) {
+	ms.AddMessage(msg)
+	for _, nested := range msg.Messages {
+		ms.AddDeclaredMessage(nested)
+	}
+	for _, enum := range msg.Enums {
+		ms.AddEnum(enum)
 	}
 }
 
@@ -445,6 +471,13 @@ func GenerateInterface(p Printer, msg *protogen.Message) {
 	GenerateInterfaceCtx(nil, p, msg)
 }
 
+// GenerateInterfaceWithOptions is the configurable inline variant of
+// GenerateInterface. Module generators normally carry these options on their
+// EmitContext instead.
+func GenerateInterfaceWithOptions(p Printer, msg *protogen.Message, opts GenerateOptions) {
+	GenerateInterfaceCtx(&EmitContext{UseProtoFieldNames: opts.UseProtoFieldNames}, p, msg)
+}
+
 // GenerateInterfaceCtx is the import-aware variant of GenerateInterface. When
 // ctx is in modules mode it records cross-module type references as relative
 // imports; a nil ctx (inline mode) emits fully-qualified local names. Oneofs
@@ -529,7 +562,7 @@ func GenerateOneofDiscriminatedUnionTypeCtx(
 
 	jsonNames := make([]string, len(info.Variants))
 	for i, variant := range info.Variants {
-		jsonNames[i] = variant.Field.Desc.JSONName()
+		jsonNames[i] = fieldName(ctx, variant.Field)
 	}
 
 	var branches []string
@@ -540,7 +573,7 @@ func GenerateOneofDiscriminatedUnionTypeCtx(
 			branch = fmt.Sprintf("{ %s: \"%s\"", info.Discriminator, variant.DiscriminatorVal)
 			var sb strings.Builder
 			for _, childField := range variant.Field.Message.Fields {
-				jsonName := childField.Desc.JSONName()
+				jsonName := fieldName(ctx, childField)
 				tsType := TSFieldTypeCtx(ctx, childField)
 				fmt.Fprintf(&sb, "; %s: %s", jsonName, tsType)
 			}
@@ -575,7 +608,7 @@ func GenerateOneofDiscriminatedUnionTypeCtx(
 	fmt.Fprintf(&unset, "{ %s?: never", info.Discriminator)
 	guardedKeys := jsonNames
 	if info.Flatten {
-		guardedKeys = flattenedChildJSONNames(info)
+		guardedKeys = flattenedChildFieldNames(ctx, info)
 	}
 	for _, jsonName := range guardedKeys {
 		fmt.Fprintf(&unset, "; %s?: never", jsonName)
@@ -624,7 +657,7 @@ func nonFlattenedOneofBranch(
 // { body: "x" }) does not spuriously type-check as "nothing set". Only message
 // variants contribute keys — flatten variants are always messages, enforced by
 // validateOneofFlatten.
-func flattenedChildJSONNames(info *annotations.OneofDiscriminatorInfo) []string {
+func flattenedChildFieldNames(ctx *EmitContext, info *annotations.OneofDiscriminatorInfo) []string {
 	seen := make(map[string]bool)
 	var names []string
 	for _, variant := range info.Variants {
@@ -632,7 +665,7 @@ func flattenedChildJSONNames(info *annotations.OneofDiscriminatorInfo) []string 
 			continue
 		}
 		for _, childField := range variant.Field.Message.Fields {
-			jsonName := childField.Desc.JSONName()
+			jsonName := fieldName(ctx, childField)
 			if seen[jsonName] {
 				continue
 			}
@@ -659,7 +692,7 @@ func generatePresenceOneofUnionType(
 	jsonNames := make([]string, len(info.Variants))
 	tsTypes := make([]string, len(info.Variants))
 	for i, variant := range info.Variants {
-		jsonNames[i] = variant.Field.Desc.JSONName()
+		jsonNames[i] = fieldName(ctx, variant.Field)
 		// Route the payload through the same field-typing path normal fields
 		// use so enum variants emit the enum union (or numeric encoding) and
 		// google.protobuf.Timestamp variants emit string/number per
@@ -827,7 +860,7 @@ func GenerateFieldDeclaration(p Printer, field *protogen.Field) {
 
 // GenerateFieldDeclarationCtx is the import-aware variant.
 func GenerateFieldDeclarationCtx(ctx *EmitContext, p Printer, field *protogen.Field) {
-	jsonName := field.Desc.JSONName()
+	jsonName := fieldName(ctx, field)
 	tsType := TSFieldTypeCtx(ctx, field)
 
 	//nolint:gocritic // if-else chain is clearer than switch for distinct boolean checks
@@ -860,7 +893,7 @@ func GenerateFlattenedFields(p Printer, childMsg *protogen.Message, prefix strin
 // GenerateFlattenedFieldsCtx is the import-aware variant.
 func GenerateFlattenedFieldsCtx(ctx *EmitContext, p Printer, childMsg *protogen.Message, prefix string) {
 	for _, childField := range childMsg.Fields {
-		jsonName := prefix + childField.Desc.JSONName()
+		jsonName := prefix + fieldName(ctx, childField)
 		tsType := TSFieldTypeCtx(ctx, childField)
 
 		//nolint:gocritic // if-else chain is clearer than switch for distinct boolean checks

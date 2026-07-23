@@ -1,6 +1,7 @@
 package tsclientgen
 
 import (
+	"fmt"
 	"net/http"
 
 	"google.golang.org/protobuf/compiler/protogen"
@@ -12,20 +13,41 @@ import (
 // Generator handles TypeScript HTTP client code generation for protobuf services.
 type Generator struct {
 	plugin *protogen.Plugin
+	opts   Options
 	// ctx carries the emission state (self module + import tracker) for the
 	// service file currently being written.
 	ctx *tscommon.EmitContext
 }
 
+const protoFieldNames = "proto"
+
+// Options configures TypeScript HTTP client generation.
+type Options struct {
+	// FieldNames accepts "json" (the default) or "proto".
+	FieldNames string
+}
+
 // New creates a new TypeScript client generator.
 func New(plugin *protogen.Plugin) *Generator {
-	return &Generator{plugin: plugin}
+	return NewWithOptions(plugin, Options{})
+}
+
+// NewWithOptions creates a TypeScript client generator with explicit options.
+func NewWithOptions(plugin *protogen.Plugin, opts Options) *Generator {
+	return &Generator{plugin: plugin, opts: opts}
 }
 
 // Generate emits one canonical type module per proto file, a shared errors
 // module, and one slimmed client module per service file.
 func (g *Generator) Generate() error {
+	if g.opts.FieldNames != "" && g.opts.FieldNames != "json" && g.opts.FieldNames != protoFieldNames {
+		return fmt.Errorf("field_names must be json or proto, got %q", g.opts.FieldNames)
+	}
 	return g.generateModules()
+}
+
+func (g *Generator) useProtoFieldNames() bool {
+	return g.opts.FieldNames == protoFieldNames
 }
 
 func (g *Generator) generateServiceClient(p printer, service *protogen.Service) error {
@@ -365,6 +387,9 @@ func (g *Generator) generateURLBuilding(p printer, cfg *rpcMethodConfig) {
 	// Path parameter substitution
 	for _, param := range cfg.pathParams {
 		jsonName := snakeToLowerCamel(param)
+		if g.useProtoFieldNames() {
+			jsonName = param
+		}
 		p(`    path = path.replace("{%s}", encodeURIComponent(String(req.%s)));`, param, jsonName)
 	}
 
@@ -373,10 +398,14 @@ func (g *Generator) generateURLBuilding(p printer, cfg *rpcMethodConfig) {
 	if (cfg.httpMethod == "GET" || cfg.httpMethod == "DELETE") && len(cfg.queryParams) > 0 {
 		p("    const params = new URLSearchParams();")
 		for _, qp := range cfg.queryParams {
+			requestFieldName := qp.FieldJSONName
+			if qp.Field != nil && g.useProtoFieldNames() {
+				requestFieldName = string(qp.Field.Desc.Name())
+			}
 			// Handle repeated fields: use forEach + append for multi-value params
 			if qp.Field != nil && qp.Field.Desc.IsList() {
 				p("    if (req.%s && req.%s.length > 0) req.%s.forEach(v => params.append(\"%s\", String(v)));",
-					qp.FieldJSONName, qp.FieldJSONName, qp.FieldJSONName, qp.ParamName)
+					requestFieldName, requestFieldName, requestFieldName, qp.ParamName)
 				continue
 			}
 
@@ -390,11 +419,11 @@ func (g *Generator) generateURLBuilding(p printer, cfg *rpcMethodConfig) {
 			if check == "" {
 				// bool: only add if true (undefined is already falsy)
 				p("    if (req.%s) params.set(\"%s\", String(req.%s));",
-					qp.FieldJSONName, qp.ParamName, qp.FieldJSONName)
+					requestFieldName, qp.ParamName, requestFieldName)
 			} else {
 				// Guard against undefined/null before zero-value check
 				p("    if (req.%s != null && req.%s%s) params.set(\"%s\", String(req.%s));",
-					qp.FieldJSONName, qp.FieldJSONName, check, qp.ParamName, qp.FieldJSONName)
+					requestFieldName, requestFieldName, check, qp.ParamName, requestFieldName)
 			}
 		}
 		p(`    const url = this.baseURL + path + (params.toString() ? "?" + params.toString() : "");`)

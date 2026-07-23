@@ -202,8 +202,9 @@ func (t *ImportTracker) Render(p Printer) {
 // that collects its cross-module imports. A nil context (no import tracker)
 // makes every type reference resolve to its bare name with no import recorded.
 type EmitContext struct {
-	SelfModule string // extensionless module path of the file being written
-	Imports    *ImportTracker
+	SelfModule         string // extensionless module path of the file being written
+	Imports            *ImportTracker
+	UseProtoFieldNames bool
 }
 
 func (c *EmitContext) modules() bool {
