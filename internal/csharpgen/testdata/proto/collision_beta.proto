@@ -1,0 +1,13 @@
+syntax = "proto3";
+
+package test.beta.v1;
+
+option go_package = "github.com/SebastienMelki/sebuf/internal/testcontracts/beta;betapb";
+
+message Shared {
+  string beta_id = 1;
+}
+
+message Reply {
+  Shared value = 1;
+}

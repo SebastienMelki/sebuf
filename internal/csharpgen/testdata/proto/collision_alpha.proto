@@ -1,0 +1,31 @@
+syntax = "proto3";
+
+package test.alpha.v1;
+
+option go_package = "github.com/SebastienMelki/sebuf/internal/testcontracts/alpha;alphapb";
+
+import "collision_beta.proto";
+import "sebuf/http/annotations.proto";
+
+message Shared {
+  string alpha_id = 1;
+}
+
+message CrossPackageEnvelope {
+  Shared local = 1;
+  test.beta.v1.Shared remote = 2;
+  map<string, test.beta.v1.Shared> remote_by_id = 3;
+}
+
+service CrossPackageService {
+  option (sebuf.http.service_config) = {
+    base_path: "/cross-package"
+  };
+
+  rpc Relay(test.beta.v1.Shared) returns (test.beta.v1.Reply) {
+    option (sebuf.http.config) = {
+      method: HTTP_METHOD_POST
+      path: "/relay"
+    };
+  }
+}

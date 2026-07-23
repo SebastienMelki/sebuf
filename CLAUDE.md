@@ -4,13 +4,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is `sebuf`, a specialized Go protobuf toolkit for building HTTP APIs. It consists of six complementary protoc plugins that together enable modern, type-safe API development:
+This is `sebuf`, a specialized Go protobuf toolkit for building HTTP APIs. It consists of seven complementary protoc plugins that together enable modern, type-safe API development:
 
 - **`protoc-gen-go-http`**: Generates HTTP handlers, routing, request/response binding, and automatic validation
 - **`protoc-gen-go-client`**: Generates type-safe Go HTTP clients with functional options pattern
 - **`protoc-gen-ts-client`**: Generates TypeScript HTTP clients with full type safety, header helpers, and error handling
 - **`protoc-gen-ts-server`**: Generates TypeScript HTTP server handlers using the Web Fetch API (Request/Response), framework-agnostic
 - **`protoc-gen-py-client`**: Generates Python HTTP clients (Python 3.10+) with type-safe dataclasses, header helpers, custom-transport injection, and typed proto-error exceptions — stdlib only
+- **`protoc-gen-csharp-http`**: Generates nullable-clean C# DTOs and annotated HTTP clients for Newtonsoft.Json or System.Text.Json
 - **`protoc-gen-openapiv3`**: Creates comprehensive OpenAPI v3.1 specifications
 
 The toolkit enables developers to build HTTP APIs directly from protobuf definitions without gRPC dependencies, targeting web and mobile API development with built-in request validation.
@@ -25,6 +26,7 @@ The project follows a clean Go protoc plugin architecture with separated concern
 - **cmd/protoc-gen-ts-client/**: TypeScript HTTP client generator entry point
 - **cmd/protoc-gen-ts-server/**: TypeScript HTTP server generator entry point
 - **cmd/protoc-gen-py-client/**: Python HTTP client generator entry point
+- **cmd/protoc-gen-csharp-http/**: C# contract and HTTP client generator entry point
 - **cmd/protoc-gen-openapiv3/**: OpenAPI specification generator entry point
 - **internal/httpgen/**: HTTP handler generation logic, annotations, and header validation middleware
 - **internal/clientgen/**: Go HTTP client generation logic and annotations
@@ -32,6 +34,8 @@ The project follows a clean Go protoc plugin architecture with separated concern
 - **internal/tsclientgen/**: TypeScript HTTP client generation logic
 - **internal/tsservergen/**: TypeScript HTTP server generation logic, header validation, route creation
 - **internal/pyclientgen/**: Python HTTP client generation logic (dataclasses, IntEnums, transport Protocol, typed *Error exceptions)
+- **internal/contractmodel/**: Generator-neutral protobuf contract and annotation model
+- **internal/csharpgen/**: C# DTO, JSON normalization, and annotated HTTP client generation
 - **internal/openapiv3/**: OpenAPI generation logic, type mapping, and header parameter generation
 - **proto/sebuf/http/**: HTTP annotation definitions including headers.proto for header validation
 - **scripts/**: Test automation and build scripts
@@ -43,9 +47,10 @@ The project follows a clean Go protoc plugin architecture with separated concern
 3. **TypeScript HTTP Client Generator** (`internal/tsclientgen/generator.go`): Generates TypeScript HTTP clients with typed interfaces, service/method header helpers, query parameter encoding, path parameter substitution, and structured error handling (ValidationError/ApiError)
 4. **TypeScript HTTP Server Generator** (`internal/tsservergen/generator.go`): Generates framework-agnostic TypeScript HTTP server handlers using the Web Fetch API (`Request` → `Promise<Response>`), with route descriptors, header validation, query/body parsing, and error handling
 5. **Python HTTP Client Generator** (`internal/pyclientgen/generator.go`): Generates Python HTTP clients with @dataclass messages, IntEnum enums, a duck-typed HttpTransport Protocol (UrllibTransport default), typed client/call options, and a per-`*Error`-message exception class hierarchy. Stdlib-only; Python 3.10+
-6. **OpenAPI Generator** (`internal/openapiv3/generator.go:53`): Creates comprehensive OpenAPI v3.1 specifications from protobuf definitions with full header parameter support, generating one file per service for better organization
-7. **Shared TypeScript Types** (`internal/tscommon/`): Shared TypeScript type mapping, interface generation, error types, and proto-defined error message collection (messages ending with "Error") used by both ts-client and ts-server generators
-8. **HTTP Annotations** (`proto/sebuf/http/annotations.proto`): Custom protobuf extensions for HTTP configuration
+6. **C# HTTP Client Generator** (`internal/csharpgen/generator.go`): Generates annotated service clients and DTOs for Newtonsoft.Json or System.Text.Json, including typed errors, cancellation, wire-format normalization, and cross-package contracts
+7. **OpenAPI Generator** (`internal/openapiv3/generator.go:53`): Creates comprehensive OpenAPI v3.1 specifications from protobuf definitions with full header parameter support, generating one file per service for better organization
+8. **Shared TypeScript Types** (`internal/tscommon/`): Shared TypeScript type mapping and generation (interfaces, enums, error types)
+9. **HTTP Annotations** (`proto/sebuf/http/annotations.proto`): Custom protobuf extensions for HTTP configuration
 5. **Header Validation** (`proto/sebuf/http/headers.proto`): Protobuf definitions for service and method-level header validation
 6. **Validation System**: Automatic request body validation via buf.validate/protovalidate and header validation middleware
 
@@ -803,15 +808,19 @@ The repository contains:
 - **cmd/protoc-gen-ts-client/**: TypeScript HTTP client plugin entry point
 - **cmd/protoc-gen-ts-server/**: TypeScript HTTP server plugin entry point
 - **cmd/protoc-gen-py-client/**: Python HTTP client plugin entry point
+- **cmd/protoc-gen-csharp-http/**: C# contract and HTTP client plugin entry point
 - **cmd/protoc-gen-openapiv3/**: OpenAPI generation plugin entry point
-- **internal/annotations/**: Shared annotation parsing used by all 6 generators (unwrap, query params, headers, JSON mapping)
+- **internal/annotations/**: Shared annotation parsing used by the generators (unwrap, query params, headers, JSON mapping)
 - **internal/httpgen/**: HTTP handler generation logic and tests
 - **internal/clientgen/**: Go HTTP client generation logic and tests
 - **internal/tscommon/**: Shared TypeScript type mapping and generation (interfaces, enums, error types)
 - **internal/tsclientgen/**: TypeScript HTTP client generation logic and tests
 - **internal/tsservergen/**: TypeScript HTTP server generation logic and tests
 - **internal/pyclientgen/**: Python HTTP client generation logic and tests (golden tests + helper unit tests)
+- **internal/contractmodel/**: Shared contract and annotation model for non-Go output
+- **internal/csharpgen/**: C# DTO/client generation with golden, compile, and runtime tests
 - **internal/openapiv3/**: OpenAPI generation logic and comprehensive test suite
+- **examples/csharp-contracts-demo/**: C# contract and annotated HTTP client generation example
 - **examples/ts-client-demo/**: End-to-end TypeScript client example with NoteService CRUD API
 - **examples/python-client-demo/**: End-to-end Python client example sharing the same Go HTTP server as ts-client-demo
 - **examples/python-encoding-demo/**: Python client end-to-end test of every JSON-mapping annotation (timestamp_format, int64_encoding, bytes_encoding, enum_value, oneof_config, flatten, all 3 unwrap variants, Python keyword field, repeated query params)
