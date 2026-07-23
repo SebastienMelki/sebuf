@@ -11,7 +11,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file result_errors.proto.
  */
 export const file_result_errors: GenFile = /*@__PURE__*/
-  fileDesc("ChNyZXN1bHRfZXJyb3JzLnByb3RvEg50ZXN0LnJlc3VsdGVyciIfChFHZXRBY2NvdW50UmVxdWVzdBIKCgJpZBgBIAEoCSIvCgxMb2dpblJlcXVlc3QSDQoFZW1haWwYASABKAkSEAoIcGFzc3dvcmQYAiABKAkiJAoHQWNjb3VudBIKCgJpZBgBIAEoCRINCgVlbWFpbBgCIAEoCSI7Cg1Ob3RGb3VuZEVycm9yEhUKDXJlc291cmNlX3R5cGUYASABKAkSEwoLcmVzb3VyY2VfaWQYAiABKAkiOQoKTG9naW5FcnJvchIOCgZyZWFzb24YASABKAkSGwoTcmV0cnlfYWZ0ZXJfc2Vjb25kcxgCIAEoBTLRAQoOQWNjb3VudFNlcnZpY2USYAoKR2V0QWNjb3VudBIhLnRlc3QucmVzdWx0ZXJyLkdldEFjY291bnRSZXF1ZXN0GhcudGVzdC5yZXN1bHRlcnIuQWNjb3VudCIWmrUYEgoOL2FjY291bnRzL3tpZH0QARJOCgVMb2dpbhIcLnRlc3QucmVzdWx0ZXJyLkxvZ2luUmVxdWVzdBoXLnRlc3QucmVzdWx0ZXJyLkFjY291bnQiDpq1GAoKBi9sb2dpbhACGg2itRgJCgcvYXBpL3YxQk9aTWdpdGh1Yi5jb20vU2ViYXN0aWVuTWVsa2kvc2VidWYvaW50ZXJuYWwvaHR0cGdlbi90ZXN0ZGF0YS9nZW5lcmF0ZWQ7Z2VuZXJhdGVkYgZwcm90bzM", [file_sebuf_http_annotations]);
+  fileDesc("ChNyZXN1bHRfZXJyb3JzLnByb3RvEg50ZXN0LnJlc3VsdGVyciIfChFHZXRBY2NvdW50UmVxdWVzdBIKCgJpZBgBIAEoCSIvCgxMb2dpblJlcXVlc3QSDQoFZW1haWwYASABKAkSEAoIcGFzc3dvcmQYAiABKAkiJAoHQWNjb3VudBIKCgJpZBgBIAEoCRINCgVlbWFpbBgCIAEoCSI7Cg1Ob3RGb3VuZEVycm9yEhUKDXJlc291cmNlX3R5cGUYASABKAkSEwoLcmVzb3VyY2VfaWQYAiABKAkiOQoKTG9naW5FcnJvchIOCgZyZWFzb24YASABKAkSGwoTcmV0cnlfYWZ0ZXJfc2Vjb25kcxgCIAEoBSIPCg1JbnRlcm5hbEVycm9yMtEBCg5BY2NvdW50U2VydmljZRJgCgpHZXRBY2NvdW50EiEudGVzdC5yZXN1bHRlcnIuR2V0QWNjb3VudFJlcXVlc3QaFy50ZXN0LnJlc3VsdGVyci5BY2NvdW50IhaatRgSCg4vYWNjb3VudHMve2lkfRABEk4KBUxvZ2luEhwudGVzdC5yZXN1bHRlcnIuTG9naW5SZXF1ZXN0GhcudGVzdC5yZXN1bHRlcnIuQWNjb3VudCIOmrUYCgoGL2xvZ2luEAIaDaK1GAkKBy9hcGkvdjFCT1pNZ2l0aHViLmNvbS9TZWJhc3RpZW5NZWxraS9zZWJ1Zi9pbnRlcm5hbC9odHRwZ2VuL3Rlc3RkYXRhL2dlbmVyYXRlZDtnZW5lcmF0ZWRiBnByb3RvMw", [file_sebuf_http_annotations]);
 
 /**
  * @generated from message test.resulterr.GetAccountRequest
@@ -120,6 +120,23 @@ export type LoginError = Message<"test.resulterr.LoginError"> & {
  */
 export const LoginErrorSchema: GenMessage<LoginError> = /*@__PURE__*/
   messageDesc(file_result_errors, 4);
+
+/**
+ * Zero-field error message. It joins the ClientError union and the registry with
+ * an empty key set; the `keys.length > 0` guard in decodeError ensures it never
+ * shadows NotFoundError/LoginError by matching every response body.
+ *
+ * @generated from message test.resulterr.InternalError
+ */
+export type InternalError = Message<"test.resulterr.InternalError"> & {
+};
+
+/**
+ * Describes the message test.resulterr.InternalError.
+ * Use `create(InternalErrorSchema)` to create a new message.
+ */
+export const InternalErrorSchema: GenMessage<InternalError> = /*@__PURE__*/
+  messageDesc(file_result_errors, 5);
 
 /**
  * AccountService exercises ts_error_handling=result in protobuf-es mode: methods

@@ -131,6 +131,8 @@ func writeResultBody(p Printer, refs []resultErrorRef) {
 		// Structural registry: [schema, requiredJsonKeys].
 		p("// [schema, required JSON keys] — decodeError returns the first proto *Error")
 		p("// whose keys are all present in the response body (mirrors the Python client).")
+		p("// Disambiguation relies on each *Error having a distinct, non-empty field set;")
+		p("// zero-field *Error messages are skipped at match time so they never shadow others.")
 		p("const ERROR_REGISTRY: [DescMessage, string[]][] = [")
 		for _, r := range refs {
 			p("  [%s, [%s]],", r.schemaName, quoteJoin(r.keys))
@@ -156,7 +158,7 @@ func writeResultBody(p Printer, refs []resultErrorRef) {
 		p("  try {")
 		p("    const json = JSON.parse(body);")
 		p("    for (const [schema, keys] of ERROR_REGISTRY) {")
-		p("      if (keys.every((k) => k in json)) {")
+		p("      if (keys.length > 0 && keys.every((k) => k in json)) {")
 		p("        return fromJson(schema, json, { ignoreUnknownFields: true }) as ClientError;")
 		p("      }")
 		p("    }")

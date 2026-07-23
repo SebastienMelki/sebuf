@@ -2,8 +2,8 @@
 
 import { fromJson, type DescMessage } from "@bufbuild/protobuf";
 import { ApiError, ValidationError } from "./errors.js";
-import { LoginErrorSchema, NotFoundErrorSchema } from "./result_errors_pb.js";
-import type { LoginError, NotFoundError } from "./result_errors_pb.js";
+import { InternalErrorSchema, LoginErrorSchema, NotFoundErrorSchema } from "./result_errors_pb.js";
+import type { InternalError, LoginError, NotFoundError } from "./result_errors_pb.js";
 
 // Discriminated result of an RPC call: exactly one of `data` / `error` is
 // set, narrowable on the `ok` discriminant or by checking `error`.
@@ -13,11 +13,14 @@ export type Result<T, E> =
 
 // Every error an RPC can surface: the two built-ins plus each proto-defined
 // *Error message. Proto errors carry protobuf-es's `$typeName` discriminant.
-export type ClientError = ValidationError | ApiError | LoginError | NotFoundError;
+export type ClientError = ValidationError | ApiError | InternalError | LoginError | NotFoundError;
 
 // [schema, required JSON keys] — decodeError returns the first proto *Error
 // whose keys are all present in the response body (mirrors the Python client).
+// Disambiguation relies on each *Error having a distinct, non-empty field set;
+// zero-field *Error messages are skipped at match time so they never shadow others.
 const ERROR_REGISTRY: [DescMessage, string[]][] = [
+  [InternalErrorSchema, []],
   [LoginErrorSchema, ["reason", "retryAfterSeconds"]],
   [NotFoundErrorSchema, ["resourceType", "resourceId"]],
 ];
@@ -38,7 +41,7 @@ export async function decodeError(resp: Response): Promise<ClientError> {
   try {
     const json = JSON.parse(body);
     for (const [schema, keys] of ERROR_REGISTRY) {
-      if (keys.every((k) => k in json)) {
+      if (keys.length > 0 && keys.every((k) => k in json)) {
         return fromJson(schema, json, { ignoreUnknownFields: true }) as ClientError;
       }
     }

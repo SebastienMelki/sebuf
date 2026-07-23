@@ -814,8 +814,11 @@ one `undefined`), so you can narrow on `r.ok` **or** destructure
 handler may return any `*Error`), so — mirroring the Python client — a shared
 `result.ts` carries a structural registry and a `decodeError` that picks the
 first `*Error` whose JSON marker keys are all present in the body (400-with-
-`violations` → `ValidationError`; no match → `ApiError`). Proto errors are
-protobuf-es messages, so they carry a `$typeName` discriminant:
+`violations` → `ValidationError`; no match → `ApiError`). Disambiguation relies
+on each `*Error` having a **distinct, non-empty** field set; a zero-field
+`*Error` message is skipped at match time so it never shadows the errors after
+it in the registry. Proto errors are protobuf-es messages, so they carry a
+`$typeName` discriminant:
 
 ```ts
 const r = await client.getAccount({ id });
