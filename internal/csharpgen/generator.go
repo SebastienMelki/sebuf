@@ -7,6 +7,7 @@ import (
 	"path"
 	"slices"
 	"sort"
+	"strconv"
 	"strings"
 
 	"google.golang.org/protobuf/compiler/protogen"
@@ -20,11 +21,13 @@ const (
 	csharpObjectType = "object"
 	csharpStringType = "string"
 	csharpDoubleType = "double"
+	csharpFloatType  = "float"
 	csharpBoolType   = "bool"
 	csharpLongType   = "long"
 	emptyTypeName    = "Empty"
 	bytesTypeName    = "bytes"
 	base64Encoding   = "base64"
+	protobufPackage  = "google.protobuf"
 )
 
 type Options struct {
@@ -164,27 +167,38 @@ func csharpNamespaceSegment(value string) string {
 
 func packagesUseCrossPackageTypes(packages []*contractmodel.Package) bool {
 	for _, pkg := range packages {
-		for _, message := range pkg.Messages {
-			for _, field := range message.Fields {
-				if typeRefUsesOtherPackage(field.Type, pkg.Name) {
-					return true
-				}
+		if packageUsesCrossPackageTypes(pkg) {
+			return true
+		}
+	}
+	return false
+}
+
+func packageUsesCrossPackageTypes(pkg *contractmodel.Package) bool {
+	for _, message := range pkg.Messages {
+		for _, field := range message.Fields {
+			if typeRefUsesOtherPackage(field.Type, pkg.Name) {
+				return true
 			}
 		}
-		for _, service := range pkg.Services {
-			for _, method := range service.Methods {
-				if isUserProtoPackage(method.InputPackage) && method.InputPackage != pkg.Name ||
-					isUserProtoPackage(method.ResponsePackage) && method.ResponsePackage != pkg.Name {
-					return true
-				}
+	}
+	for _, service := range pkg.Services {
+		for _, method := range service.Methods {
+			if methodUsesOtherPackage(method, pkg.Name) {
+				return true
 			}
 		}
 	}
 	return false
 }
 
+func methodUsesOtherPackage(method *contractmodel.Method, currentPackage string) bool {
+	return isUserProtoPackage(method.InputPackage) && method.InputPackage != currentPackage ||
+		isUserProtoPackage(method.ResponsePackage) && method.ResponsePackage != currentPackage
+}
+
 func isUserProtoPackage(pkg string) bool {
-	return pkg != "" && pkg != "google.protobuf"
+	return pkg != "" && pkg != protobufPackage
 }
 
 func typeRefUsesOtherPackage(ref *contractmodel.TypeRef, currentPackage string) bool {
@@ -202,7 +216,6 @@ type generatedProperty struct {
 	jsonName    string
 	name        string
 	typ         string
-	converter   string
 	initializer string
 }
 
@@ -252,9 +265,6 @@ func (g *Generator) generateMessages(
 		gf.P("    {")
 		for _, property := range g.messageProperties(message, messageIndex) {
 			gf.P("        ", g.jsonAttribute(property.jsonName))
-			if property.converter != "" {
-				gf.P("        ", property.converter)
-			}
 			if property.initializer != "" {
 				gf.P(
 					"        public ", property.typ, " ", property.name,
@@ -531,7 +541,10 @@ func (g *Generator) generateServiceClientMethod(
 	)
 	gf.P("        {")
 	if method.Stream {
-		gf.P(`            throw new NotSupportedException("SSE streaming is not implemented by the C# client generator.");`)
+		gf.P(
+			`            throw new NotSupportedException(`,
+			`"SSE streaming is not implemented by the C# client generator.");`,
+		)
 		gf.P("        }")
 		gf.P()
 		return
@@ -539,7 +552,9 @@ func (g *Generator) generateServiceClientMethod(
 	gf.P("            var contentType = options?.ContentType ?? _contentType;")
 	gf.P("            if (!string.Equals(contentType, \"application/json\", StringComparison.OrdinalIgnoreCase))")
 	gf.P("            {")
-	gf.P(`                throw new NotSupportedException("Only application/json is implemented by the C# client generator.");`)
+	gf.P(
+		`                throw new NotSupportedException("Only application/json is implemented by the C# client generator.");`,
+	)
 	gf.P("            }")
 	gf.P(`            var path = "`, method.Path, `";`)
 	for _, pathParam := range method.PathParams {
@@ -568,8 +583,15 @@ func (g *Generator) generateServiceClientMethod(
 		bodyExpr = "req"
 	}
 	gf.P(
-		"            return await SendAsync<", responseType, ">(HttpMethod.",
-		httpMethodName(method.HTTPMethod), ", requestUri, ", bodyExpr, ", headers, contentType, options?.Timeout ?? _timeout, cancellationToken);",
+		"            return await SendAsync<",
+		responseType,
+		">(HttpMethod.",
+		httpMethodName(
+			method.HTTPMethod,
+		),
+		", requestUri, ",
+		bodyExpr,
+		", headers, contentType, options?.Timeout ?? _timeout, cancellationToken);",
 	)
 	gf.P("        }")
 	gf.P()
@@ -671,8 +693,12 @@ func (g *Generator) generateSendAsync(
 		`                request.Content = new StringContent(SerializeRequest(body), Encoding.UTF8, contentType);`,
 	)
 	gf.P("            }")
-	gf.P("            using var timeoutCancellation = timeout is null ? null : new CancellationTokenSource(timeout.Value);")
-	gf.P("            using var linkedCancellation = timeoutCancellation is null ? null : CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeoutCancellation.Token);")
+	gf.P(
+		"            using var timeoutCancellation = timeout is null ? null : new CancellationTokenSource(timeout.Value);",
+	)
+	gf.P(
+		"            using var linkedCancellation = timeoutCancellation is null ? null : CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeoutCancellation.Token);",
+	)
 	gf.P("            var effectiveCancellationToken = linkedCancellation?.Token ?? cancellationToken;")
 	gf.P("            using var response = await _httpClient.SendAsync(request, effectiveCancellationToken);")
 	gf.P(
@@ -766,7 +792,11 @@ func (g *Generator) generateNewtonsoftErrorDispatch(
 		gf.P("                        var payload = DeserializeResponse<", message.Name, ">(responseBody);")
 		gf.P("                        if (payload is not null)")
 		gf.P("                        {")
-		gf.P("                            return new ", message.Name, "Exception(statusCode, responseBody, headers, payload);")
+		gf.P(
+			"                            return new ",
+			message.Name,
+			"Exception(statusCode, responseBody, headers, payload);",
+		)
 		gf.P("                        }")
 		gf.P("                    }")
 	}
@@ -800,7 +830,11 @@ func (g *Generator) generateSystemTextErrorDispatch(
 		gf.P("                        var payload = DeserializeResponse<", message.Name, ">(responseBody);")
 		gf.P("                        if (payload is not null)")
 		gf.P("                        {")
-		gf.P("                            return new ", message.Name, "Exception(statusCode, responseBody, headers, payload);")
+		gf.P(
+			"                            return new ",
+			message.Name,
+			"Exception(statusCode, responseBody, headers, payload);",
+		)
 		gf.P("                        }")
 		gf.P("                    }")
 	}
@@ -1210,7 +1244,6 @@ func (g *Generator) generateNewtonsoftMessageNormalizationBody(
 	gf.P("            return obj;")
 }
 
-//nolint:nestif // Branching mirrors generated JSON normalization cases.
 func (g *Generator) generateNewtonsoftRootUnwrapNormalizationBody(
 	gf *protogen.GeneratedFile,
 	message *contractmodel.Message,
@@ -1223,54 +1256,81 @@ func (g *Generator) generateNewtonsoftRootUnwrapNormalizationBody(
 	}
 	field := message.Fields[0]
 	if field.Repeated {
-		if ref := enumTypeRef(field); ref != nil && needsEnumEncodingNormalization(field) {
-			gf.P("            if (token is not JArray array)")
-			gf.P("            {")
-			gf.P("                return token;")
-			gf.P("            }")
-			gf.P("            for (var i = 0; i < array.Count; i++)")
-			gf.P("            {")
-			g.generateNewtonsoftEnumTokenAssignment(gf, "array[i]", ref.Name, serialize, "                ")
-			gf.P("            }")
-			gf.P("            return array;")
-			return
-		}
-		if needsBytesEncodingNormalization(field) {
-			gf.P("            if (token is not JArray array)")
-			gf.P("            {")
-			gf.P("                return token;")
-			gf.P("            }")
-			gf.P("            for (var i = 0; i < array.Count; i++)")
-			gf.P("            {")
-			g.generateNewtonsoftBytesTokenAssignment(gf, "array[i]", field, serialize, "                ")
-			gf.P("            }")
-			gf.P("            return array;")
-			return
-		}
-		if field.Type == nil || field.Type.Kind != contractmodel.KindMessage ||
-			!messageNeedsJSONNormalization(messageForRef(messageIndex, field.Type), messageIndex) {
-			gf.P("            return token;")
-			return
-		}
-		gf.P("            if (token is not JArray array)")
-		gf.P("            {")
-		gf.P("                return token;")
-		gf.P("            }")
-		gf.P("            for (var i = 0; i < array.Count; i++)")
-		gf.P("            {")
-		if serialize {
-			gf.P("                array[i] = NormalizeSerializedToken(typeof(", g.csharpNamedType(field.Type), "), array[i]!);")
-		} else {
-			gf.P("                array[i] = NormalizeResponseToken(typeof(", g.csharpNamedType(field.Type), "), array[i]!);")
-		}
-		gf.P("            }")
-		gf.P("            return array;")
+		g.generateNewtonsoftRootUnwrapRepeatedNormalization(gf, field, messageIndex, serialize)
 		return
 	}
 	if !field.IsMap || field.Type == nil || field.Type.MapValue == nil {
 		gf.P("            return token;")
 		return
 	}
+	g.generateNewtonsoftRootUnwrapMapNormalization(gf, field, messageIndex, serialize)
+}
+
+func (g *Generator) generateNewtonsoftRootUnwrapRepeatedNormalization(
+	gf *protogen.GeneratedFile,
+	field *contractmodel.Field,
+	messageIndex map[string]*contractmodel.Message,
+	serialize bool,
+) {
+	if ref := enumTypeRef(field); ref != nil && needsEnumEncodingNormalization(field) {
+		gf.P("            if (token is not JArray array)")
+		gf.P("            {")
+		gf.P("                return token;")
+		gf.P("            }")
+		gf.P("            for (var i = 0; i < array.Count; i++)")
+		gf.P("            {")
+		g.generateNewtonsoftEnumTokenAssignment(gf, "array[i]", ref.Name, serialize, "                ")
+		gf.P("            }")
+		gf.P("            return array;")
+		return
+	}
+	if needsBytesEncodingNormalization(field) {
+		gf.P("            if (token is not JArray array)")
+		gf.P("            {")
+		gf.P("                return token;")
+		gf.P("            }")
+		gf.P("            for (var i = 0; i < array.Count; i++)")
+		gf.P("            {")
+		g.generateNewtonsoftBytesTokenAssignment(gf, "array[i]", field, serialize, "                ")
+		gf.P("            }")
+		gf.P("            return array;")
+		return
+	}
+	if field.Type == nil || field.Type.Kind != contractmodel.KindMessage ||
+		!messageNeedsJSONNormalization(messageForRef(messageIndex, field.Type), messageIndex) {
+		gf.P("            return token;")
+		return
+	}
+	gf.P("            if (token is not JArray array)")
+	gf.P("            {")
+	gf.P("                return token;")
+	gf.P("            }")
+	gf.P("            for (var i = 0; i < array.Count; i++)")
+	gf.P("            {")
+	if serialize {
+		gf.P(
+			"                array[i] = NormalizeSerializedToken(typeof(",
+			g.csharpNamedType(field.Type),
+			"), array[i]!);",
+		)
+	} else {
+		gf.P(
+			"                array[i] = NormalizeResponseToken(typeof(",
+			g.csharpNamedType(field.Type),
+			"), array[i]!);",
+		)
+	}
+	gf.P("            }")
+	gf.P("            return array;")
+}
+
+//nolint:nestif // Serialization and response branches mirror the emitted C# control flow.
+func (g *Generator) generateNewtonsoftRootUnwrapMapNormalization(
+	gf *protogen.GeneratedFile,
+	field *contractmodel.Field,
+	messageIndex map[string]*contractmodel.Message,
+	serialize bool,
+) {
 	if ref := enumTypeRef(field); ref != nil && needsEnumEncodingNormalization(field) {
 		gf.P("            if (token is not JObject obj)")
 		gf.P("            {")
@@ -1348,7 +1408,17 @@ func (g *Generator) generateNewtonsoftEnumEncodingNormalization(
 	}
 	base := pascalCase(jsonName) + "Enum"
 	if field.IsMap {
-		gf.P(`            if (obj.TryGetValue("`, jsonName, `", out var `, base, `Map) && `, base, `Map is JObject `, base, `Object)`)
+		gf.P(
+			`            if (obj.TryGetValue("`,
+			jsonName,
+			`", out var `,
+			base,
+			`Map) && `,
+			base,
+			`Map is JObject `,
+			base,
+			`Object)`,
+		)
 		gf.P("            {")
 		gf.P("                foreach (var property in ", base, "Object.Properties().ToList())")
 		gf.P("                {")
@@ -1358,7 +1428,17 @@ func (g *Generator) generateNewtonsoftEnumEncodingNormalization(
 		return
 	}
 	if field.Repeated {
-		gf.P(`            if (obj.TryGetValue("`, jsonName, `", out var `, base, `List) && `, base, `List is JArray `, base, `Array)`)
+		gf.P(
+			`            if (obj.TryGetValue("`,
+			jsonName,
+			`", out var `,
+			base,
+			`List) && `,
+			base,
+			`List is JArray `,
+			base,
+			`Array)`,
+		)
 		gf.P("            {")
 		gf.P("                for (var i = 0; i < ", base, "Array.Count; i++)")
 		gf.P("                {")
@@ -1401,7 +1481,17 @@ func (g *Generator) generateNewtonsoftBytesEncodingNormalization(
 ) {
 	base := pascalCase(jsonName) + "Bytes"
 	if field.IsMap {
-		gf.P(`            if (obj.TryGetValue("`, jsonName, `", out var `, base, `Map) && `, base, `Map is JObject `, base, `Object)`)
+		gf.P(
+			`            if (obj.TryGetValue("`,
+			jsonName,
+			`", out var `,
+			base,
+			`Map) && `,
+			base,
+			`Map is JObject `,
+			base,
+			`Object)`,
+		)
 		gf.P("            {")
 		gf.P("                foreach (var property in ", base, "Object.Properties().ToList())")
 		gf.P("                {")
@@ -1411,7 +1501,17 @@ func (g *Generator) generateNewtonsoftBytesEncodingNormalization(
 		return
 	}
 	if field.Repeated {
-		gf.P(`            if (obj.TryGetValue("`, jsonName, `", out var `, base, `List) && `, base, `List is JArray `, base, `Array)`)
+		gf.P(
+			`            if (obj.TryGetValue("`,
+			jsonName,
+			`", out var `,
+			base,
+			`List) && `,
+			base,
+			`List is JArray `,
+			base,
+			`Array)`,
+		)
 		gf.P("            {")
 		gf.P("                for (var i = 0; i < ", base, "Array.Count; i++)")
 		gf.P("                {")
@@ -1443,7 +1543,7 @@ func (g *Generator) generateNewtonsoftBytesTokenAssignment(
 	gf.P(indent, "}")
 }
 
-//nolint:funlen,gocognit,nestif,golines // Branching mirrors generated JSON normalization cases.
+//nolint:funlen,gocognit,nestif // Branching mirrors generated JSON normalization cases.
 func (g *Generator) generateNewtonsoftFieldNormalization(
 	gf *protogen.GeneratedFile,
 	field *contractmodel.Field,
@@ -1466,9 +1566,20 @@ func (g *Generator) generateNewtonsoftFieldNormalization(
 		g.generateNewtonsoftEmptyBehaviorNormalization(gf, field, jsonName, serialize)
 	}
 
-	if field.IsMap && field.Type != nil && field.Type.MapValue != nil && field.Type.MapValue.Kind == contractmodel.KindMessage &&
+	if field.IsMap && field.Type != nil && field.Type.MapValue != nil &&
+		field.Type.MapValue.Kind == contractmodel.KindMessage &&
 		messageNeedsJSONNormalization(messageForRef(messageIndex, field.Type.MapValue), messageIndex) {
-		gf.P(`            if (obj.TryGetValue("`, jsonName, `", out var `, pascalCase(jsonName), `Map) && `, pascalCase(jsonName), `Map is JObject `, pascalCase(jsonName), `Object)`)
+		gf.P(
+			`            if (obj.TryGetValue("`,
+			jsonName,
+			`", out var `,
+			pascalCase(jsonName),
+			`Map) && `,
+			pascalCase(jsonName),
+			`Map is JObject `,
+			pascalCase(jsonName),
+			`Object)`,
+		)
 		gf.P("            {")
 		gf.P("                foreach (var property in ", pascalCase(jsonName), "Object.Properties().ToList())")
 		gf.P("                {")
@@ -1505,7 +1616,17 @@ func (g *Generator) generateNewtonsoftFieldNormalization(
 	if field.Type != nil && field.Type.Kind == contractmodel.KindMessage &&
 		messageNeedsJSONNormalization(messageForRef(messageIndex, field.Type), messageIndex) {
 		if field.Repeated {
-			gf.P(`            if (obj.TryGetValue("`, jsonName, `", out var `, pascalCase(jsonName), `List) && `, pascalCase(jsonName), `List is JArray `, pascalCase(jsonName), `Array)`)
+			gf.P(
+				`            if (obj.TryGetValue("`,
+				jsonName,
+				`", out var `,
+				pascalCase(jsonName),
+				`List) && `,
+				pascalCase(jsonName),
+				`List is JArray `,
+				pascalCase(jsonName),
+				`Array)`,
+			)
 			gf.P("            {")
 			gf.P("                for (var i = 0; i < ", pascalCase(jsonName), "Array.Count; i++)")
 			gf.P("                {")
@@ -1526,7 +1647,15 @@ func (g *Generator) generateNewtonsoftFieldNormalization(
 			gf.P("            }")
 			return
 		}
-		gf.P(`            if (obj.TryGetValue("`, jsonName, `", out var `, pascalCase(jsonName), `Child) && `, pascalCase(jsonName), `Child.Type == JTokenType.Object)`)
+		gf.P(
+			`            if (obj.TryGetValue("`,
+			jsonName,
+			`", out var `,
+			pascalCase(jsonName),
+			`Child) && `,
+			pascalCase(jsonName),
+			`Child.Type == JTokenType.Object)`,
+		)
 		gf.P("            {")
 		if serialize {
 			gf.P(
@@ -1707,7 +1836,6 @@ func (g *Generator) generateSystemTextDiscriminatorCleanup(
 	gf.P("            }")
 }
 
-//nolint:nestif // Branching mirrors generated JSON normalization cases.
 func (g *Generator) generateSystemTextRootUnwrapNormalizationBody(
 	gf *protogen.GeneratedFile,
 	message *contractmodel.Message,
@@ -1720,58 +1848,77 @@ func (g *Generator) generateSystemTextRootUnwrapNormalizationBody(
 	}
 	field := message.Fields[0]
 	if field.Repeated {
-		if ref := enumTypeRef(field); ref != nil && needsEnumEncodingNormalization(field) {
-			gf.P("            if (token is not JsonArray array)")
-			gf.P("            {")
-			gf.P("                return token;")
-			gf.P("            }")
-			gf.P("            for (var i = 0; i < array.Count; i++)")
-			gf.P("            {")
-			g.generateSystemTextEnumNodeAssignment(gf, "array[i]", ref.Name, serialize, "                ")
-			gf.P("            }")
-			gf.P("            return array;")
-			return
-		}
-		if needsBytesEncodingNormalization(field) {
-			gf.P("            if (token is not JsonArray array)")
-			gf.P("            {")
-			gf.P("                return token;")
-			gf.P("            }")
-			gf.P("            for (var i = 0; i < array.Count; i++)")
-			gf.P("            {")
-			g.generateSystemTextBytesNodeAssignment(gf, "array[i]", field, serialize, "                ")
-			gf.P("            }")
-			gf.P("            return array;")
-			return
-		}
-		if field.Type == nil || field.Type.Kind != contractmodel.KindMessage ||
-			!messageNeedsJSONNormalization(messageForRef(messageIndex, field.Type), messageIndex) {
-			gf.P("            return token;")
-			return
-		}
-		gf.P("            if (token is not JsonArray array)")
-		gf.P("            {")
-		gf.P("                return token;")
-		gf.P("            }")
-		gf.P("            for (var i = 0; i < array.Count; i++)")
-		gf.P("            {")
-		gf.P("                if (array[i] is not JsonNode item)")
-		gf.P("                {")
-		gf.P("                    continue;")
-		gf.P("                }")
-		if serialize {
-			gf.P("                array[i] = NormalizeSerializedNode(typeof(", g.csharpNamedType(field.Type), "), item);")
-		} else {
-			gf.P("                array[i] = NormalizeResponseNode(typeof(", g.csharpNamedType(field.Type), "), item);")
-		}
-		gf.P("            }")
-		gf.P("            return array;")
+		g.generateSystemTextRootUnwrapRepeatedNormalization(gf, field, messageIndex, serialize)
 		return
 	}
 	if !field.IsMap || field.Type == nil || field.Type.MapValue == nil {
 		gf.P("            return token;")
 		return
 	}
+	g.generateSystemTextRootUnwrapMapNormalization(gf, field, messageIndex, serialize)
+}
+
+func (g *Generator) generateSystemTextRootUnwrapRepeatedNormalization(
+	gf *protogen.GeneratedFile,
+	field *contractmodel.Field,
+	messageIndex map[string]*contractmodel.Message,
+	serialize bool,
+) {
+	if ref := enumTypeRef(field); ref != nil && needsEnumEncodingNormalization(field) {
+		gf.P("            if (token is not JsonArray array)")
+		gf.P("            {")
+		gf.P("                return token;")
+		gf.P("            }")
+		gf.P("            for (var i = 0; i < array.Count; i++)")
+		gf.P("            {")
+		g.generateSystemTextEnumNodeAssignment(gf, "array[i]", ref.Name, serialize, "                ")
+		gf.P("            }")
+		gf.P("            return array;")
+		return
+	}
+	if needsBytesEncodingNormalization(field) {
+		gf.P("            if (token is not JsonArray array)")
+		gf.P("            {")
+		gf.P("                return token;")
+		gf.P("            }")
+		gf.P("            for (var i = 0; i < array.Count; i++)")
+		gf.P("            {")
+		g.generateSystemTextBytesNodeAssignment(gf, "array[i]", field, serialize, "                ")
+		gf.P("            }")
+		gf.P("            return array;")
+		return
+	}
+	if field.Type == nil || field.Type.Kind != contractmodel.KindMessage ||
+		!messageNeedsJSONNormalization(messageForRef(messageIndex, field.Type), messageIndex) {
+		gf.P("            return token;")
+		return
+	}
+	gf.P("            if (token is not JsonArray array)")
+	gf.P("            {")
+	gf.P("                return token;")
+	gf.P("            }")
+	gf.P("            for (var i = 0; i < array.Count; i++)")
+	gf.P("            {")
+	gf.P("                if (array[i] is not JsonNode item)")
+	gf.P("                {")
+	gf.P("                    continue;")
+	gf.P("                }")
+	if serialize {
+		gf.P("                array[i] = NormalizeSerializedNode(typeof(", g.csharpNamedType(field.Type), "), item);")
+	} else {
+		gf.P("                array[i] = NormalizeResponseNode(typeof(", g.csharpNamedType(field.Type), "), item);")
+	}
+	gf.P("            }")
+	gf.P("            return array;")
+}
+
+//nolint:nestif // Serialization and response branches mirror the emitted C# control flow.
+func (g *Generator) generateSystemTextRootUnwrapMapNormalization(
+	gf *protogen.GeneratedFile,
+	field *contractmodel.Field,
+	messageIndex map[string]*contractmodel.Message,
+	serialize bool,
+) {
 	if ref := enumTypeRef(field); ref != nil && needsEnumEncodingNormalization(field) {
 		gf.P("            if (token is not JsonObject obj)")
 		gf.P("            {")
@@ -1949,7 +2096,7 @@ func (g *Generator) generateSystemTextBytesNodeAssignment(
 	gf.P(indent, "}")
 }
 
-//nolint:funlen,gocognit,nestif,golines // Branching mirrors generated JSON normalization cases.
+//nolint:funlen,gocognit,nestif // Branching mirrors generated JSON normalization cases.
 func (g *Generator) generateSystemTextFieldNormalization(
 	gf *protogen.GeneratedFile,
 	field *contractmodel.Field,
@@ -1972,7 +2119,8 @@ func (g *Generator) generateSystemTextFieldNormalization(
 		g.generateSystemTextEmptyBehaviorNormalization(gf, field, jsonName, serialize)
 	}
 
-	if field.IsMap && field.Type != nil && field.Type.MapValue != nil && field.Type.MapValue.Kind == contractmodel.KindMessage &&
+	if field.IsMap && field.Type != nil && field.Type.MapValue != nil &&
+		field.Type.MapValue.Kind == contractmodel.KindMessage &&
 		messageNeedsJSONNormalization(messageForRef(messageIndex, field.Type.MapValue), messageIndex) {
 		gf.P(`            if (obj["`, jsonName, `"] is JsonObject `, pascalCase(jsonName), `Object)`)
 		gf.P("            {")
@@ -2367,12 +2515,16 @@ func bytesEncodingName(encoding sebufhttp.BytesEncoding) string {
 }
 
 func (g *Generator) generatePathAndQueryHelpers(gf *protogen.GeneratedFile) {
-	gf.P("        private static string FormatPathValue(object? value, Type? enumType = null, bool enumAsNumber = false)")
+	gf.P(
+		"        private static string FormatPathValue(object? value, Type? enumType = null, bool enumAsNumber = false)",
+	)
 	gf.P("        {")
 	gf.P("            return FormatWireValue(value, enumType, enumAsNumber);")
 	gf.P("        }")
 	gf.P()
-	gf.P("        private static string FormatQueryValue(object? value, Type? enumType = null, bool enumAsNumber = false)")
+	gf.P(
+		"        private static string FormatQueryValue(object? value, Type? enumType = null, bool enumAsNumber = false)",
+	)
 	gf.P("        {")
 	gf.P("            return FormatWireValue(value, enumType, enumAsNumber);")
 	gf.P("        }")
@@ -2387,9 +2539,13 @@ func (g *Generator) generatePathAndQueryHelpers(gf *protogen.GeneratedFile) {
 	gf.P("            {")
 	gf.P("                if (enumAsNumber)")
 	gf.P("                {")
-	gf.P("                    return Convert.ToInt64(value, CultureInfo.InvariantCulture).ToString(CultureInfo.InvariantCulture);")
+	gf.P(
+		"                    return Convert.ToInt64(value, CultureInfo.InvariantCulture).ToString(CultureInfo.InvariantCulture);",
+	)
 	gf.P("                }")
-	gf.P("                var name = Enum.GetName(enumType, value) ?? Convert.ToInt64(value, CultureInfo.InvariantCulture).ToString(CultureInfo.InvariantCulture);")
+	gf.P(
+		"                var name = Enum.GetName(enumType, value) ?? Convert.ToInt64(value, CultureInfo.InvariantCulture).ToString(CultureInfo.InvariantCulture);",
+	)
 	gf.P("                var member = enumType.GetMember(name).FirstOrDefault();")
 	gf.P("                var mapping = member?.GetCustomAttributes(typeof(EnumMemberAttribute), false)")
 	gf.P("                    .OfType<EnumMemberAttribute>().FirstOrDefault()?.Value;")
@@ -2423,7 +2579,9 @@ func csharpWireFormatArgs(field *contractmodel.Field) string {
 	if ref == nil {
 		return ""
 	}
-	return ", typeof(" + ref.Name + "), " + fmt.Sprintf("%t", field.Annotations.EnumEncoding == sebufhttp.EnumEncoding_ENUM_ENCODING_NUMBER)
+	return ", typeof(" + ref.Name + "), " + strconv.FormatBool(
+		field.Annotations.EnumEncoding == sebufhttp.EnumEncoding_ENUM_ENCODING_NUMBER,
+	)
 }
 
 func serviceCallHeaders(service *contractmodel.Service) []*contractmodel.Header {
@@ -2474,15 +2632,8 @@ func httpMethodName(method string) string {
 	}
 }
 
-func clientResponseType(method *contractmodel.Method) string {
-	if method.ResponseType == "" {
-		return emptyTypeName
-	}
-	return method.ResponseType
-}
-
 func (g *Generator) methodInputType(method *contractmodel.Method) string {
-	if method.InputPackage == "google.protobuf" && method.InputType == emptyTypeName {
+	if method.InputPackage == protobufPackage && method.InputType == emptyTypeName {
 		return emptyTypeName
 	}
 	return g.csharpNamedType(&contractmodel.TypeRef{
@@ -2494,7 +2645,7 @@ func (g *Generator) clientResponseType(method *contractmodel.Method) string {
 	if method.ResponseType == "" {
 		return emptyTypeName
 	}
-	if method.ResponsePackage == "google.protobuf" && method.ResponseType == emptyTypeName {
+	if method.ResponsePackage == protobufPackage && method.ResponseType == emptyTypeName {
 		return emptyTypeName
 	}
 	return g.csharpNamedType(&contractmodel.TypeRef{
@@ -2518,7 +2669,7 @@ func csharpQueryCondition(field *contractmodel.Field, expr string) string {
 			return expr
 		case "int32", "fixed32", "uint32", "sfixed32", "sint32", "int64", "uint64", "fixed64", "sfixed64", "sint64":
 			return expr + " != 0"
-		case "float", "double":
+		case csharpFloatType, csharpDoubleType:
 			return expr + " != 0"
 		default:
 			return expr + " != null"
@@ -2560,7 +2711,6 @@ func (g *Generator) appendStandardMessageProperties(
 			field.Name,
 			pascalCase(field.Name),
 			g.csharpPropertyType(field, false),
-			g.enumConverterAttribute(field),
 		)
 	}
 }
@@ -2579,7 +2729,6 @@ func (g *Generator) appendOneofProperties(
 				oneof.Discriminator,
 				pascalCase(oneof.Discriminator),
 				"string?",
-				"",
 			)
 		}
 		for _, variant := range oneof.Variants {
@@ -2598,7 +2747,6 @@ func (g *Generator) appendOneofProperties(
 				variant.FieldName,
 				pascalCase(variant.FieldName),
 				g.csharpPropertyType(variantField, true),
-				g.enumConverterAttribute(variantField),
 			)
 		}
 	}
@@ -2623,7 +2771,6 @@ func (g *Generator) appendFlattenedProperties(
 			jsonName,
 			pascalCase(jsonName),
 			g.csharpPropertyType(childField, true),
-			g.enumConverterAttribute(childField),
 		)
 	}
 	return true
@@ -2655,7 +2802,6 @@ func (g *Generator) appendFlattenedVariantProperties(
 			jsonName,
 			pascalCase(jsonName),
 			g.csharpPropertyType(childField, true),
-			g.enumConverterAttribute(childField),
 		)
 	}
 	return true
@@ -2667,7 +2813,6 @@ func (g *Generator) appendProperty(
 	jsonName string,
 	name string,
 	typ string,
-	converter string,
 ) {
 	if usedJSONNames[jsonName] {
 		return
@@ -2677,7 +2822,6 @@ func (g *Generator) appendProperty(
 		jsonName:    jsonName,
 		name:        name,
 		typ:         typ,
-		converter:   converter,
 		initializer: csharpPropertyInitializer(typ),
 	})
 }
@@ -2910,8 +3054,8 @@ func csharpScalar(field *contractmodel.Field) string {
 	switch kind {
 	case csharpDoubleType:
 		return csharpDoubleType
-	case "float":
-		return "float"
+	case csharpFloatType:
+		return csharpFloatType
 	case "int64", "sfixed64", "sint64":
 		if field.Annotations.Int64Encoding != sebufhttp.Int64Encoding_INT64_ENCODING_NUMBER {
 			return csharpStringType
@@ -2935,13 +3079,6 @@ func csharpScalar(field *contractmodel.Field) string {
 	default:
 		return csharpObjectType
 	}
-}
-
-func (g *Generator) enumConverterAttribute(field *contractmodel.Field) string {
-	// Enum wire encoding is normalized at the message boundary. Property-level
-	// converters cannot correctly cover repeated or map enum values and
-	// System.Text.Json's built-in converter does not honor EnumMember mappings.
-	return ""
 }
 
 func shouldUseNullableType(field *contractmodel.Field, ref *contractmodel.TypeRef, forceNullable bool) bool {

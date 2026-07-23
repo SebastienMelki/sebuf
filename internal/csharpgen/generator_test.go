@@ -1099,7 +1099,9 @@ func TestCSharpGenSSEMethodFailsExplicitly(t *testing.T) {
 		t.Fatalf("generatePackage() error = %v", err)
 	}
 	output := generatedCSharpContent(t, plugin, "test/sse/Contracts.g.cs")
-	if !strings.Contains(output, `throw new NotSupportedException("SSE streaming is not implemented by the C# client generator.");`) {
+	const unsupportedSSE = `throw new NotSupportedException(` +
+		`"SSE streaming is not implemented by the C# client generator.");`
+	if !strings.Contains(output, unsupportedSSE) {
 		t.Fatalf("SSE method did not fail explicitly:\n%s", output)
 	}
 	if strings.Contains(output, "SendAsync<Event>(HttpMethod.Get") {
@@ -1123,19 +1125,59 @@ func TestCSharpWireFormattingIsInvariantAndHonorsEnumEncoding(t *testing.T) {
 		Messages: []*contractmodel.Message{{
 			Name: "WireRequest",
 			Fields: []*contractmodel.Field{
-				{Name: "mode", Type: enumRef, Annotations: contractmodel.FieldAnnotations{EnumEncoding: sebufhttp.EnumEncoding_ENUM_ENCODING_STRING, Query: &contractmodel.Query{Name: "mode"}}},
-				{Name: "numeric_mode", Type: enumRef, Annotations: contractmodel.FieldAnnotations{EnumEncoding: sebufhttp.EnumEncoding_ENUM_ENCODING_NUMBER, Query: &contractmodel.Query{Name: "numeric_mode"}}},
-				{Name: "enabled", Type: &contractmodel.TypeRef{Kind: contractmodel.KindScalar, Name: "bool"}, Annotations: contractmodel.FieldAnnotations{Query: &contractmodel.Query{Name: "enabled"}}},
-				{Name: "ratio", Type: &contractmodel.TypeRef{Kind: contractmodel.KindScalar, Name: "float"}, Annotations: contractmodel.FieldAnnotations{Query: &contractmodel.Query{Name: "ratio"}}},
-				{Name: "max_u32", Type: &contractmodel.TypeRef{Kind: contractmodel.KindScalar, Name: "uint32"}, Annotations: contractmodel.FieldAnnotations{Query: &contractmodel.Query{Name: "max_u32"}}},
-				{Name: "max_u64", Type: &contractmodel.TypeRef{Kind: contractmodel.KindScalar, Name: "uint64"}, Annotations: contractmodel.FieldAnnotations{Int64Encoding: sebufhttp.Int64Encoding_INT64_ENCODING_NUMBER, Query: &contractmodel.Query{Name: "max_u64"}}},
+				{
+					Name: "mode",
+					Type: enumRef,
+					Annotations: contractmodel.FieldAnnotations{
+						EnumEncoding: sebufhttp.EnumEncoding_ENUM_ENCODING_STRING,
+						Query:        &contractmodel.Query{Name: "mode"},
+					},
+				},
+				{
+					Name: "numeric_mode",
+					Type: enumRef,
+					Annotations: contractmodel.FieldAnnotations{
+						EnumEncoding: sebufhttp.EnumEncoding_ENUM_ENCODING_NUMBER,
+						Query:        &contractmodel.Query{Name: "numeric_mode"},
+					},
+				},
+				{
+					Name:        "enabled",
+					Type:        &contractmodel.TypeRef{Kind: contractmodel.KindScalar, Name: "bool"},
+					Annotations: contractmodel.FieldAnnotations{Query: &contractmodel.Query{Name: "enabled"}},
+				},
+				{
+					Name:        "ratio",
+					Type:        &contractmodel.TypeRef{Kind: contractmodel.KindScalar, Name: "float"},
+					Annotations: contractmodel.FieldAnnotations{Query: &contractmodel.Query{Name: "ratio"}},
+				},
+				{
+					Name:        "max_u32",
+					Type:        &contractmodel.TypeRef{Kind: contractmodel.KindScalar, Name: "uint32"},
+					Annotations: contractmodel.FieldAnnotations{Query: &contractmodel.Query{Name: "max_u32"}},
+				},
+				{
+					Name: "max_u64",
+					Type: &contractmodel.TypeRef{Kind: contractmodel.KindScalar, Name: "uint64"},
+					Annotations: contractmodel.FieldAnnotations{
+						Int64Encoding: sebufhttp.Int64Encoding_INT64_ENCODING_NUMBER,
+						Query:         &contractmodel.Query{Name: "max_u64"},
+					},
+				},
 			},
 		}},
 		Services: []*contractmodel.Service{{
 			Name: "WireService",
-			Methods: []*contractmodel.Method{{
-				Name: "GetWire", InputType: "WireRequest", ResponseType: "WireRequest", HTTPMethod: "GET", Path: "/wire/{mode}", PathParams: []string{"mode"},
-			}},
+			Methods: []*contractmodel.Method{
+				{
+					Name:         "GetWire",
+					InputType:    "WireRequest",
+					ResponseType: "WireRequest",
+					HTTPMethod:   "GET",
+					Path:         "/wire/{mode}",
+					PathParams:   []string{"mode"},
+				},
+			},
 		}},
 	}
 	if err := gen.generatePackage(pkg); err != nil {

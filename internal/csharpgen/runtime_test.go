@@ -22,9 +22,9 @@ func TestGeneratedClientsExecute(t *testing.T) {
 		t.Skip("dotnet SDK not found; generated C# runtime validation requires dotnet")
 	}
 
-	workingDir, err := os.Getwd()
-	if err != nil {
-		t.Fatalf("get working directory: %v", err)
+	workingDir, workingDirErr := os.Getwd()
+	if workingDirErr != nil {
+		t.Fatalf("get working directory: %v", workingDirErr)
 	}
 	projectRoot := filepath.Join(workingDir, "..", "..")
 	protoDir := filepath.Join(workingDir, "testdata", "proto")
@@ -41,20 +41,32 @@ func TestGeneratedClientsExecute(t *testing.T) {
 			outputDir := t.TempDir()
 			runRuntimeProtoc(t, protoDir, projectRoot, pluginPath, outputDir, tc.jsonLib)
 			writeRuntimeProject(t, outputDir, tc.jsonLib)
-			if err := os.WriteFile(filepath.Join(outputDir, "Program.cs"), []byte(runtimeProgram), 0o644); err != nil {
-				t.Fatalf("write C# runtime test program: %v", err)
+			if writeErr := os.WriteFile(
+				filepath.Join(outputDir, "Program.cs"),
+				[]byte(runtimeProgram),
+				0o644,
+			); writeErr != nil {
+				t.Fatalf("write C# runtime test program: %v", writeErr)
 			}
 
-			build := exec.Command("dotnet", "build", "Runtime.csproj", "--nologo", "--verbosity", "minimal", "--ignore-failed-sources")
+			build := exec.Command(
+				"dotnet", "build", "Runtime.csproj",
+				"--nologo", "--verbosity", "minimal", "--ignore-failed-sources",
+			)
 			build.Dir = outputDir
-			if output, err := build.CombinedOutput(); err != nil {
-				t.Fatalf("generated %s runtime project does not compile: %v\n%s", tc.jsonLib, err, output)
+			if output, buildErr := build.CombinedOutput(); buildErr != nil {
+				t.Fatalf(
+					"generated %s runtime project does not compile: %v\n%s",
+					tc.jsonLib,
+					buildErr,
+					output,
+				)
 			}
 
 			run := exec.Command("dotnet", "run", "--project", "Runtime.csproj", "--no-build", "--no-restore")
 			run.Dir = outputDir
-			if output, err := run.CombinedOutput(); err != nil {
-				t.Fatalf("generated %s runtime checks failed: %v\n%s", tc.jsonLib, err, output)
+			if output, runErr := run.CombinedOutput(); runErr != nil {
+				t.Fatalf("generated %s runtime checks failed: %v\n%s", tc.jsonLib, runErr, output)
 			}
 		})
 	}

@@ -25,9 +25,9 @@ func TestGeneratedContractsCompile(t *testing.T) {
 		t.Skip("dotnet SDK not found; generated C# compile validation requires dotnet")
 	}
 
-	workingDir, err := os.Getwd()
-	if err != nil {
-		t.Fatalf("get working directory: %v", err)
+	workingDir, workingDirErr := os.Getwd()
+	if workingDirErr != nil {
+		t.Fatalf("get working directory: %v", workingDirErr)
 	}
 	projectRoot := filepath.Join(workingDir, "..", "..")
 	protoDir := filepath.Join(workingDir, "testdata", "proto")
@@ -46,10 +46,13 @@ func TestGeneratedContractsCompile(t *testing.T) {
 			assertCrossPackageOutput(t, outputDir)
 			writeCompileProject(t, outputDir, tc.jsonLib)
 
-			cmd := exec.Command("dotnet", "build", "Compile.csproj", "--nologo", "--verbosity", "minimal", "--ignore-failed-sources")
+			cmd := exec.Command(
+				"dotnet", "build", "Compile.csproj",
+				"--nologo", "--verbosity", "minimal", "--ignore-failed-sources",
+			)
 			cmd.Dir = outputDir
-			if output, err := cmd.CombinedOutput(); err != nil {
-				t.Fatalf("generated %s contracts do not compile: %v\n%s", tc.jsonLib, err, output)
+			if output, buildErr := cmd.CombinedOutput(); buildErr != nil {
+				t.Fatalf("generated %s contracts do not compile: %v\n%s", tc.jsonLib, buildErr, output)
 			}
 		})
 	}
@@ -93,9 +96,9 @@ func TestGeneratedWireFormattingIsInvariant(t *testing.T) {
 		t.Skip("dotnet SDK not found; generated C# runtime validation requires dotnet")
 	}
 
-	workingDir, err := os.Getwd()
-	if err != nil {
-		t.Fatalf("get working directory: %v", err)
+	workingDir, workingDirErr := os.Getwd()
+	if workingDirErr != nil {
+		t.Fatalf("get working directory: %v", workingDirErr)
 	}
 	projectRoot := filepath.Join(workingDir, "..", "..")
 	protoDir := filepath.Join(workingDir, "testdata", "proto")
@@ -111,20 +114,29 @@ func TestGeneratedWireFormattingIsInvariant(t *testing.T) {
 	}
 	cmd := exec.Command("protoc", args...)
 	cmd.Dir = protoDir
-	if output, err := cmd.CombinedOutput(); err != nil {
-		t.Fatalf("protoc generation: %v\n%s", err, output)
+	if output, protocErr := cmd.CombinedOutput(); protocErr != nil {
+		t.Fatalf("protoc generation: %v\n%s", protocErr, output)
 	}
 	writeCompileProject(t, outputDir, "system_text_json")
 	writeWireFormattingProgram(t, outputDir)
 	cmd = exec.Command("dotnet", "restore", "Compile.csproj", "--nologo", "--ignore-failed-sources")
 	cmd.Dir = outputDir
-	if output, err := cmd.CombinedOutput(); err != nil {
-		t.Fatalf("restore generated invariant wire-formatting runtime test: %v\n%s", err, output)
+	if output, restoreErr := cmd.CombinedOutput(); restoreErr != nil {
+		t.Fatalf("restore generated invariant wire-formatting runtime test: %v\n%s", restoreErr, output)
 	}
-	cmd = exec.Command("dotnet", "run", "--project", "Compile.csproj", "--no-restore", "--nologo", "--verbosity", "minimal")
+	cmd = exec.Command(
+		"dotnet",
+		"run",
+		"--project",
+		"Compile.csproj",
+		"--no-restore",
+		"--nologo",
+		"--verbosity",
+		"minimal",
+	)
 	cmd.Dir = outputDir
-	if output, err := cmd.CombinedOutput(); err != nil {
-		t.Fatalf("generated invariant wire-formatting runtime test failed: %v\n%s", err, output)
+	if output, runErr := cmd.CombinedOutput(); runErr != nil {
+		t.Fatalf("generated invariant wire-formatting runtime test failed: %v\n%s", runErr, output)
 	}
 }
 
@@ -179,13 +191,20 @@ func writeCompileProject(t *testing.T, outputDir, jsonLib string) {
 func writeWireFormattingProgram(t *testing.T, outputDir string) {
 	t.Helper()
 	projectPath := filepath.Join(outputDir, "Compile.csproj")
-	project, err := os.ReadFile(projectPath)
-	if err != nil {
-		t.Fatalf("read runtime compile project: %v", err)
+	project, readErr := os.ReadFile(projectPath)
+	if readErr != nil {
+		t.Fatalf("read runtime compile project: %v", readErr)
 	}
-	project = bytes.Replace(project, []byte("<TargetFramework>net8.0</TargetFramework>"), []byte("<TargetFramework>net8.0</TargetFramework>\n    <OutputType>Exe</OutputType>\n    <UseAppHost>false</UseAppHost>"), 1)
-	if err := os.WriteFile(projectPath, project, 0o644); err != nil {
-		t.Fatalf("set runtime compile project output type: %v", err)
+	project = bytes.Replace(
+		project,
+		[]byte("<TargetFramework>net8.0</TargetFramework>"),
+		[]byte(
+			"<TargetFramework>net8.0</TargetFramework>\n    <OutputType>Exe</OutputType>\n    <UseAppHost>false</UseAppHost>",
+		),
+		1,
+	)
+	if writeErr := os.WriteFile(projectPath, project, 0o644); writeErr != nil {
+		t.Fatalf("set runtime compile project output type: %v", writeErr)
 	}
 	const program = `using System;
 using System.Globalization;
@@ -235,7 +254,11 @@ static class Program
     }
 }
 `
-	if err := os.WriteFile(filepath.Join(outputDir, "Program.cs"), []byte(program), 0o644); err != nil {
-		t.Fatalf("write invariant wire-formatting program: %v", err)
+	if writeErr := os.WriteFile(
+		filepath.Join(outputDir, "Program.cs"),
+		[]byte(program),
+		0o644,
+	); writeErr != nil {
+		t.Fatalf("write invariant wire-formatting program: %v", writeErr)
 	}
 }
