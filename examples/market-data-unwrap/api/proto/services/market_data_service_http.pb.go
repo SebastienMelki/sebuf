@@ -23,18 +23,18 @@ func RegisterMarketDataServiceServer(server MarketDataServiceServer, opts ...Ser
 
 	methodHeaders := getGetOptionBarsHeaders()
 	getOptionBarsHandler := BindingMiddleware[GetOptionBarsRequest](
-		genericHandler(server.GetOptionBars, config.errorHandler), serviceHeaders, methodHeaders,
+		genericHandler(server.GetOptionBars, config.errorHandler, config.marshalOpts), serviceHeaders, methodHeaders,
 		getOptionBarsPathParams, getOptionBarsQueryParams,
-		"GET", config.errorHandler,
+		"GET", config.errorHandler, config.marshalOpts,
 	)
 
 	config.mux.Handle("GET /v2/options/bars", getOptionBarsHandler)
 
 	methodHeaders = getGetLatestOptionBarsHeaders()
 	getLatestOptionBarsHandler := BindingMiddleware[GetLatestOptionBarsRequest](
-		genericHandler(server.GetLatestOptionBars, config.errorHandler), serviceHeaders, methodHeaders,
+		genericHandler(server.GetLatestOptionBars, config.errorHandler, config.marshalOpts), serviceHeaders, methodHeaders,
 		getLatestOptionBarsPathParams, getLatestOptionBarsQueryParams,
-		"GET", config.errorHandler,
+		"GET", config.errorHandler, config.marshalOpts,
 	)
 
 	config.mux.Handle("GET /v2/options/bars/latest", getLatestOptionBarsHandler)

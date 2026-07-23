@@ -78,6 +78,13 @@ func TestUnwrapFileGeneration(t *testing.T) {
 		}
 	})
 
+	t.Run("UnmarshalJSONSebuf is generated for GetOptionBarsResponse", func(t *testing.T) {
+		if !strings.Contains(content,
+			"func (x *GetOptionBarsResponse) UnmarshalJSONSebuf(data []byte, opts protojson.UnmarshalOptions) error") {
+			t.Error("UnmarshalJSONSebuf not generated for GetOptionBarsResponse")
+		}
+	})
+
 	t.Run("MarshalJSON handles unwrap field correctly", func(t *testing.T) {
 		// Should marshal the unwrap field directly
 		if !strings.Contains(content, "wrapper.GetBars()") {
@@ -270,6 +277,13 @@ func TestRootUnwrapFileGeneration(t *testing.T) {
 		}
 	})
 
+	t.Run("RootMapResponse UnmarshalJSONSebuf is generated", func(t *testing.T) {
+		if !strings.Contains(content,
+			"func (x *RootMapResponse) UnmarshalJSONSebuf(data []byte, opts protojson.UnmarshalOptions) error") {
+			t.Error("UnmarshalJSONSebuf not generated for RootMapResponse")
+		}
+	})
+
 	t.Run("RootRepeatedResponse MarshalJSON is generated", func(t *testing.T) {
 		if !strings.Contains(content, "func (x *RootRepeatedResponse) MarshalJSON() ([]byte, error)") {
 			t.Error("MarshalJSON not generated for RootRepeatedResponse")
@@ -282,9 +296,23 @@ func TestRootUnwrapFileGeneration(t *testing.T) {
 		}
 	})
 
+	t.Run("RootRepeatedResponse UnmarshalJSONSebuf is generated", func(t *testing.T) {
+		if !strings.Contains(content,
+			"func (x *RootRepeatedResponse) UnmarshalJSONSebuf(data []byte, opts protojson.UnmarshalOptions) error") {
+			t.Error("UnmarshalJSONSebuf not generated for RootRepeatedResponse")
+		}
+	})
+
 	t.Run("RootMapWithValueUnwrapResponse MarshalJSON is generated", func(t *testing.T) {
 		if !strings.Contains(content, "func (x *RootMapWithValueUnwrapResponse) MarshalJSON() ([]byte, error)") {
 			t.Error("MarshalJSON not generated for RootMapWithValueUnwrapResponse")
+		}
+	})
+
+	t.Run("RootMapWithValueUnwrapResponse UnmarshalJSONSebuf is generated", func(t *testing.T) {
+		if !strings.Contains(content,
+			"func (x *RootMapWithValueUnwrapResponse) UnmarshalJSONSebuf(data []byte, opts protojson.UnmarshalOptions) error") {
+			t.Error("UnmarshalJSONSebuf not generated for RootMapWithValueUnwrapResponse")
 		}
 	})
 
@@ -407,11 +435,10 @@ func TestCrossFileUnwrapResolution(t *testing.T) {
 
 // TestCrossFileInt64EncodingUnwrap proves that when Bar (with int64_encoding=NUMBER)
 // is defined in a separate proto file from GetBarsResponse (which has a map<string,BarList>
-// unwrap field), the unwrap generator must emit json.Marshal(item) — not protojson.Marshal(item).
-//
-// If this test fails with "uses protojson.Marshal instead of json.Marshal", it means
-// collectDirectEncodingMsgNames only scans the current file and misses Bar from the imported file,
-// causing Bar.MarshalJSON (from the encoding generator) to be bypassed at runtime.
+// unwrap field), the unwrap generator dispatches each item through the inline
+// MarshalJSONSebuf/UnmarshalJSONSebuf type assertions on both sides, so Bar's
+// encoding-generated methods are invoked with opts instead of being bypassed by a
+// direct protojson call.
 func TestCrossFileInt64EncodingUnwrap(t *testing.T) {
 	if _, err := exec.LookPath("protoc"); err != nil {
 		t.Skip("protoc not found")
@@ -476,6 +503,24 @@ func TestCrossFileInt64EncodingUnwrap(t *testing.T) {
 		}
 		if !strings.Contains(content, "m.MarshalJSONSebuf(opts)") {
 			t.Error("expected inline MarshalJSONSebuf forwarding in generated unwrap file")
+		}
+	})
+
+	// Bar.UnmarshalJSONSebuf (from cross_int64_bar_encoding.pb.go) parses NUMBER-encoded
+	// int64 fields and receives opts (e.g. DiscardUnknown). A bare protojson.Unmarshal
+	// would drop the options and decode strictly; a bare json.Unmarshal would lose them
+	// one level down. Neither bypass may remain.
+	t.Run("forwards opts via inline UnmarshalJSONSebuf so Bar.UnmarshalJSONSebuf is called", func(t *testing.T) {
+		if strings.Contains(content, "protojson.Unmarshal(itemRaw, item)") {
+			t.Error("unwrap generator must not call protojson.Unmarshal(itemRaw, item) directly: " +
+				"options like DiscardUnknown would be dropped and decoding would be strict")
+		}
+		if strings.Contains(content, "json.Unmarshal(itemRaw, item)") {
+			t.Error("unwrap generator must not call json.Unmarshal(itemRaw, item) directly: " +
+				"options would be lost per item")
+		}
+		if !strings.Contains(content, "u.UnmarshalJSONSebuf(itemRaw, opts)") {
+			t.Error("expected inline UnmarshalJSONSebuf forwarding in generated unwrap file")
 		}
 	})
 }

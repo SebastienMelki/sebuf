@@ -58,9 +58,9 @@ func (x *BytesEncodingTest) MarshalJSON() ([]byte, error) {
 	return x.MarshalJSONSebuf(protojson.MarshalOptions{})
 }
 
-// UnmarshalJSON implements json.Unmarshaler for BytesEncodingTest.
+// UnmarshalJSONSebuf implements sebufUnmarshaler for BytesEncodingTest.
 // This method handles bytes_encoding fields: base64_raw_data, base64url_data, base64url_raw_data, hex_data
-func (x *BytesEncodingTest) UnmarshalJSON(data []byte) error {
+func (x *BytesEncodingTest) UnmarshalJSONSebuf(data []byte, opts protojson.UnmarshalOptions) error {
 	// Parse the raw JSON to extract bytes-encoded fields
 	var raw map[string]json.RawMessage
 	if err := json.Unmarshal(data, &raw); err != nil {
@@ -118,5 +118,10 @@ func (x *BytesEncodingTest) UnmarshalJSON(data []byte) error {
 	}
 
 	// Use protojson to unmarshal the rest
-	return protojson.Unmarshal(modified, x)
+	return opts.Unmarshal(modified, x)
+}
+
+// UnmarshalJSON implements json.Unmarshaler for BytesEncodingTest.
+func (x *BytesEncodingTest) UnmarshalJSON(data []byte) error {
+	return x.UnmarshalJSONSebuf(data, protojson.UnmarshalOptions{})
 }
