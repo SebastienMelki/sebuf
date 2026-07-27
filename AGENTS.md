@@ -547,6 +547,28 @@ All custom annotations live in `proto/sebuf/http/annotations.proto`:
 | 50019 | flatten | FieldOptions | Nested message flattening |
 | 50020 | flatten_prefix | FieldOptions | Prefix for flattened fields |
 
+### URL Parameter Types Must Be Scalar
+
+Query (`sebuf.http.query`) and path parameters accept only scalar kinds — string,
+bool, the integer families, float/double, and enum — plus repeated scalars for query
+params. `message`, `group`, `bytes`, and `map` have no canonical URL encoding and are
+**rejected at generation time by all six generators**.
+
+The single source of truth is `internal/annotations/url_params.go`:
+`IsURLParamKindCompatible` (the kind predicate) and `ValidateFileURLParams` (the
+per-file entry point every generator calls). httpgen routes it through its own
+aggregating `ValidateMethodConfig`; the other five call `ValidateFileURLParams`
+directly before emitting anything.
+
+A shared helper alone does not keep the plugins aligned — `ValidateTimestampFormatAnnotation`
+is shared too and only two of six ever wired it in. `internal/urlparamtest` is the
+anti-drift guard: it drives all six generators over the same fixtures and asserts they
+reject and accept identically. Add a generator there when you add a generator.
+
+Notably, this makes the **typed-ID pattern** (`UserClientID { string value = 1 }`) invalid
+as a query/path param; use a scalar field with `(buf.validate.field).string.uuid` instead.
+See [docs/http-generation.md](docs/http-generation.md#unsupported-parameter-types) and issue #216.
+
 ## Development Commands
 
 ### Testing

@@ -3,6 +3,7 @@ package tsclientgen
 import (
 	"google.golang.org/protobuf/compiler/protogen"
 
+	"github.com/SebastienMelki/sebuf/internal/annotations"
 	"github.com/SebastienMelki/sebuf/internal/tscommon"
 )
 
@@ -11,6 +12,18 @@ import (
 // its request/response types and the error helpers, then a per-package barrel
 // (index.ts) re-exporting each package directory's modules.
 func (g *Generator) generateModules() error {
+	// Reject path/query params whose types cannot be represented in a URL before
+	// emitting anything, so an invalid proto fails cleanly instead of writing
+	// partial output. See internal/annotations/url_params.go.
+	for _, file := range g.plugin.Files {
+		if !file.Generate {
+			continue
+		}
+		if err := annotations.ValidateFileURLParams(file); err != nil {
+			return err
+		}
+	}
+
 	moduleFiles, err := tscommon.EmitSharedModules(g.plugin)
 	if err != nil {
 		return err

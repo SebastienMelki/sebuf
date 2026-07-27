@@ -38,6 +38,12 @@ func (g *Generator) Generate() error {
 }
 
 func (g *Generator) generateFile(file *protogen.File) error {
+	// Reject path/query params whose types cannot be represented in a URL.
+	// See internal/annotations/url_params.go.
+	if err := annotations.ValidateFileURLParams(file); err != nil {
+		return err
+	}
+
 	// Validate enum annotations first - fail fast if conflicting annotations exist
 	if err := g.validateEnumAnnotationsInFile(file); err != nil {
 		return fmt.Errorf("enum annotation validation failed: %w", err)

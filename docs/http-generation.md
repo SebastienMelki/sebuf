@@ -359,6 +359,46 @@ Query and path parameters support the following scalar types:
 
 Repeated fields are supported for query parameters (`?tags=a&tags=b`).
 
+### Unsupported Parameter Types
+
+`message`, `group`, `bytes`, and `map` fields **cannot** be bound to a query or path
+parameter — there is no canonical URL encoding for them. All six generators reject
+them at generation time with an error naming the field and its type:
+
+```
+AuthorizationService.ListClientRestrictions: field 'client_id' on message
+'ListClientRestrictionsRequest' is annotated with (sebuf.http.query) as parameter
+'clientId', but has unsupported type 'message (core.v1.UserClientID)'. Query
+parameters must be scalar types (...) or repeated scalars. Replace it with a scalar
+field, or move it into the request body by using POST/PUT/PATCH.
+```
+
+This most often shows up with the **typed-ID pattern** — a wrapper message whose only
+field is a scalar:
+
+```protobuf
+// ❌ Rejected: UserClientID is a message
+message ListClientRestrictionsRequest {
+  core.v1.UserClientID client_id = 1 [(sebuf.http.query) = {name: "clientId"}];
+}
+```
+
+Use a scalar field instead. Validation is preserved, and the wrapper type can still be
+used everywhere else in your schema:
+
+```protobuf
+// ✅ Accepted
+message ListClientRestrictionsRequest {
+  string client_id = 1 [
+    (buf.validate.field).string.uuid = true,
+    (sebuf.http.query) = {name: "clientId", required: true}
+  ];
+}
+```
+
+If the field genuinely needs to be a message, move it into the request body by
+switching the method to `POST`/`PUT`/`PATCH`.
+
 ### Enum Parameters
 
 Enum fields work as both query and path parameters. They accept:
