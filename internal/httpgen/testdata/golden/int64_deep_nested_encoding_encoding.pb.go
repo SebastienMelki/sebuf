@@ -80,6 +80,7 @@ func (x *Leaf) UnmarshalJSON(data []byte) error {
 
 // MarshalJSONSebuf implements sebufMarshaler for Node.
 // This method handles int64_encoding=NUMBER fields: id
+// It also re-marshals nested messages that reach int64_encoding=NUMBER fields: child
 // Warning: int64 fields with NUMBER encoding may lose precision for values > 2^53 in JavaScript.
 func (x *Node) MarshalJSONSebuf(opts protojson.MarshalOptions) ([]byte, error) {
 	if x == nil {
@@ -106,6 +107,20 @@ func (x *Node) MarshalJSONSebuf(opts protojson.MarshalOptions) ([]byte, error) {
 		delete(raw, "id")
 	}
 
+	// Re-serialize "child" forwarding opts when child supports MarshalJSONSebuf
+	if x.Child != nil {
+		if m, ok := any(x.Child).(interface {
+			MarshalJSONSebuf(protojson.MarshalOptions) ([]byte, error)
+		}); ok {
+			raw["child"], err = m.MarshalJSONSebuf(opts)
+		} else {
+			raw["child"], err = opts.Marshal(x.Child)
+		}
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	return json.Marshal(raw)
 }
 
@@ -129,6 +144,25 @@ func (x *Node) UnmarshalJSONSebuf(data []byte, opts protojson.UnmarshalOptions) 
 		if err := json.Unmarshal(rawVal, &num); err == nil {
 			raw["id"], _ = json.Marshal(strconv.FormatInt(num, 10))
 		}
+	}
+
+	// Handle "child" using its custom unmarshaler
+	if rawVal, ok := raw["child"]; ok {
+		inner := &Node{}
+		if u, ok := any(inner).(interface {
+			UnmarshalJSONSebuf([]byte, protojson.UnmarshalOptions) error
+		}); ok {
+			if err := u.UnmarshalJSONSebuf(rawVal, opts); err != nil {
+				return err
+			}
+		} else if err := json.Unmarshal(rawVal, inner); err != nil {
+			return err
+		}
+		innerJSON, err := protojson.Marshal(inner)
+		if err != nil {
+			return err
+		}
+		raw["child"] = innerJSON
 	}
 
 	// Re-marshal to JSON with string values for protojson

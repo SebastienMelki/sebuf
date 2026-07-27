@@ -18,6 +18,10 @@ type Int64EncodingContext struct {
 	Message *protogen.Message
 	// NumberFields are fields with int64_encoding=NUMBER annotation
 	NumberFields []*protogen.Field
+	// NestedFields are message-type fields whose type transitively reaches NUMBER encoding.
+	// A message can need both: patching its own fields is not enough when it also holds a
+	// child that reaches an annotated field, because protojson owns the child's bytes.
+	NestedFields []*protogen.Field
 }
 
 // hasInt64NumberFields returns true if any int64/uint64 field in the message has NUMBER encoding.
@@ -61,17 +65,37 @@ func collectInt64EncodingContext(file *protogen.File) []*Int64EncodingContext {
 }
 
 // collectInt64EncodingMessages recursively collects messages with int64 NUMBER encoding fields.
+// A message with direct NUMBER fields also carries its nested fields: patching only its own
+// fields would leave a child that reaches an annotated field serialized by protojson, so the
+// child's int64 would stay a quoted string. The self-referential Node{Node child; int64 id
+// [NUMBER]} shape is the smallest case where both are needed at once.
 func collectInt64EncodingMessages(messages []*protogen.Message, contexts *[]*Int64EncodingContext) {
 	for _, msg := range messages {
+		if msg.Desc.IsMapEntry() {
+			continue
+		}
 		if hasInt64NumberFields(msg) {
 			*contexts = append(*contexts, &Int64EncodingContext{
 				Message:      msg,
 				NumberFields: getInt64NumberFields(msg),
+				NestedFields: getTransitiveInt64NestedFields(msg),
 			})
 		}
 		// Check nested messages
 		collectInt64EncodingMessages(msg.Messages, contexts)
 	}
+}
+
+// getTransitiveInt64NestedFields returns the message-type fields (singular or repeated, never
+// map) whose type transitively reaches an int64 NUMBER field.
+func getTransitiveInt64NestedFields(msg *protogen.Message) []*protogen.Field {
+	var fields []*protogen.Field
+	for _, field := range msg.Fields {
+		if fieldTransitivelyHasInt64Number(field) {
+			fields = append(fields, field)
+		}
+	}
+	return fields
 }
 
 // Int64WrapperContext holds information about messages that contain nested messages
@@ -83,11 +107,17 @@ type Int64WrapperContext struct {
 	NestedFields []*protogen.Field
 }
 
-// messageTransitivelyHasInt64Number reports whether msg, or any message it nests (singular,
-// repeated, or map value) at any depth, has a direct int64/uint64 field with
-// int64_encoding=NUMBER. Walking field.Message resolves across proto files, so imported types
-// are covered — a per-file name set is not (issue #217). The visited set guards against
-// recursive message definitions.
+// messageTransitivelyHasInt64Number reports whether msg, or any message it nests (singular or
+// repeated) at any depth, has a direct int64/uint64 field with int64_encoding=NUMBER. Walking
+// field.Message resolves across proto files, so imported types are covered — a per-file name set
+// is not (issue #217). The visited set guards against recursive message definitions.
+//
+// Unlike messageTransitivelyHasCustomEnum, this deliberately does NOT descend through map values.
+// The emitters cannot re-serialize a map field, so counting a map path as "reachable" would mark a
+// parent as a wrapper whose child never gets a marshaler: the parent falls back to protojson and
+// the map values stay quoted, and the useless wrapper can trip the MarshalJSON conflict check
+// against an annotation the message legitimately carries. The predicate stays aligned with what
+// the emitters can actually traverse.
 func messageTransitivelyHasInt64Number(msg *protogen.Message, visited map[string]bool) bool {
 	if msg == nil {
 		return false
@@ -104,10 +134,6 @@ func messageTransitivelyHasInt64Number(msg *protogen.Message, visited map[string
 
 	for _, field := range msg.Fields {
 		if child := nestedMessageChild(field); child != nil &&
-			messageTransitivelyHasInt64Number(child, visited) {
-			return true
-		}
-		if child := mapMessageValueChild(field); child != nil &&
 			messageTransitivelyHasInt64Number(child, visited) {
 			return true
 		}
@@ -163,13 +189,8 @@ func collectWrapperMessages(
 			continue
 		}
 
-		var nestedFields []*protogen.Field
-		for _, field := range msg.Fields {
-			// Map fields are excluded: the emitted wrapper cannot traverse them.
-			if fieldTransitivelyHasInt64Number(field) {
-				nestedFields = append(nestedFields, field)
-			}
-		}
+		// Map fields are excluded: the emitted wrapper cannot traverse them.
+		nestedFields := getTransitiveInt64NestedFields(msg)
 
 		if len(nestedFields) > 0 {
 			*contexts = append(*contexts, &Int64WrapperContext{
@@ -318,6 +339,16 @@ func (g *Generator) generateInt64MarshalJSON(gf *protogen.GeneratedFile, ctx *In
 
 	gf.P("// MarshalJSONSebuf implements sebufMarshaler for ", msgName, ".")
 	gf.P("// This method handles int64_encoding=NUMBER fields: ", strings.Join(numberFieldNames, ", "))
+	if len(ctx.NestedFields) > 0 {
+		var nestedFieldNames []string
+		for _, f := range ctx.NestedFields {
+			nestedFieldNames = append(nestedFieldNames, string(f.Desc.Name()))
+		}
+		gf.P(
+			"// It also re-marshals nested messages that reach int64_encoding=NUMBER fields: ",
+			strings.Join(nestedFieldNames, ", "),
+		)
+	}
 	gf.P("// Warning: int64 fields with NUMBER encoding may lose precision for values > 2^53 in JavaScript.")
 	gf.P(
 		"func (x *",
@@ -349,6 +380,10 @@ func (g *Generator) generateInt64MarshalJSON(gf *protogen.GeneratedFile, ctx *In
 	for _, field := range ctx.NumberFields {
 		g.generateInt64FieldMarshal(gf, field)
 	}
+
+	// Patching this message's own fields is not enough: a child that reaches an annotated field
+	// is still owned by protojson in the base output, so its int64 would stay a quoted string.
+	emitNestedFieldsMarshal(gf, ctx.NestedFields)
 
 	gf.P("return json.Marshal(raw)")
 	gf.P("}")
@@ -427,6 +462,10 @@ func (g *Generator) generateInt64UnmarshalJSON(gf *protogen.GeneratedFile, ctx *
 	for _, field := range ctx.NumberFields {
 		g.generateInt64FieldUnmarshal(gf, field)
 	}
+
+	// Nested children need the same treatment on the way in: protojson would reject the bare
+	// JSON numbers their own annotated fields are encoded as.
+	emitNestedFieldsUnmarshal(gf, ctx.NestedFields)
 
 	gf.P("// Re-marshal to JSON with string values for protojson")
 	gf.P("modified, err := json.Marshal(raw)")
@@ -522,46 +561,12 @@ func isUint64Type(field *protogen.Field) bool {
 	return kind == kindUint64 || kind == kindFixed64
 }
 
-// generateWrapperMarshalJSON generates a MarshalJSONSebuf that re-marshals nested
-// messages via the sebuf opts pipeline, so their custom MarshalJSONSebuf methods are called.
-//
-//nolint:funlen // Per-field repeated/singular dispatch with opts forwarding is intentionally inlined for clarity
-func (g *Generator) generateWrapperMarshalJSON(gf *protogen.GeneratedFile, ctx *Int64WrapperContext) {
-	msgName := ctx.Message.GoIdent.GoName
-
-	var nestedFieldNames []string
-	for _, f := range ctx.NestedFields {
-		nestedFieldNames = append(nestedFieldNames, string(f.Desc.Name()))
-	}
-
-	gf.P("// MarshalJSONSebuf implements sebufMarshaler for ", msgName, ".")
-	gf.P(
-		"// This method re-marshals nested messages that have int64_encoding=NUMBER fields: ",
-		strings.Join(nestedFieldNames, ", "),
-	)
-	gf.P(
-		"func (x *",
-		msgName,
-		") MarshalJSONSebuf(opts protojson.MarshalOptions) ([]byte, error) {",
-	)
-	gf.P("if x == nil {")
-	gf.P("return []byte(\"null\"), nil")
-	gf.P("}")
-	gf.P()
-	gf.P("// Use protojson for base serialization (handles all other fields correctly)")
-	gf.P("data, err := opts.Marshal(x)")
-	gf.P("if err != nil {")
-	gf.P("return nil, err")
-	gf.P("}")
-	gf.P()
-	gf.P("// Parse into a map to re-serialize nested messages with custom MarshalJSON")
-	gf.P("var raw map[string]json.RawMessage")
-	gf.P("if err := json.Unmarshal(data, &raw); err != nil {")
-	gf.P("return nil, err")
-	gf.P("}")
-	gf.P()
-
-	for _, field := range ctx.NestedFields {
+// emitNestedFieldsMarshal emits the re-serialization of message-typed fields whose type reaches
+// an int64 NUMBER field, forwarding opts so the child's MarshalJSONSebuf is invoked. Shared by the
+// direct and wrapper marshalers: a message with its own NUMBER fields still needs this for its
+// children. Assumes `raw`, `opts` and `err` are in scope.
+func emitNestedFieldsMarshal(gf *protogen.GeneratedFile, nestedFields []*protogen.Field) {
+	for _, field := range nestedFields {
 		jsonName := field.Desc.JSONName()
 		if field.Desc.IsList() {
 			// Repeated field: per-element opts forwarding so child MarshalJSONSebuf receives opts.
@@ -611,6 +616,46 @@ func (g *Generator) generateWrapperMarshalJSON(gf *protogen.GeneratedFile, ctx *
 			gf.P()
 		}
 	}
+}
+
+// generateWrapperMarshalJSON generates a MarshalJSONSebuf that re-marshals nested
+// messages via the sebuf opts pipeline, so their custom MarshalJSONSebuf methods are called.
+func (g *Generator) generateWrapperMarshalJSON(gf *protogen.GeneratedFile, ctx *Int64WrapperContext) {
+	msgName := ctx.Message.GoIdent.GoName
+
+	var nestedFieldNames []string
+	for _, f := range ctx.NestedFields {
+		nestedFieldNames = append(nestedFieldNames, string(f.Desc.Name()))
+	}
+
+	gf.P("// MarshalJSONSebuf implements sebufMarshaler for ", msgName, ".")
+	gf.P(
+		"// This method re-marshals nested messages that have int64_encoding=NUMBER fields: ",
+		strings.Join(nestedFieldNames, ", "),
+	)
+	gf.P(
+		"func (x *",
+		msgName,
+		") MarshalJSONSebuf(opts protojson.MarshalOptions) ([]byte, error) {",
+	)
+	gf.P("if x == nil {")
+	gf.P("return []byte(\"null\"), nil")
+	gf.P("}")
+	gf.P()
+	gf.P("// Use protojson for base serialization (handles all other fields correctly)")
+	gf.P("data, err := opts.Marshal(x)")
+	gf.P("if err != nil {")
+	gf.P("return nil, err")
+	gf.P("}")
+	gf.P()
+	gf.P("// Parse into a map to re-serialize nested messages with custom MarshalJSON")
+	gf.P("var raw map[string]json.RawMessage")
+	gf.P("if err := json.Unmarshal(data, &raw); err != nil {")
+	gf.P("return nil, err")
+	gf.P("}")
+	gf.P()
+
+	emitNestedFieldsMarshal(gf, ctx.NestedFields)
 
 	gf.P("return json.Marshal(raw)")
 	gf.P("}")
@@ -624,32 +669,11 @@ func (g *Generator) generateWrapperMarshalJSON(gf *protogen.GeneratedFile, ctx *
 	gf.P()
 }
 
-// generateWrapperUnmarshalJSON generates an UnmarshalJSONSebuf that delegates nested
-// message parsing via the sebufUnmarshaler interface (propagating opts), then converts
-// back for protojson. Also emits a backward-compatible UnmarshalJSON wrapper.
-//
-//nolint:funlen // Per-field repeated/singular dispatch with opts forwarding is intentionally inlined for clarity
-func (g *Generator) generateWrapperUnmarshalJSON(gf *protogen.GeneratedFile, ctx *Int64WrapperContext) {
-	msgName := ctx.Message.GoIdent.GoName
-
-	var nestedFieldNames []string
-	for _, f := range ctx.NestedFields {
-		nestedFieldNames = append(nestedFieldNames, string(f.Desc.Name()))
-	}
-
-	gf.P("// UnmarshalJSONSebuf implements sebufUnmarshaler for ", msgName, ".")
-	gf.P(
-		"// This method handles nested messages that have int64_encoding=NUMBER fields: ",
-		strings.Join(nestedFieldNames, ", "),
-	)
-	gf.P("func (x *", msgName, ") UnmarshalJSONSebuf(data []byte, opts protojson.UnmarshalOptions) error {")
-	gf.P("var raw map[string]json.RawMessage")
-	gf.P("if err := json.Unmarshal(data, &raw); err != nil {")
-	gf.P("return err")
-	gf.P("}")
-	gf.P()
-
-	for _, field := range ctx.NestedFields {
+// emitNestedFieldsUnmarshal emits per-field decoding of message-typed fields whose type reaches
+// an int64 NUMBER field, dispatching through the child's UnmarshalJSONSebuf so opts propagate.
+// Shared by the direct and wrapper unmarshalers. Assumes `raw` and `opts` are in scope.
+func emitNestedFieldsUnmarshal(gf *protogen.GeneratedFile, nestedFields []*protogen.Field) {
+	for _, field := range nestedFields {
 		jsonName := field.Desc.JSONName()
 		if field.Desc.IsList() {
 			// Repeated field: decode as raw items so we can dispatch each element
@@ -708,6 +732,32 @@ func (g *Generator) generateWrapperUnmarshalJSON(gf *protogen.GeneratedFile, ctx
 			gf.P()
 		}
 	}
+}
+
+// generateWrapperUnmarshalJSON generates an UnmarshalJSONSebuf that delegates nested
+// message parsing via the sebufUnmarshaler interface (propagating opts), then converts
+// back for protojson. Also emits a backward-compatible UnmarshalJSON wrapper.
+func (g *Generator) generateWrapperUnmarshalJSON(gf *protogen.GeneratedFile, ctx *Int64WrapperContext) {
+	msgName := ctx.Message.GoIdent.GoName
+
+	var nestedFieldNames []string
+	for _, f := range ctx.NestedFields {
+		nestedFieldNames = append(nestedFieldNames, string(f.Desc.Name()))
+	}
+
+	gf.P("// UnmarshalJSONSebuf implements sebufUnmarshaler for ", msgName, ".")
+	gf.P(
+		"// This method handles nested messages that have int64_encoding=NUMBER fields: ",
+		strings.Join(nestedFieldNames, ", "),
+	)
+	gf.P("func (x *", msgName, ") UnmarshalJSONSebuf(data []byte, opts protojson.UnmarshalOptions) error {")
+	gf.P("var raw map[string]json.RawMessage")
+	gf.P("if err := json.Unmarshal(data, &raw); err != nil {")
+	gf.P("return err")
+	gf.P("}")
+	gf.P()
+
+	emitNestedFieldsUnmarshal(gf, ctx.NestedFields)
 
 	gf.P("modified, err := json.Marshal(raw)")
 	gf.P("if err != nil {")

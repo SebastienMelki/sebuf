@@ -436,6 +436,21 @@ feature is supported per message
 To resolve it, move the conflicting annotation to a different message — typically by
 introducing a nested message that owns one of the two behaviors.
 
+### Reachability through map values
+
+Transitive propagation follows singular and repeated message fields. It does **not** follow
+map values, because the generated marshaler cannot re-serialize a map field. A message that
+reaches an annotated field *only* through a `map<_, Message>` value gets no marshaler, and
+its int64 stays a quoted string:
+
+```protobuf
+message Leaf   { int64 value = 1 [(sebuf.http.int64_encoding) = INT64_ENCODING_NUMBER]; }
+message Child  { map<string, Leaf> leaves = 1; }   // no marshaler generated
+```
+
+Wrap the map value in a message that reaches the annotated field by a non-map path, or drop
+`int64_encoding=NUMBER` for that type and encode the value as a string.
+
 ## Best Practices
 
 ### 1. Name Wrapper Messages Clearly

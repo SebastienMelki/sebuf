@@ -148,6 +148,22 @@ func TestInt64WrapperMarshalJSONConflict(t *testing.T) {
 			})
 		}
 	})
+
+	// A message reaching int64 only through a map value must NOT be treated as a wrapper: the
+	// emitters cannot traverse maps, so the marshaler would be dead code, and here it would also
+	// collide with a flatten annotation the message legitimately carries.
+	t.Run("map-only reachability is not a wrapper and not a conflict", func(t *testing.T) {
+		for _, gen := range generators {
+			t.Run(gen.name, func(t *testing.T) {
+				err := gen.run(buildInt64TestPlugin(t, []string{"int64_map_path_only.proto"}))
+				if err != nil {
+					t.Fatalf("generator reported a conflict for a message that only reaches int64 "+
+						"through a map value -- the wrapper it would emit cannot serialize that "+
+						"path anyway: %v", err)
+				}
+			})
+		}
+	})
 }
 
 func requireProtocForInt64Tests(t *testing.T) {

@@ -12,10 +12,12 @@ import (
 // and inspects the actual JSON bytes, which is what the issue is actually about.
 //
 // It:
-//  1. generates Go types + encoding methods from the cross-file proto pair,
+//  1. generates Go types + encoding methods from the cross-file proto pair and the deep-nesting
+//     proto (into separate packages, since their go_package options differ),
 //  2. writes a temporary Go module,
-//  3. asserts timestampMs serializes as a bare JSON number (not a quoted string) for both the
-//     singular and the repeated nested case, and round-trips back.
+//  3. asserts int64 NUMBER fields serialize as bare JSON numbers rather than quoted strings —
+//     across a file boundary, at depth > 1, and on a message that has both its own NUMBER field
+//     and a nested child — and that each shape round-trips.
 func TestCrossFileInt64EncodingIntegration(t *testing.T) {
 	if _, err := exec.LookPath("protoc"); err != nil {
 		t.Skip("protoc not found, skipping integration test")
@@ -39,28 +41,35 @@ func TestCrossFileInt64EncodingIntegration(t *testing.T) {
 	}
 
 	tempDir := t.TempDir()
-	genDir := filepath.Join(tempDir, "gen")
-	if mkErr := os.MkdirAll(genDir, 0o755); mkErr != nil {
-		t.Fatal(mkErr)
+
+	// Each proto set goes to its own directory: they declare different go_package values, and
+	// protoc-gen-go with paths=source_relative would otherwise put two Go packages in one dir.
+	generate := func(outSubdir string, protoFiles ...string) {
+		outDir := filepath.Join(tempDir, outSubdir)
+		if mkErr := os.MkdirAll(outDir, 0o755); mkErr != nil {
+			t.Fatal(mkErr)
+		}
+		args := []string{
+			"--plugin=protoc-gen-go-http=" + pluginPath,
+			"--go_out=" + outDir,
+			"--go_opt=paths=source_relative",
+			"--go-http_out=" + outDir,
+			"--go-http_opt=paths=source_relative",
+			"--proto_path=" + protoDir,
+			"--proto_path=" + filepath.Join(projectRoot, "proto"),
+		}
+		args = append(args, protoFiles...)
+
+		cmd := exec.Command("protoc", args...)
+		cmd.Dir = protoDir
+		if out, runErr := cmd.CombinedOutput(); runErr != nil {
+			t.Fatalf("protoc failed for %v: %v\n%s", protoFiles, runErr, string(out))
+		}
 	}
 
 	// Both files must be compiled together: the annotated message lives in the imported file.
-	cmd := exec.Command("protoc",
-		"--plugin=protoc-gen-go-http="+pluginPath,
-		"--go_out="+genDir,
-		"--go_opt=paths=source_relative",
-		"--go-http_out="+genDir,
-		"--go-http_opt=paths=source_relative",
-		"--proto_path="+protoDir,
-		"--proto_path="+filepath.Join(projectRoot, "proto"),
-		"int64_cross_file_response.proto",
-		"int64_cross_file_reading.proto",
-	)
-	cmd.Dir = protoDir
-	out, runErr := cmd.CombinedOutput()
-	if runErr != nil {
-		t.Fatalf("protoc failed: %v\n%s", runErr, string(out))
-	}
+	generate("gen", "int64_cross_file_response.proto", "int64_cross_file_reading.proto")
+	generate("deep", "int64_deep_nested_encoding.proto")
 
 	protobufVersion := extractProtobufVersionFromModFile(t, projectRoot)
 	writeCrossFileInt64TestModule(t, tempDir, projectRoot, protobufVersion)
@@ -120,6 +129,7 @@ import (
 	"strings"
 	"testing"
 
+	deep "crossfile_int64_test/deep"
 	gen "crossfile_int64_test/gen"
 
 	"google.golang.org/protobuf/encoding/protojson"
@@ -186,23 +196,20 @@ func TestProtojsonAloneStillQuotesTheInt64(t *testing.T) {
 }
 
 func TestNestedInt64RoundTrips(t *testing.T) {
-	for name, body := range map[string]string{
-		"singular": ` + "`" + `{"reading":{"timestampMs":1715000000000,"sensorId":"sensor-1"}}` + "`" + `,
-	} {
-		t.Run(name, func(t *testing.T) {
-			var resp gen.GetSensorReadingResponse
-			if err := json.Unmarshal([]byte(body), &resp); err != nil {
-				t.Fatalf("json.Unmarshal: %v", err)
-			}
-			if resp.GetReading().GetTimestampMs() != timestampMs {
-				t.Errorf("round-trip lost the value: got %d, want %d",
-					resp.GetReading().GetTimestampMs(), timestampMs)
-			}
-			if resp.GetReading().GetSensorId() != "sensor-1" {
-				t.Errorf("round-trip lost sibling field: got %q", resp.GetReading().GetSensorId())
-			}
-		})
-	}
+	t.Run("singular", func(t *testing.T) {
+		body := ` + "`" + `{"reading":{"timestampMs":1715000000000,"sensorId":"sensor-1"}}` + "`" + `
+		var resp gen.GetSensorReadingResponse
+		if err := json.Unmarshal([]byte(body), &resp); err != nil {
+			t.Fatalf("json.Unmarshal: %v", err)
+		}
+		if resp.GetReading().GetTimestampMs() != timestampMs {
+			t.Errorf("round-trip lost the value: got %d, want %d",
+				resp.GetReading().GetTimestampMs(), timestampMs)
+		}
+		if resp.GetReading().GetSensorId() != "sensor-1" {
+			t.Errorf("round-trip lost sibling field: got %q", resp.GetReading().GetSensorId())
+		}
+	})
 
 	t.Run("repeated", func(t *testing.T) {
 		body := ` + "`" + `{"readings":[{"timestampMs":1715000000000},{"timestampMs":1715000000001}]}` + "`" + `
@@ -218,6 +225,56 @@ func TestNestedInt64RoundTrips(t *testing.T) {
 			t.Errorf("round-trip lost repeated values: %v", resp.GetReadings())
 		}
 	})
+}
+
+// Outer -> Middle -> Leaf: the depth > 1 chain, end to end. Middle reaches Leaf directly;
+// Outer reaches it only through Middle.
+func TestDeepChainInt64SerializesAsNumber(t *testing.T) {
+	outer := &deep.Outer{
+		Middle: &deep.Middle{Leaf: &deep.Leaf{Value: 9007199254740993}, Label: "x"},
+	}
+
+	data, err := json.Marshal(outer)
+	if err != nil {
+		t.Fatalf("json.Marshal: %v", err)
+	}
+	if !strings.Contains(string(data), ` + "`" + `"value":9007199254740993` + "`" + `) {
+		t.Errorf("int64 two levels down did not serialize as a JSON number.\ngot: %s", string(data))
+	}
+}
+
+// A message with BOTH a direct NUMBER field and a child that reaches one. Patching only the
+// direct field leaves the child serialized by protojson, so the child's int64 stays quoted.
+func TestMixedDirectAndNestedInt64SerializesAsNumber(t *testing.T) {
+	root := &deep.Node{Id: 1, Child: &deep.Node{Id: 2, Child: &deep.Node{Id: 3}}}
+
+	data, err := json.Marshal(root)
+	if err != nil {
+		t.Fatalf("json.Marshal: %v", err)
+	}
+	got := string(data)
+
+	if strings.Contains(got, ` + "`" + `"id":"` + "`" + `) {
+		t.Errorf("a message with direct NUMBER fields did not propagate to its nested children: "+
+			"an id is still a quoted string.\ngot: %s", got)
+	}
+	for _, want := range []string{` + "`" + `"id":1` + "`" + `, ` + "`" + `"id":2` + "`" + `, ` + "`" + `"id":3` + "`" + `} {
+		if !strings.Contains(got, want) {
+			t.Errorf("missing %s at some nesting level.\ngot: %s", want, got)
+		}
+	}
+}
+
+func TestMixedDirectAndNestedInt64RoundTrips(t *testing.T) {
+	body := ` + "`" + `{"child":{"child":{"id":3},"id":2},"id":1}` + "`" + `
+
+	var root deep.Node
+	if err := json.Unmarshal([]byte(body), &root); err != nil {
+		t.Fatalf("json.Unmarshal: %v", err)
+	}
+	if root.GetId() != 1 || root.GetChild().GetId() != 2 || root.GetChild().GetChild().GetId() != 3 {
+		t.Errorf("round-trip lost values at some depth: %v", &root)
+	}
 }
 `
 }
