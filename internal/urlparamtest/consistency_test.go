@@ -97,6 +97,18 @@ func TestAllGeneratorsRejectNonScalarURLParams(t *testing.T) {
 				"Change the field type or remove it from the path",
 			},
 		},
+		{
+			// The kind check alone misses this: the kind is `string`. Accepting it
+			// makes the generated Go server panic on reflectMsg.Set.
+			name:      "repeated scalar path param",
+			protoFile: "invalid_repeated_scalar_path_param.proto",
+			wantErr: []string{
+				"path variable '{ids}'",
+				"of type 'repeated string'",
+				"cannot be repeated",
+				"(sebuf.http.query)",
+			},
+		},
 	}
 
 	for _, tc := range testCases {

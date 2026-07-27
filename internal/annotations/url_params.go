@@ -26,10 +26,20 @@ type URLParamValidationError struct {
 	ParamName   string // Path variable or query parameter name (e.g., "clientId")
 	Location    string // URLParamLocationPath or URLParamLocationQuery
 	TypeName    string // Descriptive field type (e.g., "message (core.v1.UserClientID)")
+	Repeated    bool   // Field is repeated, which is only ever valid for query params
 }
 
 func (e *URLParamValidationError) Error() string {
 	if e.Location == URLParamLocationPath {
+		if e.Repeated {
+			return fmt.Sprintf(
+				"path variable '{%s}' is bound to field '%s' on message '%s' of type '%s', "+
+					"but a path variable matches a single URL segment and cannot be repeated. "+
+					"Remove the repeated label, or bind the field as a query parameter with "+
+					"(sebuf.http.query) instead.",
+				e.ParamName, e.FieldName, e.MessageName, e.TypeName)
+		}
+
 		return fmt.Sprintf(
 			"path variable '{%s}' is bound to field '%s' on message '%s' of type '%s', "+
 				"but path parameters must be scalar types (%s). "+
@@ -84,10 +94,50 @@ func URLParamTypeName(field *protogen.Field) string {
 
 	kind := field.Desc.Kind().String()
 	if field.Desc.Kind() == protoreflect.MessageKind && field.Message != nil {
-		return fmt.Sprintf("%s (%s)", kind, field.Message.Desc.FullName())
+		kind = fmt.Sprintf("%s (%s)", kind, field.Message.Desc.FullName())
+	}
+
+	if field.Desc.IsList() {
+		kind = "repeated " + kind
 	}
 
 	return kind
+}
+
+// ValidatePathParamField reports why a field cannot be bound to a path variable, or
+// nil if it can. Both this package's ValidatePathParams and httpgen's aggregating
+// validator call it, so the two cannot disagree.
+//
+// Repeated fields are rejected here but allowed as query parameters (?tags=a&tags=b):
+// a path variable matches exactly one URL segment. Accepting one would make the
+// generated Go server panic at request time — bindPathParams does
+// reflectMsg.Set(field, scalarValue), and protoreflect rejects that on a list field
+// with "type mismatch: cannot convert string to list".
+func ValidatePathParamField(field *protogen.Field, paramName, messageName string) *URLParamValidationError {
+	// Kind first: it is the more fundamental problem. For a `repeated SomeMessage`
+	// path variable, dropping the repeated label still would not make it bindable.
+	if !IsURLParamCompatible(field) {
+		return &URLParamValidationError{
+			MessageName: messageName,
+			FieldName:   string(field.Desc.Name()),
+			ParamName:   paramName,
+			Location:    URLParamLocationPath,
+			TypeName:    URLParamTypeName(field),
+		}
+	}
+
+	if field.Desc.IsList() {
+		return &URLParamValidationError{
+			MessageName: messageName,
+			FieldName:   string(field.Desc.Name()),
+			ParamName:   paramName,
+			Location:    URLParamLocationPath,
+			TypeName:    URLParamTypeName(field),
+			Repeated:    true,
+		}
+	}
+
+	return nil
 }
 
 // ValidateQueryParams checks that every (sebuf.http.query)-annotated field on message
@@ -121,18 +171,16 @@ func ValidatePathParams(method *protogen.Method) error {
 		return nil
 	}
 
+	messageName := string(method.Input.Desc.Name())
+
 	for _, param := range config.PathParams {
 		field := FindFieldByProtoName(method.Input, param)
-		if field == nil || IsURLParamCompatible(field) {
+		if field == nil {
 			continue
 		}
 
-		return &URLParamValidationError{
-			MessageName: string(method.Input.Desc.Name()),
-			FieldName:   string(field.Desc.Name()),
-			ParamName:   param,
-			Location:    URLParamLocationPath,
-			TypeName:    URLParamTypeName(field),
+		if err := ValidatePathParamField(field, param, messageName); err != nil {
+			return err
 		}
 	}
 

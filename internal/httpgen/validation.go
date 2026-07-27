@@ -117,17 +117,11 @@ func validatePathVariables(
 			continue
 		}
 
-		if annotations.IsURLParamCompatible(field) {
+		urlErr := annotations.ValidatePathParamField(field, param, inputMsgName)
+		if urlErr == nil {
 			continue
 		}
 
-		urlErr := &annotations.URLParamValidationError{
-			MessageName: inputMsgName,
-			FieldName:   string(field.Desc.Name()),
-			ParamName:   param,
-			Location:    annotations.URLParamLocationPath,
-			TypeName:    annotations.URLParamTypeName(field),
-		}
 		errors = append(errors, ValidationError{
 			Service: serviceName,
 			Method:  methodName,

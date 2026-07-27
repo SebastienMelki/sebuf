@@ -151,6 +151,26 @@ func TestValidateFileURLParams(t *testing.T) {
 			wantErr: "path variable '{client_id}'",
 		},
 		{
+			// Kind is `string`, so only the IsList check catches this.
+			name: "repeated scalar path param is rejected",
+			file: buildTestFile(
+				repeated(plainField("ids", descriptorpb.FieldDescriptorProto_TYPE_STRING, "")),
+				"/items/{ids}",
+			),
+			wantErr: "cannot be repeated",
+		},
+		{
+			// Kind is reported ahead of cardinality: dropping `repeated` alone would
+			// still leave this unbindable.
+			name: "repeated message path param reports the kind, not the repetition",
+			file: buildTestFile(
+				repeated(plainField("ids", descriptorpb.FieldDescriptorProto_TYPE_MESSAGE,
+					".test.UserClientID")),
+				"/items/{ids}",
+			),
+			wantErr: "must be scalar types",
+		},
+		{
 			name: "path variable with no matching field is left to httpgen",
 			file: buildTestFile(
 				plainField("id", descriptorpb.FieldDescriptorProto_TYPE_STRING, ""),

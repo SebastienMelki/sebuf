@@ -357,13 +357,28 @@ Query and path parameters support the following scalar types:
 | `float`, `double` | `?min_score=3.5` | |
 | `enum` | `?region=REGION_AMERICAS` or `?region=1` | Accepts proto enum name (case-sensitive) or numeric value |
 
-Repeated fields are supported for query parameters (`?tags=a&tags=b`).
+Repeated fields are supported for **query parameters only** (`?tags=a&tags=b`). A path
+variable matches exactly one URL segment, so a `repeated` field bound to one is rejected
+at generation time:
+
+```protobuf
+// ❌ Rejected: a path variable cannot be repeated
+message GetItemsRequest {
+  repeated string ids = 1;   // bound to "/items/{ids}"
+}
+
+// ✅ Use a query parameter instead
+message GetItemsRequest {
+  repeated string ids = 1 [(sebuf.http.query) = {name: "ids"}];   // ?ids=a&ids=b
+}
+```
 
 ### Unsupported Parameter Types
 
 `message`, `group`, `bytes`, and `map` fields **cannot** be bound to a query or path
-parameter — there is no canonical URL encoding for them. All six generators reject
-them at generation time with an error naming the field and its type:
+parameter — there is no canonical URL encoding for them. (Path parameters additionally
+reject `repeated` fields, as above.) All six generators reject these at generation time
+with an error naming the field and its type:
 
 ```
 AuthorizationService.ListClientRestrictions: field 'client_id' on message

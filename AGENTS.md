@@ -550,13 +550,20 @@ All custom annotations live in `proto/sebuf/http/annotations.proto`:
 ### URL Parameter Types Must Be Scalar
 
 Query (`sebuf.http.query`) and path parameters accept only scalar kinds — string,
-bool, the integer families, float/double, and enum — plus repeated scalars for query
-params. `message`, `group`, `bytes`, and `map` have no canonical URL encoding and are
-**rejected at generation time by all six generators**.
+bool, the integer families, float/double, and enum. `message`, `group`, `bytes`, and
+`map` have no canonical URL encoding and are **rejected at generation time by all six
+generators**.
+
+Cardinality differs by location: repeated scalars are valid query params
+(`?ids=a&ids=b`) but never valid path variables, since a path variable matches exactly
+one URL segment. Accepting a repeated path variable makes the generated Go server
+*panic* at request time — `bindPathParams` calls `reflectMsg.Set(field, scalarValue)`,
+which protoreflect rejects on a list field.
 
 The single source of truth is `internal/annotations/url_params.go`:
-`IsURLParamKindCompatible` (the kind predicate) and `ValidateFileURLParams` (the
-per-file entry point every generator calls). httpgen routes it through its own
+`IsURLParamKindCompatible` (the kind predicate), `ValidatePathParamField` (kind +
+cardinality, for path variables), and `ValidateFileURLParams` (the per-file entry point
+every generator calls). httpgen routes it through its own
 aggregating `ValidateMethodConfig`; the other five call `ValidateFileURLParams`
 directly before emitting anything.
 
