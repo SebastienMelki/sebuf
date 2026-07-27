@@ -1,12 +1,12 @@
 package httpgen
 
 import (
+	"fmt"
 	"io"
 	"os"
 	"strings"
 
 	"google.golang.org/protobuf/compiler/protogen"
-	"google.golang.org/protobuf/reflect/protoreflect"
 
 	"github.com/SebastienMelki/sebuf/internal/annotations"
 )
@@ -79,26 +79,66 @@ func collectInt64EncodingMessages(messages []*protogen.Message, contexts *[]*Int
 type Int64WrapperContext struct {
 	// Message is the wrapper message that needs transitive marshal/unmarshal
 	Message *protogen.Message
-	// NestedFields are message-type fields whose type has direct NUMBER encoding
+	// NestedFields are message-type fields whose type transitively reaches NUMBER encoding
 	NestedFields []*protogen.Field
 }
 
-// collectWrapperContexts finds messages that contain fields whose message type
-// has direct int64 NUMBER encoding (i.e., types already in directMsgNames).
+// messageTransitivelyHasInt64Number reports whether msg, or any message it nests (singular,
+// repeated, or map value) at any depth, has a direct int64/uint64 field with
+// int64_encoding=NUMBER. Walking field.Message resolves across proto files, so imported types
+// are covered — a per-file name set is not (issue #217). The visited set guards against
+// recursive message definitions.
+func messageTransitivelyHasInt64Number(msg *protogen.Message, visited map[string]bool) bool {
+	if msg == nil {
+		return false
+	}
+	key := string(msg.Desc.FullName())
+	if visited[key] {
+		return false
+	}
+	visited[key] = true
+
+	if hasInt64NumberFields(msg) {
+		return true
+	}
+
+	for _, field := range msg.Fields {
+		if child := nestedMessageChild(field); child != nil &&
+			messageTransitivelyHasInt64Number(child, visited) {
+			return true
+		}
+		if child := mapMessageValueChild(field); child != nil &&
+			messageTransitivelyHasInt64Number(child, visited) {
+			return true
+		}
+	}
+	return false
+}
+
+// fieldTransitivelyHasInt64Number reports whether a message field's type (singular or repeated,
+// never a map) reaches an int64 NUMBER field at any depth.
+func fieldTransitivelyHasInt64Number(field *protogen.Field) bool {
+	child := nestedMessageChild(field)
+	if child == nil {
+		return false
+	}
+	return messageTransitivelyHasInt64Number(child, map[string]bool{})
+}
+
+// collectWrapperContexts finds messages that contain fields whose message type transitively
+// reaches int64 NUMBER encoding, at any depth and in any file.
 func collectWrapperContexts(
 	file *protogen.File,
-	directMsgNames map[string]bool,
 	unwrapMsgNames map[string]bool,
 ) []*Int64WrapperContext {
 	var contexts []*Int64WrapperContext
-	collectWrapperMessages(file.Messages, directMsgNames, unwrapMsgNames, &contexts)
+	collectWrapperMessages(file.Messages, unwrapMsgNames, &contexts)
 	return contexts
 }
 
 // collectWrapperMessages recursively collects wrapper messages.
 func collectWrapperMessages(
 	messages []*protogen.Message,
-	directMsgNames map[string]bool,
 	unwrapMsgNames map[string]bool, // messages to exclude (already have unwrap MarshalJSON)
 	contexts *[]*Int64WrapperContext,
 ) {
@@ -111,24 +151,22 @@ func collectWrapperMessages(
 		}
 
 		// Skip messages that already have direct NUMBER fields (handled by existing logic)
-		if directMsgNames[string(msg.Desc.FullName())] {
-			collectWrapperMessages(msg.Messages, directMsgNames, unwrapMsgNames, contexts)
+		if hasInt64NumberFields(msg) {
+			collectWrapperMessages(msg.Messages, unwrapMsgNames, contexts)
 			continue
 		}
 
 		// Bug fix: Skip messages that already have unwrap-generated MarshalJSON.
 		// Both generators cannot emit MarshalJSON for the same type.
 		if unwrapMsgNames[string(msg.Desc.FullName())] {
-			collectWrapperMessages(msg.Messages, directMsgNames, unwrapMsgNames, contexts)
+			collectWrapperMessages(msg.Messages, unwrapMsgNames, contexts)
 			continue
 		}
 
 		var nestedFields []*protogen.Field
 		for _, field := range msg.Fields {
-			if field.Desc.Kind() == protoreflect.MessageKind &&
-				!field.Desc.IsMap() &&
-				field.Message != nil &&
-				directMsgNames[string(field.Message.Desc.FullName())] {
+			// Map fields are excluded: the emitted wrapper cannot traverse them.
+			if fieldTransitivelyHasInt64Number(field) {
 				nestedFields = append(nestedFields, field)
 			}
 		}
@@ -140,8 +178,50 @@ func collectWrapperMessages(
 			})
 		}
 
-		collectWrapperMessages(msg.Messages, directMsgNames, unwrapMsgNames, contexts)
+		collectWrapperMessages(msg.Messages, unwrapMsgNames, contexts)
 	}
+}
+
+// checkInt64WrapperMarshalJSONConflict returns an error if a message that needs a transitive
+// int64 wrapper marshaler also carries another MarshalJSON-generating annotation. Only one
+// feature can own a message's MarshalJSON/UnmarshalJSON methods, so combining them would
+// produce duplicate method declarations. Fail fast with a clear message (matching
+// enum/flatten/oneof behavior).
+func checkInt64WrapperMarshalJSONConflict(msg *protogen.Message) error {
+	var conflicts []string
+
+	if hasNullableFields(msg) {
+		conflicts = append(conflicts, "nullable")
+	}
+	if hasEmptyBehaviorFields(msg) {
+		conflicts = append(conflicts, "empty_behavior")
+	}
+	if hasTimestampFormatFields(msg) {
+		conflicts = append(conflicts, "timestamp_format")
+	}
+	if hasBytesEncodingFields(msg) {
+		conflicts = append(conflicts, "bytes_encoding")
+	}
+	if hasCustomEnumFields(msg) {
+		conflicts = append(conflicts, "enum_value")
+	}
+	if hasFlattenFields(msg) {
+		conflicts = append(conflicts, "flatten")
+	}
+	if hasOneofDiscriminator(msg) {
+		conflicts = append(conflicts, "oneof_config")
+	}
+
+	if len(conflicts) > 0 {
+		return fmt.Errorf(
+			"message %s: nested int64_encoding=NUMBER requires MarshalJSON but conflicts with %s "+
+				"(also requires MarshalJSON) -- "+
+				"only one MarshalJSON-generating feature is supported per message",
+			msg.GoIdent.GoName, strings.Join(conflicts, ", "),
+		)
+	}
+
+	return nil
 }
 
 // collectDirectEncodingMsgNames returns the set of message full names that will have
@@ -169,25 +249,27 @@ func printInt64PrecisionWarning(w io.Writer, field *protogen.Field, messageName 
 func (g *Generator) generateInt64EncodingFile(file *protogen.File, unwrapMsgNames map[string]bool) error {
 	contexts := collectInt64EncodingContext(file)
 
-	// Build set of message full names that have direct NUMBER fields
-	directMsgNames := make(map[string]bool, len(contexts))
-	for _, ctx := range contexts {
-		directMsgNames[string(ctx.Message.Desc.FullName())] = true
-	}
-
 	// Collect wrapper messages, excluding those with unwrap-generated MarshalJSON
-	wrapperContexts := collectWrapperContexts(file, directMsgNames, unwrapMsgNames)
+	wrapperContexts := collectWrapperContexts(file, unwrapMsgNames)
 
 	// If no messages need int64 encoding, skip generation
 	if len(contexts) == 0 && len(wrapperContexts) == 0 {
 		return nil
 	}
 
+	// A wrapper message must own MarshalJSON exclusively — fail fast if another
+	// annotation on the same message also generates it.
+	for _, ctx := range wrapperContexts {
+		if err := checkInt64WrapperMarshalJSONConflict(ctx.Message); err != nil {
+			return err
+		}
+	}
+
 	filename := file.GeneratedFilenamePrefix + "_encoding.pb.go"
 	gf := g.plugin.NewGeneratedFile(filename, file.GoImportPath)
 
 	g.writeHeader(gf, file)
-	g.writeInt64EncodingImports(gf)
+	g.writeInt64EncodingImports(gf, len(contexts) > 0)
 
 	// Generate marshal/unmarshal for messages with direct NUMBER fields
 	for _, ctx := range contexts {
@@ -208,10 +290,16 @@ func (g *Generator) generateInt64EncodingFile(file *protogen.File, unwrapMsgName
 	return nil
 }
 
-func (g *Generator) writeInt64EncodingImports(gf *protogen.GeneratedFile) {
+// writeInt64EncodingImports emits the import block. strconv is only used by the direct-field
+// unmarshalers, so a file holding nothing but transitive wrappers — which happens whenever the
+// annotated message is declared in an imported file (issue #217) — must not import it, or the
+// generated code fails to compile with "strconv imported and not used".
+func (g *Generator) writeInt64EncodingImports(gf *protogen.GeneratedFile, needsStrconv bool) {
 	gf.P("import (")
 	gf.P(`"encoding/json"`)
-	gf.P(`"strconv"`)
+	if needsStrconv {
+		gf.P(`"strconv"`)
+	}
 	gf.P()
 	gf.P(`"google.golang.org/protobuf/encoding/protojson"`)
 	gf.P(")")
@@ -539,6 +627,8 @@ func (g *Generator) generateWrapperMarshalJSON(gf *protogen.GeneratedFile, ctx *
 // generateWrapperUnmarshalJSON generates an UnmarshalJSONSebuf that delegates nested
 // message parsing via the sebufUnmarshaler interface (propagating opts), then converts
 // back for protojson. Also emits a backward-compatible UnmarshalJSON wrapper.
+//
+//nolint:funlen // Per-field repeated/singular dispatch with opts forwarding is intentionally inlined for clarity
 func (g *Generator) generateWrapperUnmarshalJSON(gf *protogen.GeneratedFile, ctx *Int64WrapperContext) {
 	msgName := ctx.Message.GoIdent.GoName
 

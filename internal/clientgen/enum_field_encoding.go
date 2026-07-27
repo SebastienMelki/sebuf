@@ -300,11 +300,14 @@ func checkEnumMarshalJSONConflict(msg *protogen.Message) error {
 	return nil
 }
 
-// nestsInt64NumberMessage reports whether msg directly nests a message with int64 NUMBER fields,
-// which would make it an int64 wrapper (also generating MarshalJSONSebuf).
+// nestsInt64NumberMessage reports whether msg nests a message that transitively reaches an
+// int64 NUMBER field, which would make it an int64 wrapper (also generating MarshalJSONSebuf).
+// This must stay in lockstep with collectWrapperMessages in encoding.go — if this check is
+// narrower, a message that becomes an int64 wrapper can slip past the enum conflict check and
+// produce duplicate method declarations.
 func nestsInt64NumberMessage(msg *protogen.Message) bool {
 	for _, field := range msg.Fields {
-		if child := nestedMessageChild(field); child != nil && hasInt64NumberFields(child) {
+		if fieldTransitivelyHasInt64Number(field) {
 			return true
 		}
 	}

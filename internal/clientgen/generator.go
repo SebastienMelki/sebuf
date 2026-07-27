@@ -79,17 +79,23 @@ func (g *Generator) generateFile(file *protogen.File) error {
 		return err
 	}
 
+	// Generate encoding file if there are messages with int64_encoding=NUMBER annotations.
+	// This must run before the services guard below: a message carrying the annotation is
+	// routinely declared in a service-less types file and imported by the file that defines
+	// the RPC. Skipping it there would leave the imported type without MarshalJSONSebuf, so
+	// the importing message's transitive wrapper falls back to protojson and the int64 is
+	// serialized as a quoted string again (issue #217). go-http already generates this file
+	// unconditionally.
+	if err := g.generateInt64EncodingFile(file); err != nil {
+		return err
+	}
+
 	if len(file.Services) == 0 {
 		return nil
 	}
 
 	// Generate client file
 	if err := g.generateClientFile(file); err != nil {
-		return err
-	}
-
-	// Generate encoding file if there are messages with int64_encoding=NUMBER annotations
-	if err := g.generateInt64EncodingFile(file); err != nil {
 		return err
 	}
 
