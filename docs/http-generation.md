@@ -424,6 +424,13 @@ Enum fields work as both query and path parameters. They accept:
 
 Invalid enum names return a 400 validation error mentioning the enum type.
 
+> **Known limitation ([#219](https://github.com/SebastienMelki/sebuf/issues/219))**: the
+> `(sebuf.http.enum_value)` custom string is applied to JSON bodies but **not** to query or
+> path parameters. The Go client and server use the proto enum name (`REGION_AMERICAS`)
+> there, while the TypeScript client sends the custom string (`americas`) — which the Go
+> server currently rejects. Until that is resolved, avoid `enum_value` on enums used as
+> URL parameters if you need cross-language clients, or send the numeric value.
+
 ```protobuf
 enum Region {
   REGION_UNSPECIFIED = 0;
