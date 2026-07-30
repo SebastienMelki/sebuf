@@ -250,6 +250,10 @@ components:
                     type:
                         - string
                         - "null"
+                    examples:
+                        - hello
+                        - world
+                    example: hello
                 bytesVal:
                     type:
                         - string
@@ -280,23 +284,17 @@ components:
                 labels:
                     type: object
                     additionalProperties:
-                        type:
-                            - string
-                            - "null"
+                        type: string
                 counts:
                     type: object
                     additionalProperties:
-                        type:
-                            - integer
-                            - "null"
+                        type: integer
                         format: int32
                 flags:
                     type: object
                     additionalProperties:
-                        type:
-                            - boolean
-                            - "null"
-            description: MapWrapperMessage tests map fields with wrapper values (values are nullable).
+                        type: boolean
+            description: MapWrapperMessage tests map fields with wrapper values.
         LabelsEntry:
             type: object
             properties:

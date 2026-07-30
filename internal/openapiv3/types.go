@@ -342,12 +342,6 @@ func (g *Generator) getMapValueSchema(field *protogen.Field) *base.DynamicValue[
 
 	// Normal scalar or message type
 	valueSchema := g.convertScalarField(valueField)
-
-	// Wrapper type map values are nullable (protojson allows null values in map entries)
-	if annotations.IsWrapperField(valueField) {
-		valueSchema = g.makeNullableSchema(valueSchema)
-	}
-
 	return &base.DynamicValue[*base.SchemaProxy, bool]{A: valueSchema}
 }
 
@@ -520,6 +514,21 @@ func (g *Generator) convertWrapperField(field *protogen.Field, schema *base.Sche
 	// Override description with field comments if present
 	if field.Comments.Leading != "" {
 		schema.Description = strings.TrimSpace(string(field.Comments.Leading))
+	}
+
+	// Add field examples if available
+	if examples := annotations.GetFieldExamples(field); len(examples) > 0 {
+		schema.Example = &yaml.Node{
+			Kind:  yaml.ScalarNode,
+			Value: examples[0],
+		}
+		schema.Examples = make([]*yaml.Node, len(examples))
+		for i, example := range examples {
+			schema.Examples[i] = &yaml.Node{
+				Kind:  yaml.ScalarNode,
+				Value: example,
+			}
+		}
 	}
 
 	return base.CreateSchemaProxy(schema)

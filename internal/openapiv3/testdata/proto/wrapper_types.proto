@@ -17,7 +17,7 @@ message WrapperFieldsMessage {
   google.protobuf.Int32Value int32_val = 5;
   google.protobuf.UInt32Value uint32_val = 6;
   google.protobuf.BoolValue bool_val = 7;
-  google.protobuf.StringValue string_val = 8;
+  google.protobuf.StringValue string_val = 8 [(sebuf.http.field_examples) = { values: ["hello", "world"] }];
   google.protobuf.BytesValue bytes_val = 9;
 }
 
@@ -28,7 +28,7 @@ message RepeatedWrapperMessage {
   repeated google.protobuf.DoubleValue measurements = 3;
 }
 
-// MapWrapperMessage tests map fields with wrapper values (values are nullable).
+// MapWrapperMessage tests map fields with wrapper values.
 message MapWrapperMessage {
   map<string, google.protobuf.StringValue> labels = 1;
   map<string, google.protobuf.Int32Value> counts = 2;
