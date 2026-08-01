@@ -170,6 +170,12 @@ func (ms *MessageSet) AddMessage(msg *protogen.Message) {
 		return
 	}
 
+	// Skip google.protobuf.Struct/Value/ListValue — serialized per protojson's JSON
+	// projection (object/any/array), not as the descriptor's internal oneof/map shape
+	if annotations.IsStructWellKnownMessage(msg) {
+		return
+	}
+
 	// Skip map entry messages — they're synthetic and handled inline
 	if msg.Desc.IsMapEntry() {
 		// Still recurse into value type if it's a message
@@ -312,6 +318,12 @@ func TSFieldTypeCtx(ctx *EmitContext, field *protogen.Field) string {
 		return TSTimestampType(field)
 	}
 
+	// Handle google.protobuf.Struct/Value/ListValue fields (serialized per protojson's
+	// JSON projection, not as the descriptor's internal oneof/map shape)
+	if annotations.IsStructWellKnownField(field) {
+		return TSStructWellKnownType(field.Message)
+	}
+
 	// Handle message fields
 	if field.Desc.Kind() == protoreflect.MessageKind && field.Message != nil {
 		return ctx.RefMessage(field.Message)
@@ -341,6 +353,11 @@ func TSElementTypeCtx(ctx *EmitContext, field *protogen.Field) string {
 	// Handle google.protobuf.Timestamp (serialized as primitive, not as nested object)
 	if annotations.IsTimestampField(field) {
 		return TSTimestampType(field)
+	}
+	// Handle google.protobuf.Struct/Value/ListValue (serialized per protojson's
+	// JSON projection, not as the descriptor's internal oneof/map shape)
+	if annotations.IsStructWellKnownField(field) {
+		return TSStructWellKnownType(field.Message)
 	}
 	if field.Desc.Kind() == protoreflect.MessageKind && field.Message != nil {
 		return ctx.RefMessage(field.Message)
@@ -902,6 +919,24 @@ func TSTimestampType(field *protogen.Field) string {
 	default:
 		// RFC3339, DATE, UNSPECIFIED -> string
 		return TSString
+	}
+}
+
+// TSStructWellKnownType returns the TypeScript type for a
+// google.protobuf.Struct, google.protobuf.Value, or google.protobuf.ListValue
+// field, matching protojson's JSON projection rather than the descriptor's
+// internal oneof/map shape:
+//   - Struct    -> a plain JSON object    -> Record<string, unknown>
+//   - ListValue -> a plain JSON array     -> unknown[]
+//   - Value     -> any JSON value at all  -> unknown
+func TSStructWellKnownType(message *protogen.Message) string {
+	switch message.Desc.FullName() {
+	case "google.protobuf.Struct":
+		return "Record<string, unknown>"
+	case "google.protobuf.ListValue":
+		return "unknown[]"
+	default: // google.protobuf.Value
+		return "unknown"
 	}
 }
 

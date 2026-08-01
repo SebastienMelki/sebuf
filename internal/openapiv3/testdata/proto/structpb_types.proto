@@ -1,0 +1,97 @@
+syntax = "proto3";
+
+package structpb_types;
+
+option go_package = "github.com/SebastienMelki/sebuf/internal/openapiv3/testdata/structpb_types;structpb_types";
+
+import "google/protobuf/struct.proto";
+import "sebuf/http/annotations.proto";
+
+// StructFieldsMessage tests all 3 Struct well-known types as singular fields.
+message StructFieldsMessage {
+  // Arbitrary JSON object metadata
+  google.protobuf.Struct meta = 1;
+  google.protobuf.Value data = 2 [(sebuf.http.field_examples) = { values: ["hello", "42"] }];
+  google.protobuf.ListValue series = 3;
+}
+
+// RepeatedStructMessage tests repeated Struct well-known fields.
+message RepeatedStructMessage {
+  repeated google.protobuf.Struct configs = 1;
+  repeated google.protobuf.Value items = 2;
+  repeated google.protobuf.ListValue matrices = 3;
+}
+
+// MapStructMessage tests map fields with Struct well-known values.
+message MapStructMessage {
+  map<string, google.protobuf.Struct> attributes = 1;
+  map<string, google.protobuf.Value> properties = 2;
+}
+
+// StructRequest is a simple request.
+message StructRequest {
+  string id = 1;
+}
+
+// StructTypeService tests Struct/Value/ListValue types in various positions.
+service StructTypeService {
+  option (sebuf.http.service_config) = {
+    base_path: "/api/v1"
+  };
+
+  // Get struct fields by ID
+  rpc GetStructFields(StructRequest) returns (StructFieldsMessage) {
+    option (sebuf.http.config) = {
+      path: "/structs/{id}"
+      method: HTTP_METHOD_GET
+    };
+  };
+
+  // Update struct fields
+  rpc UpdateStructFields(StructFieldsMessage) returns (StructFieldsMessage) {
+    option (sebuf.http.config) = {
+      path: "/structs"
+      method: HTTP_METHOD_POST
+    };
+  };
+
+  // Get repeated struct fields
+  rpc GetRepeatedStructs(StructRequest) returns (RepeatedStructMessage) {
+    option (sebuf.http.config) = {
+      path: "/structs/repeated/{id}"
+      method: HTTP_METHOD_GET
+    };
+  };
+
+  // Get map struct fields
+  rpc GetMapStructs(StructRequest) returns (MapStructMessage) {
+    option (sebuf.http.config) = {
+      path: "/structs/maps/{id}"
+      method: HTTP_METHOD_GET
+    };
+  };
+
+  // Direct WKT RPC: input and output are Struct well-known types
+  rpc SetDirectStruct(google.protobuf.Struct) returns (google.protobuf.Value) {
+    option (sebuf.http.config) = {
+      path: "/structs/direct"
+      method: HTTP_METHOD_POST
+    };
+  };
+}
+
+// StructSSEService tests SSE streaming with a Struct well-known output type.
+service StructSSEService {
+  option (sebuf.http.service_config) = {
+    base_path: "/api/v1"
+  };
+
+  // Stream struct events as SSE
+  rpc StreamStructEvents(StructRequest) returns (google.protobuf.Struct) {
+    option (sebuf.http.config) = {
+      path: "/structs/stream"
+      method: HTTP_METHOD_GET
+      stream: true
+    };
+  };
+}
