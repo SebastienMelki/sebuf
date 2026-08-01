@@ -1,0 +1,55 @@
+syntax = "proto3";
+
+package testdata.structpbtypes;
+
+option go_package = "github.com/SebastienMelki/sebuf/internal/httpgen/testdata/structpbtypes;structpbtypes";
+
+import "google/protobuf/struct.proto";
+import "sebuf/http/annotations.proto";
+
+// StructPBTypes demonstrates google.protobuf.Struct/Value/ListValue fields,
+// which serialize per protojson's JSON projection (object/any/array) rather
+// than their protobuf descriptor's internal oneof/map shape.
+message StructPBTypes {
+  string id = 1;
+
+  // Singular well-known fields
+  google.protobuf.Struct metadata = 2;
+  google.protobuf.Value setting = 3;
+  google.protobuf.ListValue tags = 4;
+
+  // Repeated well-known fields
+  repeated google.protobuf.Struct metadata_list = 5;
+  repeated google.protobuf.Value setting_list = 6;
+  repeated google.protobuf.ListValue tags_list = 7;
+
+  // Map well-known fields
+  map<string, google.protobuf.Struct> metadata_map = 8;
+  map<string, google.protobuf.Value> setting_map = 9;
+}
+
+// GetStructPBTypesRequest is the request for GetStructPBTypes.
+message GetStructPBTypesRequest {
+  string id = 1;
+}
+
+// StructPBTypesService tests Struct/Value/ListValue fields in requests and responses.
+service StructPBTypesService {
+  option (sebuf.http.service_config) = {
+    base_path: "/api/v1"
+  };
+
+  rpc CreateStructPBTypes(StructPBTypes) returns (StructPBTypes) {
+    option (sebuf.http.config) = {
+      path: "/structpb-types"
+      method: HTTP_METHOD_POST
+    };
+  }
+
+  rpc GetStructPBTypes(GetStructPBTypesRequest) returns (StructPBTypes) {
+    option (sebuf.http.config) = {
+      path: "/structpb-types/{id}"
+      method: HTTP_METHOD_GET
+    };
+  }
+}

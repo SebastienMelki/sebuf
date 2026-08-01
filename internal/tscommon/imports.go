@@ -9,6 +9,8 @@ import (
 
 	"google.golang.org/protobuf/compiler/protogen"
 	"google.golang.org/protobuf/reflect/protoreflect"
+
+	"github.com/SebastienMelki/sebuf/internal/annotations"
 )
 
 // errorsModule is the extensionless module path of the shared error-helpers
@@ -211,10 +213,19 @@ func (c *EmitContext) modules() bool {
 }
 
 // RefMessage returns the local TypeScript name for a message reference,
-// recording a cross-module import when needed.
+// recording a cross-module import when needed. google.protobuf.Struct, Value,
+// and ListValue are special-cased to their protojson JSON-projection type
+// (Record<string, unknown> / unknown / unknown[]) rather than a generated
+// interface name, since no such interface is ever emitted for them — this
+// covers direct references such as an RPC's input/output type being one of
+// these well-known types, in addition to the field-level handling in
+// TSFieldTypeCtx/TSElementTypeCtx.
 func (c *EmitContext) RefMessage(msg *protogen.Message) string {
 	if msg == nil {
 		return ""
+	}
+	if annotations.IsStructWellKnownMessage(msg) {
+		return TSStructWellKnownType(msg)
 	}
 	return c.ref(QualifiedTSName(msg.Desc), msg.Desc.ParentFile())
 }

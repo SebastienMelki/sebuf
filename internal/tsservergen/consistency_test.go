@@ -29,6 +29,7 @@ func TestCrossGeneratorTypeConsistency(t *testing.T) {
 		"nullable.proto",
 		"empty_behavior.proto",
 		"timestamp_format.proto",
+		"structpb_types.proto",
 		"bytes_encoding.proto",
 		"flatten.proto",
 		"oneof_discriminator.proto",

@@ -176,6 +176,12 @@ func (g *Generator) collectMessageRecursive(message *protogen.Message, processed
 		return
 	}
 
+	// Struct/Value/ListValue serialize as JSON projections (object/any/array) in
+	// protojson, not their descriptor shape; skip component emission
+	if annotations.IsStructWellKnownMessage(message) {
+		return
+	}
+
 	// Process this message
 	g.processMessage(message)
 
@@ -222,6 +228,9 @@ func (g *Generator) resolveMessageSchemaRef(message *protogen.Message) *base.Sch
 	if annotations.IsWrapperMessage(message) {
 		return g.buildWrapperMessageSchema(message)
 	}
+	if annotations.IsStructWellKnownMessage(message) {
+		return base.CreateSchemaProxy(buildStructWellKnownSchema(message))
+	}
 	return base.CreateSchemaProxyRef(fmt.Sprintf("#/components/schemas/%s", g.getSchemaName(message)))
 }
 
@@ -259,6 +268,29 @@ func (g *Generator) buildWrapperMessageSchema(message *protogen.Message) *base.S
 		schema.Format = formatByte
 	}
 	return base.CreateSchemaProxy(schema)
+}
+
+// buildStructWellKnownSchema creates the JSON-projection schema for a Struct/Value/ListValue
+// message used directly as an RPC input or output (e.g., rpc Foo() returns (google.protobuf.Struct)).
+// protojson serializes these as a plain JSON object, any JSON value, and a plain JSON array
+// respectively -- never their descriptor (oneof/map) shape.
+func buildStructWellKnownSchema(message *protogen.Message) *base.Schema {
+	switch message.Desc.FullName() {
+	case "google.protobuf.Struct":
+		return &base.Schema{
+			Type:                 []string{"object"},
+			AdditionalProperties: &base.DynamicValue[*base.SchemaProxy, bool]{N: 1, B: true},
+		}
+	case "google.protobuf.ListValue":
+		return &base.Schema{
+			Type:  []string{"array"},
+			Items: &base.DynamicValue[*base.SchemaProxy, bool]{N: 0, A: base.CreateSchemaProxy(&base.Schema{})},
+		}
+	default:
+		// google.protobuf.Value: "anything" -- no Type set, matches OpenAPI 3.1's
+		// representation of an unconstrained JSON value.
+		return &base.Schema{}
+	}
 }
 
 // processMessage converts a protobuf message to an OpenAPI schema.
@@ -1013,6 +1045,22 @@ func (g *Generator) buildSSEResponses(method *protogen.Method) *orderedmap.Map[s
 				Content: extensionContent,
 			})
 		}
+	} else if annotations.IsStructWellKnownMessage(method.Output) {
+		// Struct/Value/ListValue produce inline JSON-projection schemas instead of $refs.
+		// No component schema exists for these under this name, so a $ref would dangle.
+		structSchema := buildStructWellKnownSchema(method.Output)
+		var extensionContent []*yaml.Node
+		if len(structSchema.Type) > 0 {
+			extensionContent = append(extensionContent,
+				&yaml.Node{Kind: yaml.ScalarNode, Value: "type"},
+				&yaml.Node{Kind: yaml.ScalarNode, Value: structSchema.Type[0]},
+			)
+		}
+		successResponse.Extensions.Set("x-sse-event-schema", &yaml.Node{
+			Kind:    yaml.MappingNode,
+			Tag:     "!!map",
+			Content: extensionContent,
+		})
 	} else {
 		outputSchemaRef := fmt.Sprintf("#/components/schemas/%s", eventSchemaName)
 		successResponse.Extensions.Set("x-sse-event-schema", &yaml.Node{

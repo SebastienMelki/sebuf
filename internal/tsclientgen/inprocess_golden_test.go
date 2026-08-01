@@ -117,6 +117,7 @@ func inProcessFixtures() []inProcessFixture {
 		{name: "nullable fields", protoFiles: []string{"nullable.proto"}},
 		{name: "empty behavior", protoFiles: []string{"empty_behavior.proto"}},
 		{name: "timestamp format", protoFiles: []string{"timestamp_format.proto"}},
+		{name: "struct/value/listvalue well-known types", protoFiles: []string{"structpb_types.proto"}},
 		{name: "bytes encoding", protoFiles: []string{"bytes_encoding.proto"}},
 		{name: "flatten", protoFiles: []string{"flatten.proto"}},
 		{name: "oneof discriminator", protoFiles: []string{"oneof_discriminator.proto"}},

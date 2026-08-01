@@ -196,6 +196,10 @@ func (g *Generator) convertScalarField(field *protogen.Field) *base.SchemaProxy 
 		if annotations.IsWrapperField(field) {
 			return g.convertWrapperField(field, schema)
 		}
+		// Handle google.protobuf.Struct/Value/ListValue as their JSON projection
+		if annotations.IsStructWellKnownField(field) {
+			return g.convertStructWellKnownField(field, schema)
+		}
 		// Reference to another message
 		return base.CreateSchemaProxyRef(fmt.Sprintf("#/components/schemas/%s", g.getSchemaName(field.Message)))
 
@@ -510,6 +514,36 @@ func (g *Generator) convertWrapperField(field *protogen.Field, schema *base.Sche
 		schema.Type = []string{headerTypeString}
 		schema.Format = formatByte
 	}
+
+	// Override description with field comments if present
+	if field.Comments.Leading != "" {
+		schema.Description = strings.TrimSpace(string(field.Comments.Leading))
+	}
+
+	// Add field examples if available
+	if examples := annotations.GetFieldExamples(field); len(examples) > 0 {
+		schema.Example = &yaml.Node{
+			Kind:  yaml.ScalarNode,
+			Value: examples[0],
+		}
+		schema.Examples = make([]*yaml.Node, len(examples))
+		for i, example := range examples {
+			schema.Examples[i] = &yaml.Node{
+				Kind:  yaml.ScalarNode,
+				Value: example,
+			}
+		}
+	}
+
+	return base.CreateSchemaProxy(schema)
+}
+
+// convertStructWellKnownField creates an OpenAPI schema for a google.protobuf.Struct,
+// google.protobuf.Value, or google.protobuf.ListValue field, using its protojson JSON
+// projection (object / any / array) rather than its descriptor (oneof/map) shape.
+func (g *Generator) convertStructWellKnownField(field *protogen.Field, schema *base.Schema) *base.SchemaProxy {
+	built := buildStructWellKnownSchema(field.Message)
+	*schema = *built
 
 	// Override description with field comments if present
 	if field.Comments.Leading != "" {
