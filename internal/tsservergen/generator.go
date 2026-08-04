@@ -660,6 +660,7 @@ func esPathParamInitExpr(field *protogen.Field, raw string) string {
 	if field == nil {
 		return raw
 	}
+	//nolint:exhaustive // default passes string and every other kind through unchanged; enums are rejected by checkNoEnumParamsES
 	switch field.Desc.Kind() {
 	case protoreflect.BoolKind:
 		return raw + ` === "true"`
@@ -685,6 +686,7 @@ func esQueryListInitExpr(field *protogen.Field, getAll string) string {
 	if field == nil {
 		return getAll
 	}
+	//nolint:exhaustive // default passes string[] and every other kind through unchanged; enum lists are rejected by checkNoEnumParamsES
 	switch field.Desc.Kind() {
 	case protoreflect.BoolKind:
 		return getAll + `.map((v) => v === "true")`
@@ -712,6 +714,7 @@ func esQueryScalarInitExpr(field *protogen.Field, paramName string) string {
 	if field == nil {
 		return get + ` ?? ""`
 	}
+	//nolint:exhaustive // default reads string and every other kind unchanged; enums are rejected by checkNoEnumParamsES
 	switch field.Desc.Kind() {
 	case protoreflect.BoolKind:
 		return get + ` === "true"`

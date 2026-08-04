@@ -23,6 +23,7 @@ func tsZeroCheckForField(field *protogen.Field) string {
 // string "0" check that hand-rolled mode uses would compare bigint to string.
 // Only the 64-bit case differs; every other kind delegates unchanged.
 func esZeroCheckForField(field *protogen.Field) string {
+	//nolint:exhaustive // only 64-bit kinds differ in es-mode; default delegates every other kind unchanged
 	switch field.Desc.Kind() {
 	case protoreflect.Int64Kind, protoreflect.Sint64Kind, protoreflect.Sfixed64Kind,
 		protoreflect.Uint64Kind, protoreflect.Fixed64Kind:

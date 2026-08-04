@@ -1,0 +1,18 @@
+// Test proto for issue #217: the message carrying int64_encoding=NUMBER lives in its own
+// file, imported by int64_cross_file_response.proto. Before the fix, wrapper detection used
+// a name set built from the file being generated, so imported types never qualified and no
+// transitive MarshalJSONSebuf was emitted on the parent.
+syntax = "proto3";
+
+package testdata.int64crossfile;
+
+option go_package = "github.com/SebastienMelki/sebuf/internal/httpgen/testdata/int64crossfile;int64crossfile";
+
+import "sebuf/http/annotations.proto";
+
+// SensorReading is declared here and referenced from the other file.
+message SensorReading {
+  // Unix timestamp in milliseconds - NUMBER encoding
+  int64 timestamp_ms = 1 [(sebuf.http.int64_encoding) = INT64_ENCODING_NUMBER];
+  string sensor_id = 2;
+}

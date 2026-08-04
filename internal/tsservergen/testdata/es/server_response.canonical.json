@@ -1,0 +1,11 @@
+{
+  "id": "note-123",
+  "bigTotal": "9223372036854775807",
+  "item": {
+    "sku": "widget-1"
+  },
+  "attributes": {
+    "region": "eu-west"
+  },
+  "status": "STATUS_ACTIVE"
+}

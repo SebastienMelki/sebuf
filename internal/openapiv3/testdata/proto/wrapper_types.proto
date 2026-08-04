@@ -1,0 +1,104 @@
+syntax = "proto3";
+
+package wrapper_types;
+
+option go_package = "github.com/SebastienMelki/sebuf/internal/openapiv3/testdata/wrapper_types;wrapper_types";
+
+import "google/protobuf/wrappers.proto";
+import "sebuf/http/annotations.proto";
+
+// WrapperFieldsMessage tests all 9 wrapper types as singular fields.
+message WrapperFieldsMessage {
+  // A double-precision value
+  google.protobuf.DoubleValue double_val = 1;
+  google.protobuf.FloatValue float_val = 2;
+  google.protobuf.Int64Value int64_val = 3;
+  google.protobuf.UInt64Value uint64_val = 4;
+  google.protobuf.Int32Value int32_val = 5;
+  google.protobuf.UInt32Value uint32_val = 6;
+  google.protobuf.BoolValue bool_val = 7;
+  google.protobuf.StringValue string_val = 8 [(sebuf.http.field_examples) = { values: ["hello", "world"] }];
+  google.protobuf.BytesValue bytes_val = 9;
+}
+
+// RepeatedWrapperMessage tests repeated wrapper fields (items must not be nullable).
+message RepeatedWrapperMessage {
+  repeated google.protobuf.StringValue names = 1;
+  repeated google.protobuf.Int32Value scores = 2;
+  repeated google.protobuf.DoubleValue measurements = 3;
+}
+
+// MapWrapperMessage tests map fields with wrapper values.
+message MapWrapperMessage {
+  map<string, google.protobuf.StringValue> labels = 1;
+  map<string, google.protobuf.Int32Value> counts = 2;
+  map<string, google.protobuf.BoolValue> flags = 3;
+}
+
+// WrapperRequest is a simple request.
+message WrapperRequest {
+  string id = 1;
+}
+
+// WrapperTypeService tests wrapper types in various positions.
+service WrapperTypeService {
+  option (sebuf.http.service_config) = {
+    base_path: "/api/v1"
+  };
+
+  // Get wrapper fields by ID
+  rpc GetWrapperFields(WrapperRequest) returns (WrapperFieldsMessage) {
+    option (sebuf.http.config) = {
+      path: "/wrappers/{id}"
+      method: HTTP_METHOD_GET
+    };
+  };
+
+  // Update wrapper fields
+  rpc UpdateWrapperFields(WrapperFieldsMessage) returns (WrapperFieldsMessage) {
+    option (sebuf.http.config) = {
+      path: "/wrappers"
+      method: HTTP_METHOD_POST
+    };
+  };
+
+  // Get repeated wrapper fields
+  rpc GetRepeatedWrappers(WrapperRequest) returns (RepeatedWrapperMessage) {
+    option (sebuf.http.config) = {
+      path: "/wrappers/repeated/{id}"
+      method: HTTP_METHOD_GET
+    };
+  };
+
+  // Get map wrapper fields
+  rpc GetMapWrappers(WrapperRequest) returns (MapWrapperMessage) {
+    option (sebuf.http.config) = {
+      path: "/wrappers/maps/{id}"
+      method: HTTP_METHOD_GET
+    };
+  };
+
+  // Direct wrapper RPC: input and output are wrapper types
+  rpc SetDirectWrapper(google.protobuf.StringValue) returns (google.protobuf.Int32Value) {
+    option (sebuf.http.config) = {
+      path: "/wrappers/direct"
+      method: HTTP_METHOD_POST
+    };
+  };
+}
+
+// WrapperSSEService tests SSE streaming with a wrapper output type.
+service WrapperSSEService {
+  option (sebuf.http.service_config) = {
+    base_path: "/api/v1"
+  };
+
+  // Stream wrapper events as SSE
+  rpc StreamWrapperEvents(WrapperRequest) returns (google.protobuf.StringValue) {
+    option (sebuf.http.config) = {
+      path: "/wrappers/stream"
+      method: HTTP_METHOD_GET
+      stream: true
+    };
+  };
+}

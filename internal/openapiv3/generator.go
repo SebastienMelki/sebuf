@@ -171,6 +171,11 @@ func (g *Generator) collectMessageRecursive(message *protogen.Message, processed
 	}
 	processed[key] = true
 
+	// Wrapper types serialize as scalars in protojson; skip component emission
+	if annotations.IsWrapperMessage(message) {
+		return
+	}
+
 	// Process this message
 	g.processMessage(message)
 
@@ -209,6 +214,51 @@ func (g *Generator) getSchemaName(message *protogen.Message) string {
 		return strings.ReplaceAll(string(message.Desc.FullName()), ".", "_")
 	}
 	return string(message.Desc.Name())
+}
+
+// resolveMessageSchemaRef returns a $ref SchemaProxy for normal messages, or an inline
+// nullable scalar SchemaProxy for well-known wrapper types that serialize as scalars in protojson.
+func (g *Generator) resolveMessageSchemaRef(message *protogen.Message) *base.SchemaProxy {
+	if annotations.IsWrapperMessage(message) {
+		return g.buildWrapperMessageSchema(message)
+	}
+	return base.CreateSchemaProxyRef(fmt.Sprintf("#/components/schemas/%s", g.getSchemaName(message)))
+}
+
+// buildWrapperMessageSchema creates a nullable scalar schema for a wrapper message used
+// directly as an RPC input or output (e.g., rpc Foo() returns (google.protobuf.StringValue)).
+func (g *Generator) buildWrapperMessageSchema(message *protogen.Message) *base.SchemaProxy {
+	schema := &base.Schema{}
+	switch message.Desc.FullName() {
+	case "google.protobuf.DoubleValue":
+		schema.Type = []string{"number", "null"}
+		schema.Format = "double"
+	case "google.protobuf.FloatValue":
+		schema.Type = []string{"number", "null"}
+		schema.Format = "float"
+	case "google.protobuf.Int64Value":
+		schema.Type = []string{"string", "null"}
+		schema.Format = "int64"
+	case "google.protobuf.UInt64Value":
+		schema.Type = []string{"string", "null"}
+		schema.Format = "uint64"
+	case "google.protobuf.Int32Value":
+		schema.Type = []string{"integer", "null"}
+		schema.Format = "int32"
+	case "google.protobuf.UInt32Value":
+		schema.Type = []string{"integer", "null"}
+		schema.Format = "int32"
+		minimum := 0.0
+		schema.Minimum = &minimum
+	case "google.protobuf.BoolValue":
+		schema.Type = []string{"boolean", "null"}
+	case "google.protobuf.StringValue":
+		schema.Type = []string{"string", "null"}
+	case "google.protobuf.BytesValue":
+		schema.Type = []string{"string", "null"}
+		schema.Format = formatByte
+	}
+	return base.CreateSchemaProxy(schema)
 }
 
 // processMessage converts a protobuf message to an OpenAPI schema.
@@ -811,13 +861,12 @@ func (g *Generator) buildResponses(method *protogen.Method) *orderedmap.Map[stri
 	responses := orderedmap.New[string, *v3.Response]()
 
 	// Success response
-	outputSchemaRef := fmt.Sprintf("#/components/schemas/%s", g.getSchemaName(method.Output))
 	successResponse := &v3.Response{
 		Description: "Successful response",
 		Content:     orderedmap.New[string, *v3.MediaType](),
 	}
 	successResponse.Content.Set("application/json", &v3.MediaType{
-		Schema: base.CreateSchemaProxyRef(outputSchemaRef),
+		Schema: g.resolveMessageSchemaRef(method.Output),
 	})
 	responses.Set("200", successResponse)
 
@@ -899,13 +948,12 @@ func (g *Generator) processMethod(service *protogen.Service, method *protogen.Me
 
 	// Add request body for POST, PUT, PATCH
 	if info.httpMethod == httpMethodPost || info.httpMethod == httpMethodPut || info.httpMethod == httpMethodPatch {
-		inputSchemaRef := fmt.Sprintf("#/components/schemas/%s", g.getSchemaName(method.Input))
 		operation.RequestBody = &v3.RequestBody{
 			Required: proto.Bool(true),
 			Content:  orderedmap.New[string, *v3.MediaType](),
 		}
 		operation.RequestBody.Content.Set("application/json", &v3.MediaType{
-			Schema: base.CreateSchemaProxyRef(inputSchemaRef),
+			Schema: g.resolveMessageSchemaRef(method.Input),
 		})
 	}
 
@@ -929,29 +977,53 @@ func (g *Generator) buildSSEResponses(method *protogen.Method) *orderedmap.Map[s
 	responses := orderedmap.New[string, *v3.Response]()
 
 	// SSE success response
-	outputSchemaRef := fmt.Sprintf("#/components/schemas/%s", g.getSchemaName(method.Output))
 	successResponse := &v3.Response{
 		Description: "Server-Sent Events stream",
 		Content:     orderedmap.New[string, *v3.MediaType](),
 		Extensions:  orderedmap.New[string, *yaml.Node](),
 	}
+
+	eventSchemaName := g.getSchemaName(method.Output)
 	successResponse.Content.Set("text/event-stream", &v3.MediaType{
 		Schema: base.CreateSchemaProxy(&base.Schema{
-			Type: []string{"string"},
-			Description: "SSE stream. Each event contains a JSON-encoded " + g.getSchemaName(
-				method.Output,
-			) + " in the data field.",
+			Type:        []string{"string"},
+			Description: "SSE stream. Each event contains a JSON-encoded " + eventSchemaName + " in the data field.",
 		}),
 	})
+
 	// Add vendor extension pointing to the event schema
-	successResponse.Extensions.Set("x-sse-event-schema", &yaml.Node{
-		Kind: yaml.MappingNode,
-		Tag:  "!!map",
-		Content: []*yaml.Node{
-			{Kind: yaml.ScalarNode, Value: "$ref"},
-			{Kind: yaml.ScalarNode, Value: outputSchemaRef},
-		},
-	})
+	if annotations.IsWrapperMessage(method.Output) {
+		// Wrapper types produce inline scalar schemas instead of $refs
+		wrapperSchema := g.buildWrapperMessageSchema(method.Output)
+		builtSchema, err := wrapperSchema.BuildSchema()
+		if err == nil && builtSchema != nil {
+			extensionContent := []*yaml.Node{
+				{Kind: yaml.ScalarNode, Value: "type"},
+				{Kind: yaml.ScalarNode, Value: builtSchema.Type[0]},
+			}
+			if builtSchema.Format != "" {
+				extensionContent = append(extensionContent,
+					&yaml.Node{Kind: yaml.ScalarNode, Value: "format"},
+					&yaml.Node{Kind: yaml.ScalarNode, Value: builtSchema.Format},
+				)
+			}
+			successResponse.Extensions.Set("x-sse-event-schema", &yaml.Node{
+				Kind:    yaml.MappingNode,
+				Tag:     "!!map",
+				Content: extensionContent,
+			})
+		}
+	} else {
+		outputSchemaRef := fmt.Sprintf("#/components/schemas/%s", eventSchemaName)
+		successResponse.Extensions.Set("x-sse-event-schema", &yaml.Node{
+			Kind: yaml.MappingNode,
+			Tag:  "!!map",
+			Content: []*yaml.Node{
+				{Kind: yaml.ScalarNode, Value: "$ref"},
+				{Kind: yaml.ScalarNode, Value: outputSchemaRef},
+			},
+		})
+	}
 	responses.Set("200", successResponse)
 
 	// Validation error response

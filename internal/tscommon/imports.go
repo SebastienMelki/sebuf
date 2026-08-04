@@ -11,14 +11,23 @@ import (
 	"google.golang.org/protobuf/reflect/protoreflect"
 )
 
-// protobufESSymbolOrder is the canonical emission order of the protobuf-es
-// runtime symbols in the `@bufbuild/protobuf` import. Symbols in
+// protobufESSymbolOrder returns the canonical emission order of the protobuf-es
+// runtime symbols in the `@bufbuild/protobuf` import. Symbols reported by
 // protobufESTypeOnly are emitted as type-only imports; the rest are value
 // imports.
-var protobufESSymbolOrder = []string{"create", "fromJson", "toJson", "MessageInitShape", "DescMessage"}
+func protobufESSymbolOrder() []string {
+	return []string{"create", "fromJson", "toJson", "MessageInitShape", "DescMessage"}
+}
 
-// protobufESTypeOnly marks which protobuf-es import symbols are type-only.
-var protobufESTypeOnly = map[string]bool{"MessageInitShape": true, "DescMessage": true}
+// protobufESTypeOnly reports whether a protobuf-es import symbol is type-only.
+func protobufESTypeOnly(symbol string) bool {
+	switch symbol {
+	case "MessageInitShape", "DescMessage":
+		return true
+	default:
+		return false
+	}
+}
 
 // errorsModule is the extensionless module path of the shared error-helpers
 // file emitted at the output root in modules mode.
@@ -146,12 +155,12 @@ func NewImportTracker() *ImportTracker {
 // (spec, symbol) pair was seen for the first time (so callers append to their
 // import map only once). Type and value imports share one alias namespace
 // because they occupy the same module-scope binding namespace in TypeScript.
-func (t *ImportTracker) assignAlias(spec, symbol string) (alias string, isNew bool) {
+func (t *ImportTracker) assignAlias(spec, symbol string) (string, bool) {
 	key := spec + "\x00" + symbol
 	if a, ok := t.aliasOf[key]; ok {
 		return a, false
 	}
-	alias = symbol
+	alias := symbol
 	if owner, taken := t.usedAlias[alias]; taken && owner != key {
 		for i := 1; ; i++ {
 			cand := fmt.Sprintf("%s_%d", symbol, i)
@@ -221,12 +230,13 @@ func (t *ImportTracker) Render(p Printer) {
 		return
 	}
 	if len(t.protobufESSyms) > 0 {
-		parts := make([]string, 0, len(protobufESSymbolOrder))
-		for _, s := range protobufESSymbolOrder {
+		order := protobufESSymbolOrder()
+		parts := make([]string, 0, len(order))
+		for _, s := range order {
 			if !t.protobufESSyms[s] {
 				continue
 			}
-			if protobufESTypeOnly[s] {
+			if protobufESTypeOnly(s) {
 				parts = append(parts, "type "+s)
 			} else {
 				parts = append(parts, s)

@@ -1,0 +1,64 @@
+// Dedicated wire-conformance fixture for the protobuf-es TS server.
+//
+// This is the ENCODE-side mirror of the client fixture
+// (internal/tsclientgen/testdata/es/conformance.proto). The client proof asks
+// "does fromJson decode what the Go server sent?"; this one asks the opposite
+// and equally load-bearing question: "does toJson(create(...)) emit what a Go
+// server would have emitted?" — because an es-mode server is what produces the
+// body every sebuf client, Go or TS, has to read.
+//
+// The fields below are chosen so a single encode exercises every place where
+// protobuf-es's canonical JSON output could drift from Go's protojson:
+//   - zero-valued scalars/bools/lists must be OMITTED, not emitted as "" / 0 /
+//     false / [];
+//   - 64-bit ints must leave as JSON STRINGS, preserving values past 2^53;
+//   - a partially-populated nested message must emit only its set fields;
+//   - maps must emit as JSON objects;
+//   - enums must emit as their NAME string, and the zero value must be omitted.
+//
+// It is intentionally standalone: no service, no sebuf/http imports, so
+// protoc-gen-es emits a clean _pb module that only depends on
+// @bufbuild/protobuf. Generate the JS the conformance test imports with:
+//
+//   protoc \
+//     --plugin=protoc-gen-es=.scratch/es-spike/node_modules/.bin/protoc-gen-es \
+//     --es_out=internal/tsservergen/testdata/es \
+//     --es_opt=target=js,import_extension=js \
+//     --proto_path=internal/tsservergen/testdata/es \
+//     conformance.proto
+syntax = "proto3";
+
+package test.serverconformance;
+
+// Item is emitted partially populated: `sku` is set while `qty` stays zero and
+// must therefore be omitted from the nested object.
+message Item {
+  string sku = 1;
+  int32 qty = 2;
+}
+
+enum Status {
+  STATUS_UNSPECIFIED = 0;
+  STATUS_ACTIVE = 1;
+}
+
+// ServerResponse is built once with create() and encoded once with toJson; the
+// result must equal server_response.canonical.json byte-for-byte in shape.
+message ServerResponse {
+  // Populated fields.
+  string id = 1;
+  int64 big_total = 2;
+  Item item = 3;
+  map<string, string> attributes = 4;
+  Status status = 5;
+
+  // Left at zero by the encode, so every one of these must be OMITTED.
+  string name = 6;
+  int32 count = 7;
+  bool active = 8;
+  double ratio = 9;
+  repeated string labels = 10;
+  map<string, string> tags = 11;
+  Item detail = 12;
+  Status fallback_status = 13;
+}

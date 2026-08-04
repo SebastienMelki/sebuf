@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	"google.golang.org/protobuf/compiler/protogen"
-	"google.golang.org/protobuf/reflect/protoreflect"
 
 	"github.com/SebastienMelki/sebuf/internal/annotations"
 )
@@ -30,55 +29,12 @@ func ValidateMethodConfig(service *protogen.Service, method *protogen.Method) []
 	methodName := string(method.Desc.Name())
 	inputMsgName := string(method.Input.Desc.Name())
 
-	// 1. Validate path variables have corresponding fields
-	for _, param := range config.PathParams {
-		field := findFieldByProtoName(method.Input, param)
-		if field == nil {
-			errors = append(errors, ValidationError{
-				Service: serviceName,
-				Method:  methodName,
-				Message: fmt.Sprintf(
-					"path variable '{%s}' in path '%s' has no matching field in message '%s'. "+
-						"Add a field named '%s' to the request message, or fix the path variable name.",
-					param, config.Path, inputMsgName, param),
-			})
-			continue
-		}
+	// 1 & 2. Validate path variables resolve to a field of a URL-representable type
+	errors = append(errors, validatePathVariables(method, config, serviceName, methodName)...)
 
-		// 2. Validate path variable field types (must be scalar)
-		if !isPathParamCompatible(field) {
-			errors = append(errors, ValidationError{
-				Service: serviceName,
-				Method:  methodName,
-				Message: fmt.Sprintf(
-					"path variable '{%s}' is bound to field '%s' of type '%s', but path parameters must be scalar types "+
-						"(string, int32, int64, uint32, uint64, bool, float, double, enum). "+
-						"Change the field type or remove it from the path.",
-					param,
-					param,
-					field.Desc.Kind(),
-				),
-			})
-		}
-	}
-
-	// 3. Validate query parameter fields don't conflict with path params
+	// 3. Validate query parameter types, and that they don't collide with path params
 	queryParams := annotations.GetQueryParams(method.Input)
-	for _, qp := range queryParams {
-		for _, pathParam := range config.PathParams {
-			if qp.FieldName == pathParam {
-				errors = append(errors, ValidationError{
-					Service: serviceName,
-					Method:  methodName,
-					Message: fmt.Sprintf(
-						"field '%s' is used both as a path variable in '%s' and as a query parameter. "+
-							"A field can only be bound to one parameter type. "+
-							"Remove either the path variable or the query annotation.",
-						qp.FieldName, config.Path),
-				})
-			}
-		}
-	}
+	errors = append(errors, validateQueryParamFields(queryParams, config, serviceName, methodName, inputMsgName)...)
 
 	// 4. Error on GET/DELETE with unbound body fields
 	httpMethod := config.Method
@@ -109,34 +65,6 @@ func ValidateMethodConfig(service *protogen.Service, method *protogen.Method) []
 	return errors
 }
 
-// findFieldByProtoName finds a field in a message by its proto name.
-func findFieldByProtoName(message *protogen.Message, fieldName string) *protogen.Field {
-	for _, field := range message.Fields {
-		if string(field.Desc.Name()) == fieldName {
-			return field
-		}
-	}
-	return nil
-}
-
-// isPathParamCompatible checks if a field type can be used as a path parameter.
-func isPathParamCompatible(field *protogen.Field) bool {
-	switch field.Desc.Kind() {
-	case protoreflect.StringKind,
-		protoreflect.Int32Kind, protoreflect.Sint32Kind, protoreflect.Sfixed32Kind,
-		protoreflect.Int64Kind, protoreflect.Sint64Kind, protoreflect.Sfixed64Kind,
-		protoreflect.Uint32Kind, protoreflect.Fixed32Kind,
-		protoreflect.Uint64Kind, protoreflect.Fixed64Kind,
-		protoreflect.BoolKind,
-		protoreflect.FloatKind, protoreflect.DoubleKind,
-		protoreflect.EnumKind:
-		return true
-	case protoreflect.BytesKind, protoreflect.MessageKind, protoreflect.GroupKind:
-		return false
-	}
-	return false
-}
-
 // getBodyFields returns fields that are not bound to path or query parameters.
 func getBodyFields(
 	message *protogen.Message,
@@ -162,6 +90,90 @@ func getBodyFields(
 	}
 
 	return bodyFields
+}
+
+// validatePathVariables checks that every path variable resolves to a field whose type
+// can be represented in a URL path segment.
+func validatePathVariables(
+	method *protogen.Method,
+	config *annotations.HTTPConfig,
+	serviceName, methodName string,
+) []ValidationError {
+	var errors []ValidationError
+
+	inputMsgName := string(method.Input.Desc.Name())
+
+	for _, param := range config.PathParams {
+		field := annotations.FindFieldByProtoName(method.Input, param)
+		if field == nil {
+			errors = append(errors, ValidationError{
+				Service: serviceName,
+				Method:  methodName,
+				Message: fmt.Sprintf(
+					"path variable '{%s}' in path '%s' has no matching field in message '%s'. "+
+						"Add a field named '%s' to the request message, or fix the path variable name.",
+					param, config.Path, inputMsgName, param),
+			})
+			continue
+		}
+
+		urlErr := annotations.ValidatePathParamField(field, param, inputMsgName)
+		if urlErr == nil {
+			continue
+		}
+
+		errors = append(errors, ValidationError{
+			Service: serviceName,
+			Method:  methodName,
+			Message: urlErr.Error(),
+		})
+	}
+
+	return errors
+}
+
+// validateQueryParamFields checks that every query parameter has a URL-representable
+// type and is not also bound as a path variable.
+func validateQueryParamFields(
+	queryParams []annotations.QueryParam,
+	config *annotations.HTTPConfig,
+	serviceName, methodName, inputMsgName string,
+) []ValidationError {
+	var errors []ValidationError
+
+	for _, qp := range queryParams {
+		if !annotations.IsURLParamCompatible(qp.Field) {
+			urlErr := &annotations.URLParamValidationError{
+				MessageName: inputMsgName,
+				FieldName:   qp.FieldName,
+				ParamName:   qp.ParamName,
+				Location:    annotations.URLParamLocationQuery,
+				TypeName:    annotations.URLParamTypeName(qp.Field),
+			}
+			errors = append(errors, ValidationError{
+				Service: serviceName,
+				Method:  methodName,
+				Message: urlErr.Error(),
+			})
+		}
+
+		for _, pathParam := range config.PathParams {
+			if qp.FieldName != pathParam {
+				continue
+			}
+			errors = append(errors, ValidationError{
+				Service: serviceName,
+				Method:  methodName,
+				Message: fmt.Sprintf(
+					"field '%s' is used both as a path variable in '%s' and as a query parameter. "+
+						"A field can only be bound to one parameter type. "+
+						"Remove either the path variable or the query annotation.",
+					qp.FieldName, config.Path),
+			})
+		}
+	}
+
+	return errors
 }
 
 // ValidateService validates all methods in a service.
