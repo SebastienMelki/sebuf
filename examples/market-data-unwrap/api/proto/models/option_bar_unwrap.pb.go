@@ -9,7 +9,7 @@ import (
 	"google.golang.org/protobuf/encoding/protojson"
 )
 
-// MarshalJSONSebuf implements sebufMarshaler for OptionBarsList.
+// MarshalJSONSebuf is the options-aware marshaler for OptionBarsList.
 // This method performs root-level unwrap, serializing the message as just the array value.
 func (x *OptionBarsList) MarshalJSONSebuf(opts protojson.MarshalOptions) ([]byte, error) {
 	if x == nil {
@@ -41,7 +41,7 @@ func (x *OptionBarsList) MarshalJSON() ([]byte, error) {
 	return x.MarshalJSONSebuf(protojson.MarshalOptions{})
 }
 
-// UnmarshalJSONSebuf implements sebufUnmarshaler for OptionBarsList.
+// UnmarshalJSONSebuf is the options-aware unmarshaler for OptionBarsList.
 // This method performs root-level unwrap, deserializing from just the array value.
 func (x *OptionBarsList) UnmarshalJSONSebuf(data []byte, opts protojson.UnmarshalOptions) error {
 	var itemsRaw []json.RawMessage

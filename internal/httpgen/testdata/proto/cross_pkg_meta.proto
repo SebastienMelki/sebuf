@@ -1,0 +1,11 @@
+// Test proto: Meta lives in its own Go package.
+// Paired with cross_pkg_response.proto, which holds it as a singular message field.
+syntax = "proto3";
+
+package test.httpgen.crosspkgmeta;
+
+option go_package = "github.com/SebastienMelki/sebuf/internal/httpgen/testdata/generated/crosspkgmeta;crosspkgmeta";
+
+message Meta {
+  string request_id = 1;
+}

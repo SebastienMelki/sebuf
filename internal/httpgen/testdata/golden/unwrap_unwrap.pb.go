@@ -9,7 +9,7 @@ import (
 	"google.golang.org/protobuf/encoding/protojson"
 )
 
-// MarshalJSONSebuf implements sebufMarshaler for OptionBarsList.
+// MarshalJSONSebuf is the options-aware marshaler for OptionBarsList.
 // This method performs root-level unwrap, serializing the message as just the array value.
 func (x *OptionBarsList) MarshalJSONSebuf(opts protojson.MarshalOptions) ([]byte, error) {
 	if x == nil {
@@ -41,7 +41,7 @@ func (x *OptionBarsList) MarshalJSON() ([]byte, error) {
 	return x.MarshalJSONSebuf(protojson.MarshalOptions{})
 }
 
-// UnmarshalJSONSebuf implements sebufUnmarshaler for OptionBarsList.
+// UnmarshalJSONSebuf is the options-aware unmarshaler for OptionBarsList.
 // This method performs root-level unwrap, deserializing from just the array value.
 func (x *OptionBarsList) UnmarshalJSONSebuf(data []byte, opts protojson.UnmarshalOptions) error {
 	var itemsRaw []json.RawMessage
@@ -70,7 +70,7 @@ func (x *OptionBarsList) UnmarshalJSON(data []byte) error {
 	return x.UnmarshalJSONSebuf(data, protojson.UnmarshalOptions{})
 }
 
-// MarshalJSONSebuf implements sebufMarshaler for IntList.
+// MarshalJSONSebuf is the options-aware marshaler for IntList.
 // This method performs root-level unwrap, serializing the message as just the array value.
 func (x *IntList) MarshalJSONSebuf(opts protojson.MarshalOptions) ([]byte, error) {
 	if x == nil {
@@ -85,7 +85,7 @@ func (x *IntList) MarshalJSON() ([]byte, error) {
 	return x.MarshalJSONSebuf(protojson.MarshalOptions{})
 }
 
-// UnmarshalJSONSebuf implements sebufUnmarshaler for IntList.
+// UnmarshalJSONSebuf is the options-aware unmarshaler for IntList.
 // This method performs root-level unwrap, deserializing from just the array value.
 func (x *IntList) UnmarshalJSONSebuf(data []byte, opts protojson.UnmarshalOptions) error {
 	return json.Unmarshal(data, &x.Values)
@@ -96,7 +96,7 @@ func (x *IntList) UnmarshalJSON(data []byte) error {
 	return x.UnmarshalJSONSebuf(data, protojson.UnmarshalOptions{})
 }
 
-// MarshalJSONSebuf implements sebufMarshaler for RootMapResponse.
+// MarshalJSONSebuf is the options-aware marshaler for RootMapResponse.
 // This method performs root-level unwrap, serializing the message as just the map value.
 func (x *RootMapResponse) MarshalJSONSebuf(opts protojson.MarshalOptions) ([]byte, error) {
 	if x == nil {
@@ -129,7 +129,7 @@ func (x *RootMapResponse) MarshalJSON() ([]byte, error) {
 	return x.MarshalJSONSebuf(protojson.MarshalOptions{})
 }
 
-// UnmarshalJSONSebuf implements sebufUnmarshaler for RootMapResponse.
+// UnmarshalJSONSebuf is the options-aware unmarshaler for RootMapResponse.
 // This method performs root-level unwrap, deserializing from just the map value.
 func (x *RootMapResponse) UnmarshalJSONSebuf(data []byte, opts protojson.UnmarshalOptions) error {
 	var mapRaw map[string]json.RawMessage
@@ -158,7 +158,7 @@ func (x *RootMapResponse) UnmarshalJSON(data []byte) error {
 	return x.UnmarshalJSONSebuf(data, protojson.UnmarshalOptions{})
 }
 
-// MarshalJSONSebuf implements sebufMarshaler for RootRepeatedResponse.
+// MarshalJSONSebuf is the options-aware marshaler for RootRepeatedResponse.
 // This method performs root-level unwrap, serializing the message as just the array value.
 func (x *RootRepeatedResponse) MarshalJSONSebuf(opts protojson.MarshalOptions) ([]byte, error) {
 	if x == nil {
@@ -190,7 +190,7 @@ func (x *RootRepeatedResponse) MarshalJSON() ([]byte, error) {
 	return x.MarshalJSONSebuf(protojson.MarshalOptions{})
 }
 
-// UnmarshalJSONSebuf implements sebufUnmarshaler for RootRepeatedResponse.
+// UnmarshalJSONSebuf is the options-aware unmarshaler for RootRepeatedResponse.
 // This method performs root-level unwrap, deserializing from just the array value.
 func (x *RootRepeatedResponse) UnmarshalJSONSebuf(data []byte, opts protojson.UnmarshalOptions) error {
 	var itemsRaw []json.RawMessage
@@ -219,7 +219,7 @@ func (x *RootRepeatedResponse) UnmarshalJSON(data []byte) error {
 	return x.UnmarshalJSONSebuf(data, protojson.UnmarshalOptions{})
 }
 
-// MarshalJSONSebuf implements sebufMarshaler for RootMapWithValueUnwrapResponse.
+// MarshalJSONSebuf is the options-aware marshaler for RootMapWithValueUnwrapResponse.
 // This method performs root-level unwrap, serializing the message as just the map value.
 func (x *RootMapWithValueUnwrapResponse) MarshalJSONSebuf(opts protojson.MarshalOptions) ([]byte, error) {
 	if x == nil {
@@ -260,7 +260,7 @@ func (x *RootMapWithValueUnwrapResponse) MarshalJSON() ([]byte, error) {
 	return x.MarshalJSONSebuf(protojson.MarshalOptions{})
 }
 
-// UnmarshalJSONSebuf implements sebufUnmarshaler for RootMapWithValueUnwrapResponse.
+// UnmarshalJSONSebuf is the options-aware unmarshaler for RootMapWithValueUnwrapResponse.
 // This method performs root-level unwrap, deserializing from just the map value.
 func (x *RootMapWithValueUnwrapResponse) UnmarshalJSONSebuf(data []byte, opts protojson.UnmarshalOptions) error {
 	var mapRaw map[string]json.RawMessage
@@ -297,7 +297,7 @@ func (x *RootMapWithValueUnwrapResponse) UnmarshalJSON(data []byte) error {
 	return x.UnmarshalJSONSebuf(data, protojson.UnmarshalOptions{})
 }
 
-// MarshalJSONSebuf implements sebufMarshaler for ScalarRootMapResponse.
+// MarshalJSONSebuf is the options-aware marshaler for ScalarRootMapResponse.
 // This method performs root-level unwrap, serializing the message as just the map value.
 func (x *ScalarRootMapResponse) MarshalJSONSebuf(opts protojson.MarshalOptions) ([]byte, error) {
 	if x == nil {
@@ -312,7 +312,7 @@ func (x *ScalarRootMapResponse) MarshalJSON() ([]byte, error) {
 	return x.MarshalJSONSebuf(protojson.MarshalOptions{})
 }
 
-// UnmarshalJSONSebuf implements sebufUnmarshaler for ScalarRootMapResponse.
+// UnmarshalJSONSebuf is the options-aware unmarshaler for ScalarRootMapResponse.
 // This method performs root-level unwrap, deserializing from just the map value.
 func (x *ScalarRootMapResponse) UnmarshalJSONSebuf(data []byte, opts protojson.UnmarshalOptions) error {
 	return json.Unmarshal(data, &x.Counts)
@@ -323,7 +323,7 @@ func (x *ScalarRootMapResponse) UnmarshalJSON(data []byte) error {
 	return x.UnmarshalJSONSebuf(data, protojson.UnmarshalOptions{})
 }
 
-// MarshalJSONSebuf implements sebufMarshaler for ScalarRootRepeatedResponse.
+// MarshalJSONSebuf is the options-aware marshaler for ScalarRootRepeatedResponse.
 // This method performs root-level unwrap, serializing the message as just the array value.
 func (x *ScalarRootRepeatedResponse) MarshalJSONSebuf(opts protojson.MarshalOptions) ([]byte, error) {
 	if x == nil {
@@ -338,7 +338,7 @@ func (x *ScalarRootRepeatedResponse) MarshalJSON() ([]byte, error) {
 	return x.MarshalJSONSebuf(protojson.MarshalOptions{})
 }
 
-// UnmarshalJSONSebuf implements sebufUnmarshaler for ScalarRootRepeatedResponse.
+// UnmarshalJSONSebuf is the options-aware unmarshaler for ScalarRootRepeatedResponse.
 // This method performs root-level unwrap, deserializing from just the array value.
 func (x *ScalarRootRepeatedResponse) UnmarshalJSONSebuf(data []byte, opts protojson.UnmarshalOptions) error {
 	return json.Unmarshal(data, &x.Names)
@@ -349,7 +349,7 @@ func (x *ScalarRootRepeatedResponse) UnmarshalJSON(data []byte) error {
 	return x.UnmarshalJSONSebuf(data, protojson.UnmarshalOptions{})
 }
 
-// MarshalJSONSebuf implements sebufMarshaler for RootMapScalarListResponse.
+// MarshalJSONSebuf is the options-aware marshaler for RootMapScalarListResponse.
 // This method performs root-level unwrap, serializing the message as just the map value.
 func (x *RootMapScalarListResponse) MarshalJSONSebuf(opts protojson.MarshalOptions) ([]byte, error) {
 	if x == nil {
@@ -374,7 +374,7 @@ func (x *RootMapScalarListResponse) MarshalJSON() ([]byte, error) {
 	return x.MarshalJSONSebuf(protojson.MarshalOptions{})
 }
 
-// UnmarshalJSONSebuf implements sebufUnmarshaler for RootMapScalarListResponse.
+// UnmarshalJSONSebuf is the options-aware unmarshaler for RootMapScalarListResponse.
 // This method performs root-level unwrap, deserializing from just the map value.
 func (x *RootMapScalarListResponse) UnmarshalJSONSebuf(data []byte, opts protojson.UnmarshalOptions) error {
 	var mapRaw map[string]json.RawMessage
@@ -397,7 +397,7 @@ func (x *RootMapScalarListResponse) UnmarshalJSON(data []byte) error {
 	return x.UnmarshalJSONSebuf(data, protojson.UnmarshalOptions{})
 }
 
-// MarshalJSONSebuf implements sebufMarshaler for GetOptionBarsResponse.
+// MarshalJSONSebuf is the options-aware marshaler for GetOptionBarsResponse.
 // This method handles unwrap field serialization for map values.
 func (x *GetOptionBarsResponse) MarshalJSONSebuf(opts protojson.MarshalOptions) ([]byte, error) {
 	if x == nil {
@@ -459,7 +459,7 @@ func (x *GetOptionBarsResponse) MarshalJSON() ([]byte, error) {
 	return x.MarshalJSONSebuf(protojson.MarshalOptions{})
 }
 
-// UnmarshalJSONSebuf implements sebufUnmarshaler for GetOptionBarsResponse.
+// UnmarshalJSONSebuf is the options-aware unmarshaler for GetOptionBarsResponse.
 // This method handles unwrap field deserialization for map values.
 func (x *GetOptionBarsResponse) UnmarshalJSONSebuf(data []byte, opts protojson.UnmarshalOptions) error {
 	var raw map[string]json.RawMessage
@@ -512,7 +512,7 @@ func (x *GetOptionBarsResponse) UnmarshalJSON(data []byte) error {
 	return x.UnmarshalJSONSebuf(data, protojson.UnmarshalOptions{})
 }
 
-// MarshalJSONSebuf implements sebufMarshaler for ScalarMapResponse.
+// MarshalJSONSebuf is the options-aware marshaler for ScalarMapResponse.
 // This method handles unwrap field serialization for map values.
 func (x *ScalarMapResponse) MarshalJSONSebuf(opts protojson.MarshalOptions) ([]byte, error) {
 	if x == nil {
@@ -549,7 +549,7 @@ func (x *ScalarMapResponse) MarshalJSON() ([]byte, error) {
 	return x.MarshalJSONSebuf(protojson.MarshalOptions{})
 }
 
-// UnmarshalJSONSebuf implements sebufUnmarshaler for ScalarMapResponse.
+// UnmarshalJSONSebuf is the options-aware unmarshaler for ScalarMapResponse.
 // This method handles unwrap field deserialization for map values.
 func (x *ScalarMapResponse) UnmarshalJSONSebuf(data []byte, opts protojson.UnmarshalOptions) error {
 	var raw map[string]json.RawMessage
@@ -585,7 +585,7 @@ func (x *ScalarMapResponse) UnmarshalJSON(data []byte) error {
 	return x.UnmarshalJSONSebuf(data, protojson.UnmarshalOptions{})
 }
 
-// MarshalJSONSebuf implements sebufMarshaler for MixedResponse.
+// MarshalJSONSebuf is the options-aware marshaler for MixedResponse.
 // This method handles unwrap field serialization for map values.
 func (x *MixedResponse) MarshalJSONSebuf(opts protojson.MarshalOptions) ([]byte, error) {
 	if x == nil {
@@ -681,7 +681,7 @@ func (x *MixedResponse) MarshalJSON() ([]byte, error) {
 	return x.MarshalJSONSebuf(protojson.MarshalOptions{})
 }
 
-// UnmarshalJSONSebuf implements sebufUnmarshaler for MixedResponse.
+// UnmarshalJSONSebuf is the options-aware unmarshaler for MixedResponse.
 // This method handles unwrap field deserialization for map values.
 func (x *MixedResponse) UnmarshalJSONSebuf(data []byte, opts protojson.UnmarshalOptions) error {
 	var raw map[string]json.RawMessage

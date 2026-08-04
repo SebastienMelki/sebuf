@@ -164,6 +164,8 @@ func (g *Generator) generateBytesMarshalJSON(gf *protogen.GeneratedFile, ctx *By
 		fieldNames = append(fieldNames, string(f.Field.Desc.Name()))
 	}
 
+	// Wording is pinned by TestGoGeneratorsProduceIdenticalBytesEncoding, which requires this
+	// marshal block to match clientgen's byte for byte.
 	gf.P("// MarshalJSONSebuf implements sebufMarshaler for ", msgName, ".")
 	gf.P("// This method handles bytes_encoding fields: ", strings.Join(fieldNames, ", "))
 	gf.P(
@@ -244,7 +246,7 @@ func (g *Generator) generateBytesUnmarshalJSON(gf *protogen.GeneratedFile, ctx *
 		fieldNames = append(fieldNames, string(f.Field.Desc.Name()))
 	}
 
-	gf.P("// UnmarshalJSONSebuf implements sebufUnmarshaler for ", msgName, ".")
+	gf.P("// UnmarshalJSONSebuf is the options-aware unmarshaler for ", msgName, ".")
 	gf.P("// This method handles bytes_encoding fields: ", strings.Join(fieldNames, ", "))
 	gf.P("func (x *", msgName, ") UnmarshalJSONSebuf(data []byte, opts protojson.UnmarshalOptions) error {")
 	gf.P("// Parse the raw JSON to extract bytes-encoded fields")

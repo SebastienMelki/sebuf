@@ -412,7 +412,7 @@ func emitInlineUnmarshalChild(gf *protogen.GeneratedFile, rawExpr, targetExpr st
 func (g *Generator) generateUnwrapMarshalJSON(gf *protogen.GeneratedFile, containing *UnwrapContainingMessage) {
 	msgName := containing.Message.GoIdent.GoName
 
-	gf.P("// MarshalJSONSebuf implements sebufMarshaler for ", msgName, ".")
+	gf.P("// MarshalJSONSebuf is the options-aware marshaler for ", msgName, ".")
 	gf.P("// This method handles unwrap field serialization for map values.")
 	gf.P(
 		"func (x *",
@@ -591,7 +591,7 @@ func (g *Generator) generateScalarFieldMarshal(
 func (g *Generator) generateUnwrapUnmarshalJSON(gf *protogen.GeneratedFile, containing *UnwrapContainingMessage) {
 	msgName := containing.Message.GoIdent.GoName
 
-	gf.P("// UnmarshalJSONSebuf implements sebufUnmarshaler for ", msgName, ".")
+	gf.P("// UnmarshalJSONSebuf is the options-aware unmarshaler for ", msgName, ".")
 	gf.P("// This method handles unwrap field deserialization for map values.")
 	gf.P("func (x *", msgName, ") UnmarshalJSONSebuf(data []byte, opts protojson.UnmarshalOptions) error {")
 	gf.P("var raw map[string]json.RawMessage")
@@ -730,7 +730,7 @@ func (g *Generator) generateScalarFieldUnmarshal(
 	gf.P("// Handle field: ", fieldName)
 	gf.P(`if rawField, ok := raw["`, jsonName, `"]; ok {`)
 	if field.Message != nil {
-		gf.P("x.", fieldName, " = &", field.Message.GoIdent.GoName, "{}")
+		gf.P("x.", fieldName, " = &", field.Message.GoIdent, "{}")
 		emitInlineUnmarshalChild(gf, "rawField", "x."+fieldName)
 	} else {
 		gf.P("if err := json.Unmarshal(rawField, &x.", fieldName, "); err != nil {")
@@ -802,7 +802,7 @@ func (g *Generator) generateRootMapUnwrapMarshalJSON(gf *protogen.GeneratedFile,
 	msgName := rootUnwrap.Message.GoIdent.GoName
 	fieldName := rootUnwrap.UnwrapField.GoName
 
-	gf.P("// MarshalJSONSebuf implements sebufMarshaler for ", msgName, ".")
+	gf.P("// MarshalJSONSebuf is the options-aware marshaler for ", msgName, ".")
 	gf.P("// This method performs root-level unwrap, serializing the message as just the map value.")
 	gf.P(
 		"func (x *",
@@ -901,7 +901,7 @@ func (g *Generator) generateRootMapUnwrapUnmarshalJSON(gf *protogen.GeneratedFil
 	msgName := rootUnwrap.Message.GoIdent.GoName
 	fieldName := rootUnwrap.UnwrapField.GoName
 
-	gf.P("// UnmarshalJSONSebuf implements sebufUnmarshaler for ", msgName, ".")
+	gf.P("// UnmarshalJSONSebuf is the options-aware unmarshaler for ", msgName, ".")
 	gf.P("// This method performs root-level unwrap, deserializing from just the map value.")
 	gf.P("func (x *", msgName, ") UnmarshalJSONSebuf(data []byte, opts protojson.UnmarshalOptions) error {")
 
@@ -997,7 +997,7 @@ func (g *Generator) generateRootRepeatedUnwrapMarshalJSON(gf *protogen.Generated
 	msgName := rootUnwrap.Message.GoIdent.GoName
 	fieldName := rootUnwrap.UnwrapField.GoName
 
-	gf.P("// MarshalJSONSebuf implements sebufMarshaler for ", msgName, ".")
+	gf.P("// MarshalJSONSebuf is the options-aware marshaler for ", msgName, ".")
 	gf.P("// This method performs root-level unwrap, serializing the message as just the array value.")
 	gf.P(
 		"func (x *",
@@ -1042,7 +1042,7 @@ func (g *Generator) generateRootRepeatedUnwrapUnmarshalJSON(gf *protogen.Generat
 	msgName := rootUnwrap.Message.GoIdent.GoName
 	fieldName := rootUnwrap.UnwrapField.GoName
 
-	gf.P("// UnmarshalJSONSebuf implements sebufUnmarshaler for ", msgName, ".")
+	gf.P("// UnmarshalJSONSebuf is the options-aware unmarshaler for ", msgName, ".")
 	gf.P("// This method performs root-level unwrap, deserializing from just the array value.")
 	gf.P("func (x *", msgName, ") UnmarshalJSONSebuf(data []byte, opts protojson.UnmarshalOptions) error {")
 

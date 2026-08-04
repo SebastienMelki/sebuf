@@ -9,7 +9,7 @@ import (
 	"google.golang.org/protobuf/encoding/protojson"
 )
 
-// MarshalJSONSebuf implements sebufMarshaler for GetBarsResponse.
+// MarshalJSONSebuf is the options-aware marshaler for GetBarsResponse.
 // This method handles unwrap field serialization for map values.
 func (x *GetBarsResponse) MarshalJSONSebuf(opts protojson.MarshalOptions) ([]byte, error) {
 	if x == nil {
@@ -71,7 +71,7 @@ func (x *GetBarsResponse) MarshalJSON() ([]byte, error) {
 	return x.MarshalJSONSebuf(protojson.MarshalOptions{})
 }
 
-// UnmarshalJSONSebuf implements sebufUnmarshaler for GetBarsResponse.
+// UnmarshalJSONSebuf is the options-aware unmarshaler for GetBarsResponse.
 // This method handles unwrap field deserialization for map values.
 func (x *GetBarsResponse) UnmarshalJSONSebuf(data []byte, opts protojson.UnmarshalOptions) error {
 	var raw map[string]json.RawMessage
