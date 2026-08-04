@@ -1,0 +1,26 @@
+// Test proto for issue #217: a message that qualifies as a transitive int64 wrapper AND
+// already owns MarshalJSON via another annotation. Only one feature can own a message's
+// MarshalJSON/UnmarshalJSON, so this must be rejected at generation time rather than
+// emitting duplicate method declarations.
+syntax = "proto3";
+
+package testdata.int64wrapperconflict;
+
+option go_package = "github.com/SebastienMelki/sebuf/internal/httpgen/testdata/int64wrapperconflict;int64wrapperconflict";
+
+import "sebuf/http/annotations.proto";
+
+message Leaf {
+  int64 value = 1 [(sebuf.http.int64_encoding) = INT64_ENCODING_NUMBER];
+}
+
+message Address {
+  string street = 1;
+}
+
+// Reaches an int64 NUMBER field through `leaf` (so it needs an int64 wrapper marshaler)
+// while `address` carries flatten (which also generates a marshaler).
+message ConflictingResponse {
+  Leaf leaf = 1;
+  Address address = 2 [(sebuf.http.flatten) = true];
+}

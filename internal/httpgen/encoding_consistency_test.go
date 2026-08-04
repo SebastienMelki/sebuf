@@ -16,11 +16,23 @@ func TestGoGeneratorsProduceIdenticalInt64Encoding(t *testing.T) {
 		t.Fatalf("Failed to get working directory: %v", baseErr)
 	}
 
-	compareEncodingFiles(t,
-		filepath.Join(baseDir, "testdata", "golden", "int64_encoding_encoding.pb.go"),
-		filepath.Join(baseDir, "..", "clientgen", "testdata", "golden", "int64_encoding_encoding.pb.go"),
-		"int64 encoding",
-	)
+	// Every int64 encoding golden both generators emit must match, not just the direct-field
+	// one. Comparing only int64_encoding_encoding.pb.go let the two drift on the wrapper
+	// emitters: go-client's transitive UnmarshalJSONSebuf never got the repeated-field branch
+	// go-http has, so it tried to decode a JSON array into a single message.
+	for _, golden := range []string{
+		"int64_encoding_encoding.pb.go",
+		"int64_nested_encoding_encoding.pb.go",
+		"int64_cross_file_reading_encoding.pb.go",
+		"int64_cross_file_response_encoding.pb.go",
+		"int64_deep_nested_encoding_encoding.pb.go",
+	} {
+		compareEncodingFiles(t,
+			filepath.Join(baseDir, "testdata", "golden", golden),
+			filepath.Join(baseDir, "..", "clientgen", "testdata", "golden", golden),
+			golden,
+		)
+	}
 }
 
 // TestGoGeneratorsProduceIdenticalEnumEncoding verifies go-http and go-client

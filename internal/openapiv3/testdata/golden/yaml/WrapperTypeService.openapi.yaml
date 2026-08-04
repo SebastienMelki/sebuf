@@ -1,0 +1,325 @@
+openapi: 3.1.0
+info:
+    title: WrapperTypeService API
+    version: 1.0.0
+paths:
+    /api/v1/wrappers/{id}:
+        get:
+            tags:
+                - WrapperTypeService
+            summary: GetWrapperFields
+            description: Get wrapper fields by ID
+            operationId: GetWrapperFields
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    description: Successful response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/WrapperFieldsMessage'
+                "400":
+                    description: Validation error
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ValidationError'
+                default:
+                    description: Error response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Error'
+    /api/v1/wrappers:
+        post:
+            tags:
+                - WrapperTypeService
+            summary: UpdateWrapperFields
+            description: Update wrapper fields
+            operationId: UpdateWrapperFields
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/WrapperFieldsMessage'
+                required: true
+            responses:
+                "200":
+                    description: Successful response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/WrapperFieldsMessage'
+                "400":
+                    description: Validation error
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ValidationError'
+                default:
+                    description: Error response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Error'
+    /api/v1/wrappers/repeated/{id}:
+        get:
+            tags:
+                - WrapperTypeService
+            summary: GetRepeatedWrappers
+            description: Get repeated wrapper fields
+            operationId: GetRepeatedWrappers
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    description: Successful response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/RepeatedWrapperMessage'
+                "400":
+                    description: Validation error
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ValidationError'
+                default:
+                    description: Error response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Error'
+    /api/v1/wrappers/maps/{id}:
+        get:
+            tags:
+                - WrapperTypeService
+            summary: GetMapWrappers
+            description: Get map wrapper fields
+            operationId: GetMapWrappers
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    description: Successful response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/MapWrapperMessage'
+                "400":
+                    description: Validation error
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ValidationError'
+                default:
+                    description: Error response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Error'
+    /api/v1/wrappers/direct:
+        post:
+            tags:
+                - WrapperTypeService
+            summary: SetDirectWrapper
+            description: 'Direct wrapper RPC: input and output are wrapper types'
+            operationId: SetDirectWrapper
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            type:
+                                - string
+                                - "null"
+                required: true
+            responses:
+                "200":
+                    description: Successful response
+                    content:
+                        application/json:
+                            schema:
+                                type:
+                                    - integer
+                                    - "null"
+                                format: int32
+                "400":
+                    description: Validation error
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ValidationError'
+                default:
+                    description: Error response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Error'
+components:
+    schemas:
+        Error:
+            type: object
+            properties:
+                message:
+                    type: string
+                    description: Error message (e.g., 'user not found', 'database connection failed')
+            description: Error is returned when a handler encounters an error. It contains a simple error message that the developer can customize.
+        FieldViolation:
+            type: object
+            properties:
+                field:
+                    type: string
+                    description: The field path that failed validation (e.g., 'user.email' for nested fields). For header validation, this will be the header name (e.g., 'X-API-Key')
+                description:
+                    type: string
+                    description: Human-readable description of the validation violation (e.g., 'must be a valid email address', 'required field missing')
+            required:
+                - field
+                - description
+            description: FieldViolation describes a single validation error for a specific field.
+        ValidationError:
+            type: object
+            properties:
+                violations:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/FieldViolation'
+                    description: List of validation violations
+            required:
+                - violations
+            description: ValidationError is returned when request validation fails. It contains a list of field violations describing what went wrong.
+        WrapperRequest:
+            type: object
+            properties:
+                id:
+                    type: string
+            description: WrapperRequest is a simple request.
+        WrapperFieldsMessage:
+            type: object
+            properties:
+                doubleVal:
+                    type:
+                        - number
+                        - "null"
+                    format: double
+                    description: A double-precision value
+                floatVal:
+                    type:
+                        - number
+                        - "null"
+                    format: float
+                int64Val:
+                    type:
+                        - string
+                        - "null"
+                    format: int64
+                uint64Val:
+                    type:
+                        - string
+                        - "null"
+                    format: uint64
+                int32Val:
+                    type:
+                        - integer
+                        - "null"
+                    format: int32
+                uint32Val:
+                    type:
+                        - integer
+                        - "null"
+                    minimum: 0
+                    format: int32
+                boolVal:
+                    type:
+                        - boolean
+                        - "null"
+                stringVal:
+                    type:
+                        - string
+                        - "null"
+                    examples:
+                        - hello
+                        - world
+                    example: hello
+                bytesVal:
+                    type:
+                        - string
+                        - "null"
+                    format: byte
+            description: WrapperFieldsMessage tests all 9 wrapper types as singular fields.
+        RepeatedWrapperMessage:
+            type: object
+            properties:
+                names:
+                    type: array
+                    items:
+                        type: string
+                scores:
+                    type: array
+                    items:
+                        type: integer
+                        format: int32
+                measurements:
+                    type: array
+                    items:
+                        type: number
+                        format: double
+            description: RepeatedWrapperMessage tests repeated wrapper fields (items must not be nullable).
+        MapWrapperMessage:
+            type: object
+            properties:
+                labels:
+                    type: object
+                    additionalProperties:
+                        type: string
+                counts:
+                    type: object
+                    additionalProperties:
+                        type: integer
+                        format: int32
+                flags:
+                    type: object
+                    additionalProperties:
+                        type: boolean
+            description: MapWrapperMessage tests map fields with wrapper values.
+        LabelsEntry:
+            type: object
+            properties:
+                key:
+                    type: string
+                value:
+                    type:
+                        - string
+                        - "null"
+        CountsEntry:
+            type: object
+            properties:
+                key:
+                    type: string
+                value:
+                    type:
+                        - integer
+                        - "null"
+                    format: int32
+        FlagsEntry:
+            type: object
+            properties:
+                key:
+                    type: string
+                value:
+                    type:
+                        - boolean
+                        - "null"

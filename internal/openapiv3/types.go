@@ -24,6 +24,7 @@ const (
 	headerTypeNumber  = "number"
 	headerTypeFloat   = "float"
 	headerTypeDouble  = "double"
+	formatByte        = "byte"
 )
 
 // convertField converts a protobuf field to an OpenAPI schema.
@@ -51,6 +52,11 @@ func (g *Generator) convertField(field *protogen.Field) *base.SchemaProxy {
 
 	// Handle optional fields (proto3 optional)
 	schema := g.convertScalarField(field)
+
+	// Wrapper types are inherently nullable when singular (that is their purpose)
+	if annotations.IsWrapperField(field) {
+		return g.makeNullableSchema(schema)
+	}
 
 	// Handle nullable fields: use type array syntax per OpenAPI 3.1
 	if annotations.IsNullableField(field) {
@@ -166,7 +172,7 @@ func (g *Generator) convertScalarField(field *protogen.Field) *base.SchemaProxy 
 			schema.Format = "hex"
 			schema.Pattern = "^[0-9a-fA-F]*$"
 		case http.BytesEncoding_BYTES_ENCODING_BASE64_RAW:
-			schema.Format = "byte"
+			schema.Format = formatByte
 			schema.Description = "Base64 encoded without padding"
 		case http.BytesEncoding_BYTES_ENCODING_BASE64URL:
 			schema.Format = "base64url"
@@ -175,7 +181,7 @@ func (g *Generator) convertScalarField(field *protogen.Field) *base.SchemaProxy 
 			schema.Description = "URL-safe base64 encoded without padding"
 		default:
 			// UNSPECIFIED, BASE64 -> standard base64 with padding
-			schema.Format = "byte"
+			schema.Format = formatByte
 		}
 
 	case protoreflect.EnumKind:
@@ -185,6 +191,10 @@ func (g *Generator) convertScalarField(field *protogen.Field) *base.SchemaProxy 
 		// Handle google.protobuf.Timestamp with format-aware schema
 		if annotations.IsTimestampField(field) {
 			return g.convertTimestampField(field, schema)
+		}
+		// Handle google.protobuf.* wrapper types as inline scalars
+		if annotations.IsWrapperField(field) {
+			return g.convertWrapperField(field, schema)
 		}
 		// Reference to another message
 		return base.CreateSchemaProxyRef(fmt.Sprintf("#/components/schemas/%s", g.getSchemaName(field.Message)))
@@ -462,6 +472,63 @@ func (g *Generator) convertTimestampField(field *protogen.Field, schema *base.Sc
 	// Override description with field comments if present
 	if field.Comments.Leading != "" {
 		schema.Description = strings.TrimSpace(string(field.Comments.Leading))
+	}
+
+	return base.CreateSchemaProxy(schema)
+}
+
+// convertWrapperField creates an OpenAPI schema for a Google well-known wrapper type field
+// (e.g., google.protobuf.DoubleValue -> number/double). The returned schema is the bare
+// scalar; callers handle nullability based on context (singular, repeated, map value).
+func (g *Generator) convertWrapperField(field *protogen.Field, schema *base.Schema) *base.SchemaProxy {
+	switch field.Message.Desc.FullName() {
+	case "google.protobuf.DoubleValue":
+		schema.Type = []string{headerTypeNumber}
+		schema.Format = headerTypeDouble
+	case "google.protobuf.FloatValue":
+		schema.Type = []string{headerTypeNumber}
+		schema.Format = headerTypeFloat
+	case "google.protobuf.Int64Value":
+		schema.Type = []string{headerTypeString}
+		schema.Format = headerTypeInt64
+	case "google.protobuf.UInt64Value":
+		schema.Type = []string{headerTypeString}
+		schema.Format = headerTypeUint64
+	case "google.protobuf.Int32Value":
+		schema.Type = []string{headerTypeInteger}
+		schema.Format = headerTypeInt32
+	case "google.protobuf.UInt32Value":
+		schema.Type = []string{headerTypeInteger}
+		schema.Format = headerTypeInt32
+		minimum := 0.0
+		schema.Minimum = &minimum
+	case "google.protobuf.BoolValue":
+		schema.Type = []string{"boolean"}
+	case "google.protobuf.StringValue":
+		schema.Type = []string{headerTypeString}
+	case "google.protobuf.BytesValue":
+		schema.Type = []string{headerTypeString}
+		schema.Format = formatByte
+	}
+
+	// Override description with field comments if present
+	if field.Comments.Leading != "" {
+		schema.Description = strings.TrimSpace(string(field.Comments.Leading))
+	}
+
+	// Add field examples if available
+	if examples := annotations.GetFieldExamples(field); len(examples) > 0 {
+		schema.Example = &yaml.Node{
+			Kind:  yaml.ScalarNode,
+			Value: examples[0],
+		}
+		schema.Examples = make([]*yaml.Node, len(examples))
+		for i, example := range examples {
+			schema.Examples[i] = &yaml.Node{
+				Kind:  yaml.ScalarNode,
+				Value: example,
+			}
+		}
 	}
 
 	return base.CreateSchemaProxy(schema)
