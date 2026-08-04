@@ -24,6 +24,9 @@ func TestClientGenGoldenFiles(t *testing.T) {
 	testCases := []struct {
 		name      string
 		protoFile string
+		// extraProtoFiles holds additional proto files to pass to protoc alongside protoFile.
+		// Used for cross-file scenarios where two or more files must be compiled together.
+		extraProtoFiles []string
 		// Expected generated files (without path prefix)
 		expectedFiles []string
 	}{
@@ -76,6 +79,24 @@ func TestClientGenGoldenFiles(t *testing.T) {
 			expectedFiles: []string{
 				"int64_nested_encoding_client.pb.go",
 				"int64_nested_encoding_encoding.pb.go",
+			},
+		},
+		{
+			name:            "cross-file nested int64 encoding (issue #217)",
+			protoFile:       "int64_cross_file_response.proto",
+			extraProtoFiles: []string{"int64_cross_file_reading.proto"},
+			expectedFiles: []string{
+				"int64_cross_file_response_client.pb.go",
+				"int64_cross_file_response_encoding.pb.go",
+				"int64_cross_file_reading_encoding.pb.go",
+			},
+		},
+		{
+			name:      "deep nested int64 encoding (issue #217 depth > 1)",
+			protoFile: "int64_deep_nested_encoding.proto",
+			expectedFiles: []string{
+				"int64_deep_nested_encoding_client.pb.go",
+				"int64_deep_nested_encoding_encoding.pb.go",
 			},
 		},
 		{
@@ -205,16 +226,18 @@ func TestClientGenGoldenFiles(t *testing.T) {
 			}
 
 			// Run protoc with go-client plugin (using explicit plugin path)
-			cmd := exec.Command("protoc",
-				"--plugin=protoc-gen-go-client="+pluginPath,
-				"--go_out="+tempDir,
+			protocArgs := []string{
+				"--plugin=protoc-gen-go-client=" + pluginPath,
+				"--go_out=" + tempDir,
 				"--go_opt=paths=source_relative",
-				"--go-client_out="+tempDir,
+				"--go-client_out=" + tempDir,
 				"--go-client_opt=paths=source_relative",
-				"--proto_path="+protoDir,
-				"--proto_path="+filepath.Join(projectRoot, "proto"),
+				"--proto_path=" + protoDir,
+				"--proto_path=" + filepath.Join(projectRoot, "proto"),
 				tc.protoFile,
-			)
+			}
+			protocArgs = append(protocArgs, tc.extraProtoFiles...)
+			cmd := exec.Command("protoc", protocArgs...)
 			cmd.Dir = protoDir
 
 			var stderr bytes.Buffer

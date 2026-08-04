@@ -1,13 +1,22 @@
 // Dedicated wire-conformance fixture for the protobuf-es TS client.
 //
-// This message deliberately mixes scalar, bool, int64 and repeated fields so
-// the conformance check can OMIT every zero-valued field from the canonical
+// This message deliberately mixes scalar, bool, int64, repeated and map fields
+// so the conformance check can OMIT every zero-valued field from the canonical
 // JSON (mimicking the Go server's default protojson output) and then prove
 // that protobuf-es MATERIALIZES those defaults after fromJson:
 //   - scalars  -> "" / 0
 //   - bool     -> false
 //   - int64    -> 0n (bigint)
 //   - lists    -> []
+//   - maps     -> {}
+//
+// It also pins the three cases where es-mode's representation diverges most
+// from hand-rolled mode, so a protobuf-es upgrade cannot silently change them:
+//   - 64-bit ints cross the wire as JSON STRINGS and decode to bigint, so
+//     int64/uint64 max survive exactly (a number would not);
+//   - a present-but-partially-populated nested message materializes its own
+//     omitted fields;
+//   - populated maps round-trip (including message-valued maps).
 //
 // It is intentionally standalone: no service, no sebuf/http imports, so
 // protoc-gen-es emits a clean _pb module that only depends on
@@ -30,7 +39,7 @@ import { fileDesc, messageDesc } from "@bufbuild/protobuf/codegenv2";
  * Describes the file conformance.proto.
  */
 export const file_conformance = /*@__PURE__*/
-  fileDesc("ChFjb25mb3JtYW5jZS5wcm90bxIQdGVzdC5jb25mb3JtYW5jZSITCgNUYWcSDAoEbmFtZRgBIAEoCSKhAQoTQ29uZm9ybWFuY2VSZXNwb25zZRIKCgJpZBgBIAEoCRIMCgRuYW1lGAIgASgJEg0KBWNvdW50GAMgASgFEg4KBmFjdGl2ZRgEIAEoCBINCgVyYXRpbxgFIAEoARINCgV0b3RhbBgGIAEoAxIOCgZsYWJlbHMYByADKAkSIwoEdGFncxgIIAMoCzIVLnRlc3QuY29uZm9ybWFuY2UuVGFnYgZwcm90bzM");
+  fileDesc("ChFjb25mb3JtYW5jZS5wcm90bxIQdGVzdC5jb25mb3JtYW5jZSITCgNUYWcSDAoEbmFtZRgBIAEoCSI1CgZEZXRhaWwSDQoFbGFiZWwYASABKAkSDAoEbm90ZRgCIAEoCRIOCgZ3ZWlnaHQYAyABKAUikQUKE0NvbmZvcm1hbmNlUmVzcG9uc2USCgoCaWQYASABKAkSDAoEbmFtZRgCIAEoCRINCgVjb3VudBgDIAEoBRIOCgZhY3RpdmUYBCABKAgSDQoFcmF0aW8YBSABKAESDQoFdG90YWwYBiABKAMSDgoGbGFiZWxzGAcgAygJEiMKBHRhZ3MYCCADKAsyFS50ZXN0LmNvbmZvcm1hbmNlLlRhZxIRCgliaWdfdG90YWwYCSABKAMSFAoMYmlnX3Vuc2lnbmVkGAogASgEEigKBmRldGFpbBgLIAEoCzIYLnRlc3QuY29uZm9ybWFuY2UuRGV0YWlsEkkKCmF0dHJpYnV0ZXMYDCADKAsyNS50ZXN0LmNvbmZvcm1hbmNlLkNvbmZvcm1hbmNlUmVzcG9uc2UuQXR0cmlidXRlc0VudHJ5EkcKCnRhZ19ieV9rZXkYDSADKAsyMy50ZXN0LmNvbmZvcm1hbmNlLkNvbmZvcm1hbmNlUmVzcG9uc2UuVGFnQnlLZXlFbnRyeRJUChBlbXB0eV9hdHRyaWJ1dGVzGA4gAygLMjoudGVzdC5jb25mb3JtYW5jZS5Db25mb3JtYW5jZVJlc3BvbnNlLkVtcHR5QXR0cmlidXRlc0VudHJ5GjEKD0F0dHJpYnV0ZXNFbnRyeRILCgNrZXkYASABKAkSDQoFdmFsdWUYAiABKAk6AjgBGkYKDVRhZ0J5S2V5RW50cnkSCwoDa2V5GAEgASgJEiQKBXZhbHVlGAIgASgLMhUudGVzdC5jb25mb3JtYW5jZS5UYWc6AjgBGjYKFEVtcHR5QXR0cmlidXRlc0VudHJ5EgsKA2tleRgBIAEoCRINCgV2YWx1ZRgCIAEoCToCOAFiBnByb3RvMw");
 
 /**
  * Describes the message test.conformance.Tag.
@@ -40,9 +49,16 @@ export const TagSchema = /*@__PURE__*/
   messageDesc(file_conformance, 0);
 
 /**
+ * Describes the message test.conformance.Detail.
+ * Use `create(DetailSchema)` to create a new message.
+ */
+export const DetailSchema = /*@__PURE__*/
+  messageDesc(file_conformance, 1);
+
+/**
  * Describes the message test.conformance.ConformanceResponse.
  * Use `create(ConformanceResponseSchema)` to create a new message.
  */
 export const ConformanceResponseSchema = /*@__PURE__*/
-  messageDesc(file_conformance, 1);
+  messageDesc(file_conformance, 2);
 

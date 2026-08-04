@@ -679,6 +679,25 @@ app.
 > `internal/tscommon/es_guard.go`). Use the default hand-rolled runtime for
 > services that rely on JSON-mapping annotations.
 
+Within that supported subset — protos using no JSON-mapping annotation — the wire
+contract is pinned by two executable proofs, one per direction, both run under
+node against the real `@bufbuild/protobuf`:
+
+| Direction | Test | What it pins |
+|---|---|---|
+| **Decode** (client reads the server) | `internal/tsclientgen/testdata/es/conformance.test.mjs` | Zero values the server omits are materialized (`""` / `0` / `false` / `0n` / `[]` / `{}`); `toJson` re-emits the same canonical body; unknown server fields are tolerated with `ignoreUnknownFields` and rejected without it; 64-bit ints decode to exact `bigint` past 2^53; a partially-populated nested message materializes its own omitted fields; populated string- and message-valued maps round-trip. |
+| **Encode** (server writes what clients read) | `internal/tsservergen/testdata/es/conformance.test.mjs` | `toJson(create(...))` equals a canonical fixture byte-for-byte in shape; zero-valued scalars/bools/lists/maps/enums are omitted rather than emitted; 64-bit ints leave as JSON **strings**, exact past 2^53; enums leave as their proto **name**; the body is stable through a decode/re-encode cycle. |
+
+Each fixture is a checked-in canonical JSON body — the shape Go's protojson would
+produce — so these assert against the **Go wire**, not merely against
+protobuf-es's behaviour in isolation. Both tests skip cleanly (never fail) when
+node or `@bufbuild/protobuf` is unavailable, so CI stays green without the
+optional install.
+
+Note the scope: these cover the **unannotated** subset es-mode actually supports.
+The per-annotation, cross-runtime byte-equivalence harness that would let the
+fail-loud guard be lifted is still step 1 of the roadmap below.
+
 ### buf.gen.yaml shape
 
 In this mode you run `protoc-gen-es` **and** the sebuf ts-client (or ts-server)

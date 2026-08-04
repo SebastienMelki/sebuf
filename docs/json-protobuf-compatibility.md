@@ -400,6 +400,57 @@ only one field per message can have the unwrap annotation
 map fields with unwrap annotation require the message to have exactly one field (root unwrap)
 ```
 
+## One MarshalJSON-Generating Feature Per Message
+
+Most JSON-mapping annotations work by generating `MarshalJSONSebuf`/`UnmarshalJSONSebuf` on
+the Go type. Go allows only one declaration of each, so **a message may be claimed by only
+one such feature**: `int64_encoding=NUMBER`, `enum_value`, `nullable`, `empty_behavior`,
+`timestamp_format`, `bytes_encoding`, `flatten`, `oneof_config`, and `unwrap`.
+
+This applies transitively. A message that merely *contains* another message carrying
+`int64_encoding = INT64_ENCODING_NUMBER` needs its own marshaler — otherwise `protojson`
+owns serialization of that field and emits the int64 as a quoted string. That transitive
+wrapper is generated at any nesting depth and across `.proto` file boundaries, so a message
+can be claimed by `int64_encoding` without carrying the annotation itself:
+
+```protobuf
+// reading.proto
+message SensorReading {
+  int64 timestamp_ms = 1 [(sebuf.http.int64_encoding) = INT64_ENCODING_NUMBER];
+}
+
+// response.proto — imports reading.proto
+message GetSensorReadingResponse {
+  SensorReading reading = 1;   // gets a transitive marshaler; cannot also use flatten
+}
+```
+
+Combining two such features on one message is rejected at generation time:
+
+```
+message GetSensorReadingResponse: nested int64_encoding=NUMBER requires MarshalJSON but
+conflicts with flatten (also requires MarshalJSON) -- only one MarshalJSON-generating
+feature is supported per message
+```
+
+To resolve it, move the conflicting annotation to a different message — typically by
+introducing a nested message that owns one of the two behaviors.
+
+### Reachability through map values
+
+Transitive propagation follows singular and repeated message fields. It does **not** follow
+map values, because the generated marshaler cannot re-serialize a map field. A message that
+reaches an annotated field *only* through a `map<_, Message>` value gets no marshaler, and
+its int64 stays a quoted string:
+
+```protobuf
+message Leaf   { int64 value = 1 [(sebuf.http.int64_encoding) = INT64_ENCODING_NUMBER]; }
+message Child  { map<string, Leaf> leaves = 1; }   // no marshaler generated
+```
+
+Wrap the map value in a message that reaches the annotated field by a non-map path, or drop
+`int64_encoding=NUMBER` for that type and encode the value as a string.
+
 ## Best Practices
 
 ### 1. Name Wrapper Messages Clearly

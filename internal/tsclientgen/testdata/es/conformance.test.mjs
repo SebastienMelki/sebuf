@@ -5,15 +5,21 @@
 // lists) decodes through protobuf-es into a fully-materialized message, and is
 // forward-compatible with fields the client does not yet know about.
 //
-// It asserts three things against ConformanceResponse (see conformance.proto):
+// It asserts six things against ConformanceResponse (see conformance.proto):
 //   1. fromJson(schema, canonical, { ignoreUnknownFields: true }) MATERIALIZES
 //      every omitted zero-value: scalars = "" / 0, bool = false, int64 = 0n,
-//      lists = []. The one present field (`id`) round-trips unchanged.
+//      lists = [], maps = {}. The present fields round-trip unchanged.
 //   2. Re-serialising with toJson yields the SAME canonical form (zero-values
 //      omitted again) — superset-consistent with what the server sent.
 //   3. fromJson with an EXTRA unknown field does NOT throw when
 //      ignoreUnknownFields is set (and DOES throw without it) — proving the
 //      client tolerates server fields added in the future.
+//   4. 64-bit fields beyond the 2^53 double limit decode EXACTLY as bigint, and
+//      would have been corrupted had they been decoded as numbers.
+//   5. A present-but-partially-populated nested message materializes its own
+//      omitted fields rather than leaving them undefined.
+//   6. Populated maps (string- and message-valued) round-trip, and an omitted
+//      map materializes as {}.
 //
 // How to run
 // ----------
@@ -85,6 +91,14 @@ check("zero-values omitted by the server are materialized after fromJson", () =>
   assert.deepEqual(msg.labels, [], "repeated scalar default should be []");
   assert.ok(Array.isArray(msg.tags), "tags should be an array");
   assert.deepEqual(msg.tags, [], "repeated message default should be []");
+
+  // An omitted map materializes as {}, not undefined — the map analogue of the
+  // empty-list case above.
+  assert.ok(
+    msg.emptyAttributes && typeof msg.emptyAttributes === "object",
+    "emptyAttributes should be an object",
+  );
+  assert.deepEqual(msg.emptyAttributes, {}, "omitted map default should be {}");
 });
 
 // --- Assertion 2: re-serialization is canonical (zero-values omitted) ------
@@ -117,6 +131,91 @@ check("unknown server field is ignored with ignoreUnknownFields", () => {
   assert.throws(
     () => fromJson(ConformanceResponseSchema, withUnknown),
     "fromJson without ignoreUnknownFields should reject unknown fields",
+  );
+});
+
+// --- Assertion 4: 64-bit precision boundary --------------------------------
+check("64-bit fields beyond 2^53 decode exactly as bigint", () => {
+  const msg = fromJson(ConformanceResponseSchema, canonical, {
+    ignoreUnknownFields: true,
+  });
+
+  // int64 / uint64 max, which no JavaScript number can hold.
+  assert.equal(typeof msg.bigTotal, "bigint", "int64 should decode to bigint");
+  assert.equal(msg.bigTotal, 9223372036854775807n, "int64 max must survive exactly");
+  assert.equal(typeof msg.bigUnsigned, "bigint", "uint64 should decode to bigint");
+  assert.equal(msg.bigUnsigned, 18446744073709551615n, "uint64 max must survive exactly");
+
+  // Guard the guard: prove these values genuinely exceed double precision, so
+  // this assertion would have caught a number-based decode rather than merely
+  // restating it. Number() collapses both to a different value.
+  assert.notEqual(
+    BigInt(Number(canonical.bigTotal)),
+    msg.bigTotal,
+    "int64 max must be corrupted by a number round-trip (else this test proves nothing)",
+  );
+  assert.notEqual(
+    BigInt(Number(canonical.bigUnsigned)),
+    msg.bigUnsigned,
+    "uint64 max must be corrupted by a number round-trip (else this test proves nothing)",
+  );
+
+  // The wire form is a STRING (protojson's 64-bit contract), not a JSON number.
+  assert.equal(typeof canonical.bigTotal, "string", "int64 crosses the wire as a string");
+  const reencoded = toJson(ConformanceResponseSchema, msg);
+  assert.equal(typeof reencoded.bigTotal, "string", "toJson must re-emit int64 as a string");
+  assert.equal(reencoded.bigTotal, canonical.bigTotal, "int64 must re-emit byte-identically");
+});
+
+// --- Assertion 5: partially-populated nested message -----------------------
+check("nested message materializes its own omitted fields", () => {
+  const msg = fromJson(ConformanceResponseSchema, canonical, {
+    ignoreUnknownFields: true,
+  });
+
+  assert.ok(msg.detail, "detail should be present");
+  // The populated nested field round-trips.
+  assert.equal(msg.detail.label, "primary", "populated nested field should round-trip");
+  // The omitted nested fields materialize, exactly as at the top level.
+  assert.equal(msg.detail.note, "", 'omitted nested string should be ""');
+  assert.equal(msg.detail.weight, 0, "omitted nested int32 should be 0");
+
+  // A nested message left out entirely stays undefined — presence is preserved
+  // for message fields, unlike scalars. This is the distinction that makes
+  // partially-populated nested messages worth pinning separately.
+  const withoutDetail = { ...canonical };
+  delete withoutDetail.detail;
+  const bare = fromJson(ConformanceResponseSchema, withoutDetail, {
+    ignoreUnknownFields: true,
+  });
+  assert.equal(bare.detail, undefined, "an absent message field should stay undefined");
+});
+
+// --- Assertion 6: maps ------------------------------------------------------
+check("populated string- and message-valued maps round-trip", () => {
+  const msg = fromJson(ConformanceResponseSchema, canonical, {
+    ignoreUnknownFields: true,
+  });
+
+  // Scalar-valued map decodes to a plain object.
+  assert.deepEqual(
+    msg.attributes,
+    { region: "eu-west", tier: "gold" },
+    "string map should round-trip",
+  );
+
+  // Message-valued map decodes to nested messages keyed by the map key.
+  assert.deepEqual(Object.keys(msg.tagByKey), ["alpha"], "message map should keep its key");
+  assert.equal(msg.tagByKey.alpha.name, "first", "message map value should round-trip");
+
+  // Both re-emit in canonical form.
+  const reencoded = toJson(ConformanceResponseSchema, msg);
+  assert.deepEqual(reencoded.attributes, canonical.attributes, "string map must re-emit as sent");
+  assert.deepEqual(reencoded.tagByKey, canonical.tagByKey, "message map must re-emit as sent");
+  // The empty map must NOT leak back onto the wire as {}.
+  assert.ok(
+    !("emptyAttributes" in reencoded),
+    "an empty map must be omitted by toJson, not emitted as {}",
   );
 });
 
