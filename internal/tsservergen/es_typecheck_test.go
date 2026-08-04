@@ -21,11 +21,13 @@ func TestTSServerGenESGoldenTypecheck(t *testing.T) {
 }
 
 // linkESNodeModules symlinks a node_modules that resolves @bufbuild/protobuf
-// into dir so tsc (nodenext resolution) can resolve the runtime imports. It
-// mirrors the discovery in tsclientgen's conformance_test.go:
-// SEBUF_ES_NODE_MODULES overrides, else the git-ignored .scratch/es-spike
-// install; skips when neither exists. The symlink is created only if absent and
-// removed on cleanup, leaving a developer's own symlink untouched.
+// into dir so tsc (nodenext resolution) or node (bare specifiers) can resolve
+// the runtime imports — used by both the es golden typecheck and the wire
+// conformance test. It mirrors the discovery in tsclientgen's
+// conformance_test.go: SEBUF_ES_NODE_MODULES overrides, else the git-ignored
+// .scratch/es-spike install; skips when neither exists. The symlink is created
+// only if absent and removed on cleanup, leaving a developer's own symlink
+// untouched.
 func linkESNodeModules(t *testing.T, dir string) {
 	t.Helper()
 
@@ -38,7 +40,7 @@ func linkESNodeModules(t *testing.T, dir string) {
 		nodeModules = filepath.Join(baseDir, "..", "..", ".scratch", "es-spike", "node_modules")
 	}
 	if _, statErr := os.Stat(filepath.Join(nodeModules, "@bufbuild", "protobuf", "package.json")); statErr != nil {
-		t.Skipf("@bufbuild/protobuf not found under %s, skipping es typecheck", nodeModules)
+		t.Skipf("@bufbuild/protobuf not found under %s, skipping es test", nodeModules)
 	}
 	absNodeModules, err := filepath.Abs(nodeModules)
 	if err != nil {
