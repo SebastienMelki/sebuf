@@ -786,7 +786,7 @@ client/server sees protobuf-es's types and conventions:
   ```ts
   import { getUser } from "./gen/user_service_client.js";
 
-  const opts = { baseURL: "https://api.example.com", headers: { apiKey } };
+  const opts = { baseURL: "https://api.example.com" };
   const user = await getUser({ id: "123" }, opts);
   ```
 
@@ -805,6 +805,30 @@ client/server sees protobuf-es's types and conventions:
   export interface RequestOptions { baseURL: string; fetch?: typeof fetch; headers?: Record<string, string>; signal?: AbortSignal; }
   // token_service_client.ts (declares X-API-Key + X-Request-ID headers)
   export interface TokenServiceRequestOptions extends RequestOptions { apiKey?: string; requestId?: string; }
+  ```
+
+  Note that a typed header is its **own top-level property** (`apiKey`), not an
+  entry in `headers` — the generated function maps it to the real header name
+  (`X-API-Key`) for you. `headers` stays available as an escape hatch for headers
+  the proto doesn't declare.
+
+  Requiring `baseURL` on every call is the cost of statelessness, but it does
+  not have to be repeated: declare the options object once, typed as the
+  service's own options type so its typed header properties are checked, and
+  reuse the reference. It is plain data, so spreading it per call layers on
+  per-call extras (`signal`, a typed header property) without mutating the shared
+  config. Spreading replaces properties rather than deep-merging them, so an
+  `opts` that sets `headers` needs that record merged explicitly
+  (`headers: { ...opts.headers, "X-Trace-Id": id }`); typed header properties are
+  top-level and so compose cleanly:
+
+  ```ts
+  import { issue, type TokenServiceRequestOptions } from "./gen/token_service_client.js";
+
+  const opts: TokenServiceRequestOptions = { baseURL: "https://api.example.com", apiKey };
+
+  await issue({ subject: "user-1" }, opts);
+  await issue({ subject: "user-2" }, { ...opts, requestId: crypto.randomUUID() });
   ```
 
 ### Server-streaming (SSE)
