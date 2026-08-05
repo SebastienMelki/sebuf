@@ -176,6 +176,17 @@ func (g *Generator) collectMessageRecursive(message *protogen.Message, processed
 		return
 	}
 
+	// google.protobuf.Timestamp is likewise always rendered inline as a scalar
+	// (see convertTimestampField: string/date-time, string/date, or an integer
+	// unix value depending on the timestamp_format annotation), so no field ever
+	// $refs a Timestamp component. Emitting one produced a schema nothing pointed
+	// at, whose only content was Google's upstream timestamp.proto doc comments —
+	// and that wording changes between protoc releases, so the goldens flipped
+	// with whichever protoc regenerated them last.
+	if annotations.IsTimestampMessage(message) {
+		return
+	}
+
 	// Process this message
 	g.processMessage(message)
 
@@ -222,7 +233,23 @@ func (g *Generator) resolveMessageSchemaRef(message *protogen.Message) *base.Sch
 	if annotations.IsWrapperMessage(message) {
 		return g.buildWrapperMessageSchema(message)
 	}
+	if annotations.IsTimestampMessage(message) {
+		return buildTimestampMessageSchema()
+	}
 	return base.CreateSchemaProxyRef(fmt.Sprintf("#/components/schemas/%s", g.getSchemaName(message)))
+}
+
+// buildTimestampMessageSchema creates the inline schema for google.protobuf.Timestamp
+// used directly as an RPC input or output (e.g., rpc Foo() returns
+// (google.protobuf.Timestamp)). No component schema is emitted for Timestamp, so this
+// keeps such a body from producing a dangling $ref. There is no field here to carry a
+// timestamp_format annotation, so this is the canonical protojson form — the same
+// string/date-time that convertTimestampField emits for an unannotated field.
+func buildTimestampMessageSchema() *base.SchemaProxy {
+	return base.CreateSchemaProxy(&base.Schema{
+		Type:   []string{headerTypeString},
+		Format: "date-time",
+	})
 }
 
 // buildWrapperMessageSchema creates a nullable scalar schema for a wrapper message used

@@ -61,6 +61,13 @@ func IsTimestampField(field *protogen.Field) bool {
 		field.Message.Desc.FullName() == "google.protobuf.Timestamp"
 }
 
+// IsTimestampMessage returns true if the message is google.protobuf.Timestamp.
+// It is the message-level counterpart of IsTimestampField, for callers that walk
+// message trees rather than fields (mirrors IsWrapperMessage in wrapper_types.go).
+func IsTimestampMessage(message *protogen.Message) bool {
+	return message != nil && message.Desc.FullName() == "google.protobuf.Timestamp"
+}
+
 // ValidateTimestampFormatAnnotation checks if timestamp_format is valid for a field.
 // Returns error if used on non-Timestamp fields.
 func ValidateTimestampFormatAnnotation(field *protogen.Field, messageName string) error {
