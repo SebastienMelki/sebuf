@@ -1,0 +1,27 @@
+[package]
+name = "sebuf-core"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+description = "Core utilities for sebuf Rust protobuf plugins"
+
+[dependencies]
+prost = { workspace = true }
+prost-types = { workspace = true }
+protobuf = { workspace = true }
+bytes = { workspace = true }
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+heck = { workspace = true }
+quote = { workspace = true }
+syn = { workspace = true }
+proc-macro2 = { workspace = true }
+prettyplease = { workspace = true }
+
+[dev-dependencies]
+tempfile = "3.14"
+pretty_assertions = "1.4"

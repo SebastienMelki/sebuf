@@ -75,3 +75,7 @@ internal/modules/*/internal/infrastructure/persistence/sqlc/
 
 # Temporary test files
 *.generated
+
+# Rust build artifacts
+target/
+Cargo.lock

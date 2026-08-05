@@ -21,16 +21,27 @@ all: help
 help:
 	@echo "Available targets:"
 	@echo "  build       - Build all binaries in cmd/* to ./bin/"
+	@echo "  build-rust  - Build all Rust plugins"
+	@echo "  build-all   - Build both Go and Rust binaries"
 	@echo "  clean       - Remove all built binaries"
-	@echo "  test        - Run all tests with coverage analysis"
-	@echo "  test-fast   - Run all tests without coverage (faster)"
+	@echo "  clean-rust  - Clean Rust build artifacts"
+	@echo "  test        - Run Go tests with coverage analysis"
+	@echo "  test-fast   - Run Go tests without coverage (faster)"
+	@echo "  test-rust   - Run comprehensive Rust tests"
+	@echo "  test-rust-fast - Run Rust tests without coverage"
+	@echo "  test-rust-update-golden - Update Rust golden test files"
+	@echo "  test-all    - Run all tests (Go + Rust)"
+	@echo "  test-all-fast - Run all tests fast (Go + Rust)"
 	@echo "  install     - Install all required dependencies"
 	@echo "  install-binaries - Install binaries to GOPATH/bin"
+	@echo "  install-rust - Install Rust plugins to PATH"
 	@echo "  proto       - Generate Go code from proto files"
 	@echo "  publish     - Publish annotations to Buf Schema Registry"
 	@echo "  fmt         - Format all Go code"
+	@echo "  fmt-rust    - Format all Rust code"
 	@echo "  lint        - Run golangci-lint to check code quality"
 	@echo "  lint-fix    - Run golangci-lint with auto-fix"
+	@echo "  lint-rust   - Run clippy to check Rust code quality"
 	@echo ""
 	@echo "CI/CD targets:"
 	@echo "  ci          - Run CI pipeline locally with act"
@@ -41,7 +52,8 @@ help:
 	@echo ""
 	@echo "  help        - Show this help message"
 	@echo ""
-	@echo "Current binaries to build: $(BINARIES)"
+	@echo "Current Go binaries to build: $(BINARIES)"
+	@echo "Rust plugins: protoc-gen-rust-oneof-helper, protoc-gen-rust-http, protoc-gen-rust-openapiv3"
 
 # Build all binaries
 .PHONY: build
@@ -152,9 +164,82 @@ lint-fix:
 		exit 1; \
 	fi
 
+# Rust targets
+.PHONY: build-rust
+build-rust:
+	@echo "Building Rust plugins..."
+	@cargo build --release
+	@mkdir -p $(BIN_DIR)
+	@cp target/release/protoc-gen-rust-oneof-helper $(BIN_DIR)/
+	@cp target/release/protoc-gen-rust-http $(BIN_DIR)/
+	@cp target/release/protoc-gen-rust-openapiv3 $(BIN_DIR)/
+	@echo "✅ Rust plugins built successfully"
+
+# Build all (Go + Rust)
+.PHONY: build-all
+build-all: build build-rust
+
+# Clean Rust artifacts
+.PHONY: clean-rust
+clean-rust:
+	@echo "Cleaning Rust build artifacts..."
+	@cargo clean
+	@rm -f $(BIN_DIR)/protoc-gen-rust-*
+
+# Test Rust code
+.PHONY: test-rust
+test-rust:
+	@echo "Running comprehensive Rust tests..."
+	@$(SCRIPTS_DIR)/test_rust.sh
+
+# Test Rust code (fast mode)
+.PHONY: test-rust-fast
+test-rust-fast:
+	@echo "Running Rust tests (fast mode)..."
+	@$(SCRIPTS_DIR)/test_rust.sh --fast
+
+# Update Rust golden files
+.PHONY: test-rust-update-golden
+test-rust-update-golden:
+	@echo "Updating Rust golden files..."
+	@$(SCRIPTS_DIR)/test_rust.sh --update-golden
+
+# Run all tests (Go + Rust)
+.PHONY: test-all
+test-all: test test-rust
+
+# Run all tests fast (Go + Rust)
+.PHONY: test-all-fast
+test-all-fast: test-fast test-rust-fast
+
+# Format Rust code
+.PHONY: fmt-rust
+fmt-rust:
+	@echo "Formatting Rust code..."
+	@cargo fmt --all
+
+# Lint Rust code
+.PHONY: lint-rust
+lint-rust:
+	@echo "Running clippy..."
+	@cargo clippy --all -- -D warnings
+
+# Install Rust plugins
+.PHONY: install-rust
+install-rust: build-rust
+	@echo "Installing Rust plugins..."
+	@cargo install --path rust/protoc-gen-rust-oneof-helper
+	@cargo install --path rust/protoc-gen-rust-http
+	@cargo install --path rust/protoc-gen-rust-openapiv3
+	@echo "✅ Rust plugins installed to cargo bin directory"
+
 # Rebuild (clean + build)
 .PHONY: rebuild
 rebuild: clean build
+
+# Rebuild all
+.PHONY: rebuild-all
+rebuild-all: clean clean-rust build-all
 
 # Show current binary targets
 .PHONY: list-binaries
