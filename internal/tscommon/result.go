@@ -82,7 +82,7 @@ func EmitResultModule(plugin *protogen.Plugin) {
 	if len(refs) > 0 {
 		tracker.NeedProtobufES("fromJson", "DescMessage")
 	}
-	tracker.NeedErrors(RelativeImportSpecifier(resultModule, errorsModule), "ApiError", "ValidationError")
+	tracker.NeedErrors(RelativeImportSpecifier(resultModule, errorsModule), apiErrorName, validationErrorName)
 
 	var body []string
 	bp := BufferedPrinter(&body)
@@ -106,8 +106,8 @@ type resultErrorRef struct {
 	keys       []string
 }
 
-// writeResultBody prints the Result type, ClientError union, error registry, and
-// decodeError, given the local names/keys of every proto *Error.
+// writeResultBody prints the Result type and the ClientError union, then hands
+// off to the error registry and decodeError writers.
 func writeResultBody(p Printer, refs []resultErrorRef) {
 	p("// Discriminated result of an RPC call: exactly one of `data` / `error` is")
 	p("// set, narrowable on the `ok` discriminant or by checking `error`.")
@@ -117,7 +117,7 @@ func writeResultBody(p Printer, refs []resultErrorRef) {
 	p("")
 
 	// ClientError union: built-ins + every proto *Error type.
-	union := []string{"ValidationError", "ApiError"}
+	union := []string{validationErrorName, apiErrorName}
 	for _, r := range refs {
 		union = append(union, r.typeName)
 	}
@@ -126,21 +126,36 @@ func writeResultBody(p Printer, refs []resultErrorRef) {
 	p("export type ClientError = %s;", strings.Join(union, " | "))
 	p("")
 
-	hasErrors := len(refs) > 0
-	if hasErrors {
-		// Structural registry: [schema, requiredJsonKeys].
-		p("// [schema, required JSON keys] — decodeError returns the first proto *Error")
-		p("// whose keys are all present in the response body (mirrors the Python client).")
-		p("// Disambiguation relies on each *Error having a distinct, non-empty field set;")
-		p("// zero-field *Error messages are skipped at match time so they never shadow others.")
-		p("const ERROR_REGISTRY: [DescMessage, string[]][] = [")
-		for _, r := range refs {
-			p("  [%s, [%s]],", r.schemaName, quoteJoin(r.keys))
-		}
-		p("];")
-		p("")
+	writeErrorRegistry(p, refs)
+	writeDecodeError(p, refs)
+}
+
+// writeErrorRegistry prints the ERROR_REGISTRY table decodeError matches against.
+// It emits nothing when there are no proto *Error messages: without a registry
+// decodeError falls straight through to ApiError, and DescMessage/fromJson are
+// not imported in that mode either (see EmitResultModule).
+func writeErrorRegistry(p Printer, refs []resultErrorRef) {
+	if len(refs) == 0 {
+		return
 	}
 
+	// Structural registry: [schema, requiredJsonKeys].
+	p("// [schema, required JSON keys] — decodeError returns the first proto *Error")
+	p("// whose keys are all present in the response body (mirrors the Python client).")
+	p("// Disambiguation relies on each *Error having a distinct, non-empty field set;")
+	p("// zero-field *Error messages are skipped at match time so they never shadow others.")
+	p("const ERROR_REGISTRY: [DescMessage, string[]][] = [")
+	for _, r := range refs {
+		p("  [%s, [%s]],", r.schemaName, quoteJoin(r.keys))
+	}
+	p("];")
+	p("")
+}
+
+// writeDecodeError prints decodeError: ValidationError on a 400 with violations,
+// then the registry lookup (only when there are proto *Error messages to match),
+// and ApiError as the fallback.
+func writeDecodeError(p Printer, refs []resultErrorRef) {
 	p("// Decode a non-ok Response into a typed ClientError (never throws).")
 	p("export async function decodeError(resp: Response): Promise<ClientError> {")
 	p("  const body = await resp.text();")
@@ -154,7 +169,7 @@ func writeResultBody(p Printer, refs []resultErrorRef) {
 	p("      // fall through to a proto *Error / ApiError")
 	p("    }")
 	p("  }")
-	if hasErrors {
+	if len(refs) > 0 {
 		p("  try {")
 		p("    const json = JSON.parse(body);")
 		p("    for (const [schema, keys] of ERROR_REGISTRY) {")
