@@ -1,6 +1,7 @@
 package tscommon
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 )
@@ -70,7 +71,7 @@ func ParseErrorHandling(param string) ErrorHandling {
 // es-mode. Fail loud rather than emit code referencing symbols that aren't there.
 func ValidateRuntimeOptions(runtime MessageRuntime, errorHandling ErrorHandling) error {
 	if errorHandling == ErrorHandlingResult && runtime != MessageRuntimeES {
-		return fmt.Errorf(
+		return errors.New(
 			"ts_error_handling=result requires ts_runtime=protobuf-es " +
 				"(the typed Result error side is decoded via protobuf-es schemas)",
 		)
