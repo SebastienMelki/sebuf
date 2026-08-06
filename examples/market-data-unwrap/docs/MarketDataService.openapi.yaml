@@ -194,17 +194,17 @@ components:
                 start:
                     type: string
                     examples:
-                        - 2025-12-01
-                        - 2025-12-15T09:30:00Z
+                        - "2025-12-01"
+                        - "2025-12-15T09:30:00Z"
                     description: Start timestamp (RFC 3339 or YYYY-MM-DD).
-                    example: 2025-12-01
+                    example: "2025-12-01"
                 end:
                     type: string
                     examples:
-                        - 2025-12-31
-                        - 2025-12-15T16:00:00Z
+                        - "2025-12-31"
+                        - "2025-12-15T16:00:00Z"
                     description: End timestamp (RFC 3339 or YYYY-MM-DD).
-                    example: 2025-12-31
+                    example: "2025-12-31"
                 limit:
                     type: integer
                     examples:
@@ -275,10 +275,10 @@ components:
                 t:
                     type: string
                     examples:
-                        - 2025-12-15T15:05:00Z
-                        - 2025-12-15T18:05:00Z
+                        - "2025-12-15T15:05:00Z"
+                        - "2025-12-15T18:05:00Z"
                     description: Timestamp in RFC 3339 format.
-                    example: 2025-12-15T15:05:00Z
+                    example: "2025-12-15T15:05:00Z"
                 o:
                     type: number
                     examples:
@@ -314,18 +314,18 @@ components:
                 v:
                     type: string
                     examples:
-                        - 1
-                        - 20
+                        - "1"
+                        - "20"
                     format: int64
                     description: Volume.
-                    example: 1
+                    example: "1"
                 n:
                     type: string
                     examples:
-                        - 1
+                        - "1"
                     format: int64
                     description: Number of trades.
-                    example: 1
+                    example: "1"
                 vw:
                     type: number
                     examples:

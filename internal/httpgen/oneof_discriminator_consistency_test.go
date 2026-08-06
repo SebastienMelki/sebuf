@@ -93,6 +93,25 @@ func TestOneofDiscriminatorTypeScriptTypes(t *testing.T) {
 
 // TestOneofDiscriminatorOpenAPISchemas verifies OpenAPI schemas accurately document
 // oneof discriminator (oneOf + discriminator keyword).
+func TestOneofDiscriminatorGeneratedErrorsWrapUnderlyingError(t *testing.T) {
+	baseDir, baseErr := os.Getwd()
+	if baseErr != nil {
+		t.Fatalf("Failed to get working directory: %v", baseErr)
+	}
+
+	goFile := filepath.Join(
+		baseDir, "testdata", "golden", "oneof_discriminator_oneof_discriminator.pb.go",
+	)
+	content, readErr := os.ReadFile(goFile)
+	if readErr != nil {
+		t.Fatalf("Failed to read Go oneof discriminator golden file: %v", readErr)
+	}
+
+	if strings.Contains(string(content), "%%w") {
+		t.Fatalf("generated oneof discriminator errors should use %%w, not escaped %%%%w")
+	}
+}
+
 func TestOneofDiscriminatorOpenAPISchemas(t *testing.T) {
 	baseDir, baseErr := os.Getwd()
 	if baseErr != nil {
