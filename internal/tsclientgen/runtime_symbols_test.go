@@ -27,7 +27,7 @@ func TestTSClientGenHandRolledNeverImportsProtobufES(t *testing.T) {
 	protoDir := filepath.Join(baseDir, "testdata", "proto")
 
 	plugin := buildInProcessPlugin(t, protoDir, projectRoot, []string{"runtime_symbol_rpc.proto"})
-	if genErr := New(plugin, tscommon.MessageRuntimeHandRolled).Generate(); genErr != nil {
+	if genErr := New(plugin, tscommon.MessageRuntimeHandRolled, tscommon.ErrorHandlingThrow).Generate(); genErr != nil {
 		t.Fatalf("Generate() failed: %v", genErr)
 	}
 	for _, f := range plugin.Response().GetFile() {
@@ -55,7 +55,7 @@ func TestTSClientGenESImportsOnlyUsedRuntimeSymbols(t *testing.T) {
 	protoDir := filepath.Join(baseDir, "testdata", "proto")
 
 	plugin := buildInProcessPlugin(t, protoDir, projectRoot, []string{"runtime_symbol_field.proto"})
-	if genErr := New(plugin, tscommon.MessageRuntimeES).Generate(); genErr != nil {
+	if genErr := New(plugin, tscommon.MessageRuntimeES, tscommon.ErrorHandlingThrow).Generate(); genErr != nil {
 		t.Fatalf("Generate() failed: %v", genErr)
 	}
 

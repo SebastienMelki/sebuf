@@ -20,6 +20,17 @@ func TestTSClientGenESGoldenTypecheck(t *testing.T) {
 	typecheck.Dir(t, goldenES)
 }
 
+// TestTSClientGenESResultGoldenTypecheck runs tsc --noEmit over the es +
+// ts_error_handling=result goldens (testdata/golden/es-result). It is the
+// machine check that the Result return type, the ClientError union (built-ins +
+// proto *Error types), the structural registry, and decodeError all compile
+// against the real @bufbuild/protobuf types. Skips when the toolchain is absent.
+func TestTSClientGenESResultGoldenTypecheck(t *testing.T) {
+	goldenES := filepath.Join("testdata", "golden", "es-result")
+	linkESNodeModules(t, goldenES)
+	typecheck.Dir(t, goldenES)
+}
+
 // linkESNodeModules symlinks a node_modules that resolves @bufbuild/protobuf
 // into dir so tsc (nodenext resolution) can resolve the runtime imports. It
 // mirrors the discovery in conformance_test.go: SEBUF_ES_NODE_MODULES overrides,
