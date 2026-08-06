@@ -7,21 +7,6 @@ import (
 	"testing"
 )
 
-// TestNullableConsistencyGoHTTPvsGoClient verifies go-http and go-client
-// produce identical nullable MarshalJSON code.
-func TestNullableConsistencyGoHTTPvsGoClient(t *testing.T) {
-	baseDir, baseErr := os.Getwd()
-	if baseErr != nil {
-		t.Fatalf("Failed to get working directory: %v", baseErr)
-	}
-
-	compareEncodingFiles(t,
-		filepath.Join(baseDir, "testdata", "golden", "nullable_nullable.pb.go"),
-		filepath.Join(baseDir, "..", "clientgen", "testdata", "golden", "nullable_nullable.pb.go"),
-		"nullable",
-	)
-}
-
 // TestNullableConsistencyTypeScript verifies TypeScript uses T | null for nullable fields.
 func TestNullableConsistencyTypeScript(t *testing.T) {
 	baseDir, baseErr := os.Getwd()
@@ -149,8 +134,6 @@ func TestNullableConsistencyBackwardCompat(t *testing.T) {
 	goldenFiles := []string{
 		// Go httpgen
 		filepath.Join(baseDir, "testdata", "golden", "nullable_nullable.pb.go"),
-		// Go clientgen
-		filepath.Join(baseDir, "..", "clientgen", "testdata", "golden", "nullable_nullable.pb.go"),
 		// TypeScript
 		filepath.Join(baseDir, "..", "tsclientgen", "testdata", "golden", "nullable_client.ts"),
 		// OpenAPI

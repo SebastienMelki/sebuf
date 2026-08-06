@@ -7,21 +7,6 @@ import (
 	"testing"
 )
 
-// TestEmptyBehaviorConsistencyGoHTTPvsGoClient verifies go-http and go-client
-// produce identical empty_behavior MarshalJSON code.
-func TestEmptyBehaviorConsistencyGoHTTPvsGoClient(t *testing.T) {
-	baseDir, baseErr := os.Getwd()
-	if baseErr != nil {
-		t.Fatalf("Failed to get working directory: %v", baseErr)
-	}
-
-	compareEncodingFiles(t,
-		filepath.Join(baseDir, "testdata", "golden", "empty_behavior_empty_behavior.pb.go"),
-		filepath.Join(baseDir, "..", "clientgen", "testdata", "golden", "empty_behavior_empty_behavior.pb.go"),
-		"empty_behavior",
-	)
-}
-
 // TestEmptyBehaviorConsistencyOpenAPI verifies OpenAPI uses oneOf for empty_behavior=NULL fields.
 func TestEmptyBehaviorConsistencyOpenAPI(t *testing.T) {
 	baseDir, baseErr := os.Getwd()
@@ -110,8 +95,6 @@ func TestEmptyBehaviorConsistencyBackwardCompat(t *testing.T) {
 	goldenFiles := []string{
 		// Go httpgen
 		filepath.Join(baseDir, "testdata", "golden", "empty_behavior_empty_behavior.pb.go"),
-		// Go clientgen
-		filepath.Join(baseDir, "..", "clientgen", "testdata", "golden", "empty_behavior_empty_behavior.pb.go"),
 		// TypeScript
 		filepath.Join(baseDir, "..", "tsclientgen", "testdata", "golden", "empty_behavior_client.ts"),
 		// OpenAPI

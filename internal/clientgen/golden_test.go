@@ -70,7 +70,6 @@ func TestClientGenGoldenFiles(t *testing.T) {
 			protoFile: "int64_encoding.proto",
 			expectedFiles: []string{
 				"int64_encoding_client.pb.go",
-				"int64_encoding_encoding.pb.go",
 			},
 		},
 		{
@@ -78,7 +77,6 @@ func TestClientGenGoldenFiles(t *testing.T) {
 			protoFile: "int64_nested_encoding.proto",
 			expectedFiles: []string{
 				"int64_nested_encoding_client.pb.go",
-				"int64_nested_encoding_encoding.pb.go",
 			},
 		},
 		{
@@ -87,8 +85,6 @@ func TestClientGenGoldenFiles(t *testing.T) {
 			extraProtoFiles: []string{"int64_cross_file_reading.proto"},
 			expectedFiles: []string{
 				"int64_cross_file_response_client.pb.go",
-				"int64_cross_file_response_encoding.pb.go",
-				"int64_cross_file_reading_encoding.pb.go",
 			},
 		},
 		{
@@ -96,7 +92,6 @@ func TestClientGenGoldenFiles(t *testing.T) {
 			protoFile: "int64_deep_nested_encoding.proto",
 			expectedFiles: []string{
 				"int64_deep_nested_encoding_client.pb.go",
-				"int64_deep_nested_encoding_encoding.pb.go",
 			},
 		},
 		{
@@ -104,8 +99,6 @@ func TestClientGenGoldenFiles(t *testing.T) {
 			protoFile: "enum_encoding.proto",
 			expectedFiles: []string{
 				"enum_encoding_client.pb.go",
-				"enum_encoding_enum_encoding.pb.go",
-				"enum_encoding_enum_field_encoding.pb.go",
 			},
 		},
 		{
@@ -113,8 +106,6 @@ func TestClientGenGoldenFiles(t *testing.T) {
 			protoFile: "enum_nested.proto",
 			expectedFiles: []string{
 				"enum_nested_client.pb.go",
-				"enum_nested_enum_encoding.pb.go",
-				"enum_nested_enum_field_encoding.pb.go",
 			},
 		},
 		{
@@ -122,7 +113,6 @@ func TestClientGenGoldenFiles(t *testing.T) {
 			protoFile: "nullable.proto",
 			expectedFiles: []string{
 				"nullable_client.pb.go",
-				"nullable_nullable.pb.go",
 			},
 		},
 		{
@@ -130,7 +120,6 @@ func TestClientGenGoldenFiles(t *testing.T) {
 			protoFile: "empty_behavior.proto",
 			expectedFiles: []string{
 				"empty_behavior_client.pb.go",
-				"empty_behavior_empty_behavior.pb.go",
 			},
 		},
 		{
@@ -145,7 +134,6 @@ func TestClientGenGoldenFiles(t *testing.T) {
 			protoFile: "timestamp_format.proto",
 			expectedFiles: []string{
 				"timestamp_format_client.pb.go",
-				"timestamp_format_timestamp_format.pb.go",
 			},
 		},
 		{
@@ -153,7 +141,6 @@ func TestClientGenGoldenFiles(t *testing.T) {
 			protoFile: "bytes_encoding.proto",
 			expectedFiles: []string{
 				"bytes_encoding_client.pb.go",
-				"bytes_encoding_bytes_encoding.pb.go",
 			},
 		},
 		{
@@ -161,7 +148,6 @@ func TestClientGenGoldenFiles(t *testing.T) {
 			protoFile: "flatten.proto",
 			expectedFiles: []string{
 				"flatten_client.pb.go",
-				"flatten_flatten.pb.go",
 			},
 		},
 		{
@@ -169,7 +155,6 @@ func TestClientGenGoldenFiles(t *testing.T) {
 			protoFile: "oneof_discriminator.proto",
 			expectedFiles: []string{
 				"oneof_discriminator_client.pb.go",
-				"oneof_discriminator_oneof_discriminator.pb.go",
 			},
 		},
 		{
@@ -345,6 +330,72 @@ func diffStrings(expected, actual string) string {
 
 // TestGeneratedClientCodeCompiles verifies that generated code compiles correctly.
 // This is an integration test that runs the actual compiler.
+func TestCombinedGoHTTPAndGoClientGenerationDoesNotDuplicateJSONMappingFiles(t *testing.T) {
+	if _, lookErr := exec.LookPath("protoc"); lookErr != nil {
+		t.Skip("protoc not found, skipping combined generation test")
+	}
+
+	baseDir, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("Failed to get working directory: %v", err)
+	}
+
+	projectRoot := filepath.Join(baseDir, "..", "..")
+	protoDir := filepath.Join(baseDir, "testdata", "proto")
+	httpPluginPath := filepath.Join(projectRoot, "bin", "protoc-gen-go-http")
+	clientPluginPath := filepath.Join(projectRoot, "bin", "protoc-gen-go-client")
+
+	for _, build := range []struct {
+		path string
+		pkg  string
+	}{
+		{httpPluginPath, "./cmd/protoc-gen-go-http"},
+		{clientPluginPath, "./cmd/protoc-gen-go-client"},
+	} {
+		buildCmd := exec.Command("go", "build", "-o", build.path, build.pkg)
+		buildCmd.Dir = projectRoot
+		if buildErr := buildCmd.Run(); buildErr != nil {
+			t.Fatalf("Failed to build %s: %v", build.pkg, buildErr)
+		}
+	}
+
+	tempDir := t.TempDir()
+	cmd := exec.Command("protoc",
+		"--plugin=protoc-gen-go-http="+httpPluginPath,
+		"--plugin=protoc-gen-go-client="+clientPluginPath,
+		"--go_out="+tempDir,
+		"--go_opt=paths=source_relative",
+		"--go-http_out="+tempDir,
+		"--go-http_opt=paths=source_relative",
+		"--go-client_out="+tempDir,
+		"--go-client_opt=paths=source_relative",
+		"--proto_path="+protoDir,
+		"--proto_path="+filepath.Join(projectRoot, "proto"),
+		"int64_deep_nested_encoding.proto",
+	)
+	cmd.Dir = protoDir
+
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
+
+	if runErr := cmd.Run(); runErr != nil {
+		t.Fatalf("combined go-http + go-client generation failed: %v\nstderr: %s", runErr, stderr.String())
+	}
+
+	unexpectedClientOwnedMappingFiles := []string{
+		"int64_deep_nested_encoding_encoding.pb.go",
+	}
+	for _, filename := range unexpectedClientOwnedMappingFiles {
+		content, readErr := os.ReadFile(filepath.Join(tempDir, filename))
+		if readErr != nil {
+			t.Fatalf("expected go-http-owned JSON mapping file %s to exist: %v", filename, readErr)
+		}
+		if strings.Contains(string(content), "protoc-gen-go-client") {
+			t.Fatalf("JSON mapping file %s should be owned by protoc-gen-go-http, not protoc-gen-go-client", filename)
+		}
+	}
+}
+
 func TestGeneratedClientCodeCompiles(t *testing.T) {
 	// Skip if protoc is not available
 	if _, lookErr := exec.LookPath("protoc"); lookErr != nil {

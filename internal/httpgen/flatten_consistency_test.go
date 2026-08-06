@@ -8,21 +8,6 @@ import (
 	"testing"
 )
 
-// TestGoGeneratorsProduceIdenticalFlatten verifies go-http and go-client
-// produce identical flatten MarshalJSON code.
-func TestGoGeneratorsProduceIdenticalFlatten(t *testing.T) {
-	baseDir, baseErr := os.Getwd()
-	if baseErr != nil {
-		t.Fatalf("Failed to get working directory: %v", baseErr)
-	}
-
-	compareEncodingFiles(t,
-		filepath.Join(baseDir, "testdata", "golden", "flatten_flatten.pb.go"),
-		filepath.Join(baseDir, "..", "clientgen", "testdata", "golden", "flatten_flatten.pb.go"),
-		"flatten",
-	)
-}
-
 // TestFlattenTypeScriptTypes verifies TypeScript types match Go serialization
 // for flatten fields (inlined child fields with prefixes).
 func TestFlattenTypeScriptTypes(t *testing.T) {
@@ -236,7 +221,6 @@ func TestFlattenCrossGeneratorAgreement(t *testing.T) {
 	// Verify all golden files exist for cross-generator coverage
 	goldenFiles := []string{
 		filepath.Join(baseDir, "testdata", "golden", "flatten_flatten.pb.go"),
-		filepath.Join(baseDir, "..", "clientgen", "testdata", "golden", "flatten_flatten.pb.go"),
 		filepath.Join(baseDir, "..", "tsclientgen", "testdata", "golden", "flatten_client.ts"),
 		filepath.Join(
 			baseDir, "..", "openapiv3", "testdata", "golden", "yaml", "FlattenService.openapi.yaml",
@@ -249,7 +233,7 @@ func TestFlattenCrossGeneratorAgreement(t *testing.T) {
 		}
 	}
 
-	t.Log("All 4 generators agree on flatten structure and field names")
+	t.Log("Go, TypeScript, and OpenAPI agree on flatten structure and field names")
 }
 
 // verifyFlattenPresent checks that all 4 generators agree on a flattened message.
