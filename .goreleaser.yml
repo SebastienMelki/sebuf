@@ -329,6 +329,25 @@ docker_manifests:
     image_templates:
       - "ghcr.io/sebastienmelki/protoc-gen-openapiv3:latest-amd64"
 
+# Checksum signing is intentional but CONDITIONAL: it only runs when this repo has
+# GPG signing secrets configured.
+#
+# A `signs` entry has no config-level conditional in goreleaser v2 -- the Sign struct
+# in pkg/config exposes only id/cmd/args/signature/artifacts/ids/stdin/stdin_file/env/
+# certificate/output (no `skip`, no `if`), and `artifacts` is matched as a literal
+# string, not a template, so it cannot be toggled from here either. The guard therefore
+# lives in .github/workflows/release.yml, which passes goreleaser's own `--skip=sign`
+# whenever the GPG_FINGERPRINT secret is empty.
+#
+# Without that guard `{{ .Env.GPG_FINGERPRINT }}` below expands to "", goreleaser runs
+# `gpg --local-user ""`, and the release dies with:
+#   gpg: skipped "": Invalid user ID
+#   gpg: signing failed: Invalid user ID
+# after every binary, archive and package has already been built successfully.
+#
+# To enable real signing: add the GPG_PRIVATE_KEY and GPG_FINGERPRINT repository
+# secrets. Nothing in this file or in release.yml needs to change -- the workflow
+# stops passing --skip=sign on its own and this block starts signing checksums.txt.
 signs:
   - artifacts: checksum
     args:
