@@ -372,6 +372,8 @@ func TestCombinedGoHTTPAndGoClientGenerationDoesNotDuplicateJSONMappingFiles(t *
 		"--proto_path="+protoDir,
 		"--proto_path="+filepath.Join(projectRoot, "proto"),
 		"int64_deep_nested_encoding.proto",
+		"enum_encoding.proto",
+		"flatten.proto",
 	)
 	cmd.Dir = protoDir
 
@@ -384,6 +386,9 @@ func TestCombinedGoHTTPAndGoClientGenerationDoesNotDuplicateJSONMappingFiles(t *
 
 	unexpectedClientOwnedMappingFiles := []string{
 		"int64_deep_nested_encoding_encoding.pb.go",
+		"enum_encoding_enum_encoding.pb.go",
+		"enum_encoding_enum_field_encoding.pb.go",
+		"flatten_flatten.pb.go",
 	}
 	for _, filename := range unexpectedClientOwnedMappingFiles {
 		content, readErr := os.ReadFile(filepath.Join(tempDir, filename))
