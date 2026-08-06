@@ -13,6 +13,10 @@ COVERAGE_PROFILE="$COVERAGE_DIR/coverage.out"
 COVERAGE_HTML="$COVERAGE_DIR/coverage.html"
 COVERAGE_JSON="$COVERAGE_DIR/coverage.json"
 
+# Packages whose tests passed but landed under the coverage threshold.
+# Reported as a warning only - never fatal. Test failures are tracked separately.
+LOW_COVERAGE_PACKAGES=()
+
 # Parse command line arguments
 VERBOSE=false
 FAST_MODE=false
@@ -134,6 +138,7 @@ run_package_tests() {
                         else
                             echo -e "${YELLOW}  ⚠️  Coverage: ${coverage}% (Below threshold: ${COVERAGE_THRESHOLD}%)${NC}"
                             echo "$temp_profile" >> "$COVERAGE_DIR/profiles.list"
+                            LOW_COVERAGE_PACKAGES+=("$package_name")
                             return 0  # Don't fail, just report
                         fi
                     else
@@ -341,8 +346,11 @@ main() {
     
     local passed_packages=$((total_packages - ${#failed_packages[@]}))
     echo -e "${BLUE}Total packages: $total_packages${NC}"
-    echo -e "${GREEN}Passed threshold: $passed_packages${NC}"
-    echo -e "${RED}Failed threshold: ${#failed_packages[@]}${NC}"
+    echo -e "${GREEN}Passed: $passed_packages${NC}"
+    echo -e "${RED}Failed: ${#failed_packages[@]}${NC}"
+    if [ "$FAST_MODE" = false ]; then
+        echo -e "${YELLOW}Below coverage threshold: ${#LOW_COVERAGE_PACKAGES[@]} (warning only)${NC}"
+    fi
     
     if [ "$FAST_MODE" = true ]; then
         # Fast mode: fail only on actual test failures
@@ -359,16 +367,28 @@ main() {
             exit 1
         fi
     else
-        # Coverage mode: always succeed, just report coverage
-        echo -e "${GREEN}✅ All tests passed! Coverage analysis complete.${NC}"
-        if [ ${#failed_packages[@]} -gt 0 ]; then
+        # Coverage mode: test failures are fatal, coverage shortfalls are only a warning
+        if [ ${#LOW_COVERAGE_PACKAGES[@]} -gt 0 ]; then
             echo -e "${YELLOW}📊 Coverage could be improved in these packages:${NC}"
-            for package in "${failed_packages[@]}"; do
+            for package in "${LOW_COVERAGE_PACKAGES[@]}"; do
                 echo -e "${YELLOW}  - $package${NC}"
             done
             echo -e "${YELLOW}💡 Consider adding more tests to improve coverage.${NC}"
         fi
-        exit 0  # Always succeed in coverage mode
+
+        if [ ${#failed_packages[@]} -eq 0 ]; then
+            echo -e "${GREEN}🎉 All tests passed! Coverage analysis complete.${NC}"
+            exit 0
+        else
+            echo -e "${RED}❌ The following packages had test failures:${NC}"
+            for package in "${failed_packages[@]}"; do
+                echo -e "${RED}  - $package${NC}"
+            done
+            echo
+            echo -e "${YELLOW}💡 Fix the failing tests in the above packages.${NC}"
+            echo -e "${YELLOW}📊 Coverage below ${COVERAGE_THRESHOLD}% is only a warning - these are real test failures.${NC}"
+            exit 1  # Test failures must fail the build
+        fi
     fi
 }
 
