@@ -17,6 +17,7 @@ import (
 	"github.com/SebastienMelki/sebuf/internal/openapiv3"
 	"github.com/SebastienMelki/sebuf/internal/pyclientgen"
 	"github.com/SebastienMelki/sebuf/internal/tsclientgen"
+	"github.com/SebastienMelki/sebuf/internal/tscommon"
 	"github.com/SebastienMelki/sebuf/internal/tsservergen"
 )
 
@@ -33,8 +34,12 @@ func allGenerators() []generatorCase {
 		{"go-http", func(p *protogen.Plugin) error { return httpgen.New(p).Generate() }},
 		{"go-client", func(p *protogen.Plugin) error { return clientgen.New(p).Generate() }},
 		{"py-client", func(p *protogen.Plugin) error { return pyclientgen.New(p).Generate() }},
-		{"ts-client", func(p *protogen.Plugin) error { return tsclientgen.New(p).Generate() }},
-		{"ts-server", func(p *protogen.Plugin) error { return tsservergen.New(p).Generate() }},
+		{"ts-client", func(p *protogen.Plugin) error {
+			return tsclientgen.New(p, tscommon.MessageRuntimeHandRolled).Generate()
+		}},
+		{"ts-server", func(p *protogen.Plugin) error {
+			return tsservergen.New(p, tscommon.MessageRuntimeHandRolled).Generate()
+		}},
 		{"openapiv3", openapiv3.ValidateFiles},
 	}
 }

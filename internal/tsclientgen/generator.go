@@ -1,9 +1,11 @@
 package tsclientgen
 
 import (
+	"fmt"
 	"net/http"
 
 	"google.golang.org/protobuf/compiler/protogen"
+	"google.golang.org/protobuf/reflect/protoreflect"
 
 	"github.com/SebastienMelki/sebuf/internal/annotations"
 	"github.com/SebastienMelki/sebuf/internal/tscommon"
@@ -15,11 +17,13 @@ type Generator struct {
 	// ctx carries the emission state (self module + import tracker) for the
 	// service file currently being written.
 	ctx *tscommon.EmitContext
+	// runtime selects the TypeScript message representation.
+	runtime tscommon.MessageRuntime
 }
 
 // New creates a new TypeScript client generator.
-func New(plugin *protogen.Plugin) *Generator {
-	return &Generator{plugin: plugin}
+func New(plugin *protogen.Plugin, runtime tscommon.MessageRuntime) *Generator {
+	return &Generator{plugin: plugin, runtime: runtime}
 }
 
 // Generate emits one canonical type module per proto file, a shared errors
@@ -30,6 +34,32 @@ func (g *Generator) Generate() error {
 
 func (g *Generator) generateServiceClient(p printer, service *protogen.Service) error {
 	serviceName := service.GoName
+
+	// Enum path/query parameters are not representable in protobuf-es mode
+	// (numeric enums vs string URL params); fail loud rather than emit code that
+	// fails downstream tsc. Body/response messages carrying JSON-mapping
+	// annotations es-mode cannot honor are rejected the same way.
+	if g.ctx.MessageRuntime == tscommon.MessageRuntimeES {
+		for _, method := range service.Methods {
+			if err := checkNoEnumParamsES(service, method); err != nil {
+				return err
+			}
+			role := "response"
+			if cfg := annotations.GetMethodHTTPConfig(method); cfg != nil && cfg.Stream {
+				role = "SSE event"
+			}
+			if err := tscommon.CheckESMessageAnnotations(
+				service.GoName, method.GoName, "request", method.Input,
+			); err != nil {
+				return err
+			}
+			if err := tscommon.CheckESMessageAnnotations(
+				service.GoName, method.GoName, role, method.Output,
+			); err != nil {
+				return err
+			}
+		}
+	}
 
 	// Client options interface
 	g.generateClientOptionsInterface(p, service)
@@ -208,6 +238,34 @@ func (g *Generator) buildRPCMethodConfig(service *protogen.Service, method *prot
 	}
 }
 
+// checkNoEnumParamsES reports a generation-time error if the method has an
+// enum-typed path or query parameter (including repeated enum query params),
+// which protobuf-es mode cannot yet represent. See UnsupportedEnumParamError.
+func checkNoEnumParamsES(service *protogen.Service, method *protogen.Method) error {
+	httpConfig := annotations.GetMethodHTTPConfig(method)
+	var pathParams []string
+	if httpConfig != nil {
+		pathParams = httpConfig.PathParams
+	}
+	if len(pathParams) > 0 {
+		fieldMap := make(map[string]*protogen.Field, len(method.Input.Fields))
+		for _, f := range method.Input.Fields {
+			fieldMap[string(f.Desc.Name())] = f
+		}
+		for _, param := range pathParams {
+			if f, ok := fieldMap[param]; ok && f.Desc.Kind() == protoreflect.EnumKind {
+				return tscommon.UnsupportedEnumParamError("path", param, service.GoName, method.GoName)
+			}
+		}
+	}
+	for _, qp := range annotations.GetQueryParams(method.Input) {
+		if qp.Field != nil && qp.Field.Desc.Kind() == protoreflect.EnumKind {
+			return tscommon.UnsupportedEnumParamError("query", qp.FieldName, service.GoName, method.GoName)
+		}
+	}
+	return nil
+}
+
 // generateRPCMethod generates a single async RPC method.
 func (g *Generator) generateRPCMethod(p printer, service *protogen.Service, method *protogen.Method) {
 	cfg := g.buildRPCMethodConfig(service, method)
@@ -217,8 +275,24 @@ func (g *Generator) generateRPCMethod(p printer, service *protogen.Service, meth
 		return
 	}
 
-	inputType := g.ctx.RefMessage(method.Input)
-	outputType := g.resolveOutputType(method)
+	es := g.ctx.MessageRuntime == tscommon.MessageRuntimeES
+
+	var inputType, outputType, reqSchema, resSchema string
+	if es {
+		// protobuf-es mode: consumers pass a plain init shape; the client routes
+		// the request through create/toJson and decodes the response with fromJson.
+		reqSchema = g.ctx.RefMessageSchema(method.Input)
+		resSchema = g.ctx.RefMessageSchema(method.Output)
+		inputType = "MessageInitShape<typeof " + reqSchema + ">"
+		outputType = g.ctx.RefMessagePb(method.Output)
+		g.ctx.NeedProtobufES("MessageInitShape", "fromJson")
+		if cfg.hasBody {
+			g.ctx.NeedProtobufES("create", "toJson")
+		}
+	} else {
+		inputType = g.ctx.RefMessage(method.Input)
+		outputType = g.resolveOutputType(method)
+	}
 
 	tsMethodName := annotations.LowerFirst(cfg.methodName)
 
@@ -233,10 +307,10 @@ func (g *Generator) generateRPCMethod(p printer, service *protogen.Service, meth
 	g.generateHeaderMerging(p, service, method)
 
 	// Build fetch options
-	g.generateFetchCall(p, cfg)
+	g.generateFetchCall(p, cfg, reqSchema)
 
 	// Handle response
-	g.generateResponseHandling(p, method)
+	g.generateResponseHandling(p, outputType, resSchema)
 
 	p("  }")
 	p("")
@@ -249,8 +323,25 @@ func (g *Generator) generateSSERPCMethod(
 	method *protogen.Method,
 	cfg *rpcMethodConfig,
 ) {
-	inputType := g.ctx.RefMessage(method.Input)
-	outputType := g.resolveOutputType(method)
+	es := g.ctx.MessageRuntime == tscommon.MessageRuntimeES
+
+	var inputType, outputType, reqSchema, resSchema string
+	if es {
+		// protobuf-es mode mirrors the unary path: the request is an init shape
+		// encoded through create/toJson (when a body is sent), and each streamed
+		// event is decoded with fromJson. The generator yields the decoded message.
+		reqSchema = g.ctx.RefMessageSchema(method.Input)
+		resSchema = g.ctx.RefMessageSchema(method.Output)
+		inputType = "MessageInitShape<typeof " + reqSchema + ">"
+		outputType = g.ctx.RefMessagePb(method.Output)
+		g.ctx.NeedProtobufES("MessageInitShape", "fromJson")
+		if cfg.hasBody {
+			g.ctx.NeedProtobufES("create", "toJson")
+		}
+	} else {
+		inputType = g.ctx.RefMessage(method.Input)
+		outputType = g.resolveOutputType(method)
+	}
 	tsMethodName := annotations.LowerFirst(cfg.methodName)
 
 	reqParam := cfg.requestParamName()
@@ -264,10 +355,10 @@ func (g *Generator) generateSSERPCMethod(
 	g.generateSSEHeaderMerging(p, service, method)
 
 	// Fetch call
-	g.generateSSEFetchCall(p, cfg)
+	g.generateSSEFetchCall(p, cfg, reqSchema)
 
 	// SSE stream parsing
-	g.generateSSEStreamParsing(p, outputType)
+	g.generateSSEStreamParsing(p, outputType, resSchema)
 
 	p("  }")
 	p("")
@@ -300,13 +391,19 @@ func (g *Generator) generateSSEHeaderMerging(p printer, service *protogen.Servic
 	p("")
 }
 
-// generateSSEFetchCall generates the fetch invocation for SSE.
-func (g *Generator) generateSSEFetchCall(p printer, cfg *rpcMethodConfig) {
+// generateSSEFetchCall generates the fetch invocation for SSE. In protobuf-es
+// mode (reqSchema non-empty) a request body is encoded through create/toJson,
+// matching the unary path; otherwise the request object is serialized directly.
+func (g *Generator) generateSSEFetchCall(p printer, cfg *rpcMethodConfig, reqSchema string) {
 	if cfg.hasBody {
+		body := "JSON.stringify(req)"
+		if reqSchema != "" {
+			body = fmt.Sprintf("JSON.stringify(toJson(%s, create(%s, req)))", reqSchema, reqSchema)
+		}
 		p("    const resp = await this.fetchFn(url, {")
 		p(`      method: "%s",`, cfg.httpMethod)
 		p("      headers,")
-		p("      body: JSON.stringify(req),")
+		p("      body: %s,", body)
 		p("      signal: options?.signal,")
 		p("    });")
 	} else {
@@ -324,8 +421,11 @@ func (g *Generator) generateSSEFetchCall(p printer, cfg *rpcMethodConfig) {
 	p("")
 }
 
-// generateSSEStreamParsing generates the ReadableStream SSE parsing logic.
-func (g *Generator) generateSSEStreamParsing(p printer, outputType string) {
+// generateSSEStreamParsing generates the ReadableStream SSE parsing logic. In
+// protobuf-es mode (resSchema non-empty) each streamed event is decoded through
+// fromJson with ignoreUnknownFields (forward-compat, mandatory); otherwise the
+// parsed JSON is raw-cast to the output type.
+func (g *Generator) generateSSEStreamParsing(p printer, outputType, resSchema string) {
 	p("    const reader = resp.body!.getReader();")
 	p("    const decoder = new TextDecoder();")
 	p(`    let buffer = "";`)
@@ -340,7 +440,11 @@ func (g *Generator) generateSSEStreamParsing(p printer, outputType string) {
 	p("        for (const line of lines) {")
 	p(`          if (line.startsWith("data: ")) {`)
 	p("            const data = line.slice(6);")
-	p("            yield JSON.parse(data) as %s;", outputType)
+	if resSchema != "" {
+		p("            yield fromJson(%s, JSON.parse(data), { ignoreUnknownFields: true });", resSchema)
+	} else {
+		p("            yield JSON.parse(data) as %s;", outputType)
+	}
 	p("          }")
 	p("        }")
 	p("      }")
@@ -375,6 +479,8 @@ func (g *Generator) generateURLBuilding(p printer, cfg *rpcMethodConfig) {
 		for _, qp := range cfg.queryParams {
 			// Handle repeated fields: use forEach + append for multi-value params
 			if qp.Field != nil && qp.Field.Desc.IsList() {
+				// String(v) coerces non-string element types (int32/bool/…) so the
+				// URLSearchParams.append call typechecks; it is a no-op for strings.
 				p("    if (req.%s && req.%s.length > 0) req.%s.forEach(v => params.append(\"%s\", String(v)));",
 					qp.FieldJSONName, qp.FieldJSONName, qp.FieldJSONName, qp.ParamName)
 				continue
@@ -382,9 +488,14 @@ func (g *Generator) generateURLBuilding(p printer, cfg *rpcMethodConfig) {
 
 			// Use field-aware zero check when field reference is available
 			var check string
-			if qp.Field != nil {
+			switch {
+			case qp.Field != nil && g.ctx.MessageRuntime == tscommon.MessageRuntimeES:
+				// protobuf-es types 64-bit fields as bigint, so the string-based
+				// "0" check would compare bigint to string; use the es-aware check.
+				check = esZeroCheckForField(qp.Field)
+			case qp.Field != nil:
 				check = tsZeroCheckForField(qp.Field)
-			} else {
+			default:
 				check = tsZeroCheck(qp.FieldKind)
 			}
 			if check == "" {
@@ -432,13 +543,19 @@ func (g *Generator) generateHeaderMerging(p printer, service *protogen.Service, 
 	p("")
 }
 
-// generateFetchCall generates the fetch invocation.
-func (g *Generator) generateFetchCall(p printer, cfg *rpcMethodConfig) {
+// generateFetchCall generates the fetch invocation. In protobuf-es mode
+// (reqSchema non-empty) the request body is encoded through create/toJson;
+// otherwise the request object is serialized directly.
+func (g *Generator) generateFetchCall(p printer, cfg *rpcMethodConfig, reqSchema string) {
 	if cfg.hasBody {
+		body := "JSON.stringify(req)"
+		if reqSchema != "" {
+			body = fmt.Sprintf("JSON.stringify(toJson(%s, create(%s, req)))", reqSchema, reqSchema)
+		}
 		p("    const resp = await this.fetchFn(url, {")
 		p(`      method: "%s",`, cfg.httpMethod)
 		p("      headers,")
-		p("      body: JSON.stringify(req),")
+		p("      body: %s,", body)
 		p("      signal: options?.signal,")
 		p("    });")
 	} else {
@@ -451,14 +568,18 @@ func (g *Generator) generateFetchCall(p printer, cfg *rpcMethodConfig) {
 	p("")
 }
 
-// generateResponseHandling generates response parsing and error handling.
-func (g *Generator) generateResponseHandling(p printer, method *protogen.Method) {
-	outputType := g.resolveOutputType(method)
-
+// generateResponseHandling generates response parsing and error handling. In
+// protobuf-es mode (resSchema non-empty) the response is decoded through fromJson
+// with ignoreUnknownFields (forward-compat); otherwise it is raw-cast.
+func (g *Generator) generateResponseHandling(p printer, outputType, resSchema string) {
 	p("    if (!resp.ok) {")
 	p("      return this.handleError(resp);")
 	p("    }")
 	p("")
+	if resSchema != "" {
+		p("    return fromJson(%s, await resp.json(), { ignoreUnknownFields: true });", resSchema)
+		return
+	}
 	p("    return await resp.json() as %s;", outputType)
 }
 

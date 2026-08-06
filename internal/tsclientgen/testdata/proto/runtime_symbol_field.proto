@@ -1,0 +1,37 @@
+syntax = "proto3";
+
+package test.runtimesymbolfield;
+
+option go_package = "github.com/SebastienMelki/sebuf/internal/httpgen/testdata/generated;generated";
+
+import "sebuf/http/annotations.proto";
+
+// FieldNamingService is a regression fixture: a query parameter field literally
+// named create appears in the generated body as `req.create`, which must not
+// trick the generator into importing the protobuf-es runtime helper `create`.
+// The method is GET-only, so an es-mode client legitimately uses only fromJson
+// and MessageInitShape; importing `create` would fail noUnusedLocals.
+service FieldNamingService {
+  option (sebuf.http.service_config) = {
+    base_path: "/api/v1"
+  };
+
+  rpc ListThings(ListThingsRequest) returns (ListThingsResponse) {
+    option (sebuf.http.config) = {
+      path: "/things"
+      method: HTTP_METHOD_GET
+    };
+  }
+}
+
+message ListThingsRequest {
+  string create = 1 [(sebuf.http.query) = {name: "create"}];
+}
+
+message ListThingsResponse {
+  repeated Thing things = 1;
+}
+
+message Thing {
+  string id = 1;
+}

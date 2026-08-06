@@ -24,7 +24,7 @@ func (g *Generator) generateModules() error {
 		}
 	}
 
-	moduleFiles, err := tscommon.EmitSharedModules(g.plugin)
+	moduleFiles, err := tscommon.EmitSharedModules(g.plugin, g.runtime)
 	if err != nil {
 		return err
 	}
@@ -32,7 +32,11 @@ func (g *Generator) generateModules() error {
 		if !file.Generate || len(file.Services) == 0 {
 			continue
 		}
-		moduleFiles = append(moduleFiles, g.emitClientModule(file))
+		name, emitErr := g.emitClientModule(file)
+		if emitErr != nil {
+			return emitErr
+		}
+		moduleFiles = append(moduleFiles, name)
 	}
 	tscommon.EmitPackageBarrels(g.plugin, moduleFiles)
 	return nil
@@ -42,19 +46,23 @@ func (g *Generator) generateModules() error {
 // request/response types from their canonical modules and the shared error
 // helpers. It returns the output-relative filename it emitted (ending in
 // ".ts"), so the caller can fold it into the per-package barrel.
-func (g *Generator) emitClientModule(file *protogen.File) string {
+func (g *Generator) emitClientModule(file *protogen.File) (string, error) {
 	module := file.GeneratedFilenamePrefix + "_client"
 	gf := g.plugin.NewGeneratedFile(module+".ts", "")
 	tracker := tscommon.NewImportTracker()
-	g.ctx = &tscommon.EmitContext{SelfModule: module, Imports: tracker}
+	g.ctx = &tscommon.EmitContext{SelfModule: module, Imports: tracker, MessageRuntime: g.runtime}
 	defer func() { g.ctx = nil }()
 
 	var body []string
 	bp := printer(tscommon.BufferedPrinter(&body))
 	for _, service := range file.Services {
-		_ = g.generateServiceClient(bp, service)
+		if err := g.generateServiceClient(bp, service); err != nil {
+			return "", err
+		}
 	}
-	// Import only the error helpers actually referenced in the body.
+	// Import only the error helpers actually referenced in the body. The
+	// protobuf-es runtime symbols need no scan: es-mode emission sites record
+	// them via NeedProtobufES as they print.
 	g.ctx.NeedErrors(tscommon.UsedErrorSymbols(body)...)
 
 	dp := tscommon.DirectPrinter(gf)
@@ -65,5 +73,5 @@ func (g *Generator) emitClientModule(file *protogen.File) string {
 	for _, line := range body {
 		gf.P(line)
 	}
-	return module + ".ts"
+	return module + ".ts", nil
 }

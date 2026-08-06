@@ -412,6 +412,27 @@ func QualifiedTSName(desc protoreflect.Descriptor) string {
 	return prefix + string(desc.Name())
 }
 
+// ESQualifiedName returns the protoc-gen-es v2 local name for a message or enum
+// descriptor: nested types are joined to their enclosing message names with an
+// underscore (e.g. Outer.Inner -> "Outer_Inner"), matching protoc-gen-es output
+// (verified against @bufbuild/protoc-gen-es v2.12.1). Top-level types return
+// their leaf name unchanged. This differs from QualifiedTSName, which joins
+// without a separator for sebuf's own hand-rolled type modules; the protobuf-es
+// runtime mode imports from protoc-gen-es's <proto>_pb modules and must match
+// its naming exactly.
+func ESQualifiedName(desc protoreflect.Descriptor) string {
+	var parts []string
+	for parent := desc.Parent(); parent != nil; parent = parent.Parent() {
+		msg, ok := parent.(protoreflect.MessageDescriptor)
+		if !ok {
+			break
+		}
+		parts = append([]string{string(msg.Name())}, parts...)
+	}
+	parts = append(parts, string(desc.Name()))
+	return strings.Join(parts, "_")
+}
+
 // GenerateEnumType writes a TypeScript string union type for a protobuf enum.
 // Uses custom enum_value annotations if present, otherwise uses proto names.
 func GenerateEnumType(p Printer, enum *protogen.Enum) {

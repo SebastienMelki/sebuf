@@ -1,0 +1,33 @@
+syntax = "proto3";
+
+package test.runtimesymbols;
+
+option go_package = "github.com/SebastienMelki/sebuf/internal/httpgen/testdata/generated;generated";
+
+import "sebuf/http/annotations.proto";
+
+// CreateNamingService is a regression fixture: an RPC literally named Create
+// renders a TypeScript method `create(`, which must never be mistaken for the
+// protobuf-es runtime helper `create` when deciding whether the generated file
+// imports from @bufbuild/protobuf. Hand-rolled output must not import that
+// package at all.
+service CreateNamingService {
+  option (sebuf.http.service_config) = {
+    base_path: "/api/v1"
+  };
+
+  rpc Create(CreateThingRequest) returns (CreateThingResponse) {
+    option (sebuf.http.config) = {
+      path: "/things"
+      method: HTTP_METHOD_POST
+    };
+  }
+}
+
+message CreateThingRequest {
+  string name = 1;
+}
+
+message CreateThingResponse {
+  string id = 1;
+}

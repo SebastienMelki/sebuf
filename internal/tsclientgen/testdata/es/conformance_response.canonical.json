@@ -1,0 +1,17 @@
+{
+  "id": "note-123",
+  "bigTotal": "9223372036854775807",
+  "bigUnsigned": "18446744073709551615",
+  "detail": {
+    "label": "primary"
+  },
+  "attributes": {
+    "region": "eu-west",
+    "tier": "gold"
+  },
+  "tagByKey": {
+    "alpha": {
+      "name": "first"
+    }
+  }
+}
