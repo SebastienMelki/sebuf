@@ -64,7 +64,12 @@ jobs:
         uses: goreleaser/goreleaser-action@v7
         with:
           version: latest
-          args: release --clean
+          # The `signs` block in .goreleaser.yml needs GPG_FINGERPRINT. When that secret
+          # is not configured goreleaser would run `gpg --local-user ""` and fail the
+          # whole release, so skip the sign pipe instead. Mirrors the `if:` guard on the
+          # "Import GPG key" step above. Adding the GPG secrets re-enables signing with
+          # no further config change.
+          args: release --clean ${{ secrets.GPG_FINGERPRINT == '' && '--skip=sign' || '' }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GPG_FINGERPRINT: ${{ secrets.GPG_FINGERPRINT }}
