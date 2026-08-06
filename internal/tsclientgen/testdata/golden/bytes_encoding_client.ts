@@ -26,7 +26,7 @@ export class BytesEncodingServiceClient {
   }
 
   async testBytesEncoding(req: BytesEncodingTest, options?: BytesEncodingServiceCallOptions): Promise<BytesEncodingTest> {
-    let path = "/api/v1/bytes-encoding";
+    const path = "/api/v1/bytes-encoding";
     const url = this.baseURL + path;
 
     const headers: Record<string, string> = {

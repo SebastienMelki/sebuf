@@ -777,6 +777,59 @@ client/server sees protobuf-es's types and conventions:
   optional fields.
 - **int64 as `bigint`.** 64-bit integer fields (`int64`, `uint64`, `sint64`,
   `fixed64`, `sfixed64`) are represented as `bigint`, following protobuf-es.
+- **Standalone functions, not a client class.** Each RPC is emitted as a
+  top-level `export async function` that takes its config per call as a required
+  options argument (`baseURL` required; `fetch`, `headers`, `signal` optional).
+  The default plain-interface mode still emits a `class` you `new` and configure
+  once.
+
+  ```ts
+  import { getUser } from "./gen/user_service_client.js";
+
+  const opts = { baseURL: "https://api.example.com" };
+  const user = await getUser({ id: "123" }, opts);
+  ```
+
+  Because every RPC is an independent top-level function, bundlers **tree-shake**
+  the ones you don't import — using a single method doesn't pull the whole
+  service into your bundle. There is no client object to construct or pass
+  around; hold the options object (plain data) if you want to reuse config.
+
+  The options type is a **shared `RequestOptions`** (emitted once in the shared
+  `client.ts`), so it is not duplicated per service. A service that declares
+  typed headers instead gets a `{Service}RequestOptions` that **`extends
+  RequestOptions`** and adds only its typed header properties:
+
+  ```ts
+  // client.ts (shared)
+  export interface RequestOptions { baseURL: string; fetch?: typeof fetch; headers?: Record<string, string>; signal?: AbortSignal; }
+  // token_service_client.ts (declares X-API-Key + X-Request-ID headers)
+  export interface TokenServiceRequestOptions extends RequestOptions { apiKey?: string; requestId?: string; }
+  ```
+
+  Note that a typed header is its **own top-level property** (`apiKey`), not an
+  entry in `headers` — the generated function maps it to the real header name
+  (`X-API-Key`) for you. `headers` stays available as an escape hatch for headers
+  the proto doesn't declare.
+
+  Requiring `baseURL` on every call is the cost of statelessness, but it does
+  not have to be repeated: declare the options object once, typed as the
+  service's own options type so its typed header properties are checked, and
+  reuse the reference. It is plain data, so spreading it per call layers on
+  per-call extras (`signal`, a typed header property) without mutating the shared
+  config. Spreading replaces properties rather than deep-merging them, so an
+  `opts` that sets `headers` needs that record merged explicitly
+  (`headers: { ...opts.headers, "X-Trace-Id": id }`); typed header properties are
+  top-level and so compose cleanly:
+
+  ```ts
+  import { issue, type TokenServiceRequestOptions } from "./gen/token_service_client.js";
+
+  const opts: TokenServiceRequestOptions = { baseURL: "https://api.example.com", apiKey };
+
+  await issue({ subject: "user-1" }, opts);
+  await issue({ subject: "user-2" }, { ...opts, requestId: crypto.randomUUID() });
+  ```
 
 ### Server-streaming (SSE)
 
@@ -840,7 +893,7 @@ it in the registry. Proto errors are protobuf-es messages, so they carry a
 `$typeName` discriminant:
 
 ```ts
-const r = await client.getAccount({ id });
+const r = await getAccount({ id }, { baseURL: "https://api.example.com" });
 if (!r.ok) {
   const e = r.error;
   if (e instanceof ValidationError) {

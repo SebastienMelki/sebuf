@@ -26,7 +26,7 @@ export class QueryParamServiceClient {
   }
 
   async searchWithTypes(req: SearchWithTypesRequest, options?: QueryParamServiceCallOptions): Promise<SearchResponse> {
-    let path = "/api/search/typed";
+    const path = "/api/search/typed";
     const params = new URLSearchParams();
     if (req.query != null && req.query !== "") params.set("q", String(req.query));
     if (req.limit != null && req.limit !== 0) params.set("limit", String(req.limit));
@@ -58,7 +58,7 @@ export class QueryParamServiceClient {
   }
 
   async searchRequired(req: SearchRequiredRequest, options?: QueryParamServiceCallOptions): Promise<SearchResponse> {
-    let path = "/api/search/required";
+    const path = "/api/search/required";
     const params = new URLSearchParams();
     if (req.query != null && req.query !== "") params.set("q", String(req.query));
     if (req.page != null && req.page !== 0) params.set("page", String(req.page));
@@ -85,7 +85,7 @@ export class QueryParamServiceClient {
   }
 
   async searchCustomNames(req: SearchCustomNamesRequest, options?: QueryParamServiceCallOptions): Promise<SearchResponse> {
-    let path = "/api/search/custom";
+    const path = "/api/search/custom";
     const params = new URLSearchParams();
     if (req.searchTerm != null && req.searchTerm !== "") params.set("q", String(req.searchTerm));
     if (req.resultsPerPage != null && req.resultsPerPage !== 0) params.set("limit", String(req.resultsPerPage));
@@ -141,7 +141,7 @@ export class QueryParamServiceClient {
   }
 
   async searchAdvanced(req: SearchAdvancedRequest, options?: QueryParamServiceCallOptions): Promise<SearchResponse> {
-    let path = "/api/search/advanced";
+    const path = "/api/search/advanced";
     const params = new URLSearchParams();
     if (req.region != null && req.region !== "unspecified") params.set("region", String(req.region));
     if (req.countries && req.countries.length > 0) req.countries.forEach(v => params.append("countries", String(v)));
@@ -197,7 +197,7 @@ export class QueryParamServiceClient {
   }
 
   async getDefaults(_req: EmptyRequest, options?: QueryParamServiceCallOptions): Promise<SearchResponse> {
-    let path = "/api/defaults";
+    const path = "/api/defaults";
     const url = this.baseURL + path;
 
     const headers: Record<string, string> = {

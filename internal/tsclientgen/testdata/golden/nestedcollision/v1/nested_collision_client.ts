@@ -26,7 +26,7 @@ export class NestedCollisionServiceClient {
   }
 
   async getStatus(req: GetStatusRequest, options?: NestedCollisionServiceCallOptions): Promise<GetStatusResponse> {
-    let path = "/api/v1/status";
+    const path = "/api/v1/status";
     const url = this.baseURL + path;
 
     const headers: Record<string, string> = {

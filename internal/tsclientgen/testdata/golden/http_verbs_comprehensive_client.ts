@@ -32,7 +32,7 @@ export class RESTfulAPIServiceClient {
   }
 
   async listResources(req: ListResourcesRequest, options?: RESTfulAPIServiceCallOptions): Promise<ListResourcesResponse> {
-    let path = "/api/v1/resources";
+    const path = "/api/v1/resources";
     const params = new URLSearchParams();
     if (req.page != null && req.page !== 0) params.set("page", String(req.page));
     if (req.pageSize != null && req.pageSize !== 0) params.set("page_size", String(req.pageSize));
@@ -117,7 +117,7 @@ export class RESTfulAPIServiceClient {
   }
 
   async createResource(req: CreateResourceRequest, options?: RESTfulAPIServiceCallOptions): Promise<Resource> {
-    let path = "/api/v1/resources";
+    const path = "/api/v1/resources";
     const url = this.baseURL + path;
 
     const headers: Record<string, string> = {
@@ -220,7 +220,7 @@ export class RESTfulAPIServiceClient {
   }
 
   async defaultPostMethod(req: DefaultPostRequest, options?: RESTfulAPIServiceCallOptions): Promise<DefaultPostResponse> {
-    let path = "/api/v1/legacy/action";
+    const path = "/api/v1/legacy/action";
     const url = this.baseURL + path;
 
     const headers: Record<string, string> = {
@@ -245,7 +245,7 @@ export class RESTfulAPIServiceClient {
   }
 
   async searchResources(req: SearchResourcesRequest, options?: RESTfulAPIServiceCallOptions): Promise<ListResourcesResponse> {
-    let path = "/api/v1/resources/search";
+    const path = "/api/v1/resources/search";
     const params = new URLSearchParams();
     if (req.statusFilter != null && req.statusFilter !== "RESOURCE_STATUS_UNSPECIFIED") params.set("status", String(req.statusFilter));
     if (req.query != null && req.query !== "") params.set("q", String(req.query));
@@ -309,7 +309,7 @@ export class BackwardCompatServiceClient {
   }
 
   async legacyAction(req: LegacyRequest, options?: BackwardCompatServiceCallOptions): Promise<LegacyResponse> {
-    let path = "/legacyAction";
+    const path = "/legacyAction";
     const url = this.baseURL + path;
 
     const headers: Record<string, string> = {
