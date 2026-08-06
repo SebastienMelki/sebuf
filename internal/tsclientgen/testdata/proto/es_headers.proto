@@ -1,0 +1,57 @@
+// Fixture exercising protobuf-es standalone clients for a service that declares
+// typed headers: its {Service}RequestOptions must `extends RequestOptions` (the
+// shared base) and add only the typed header properties.
+syntax = "proto3";
+
+package test.esheaders;
+
+option go_package = "github.com/SebastienMelki/sebuf/internal/tsclientgen/testdata/generated;generated";
+
+import "sebuf/http/annotations.proto";
+import "sebuf/http/headers.proto";
+
+service TokenService {
+  option (sebuf.http.service_config) = {
+    base_path: "/api/v1"
+  };
+
+  // Service-level header: present on every RequestOptions for this service.
+  option (sebuf.http.service_headers) = {
+    required_headers: [
+      {
+        name: "X-API-Key"
+        description: "API key for authentication"
+        type: "string"
+        required: true
+        format: "uuid"
+      }
+    ]
+  };
+
+  // POST with a body plus a method-level header.
+  rpc Issue(IssueRequest) returns (Token) {
+    option (sebuf.http.config) = {
+      path: "/tokens"
+      method: HTTP_METHOD_POST
+    };
+    option (sebuf.http.method_headers) = {
+      required_headers: [
+        {
+          name: "X-Request-ID"
+          type: "string"
+          format: "uuid"
+          required: true
+        }
+      ]
+    };
+  }
+}
+
+message IssueRequest {
+  string subject = 1;
+}
+
+message Token {
+  string value = 1;
+  int64 expires_at = 2;
+}

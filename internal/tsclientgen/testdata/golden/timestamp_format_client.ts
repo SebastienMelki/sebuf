@@ -26,7 +26,7 @@ export class TimestampFormatServiceClient {
   }
 
   async createTimestampFormat(req: TimestampFormatTest, options?: TimestampFormatServiceCallOptions): Promise<TimestampFormatTest> {
-    let path = "/api/v1/timestamp-format";
+    const path = "/api/v1/timestamp-format";
     const url = this.baseURL + path;
 
     const headers: Record<string, string> = {
