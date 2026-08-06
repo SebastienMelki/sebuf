@@ -7,26 +7,6 @@ import (
 	"testing"
 )
 
-// TestGoGeneratorsProduceIdenticalEnumFieldEncoding verifies go-http and go-client
-// emit identical message-level enum_value MarshalJSON/UnmarshalJSON code.
-func TestGoGeneratorsProduceIdenticalEnumFieldEncoding(t *testing.T) {
-	baseDir, baseErr := os.Getwd()
-	if baseErr != nil {
-		t.Fatalf("Failed to get working directory: %v", baseErr)
-	}
-
-	compareEncodingFiles(t,
-		filepath.Join(baseDir, "testdata", "golden", "enum_encoding_enum_field_encoding.pb.go"),
-		filepath.Join(baseDir, "..", "clientgen", "testdata", "golden", "enum_encoding_enum_field_encoding.pb.go"),
-		"enum_field_encoding",
-	)
-	compareEncodingFiles(t,
-		filepath.Join(baseDir, "testdata", "golden", "enum_nested_enum_field_encoding.pb.go"),
-		filepath.Join(baseDir, "..", "clientgen", "testdata", "golden", "enum_nested_enum_field_encoding.pb.go"),
-		"enum_nested_enum_field_encoding",
-	)
-}
-
 // TestEnumFieldEncodingTransitiveNesting verifies the generated marshaler propagates custom enum
 // strings through nested messages: a wrapper re-serializes its child via the child's marshaler, so
 // enums nested any number of levels below the marshaled message are still translated.

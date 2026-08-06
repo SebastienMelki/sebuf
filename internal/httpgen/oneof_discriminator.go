@@ -326,7 +326,7 @@ func (g *Generator) generateOneofUnmarshalVariants(
 	gf.P(`if discRaw, ok := raw["`, info.Discriminator, `"]; ok {`)
 	gf.P("var disc string")
 	gf.P("if err := json.Unmarshal(discRaw, &disc); err != nil {")
-	gf.P(`return fmt.Errorf("invalid discriminator %q: %%w", "`, info.Discriminator, `", err)`)
+	gf.P(`return fmt.Errorf("invalid discriminator %q: %w", "`, info.Discriminator, `", err)`)
 	gf.P("}")
 	gf.P()
 
@@ -380,7 +380,7 @@ func (g *Generator) generateFlattenedUnmarshal(
 	gf.P("variantData, _ := json.Marshal(variantMap)")
 	gf.P("variant := &", msgType, "{}")
 	gf.P("if err := json.Unmarshal(variantData, variant); err != nil {")
-	gf.P(`return fmt.Errorf("failed to unmarshal variant %s: %%w", "`, fieldGoName, `", err)`)
+	gf.P(`return fmt.Errorf("failed to unmarshal variant %s: %w", "`, fieldGoName, `", err)`)
 	gf.P("}")
 	gf.P("x.", info.Oneof.GoName, " = &", wrapperType, "{", fieldGoName, ": variant}")
 
@@ -406,7 +406,7 @@ func (g *Generator) generateNestedUnmarshal(
 	gf.P(`if variantRaw, exists := raw["`, fieldJSONName, `"]; exists {`)
 	gf.P("variant := &", msgType, "{}")
 	gf.P("if err := json.Unmarshal(variantRaw, variant); err != nil {")
-	gf.P(`return fmt.Errorf("failed to unmarshal variant %s: %%w", "`, fieldGoName, `", err)`)
+	gf.P(`return fmt.Errorf("failed to unmarshal variant %s: %w", "`, fieldGoName, `", err)`)
 	gf.P("}")
 	gf.P("x.", info.Oneof.GoName, " = &", wrapperType, "{", fieldGoName, ": variant}")
 	gf.P("}")

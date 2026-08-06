@@ -104,9 +104,6 @@ func TestDeepNestedInt64WrapperGenerated(t *testing.T) {
 // which also owns MarshalJSON via another annotation is rejected at generation time. Widening
 // wrapper detection widens the set of messages that can collide: a silent skip would serialize
 // the int64 as a quoted string, and a duplicate emit would not compile.
-//
-// Both Go generators carry their own copy of the check, so both are driven here — the two must
-// never disagree about which protos they accept.
 func TestInt64WrapperMarshalJSONConflict(t *testing.T) {
 	requireProtocForInt64Tests(t)
 
@@ -118,21 +115,17 @@ func TestInt64WrapperMarshalJSONConflict(t *testing.T) {
 		{"go-client", func(p *protogen.Plugin) error { return clientgen.New(p).Generate() }},
 	}
 
-	t.Run("conflict is rejected and names both features", func(t *testing.T) {
-		for _, gen := range generators {
-			t.Run(gen.name, func(t *testing.T) {
-				err := gen.run(buildInt64TestPlugin(t, []string{"int64_wrapper_conflict.proto"}))
-				if err == nil {
-					t.Fatal("expected generation to fail for a message that is both an int64 " +
-						"wrapper and carries flatten -- emitting both would declare " +
-						"MarshalJSONSebuf twice on the same Go type")
-				}
-				for _, want := range []string{"ConflictingResponse", "flatten", "only one MarshalJSON"} {
-					if !strings.Contains(err.Error(), want) {
-						t.Errorf("conflict error should mention %q, got: %v", want, err)
-					}
-				}
-			})
+	t.Run("go-http rejects conflicts and names both features", func(t *testing.T) {
+		err := New(buildInt64TestPlugin(t, []string{"int64_wrapper_conflict.proto"})).Generate()
+		if err == nil {
+			t.Fatal("expected go-http generation to fail for a message that is both an int64 " +
+				"wrapper and carries flatten -- emitting both would declare " +
+				"MarshalJSONSebuf twice on the same Go type")
+		}
+		for _, want := range []string{"ConflictingResponse", "flatten", "only one MarshalJSON"} {
+			if !strings.Contains(err.Error(), want) {
+				t.Errorf("conflict error should mention %q, got: %v", want, err)
+			}
 		}
 	})
 

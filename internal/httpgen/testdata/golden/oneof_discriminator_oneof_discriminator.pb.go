@@ -104,7 +104,7 @@ func (x *FlattenedEvent) UnmarshalJSON(data []byte) error {
 	if discRaw, ok := raw["type"]; ok {
 		var disc string
 		if err := json.Unmarshal(discRaw, &disc); err != nil {
-			return fmt.Errorf("invalid discriminator %q: %%w", "type", err)
+			return fmt.Errorf("invalid discriminator %q: %w", "type", err)
 		}
 
 		switch disc {
@@ -118,7 +118,7 @@ func (x *FlattenedEvent) UnmarshalJSON(data []byte) error {
 			variantData, _ := json.Marshal(variantMap)
 			variant := &TextContent{}
 			if err := json.Unmarshal(variantData, variant); err != nil {
-				return fmt.Errorf("failed to unmarshal variant %s: %%w", "Text", err)
+				return fmt.Errorf("failed to unmarshal variant %s: %w", "Text", err)
 			}
 			x.Content = &FlattenedEvent_Text{Text: variant}
 			raw["text"], _ = json.Marshal(variant)
@@ -140,7 +140,7 @@ func (x *FlattenedEvent) UnmarshalJSON(data []byte) error {
 			variantData, _ := json.Marshal(variantMap)
 			variant := &ImageContent{}
 			if err := json.Unmarshal(variantData, variant); err != nil {
-				return fmt.Errorf("failed to unmarshal variant %s: %%w", "Image", err)
+				return fmt.Errorf("failed to unmarshal variant %s: %w", "Image", err)
 			}
 			x.Content = &FlattenedEvent_Image{Image: variant}
 			raw["image"], _ = json.Marshal(variant)
@@ -211,7 +211,7 @@ func (x *NestedEvent) UnmarshalJSON(data []byte) error {
 	if discRaw, ok := raw["kind"]; ok {
 		var disc string
 		if err := json.Unmarshal(discRaw, &disc); err != nil {
-			return fmt.Errorf("invalid discriminator %q: %%w", "kind", err)
+			return fmt.Errorf("invalid discriminator %q: %w", "kind", err)
 		}
 
 		switch disc {
@@ -220,7 +220,7 @@ func (x *NestedEvent) UnmarshalJSON(data []byte) error {
 			if variantRaw, exists := raw["text"]; exists {
 				variant := &TextContent{}
 				if err := json.Unmarshal(variantRaw, variant); err != nil {
-					return fmt.Errorf("failed to unmarshal variant %s: %%w", "Text", err)
+					return fmt.Errorf("failed to unmarshal variant %s: %w", "Text", err)
 				}
 				x.Content = &NestedEvent_Text{Text: variant}
 			}
@@ -229,7 +229,7 @@ func (x *NestedEvent) UnmarshalJSON(data []byte) error {
 			if variantRaw, exists := raw["image"]; exists {
 				variant := &ImageContent{}
 				if err := json.Unmarshal(variantRaw, variant); err != nil {
-					return fmt.Errorf("failed to unmarshal variant %s: %%w", "Image", err)
+					return fmt.Errorf("failed to unmarshal variant %s: %w", "Image", err)
 				}
 				x.Content = &NestedEvent_Image{Image: variant}
 			}
@@ -238,7 +238,7 @@ func (x *NestedEvent) UnmarshalJSON(data []byte) error {
 			if variantRaw, exists := raw["video"]; exists {
 				variant := &VideoContent{}
 				if err := json.Unmarshal(variantRaw, variant); err != nil {
-					return fmt.Errorf("failed to unmarshal variant %s: %%w", "Video", err)
+					return fmt.Errorf("failed to unmarshal variant %s: %w", "Video", err)
 				}
 				x.Content = &NestedEvent_Video{Video: variant}
 			}

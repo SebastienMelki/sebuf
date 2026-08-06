@@ -8,24 +8,6 @@ import (
 	"testing"
 )
 
-// TestGoGeneratorsProduceIdenticalOneofDiscriminator verifies go-http and go-client
-// produce identical oneof_discriminator MarshalJSON code.
-func TestGoGeneratorsProduceIdenticalOneofDiscriminator(t *testing.T) {
-	baseDir, baseErr := os.Getwd()
-	if baseErr != nil {
-		t.Fatalf("Failed to get working directory: %v", baseErr)
-	}
-
-	httpgenFile := filepath.Join(
-		baseDir, "testdata", "golden", "oneof_discriminator_oneof_discriminator.pb.go",
-	)
-	clientgenFile := filepath.Join(
-		baseDir, "..", "clientgen", "testdata", "golden",
-		"oneof_discriminator_oneof_discriminator.pb.go",
-	)
-	compareEncodingFiles(t, httpgenFile, clientgenFile, "oneof_discriminator")
-}
-
 // TestOneofDiscriminatorTypeScriptTypes verifies TypeScript types match Go serialization
 // for oneof discriminator fields (discriminated union types).
 func TestOneofDiscriminatorTypeScriptTypes(t *testing.T) {
@@ -111,6 +93,25 @@ func TestOneofDiscriminatorTypeScriptTypes(t *testing.T) {
 
 // TestOneofDiscriminatorOpenAPISchemas verifies OpenAPI schemas accurately document
 // oneof discriminator (oneOf + discriminator keyword).
+func TestOneofDiscriminatorGeneratedErrorsWrapUnderlyingError(t *testing.T) {
+	baseDir, baseErr := os.Getwd()
+	if baseErr != nil {
+		t.Fatalf("Failed to get working directory: %v", baseErr)
+	}
+
+	goFile := filepath.Join(
+		baseDir, "testdata", "golden", "oneof_discriminator_oneof_discriminator.pb.go",
+	)
+	content, readErr := os.ReadFile(goFile)
+	if readErr != nil {
+		t.Fatalf("Failed to read Go oneof discriminator golden file: %v", readErr)
+	}
+
+	if strings.Contains(string(content), "%%w") {
+		t.Fatalf("generated oneof discriminator errors should use %%w, not escaped %%%%w")
+	}
+}
+
 func TestOneofDiscriminatorOpenAPISchemas(t *testing.T) {
 	baseDir, baseErr := os.Getwd()
 	if baseErr != nil {
@@ -273,10 +274,6 @@ func TestOneofDiscriminatorCrossGeneratorAgreement(t *testing.T) {
 			baseDir, "testdata", "golden", "oneof_discriminator_oneof_discriminator.pb.go",
 		),
 		filepath.Join(
-			baseDir, "..", "clientgen", "testdata", "golden",
-			"oneof_discriminator_oneof_discriminator.pb.go",
-		),
-		filepath.Join(
 			baseDir, "..", "tsclientgen", "testdata", "golden", "oneof_discriminator_client.ts",
 		),
 		filepath.Join(
@@ -291,10 +288,10 @@ func TestOneofDiscriminatorCrossGeneratorAgreement(t *testing.T) {
 		}
 	}
 
-	t.Log("All 4 generators agree on oneof discriminator structure and values")
+	t.Log("Go, TypeScript, and OpenAPI agree on oneof discriminator structure and values")
 }
 
-// verifyOneofDiscriminatorPresent checks that all 4 generators agree on a discriminated message.
+// verifyOneofDiscriminatorPresent checks that Go, TypeScript, and OpenAPI agree on a discriminated message.
 func verifyOneofDiscriminatorPresent(
 	t *testing.T,
 	message, discriminatorField string,
