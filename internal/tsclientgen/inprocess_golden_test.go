@@ -37,7 +37,7 @@ func TestTSClientGenInProcess(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			plugin := buildInProcessPlugin(t, protoDir, projectRoot, tc.protoFiles)
 
-			gen := New(plugin, tscommon.MessageRuntimeHandRolled)
+			gen := New(plugin, tscommon.MessageRuntimeHandRolled, tscommon.ErrorHandlingThrow)
 			if genErr := gen.Generate(); genErr != nil {
 				t.Fatalf("Generate() failed: %v", genErr)
 			}
@@ -64,7 +64,7 @@ func TestTSClientGenESRejectsEnumParams(t *testing.T) {
 	protoDir := filepath.Join(baseDir, "testdata", "proto")
 
 	plugin := buildInProcessPlugin(t, protoDir, projectRoot, []string{"query_params.proto"})
-	genErr := New(plugin, tscommon.MessageRuntimeES).Generate()
+	genErr := New(plugin, tscommon.MessageRuntimeES, tscommon.ErrorHandlingThrow).Generate()
 	if genErr == nil {
 		t.Fatal("expected Generate() to fail for enum path/query param in es mode, but it succeeded")
 	}
@@ -111,7 +111,7 @@ func TestTSClientGenESRejectsAnnotatedMessages(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.protoFile, func(t *testing.T) {
 			plugin := buildInProcessPlugin(t, protoDir, projectRoot, []string{tc.protoFile})
-			genErr := New(plugin, tscommon.MessageRuntimeES).Generate()
+			genErr := New(plugin, tscommon.MessageRuntimeES, tscommon.ErrorHandlingThrow).Generate()
 			if genErr == nil {
 				t.Fatalf("expected Generate() to fail for %s in es mode, but it succeeded", tc.protoFile)
 			}
@@ -143,7 +143,7 @@ func TestTSClientGenInProcessReservedName(t *testing.T) {
 	protoDir := filepath.Join(baseDir, "testdata", "proto")
 
 	plugin := buildInProcessPlugin(t, protoDir, projectRoot, []string{"reserved_name.proto"})
-	if genErr := New(plugin, tscommon.MessageRuntimeHandRolled).Generate(); genErr != nil {
+	if genErr := New(plugin, tscommon.MessageRuntimeHandRolled, tscommon.ErrorHandlingThrow).Generate(); genErr != nil {
 		t.Fatalf("Generate() failed: %v", genErr)
 	}
 
@@ -228,7 +228,7 @@ func TestTSClientGenInProcessRequiresSourceRelative(t *testing.T) {
 	protoDir := filepath.Join(baseDir, "testdata", "proto")
 
 	plugin := buildInProcessPluginParams(t, protoDir, projectRoot, []string{"query_params.proto"}, "")
-	genErr := New(plugin, tscommon.MessageRuntimeHandRolled).Generate()
+	genErr := New(plugin, tscommon.MessageRuntimeHandRolled, tscommon.ErrorHandlingThrow).Generate()
 	if genErr == nil {
 		t.Fatal("expected Generate() to fail under default path mode, but it succeeded")
 	}

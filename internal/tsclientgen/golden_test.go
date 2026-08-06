@@ -284,6 +284,127 @@ func TestTSClientGenESGoldenFiles(t *testing.T) {
 	}
 }
 
+// TestTSClientGenESResultGoldenFiles drives protoc-gen-es + the sebuf ts-client
+// in protobuf-es mode WITH ts_error_handling=result, comparing every emitted .ts
+// against testdata/golden/es-result/. This locks down the Result return shape,
+// the shared result.ts (Result type, ClientError union, decodeError), and the
+// error registry — including the empty-registry (no proto *Error) case.
+//
+// To update golden files (protoc-gen-es must be on PATH):
+//
+//	UPDATE_GOLDEN=1 go test -run TestTSClientGenESResultGoldenFiles
+func TestTSClientGenESResultGoldenFiles(t *testing.T) {
+	if _, err := exec.LookPath("protoc"); err != nil {
+		t.Skip("protoc not found, skipping golden file tests")
+	}
+	esPluginPath, esErr := exec.LookPath("protoc-gen-es")
+	if esErr != nil {
+		t.Skip("protoc-gen-es not found, skipping protobuf-es golden file tests")
+	}
+
+	baseDir, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("Failed to get working directory: %v", err)
+	}
+
+	projectRoot := filepath.Join(baseDir, "..", "..")
+	protoDir := filepath.Join(baseDir, "testdata", "proto")
+
+	pluginPath := filepath.Join(projectRoot, "bin", "protoc-gen-ts-client")
+	if _, buildStatErr := os.Stat(pluginPath); os.IsNotExist(buildStatErr) {
+		buildCmd := exec.Command("make", "build")
+		buildCmd.Dir = projectRoot
+		if buildErr := buildCmd.Run(); buildErr != nil {
+			t.Fatalf("Failed to build plugin: %v", buildErr)
+		}
+	}
+
+	updateGolden := os.Getenv("UPDATE_GOLDEN") == "1"
+
+	// Each fixture gets its own golden subdirectory: result.ts is
+	// invocation-global (its ClientError union + registry depend on the whole
+	// proto set), so distinct single-proto invocations would otherwise clobber a
+	// shared result.ts. The typecheck test compiles the whole es-result tree.
+	testCases := []struct {
+		name      string
+		dir       string
+		protoFile string
+	}{
+		// Service with proto *Error messages: exercises the typed ClientError
+		// union + non-empty structural registry.
+		{name: "typed errors", dir: "typed-errors", protoFile: "result_errors.proto"},
+		// Service with NO proto *Error: ClientError is ValidationError | ApiError
+		// and the registry is empty (still must compile).
+		{name: "no proto errors", dir: "no-errors", protoFile: "get_params.proto"},
+		// Mixed unary + SSE: the unary method returns a Result; the SSE method
+		// keeps its AsyncGenerator shape and still throws via handleError (which
+		// must therefore still be emitted).
+		{name: "unary + SSE", dir: "sse", protoFile: "sse.proto"},
+	}
+
+	protoPaths := []string{"--proto_path=" + protoDir, "--proto_path=" + filepath.Join(projectRoot, "proto")}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			if _, statErr := os.Stat(filepath.Join(protoDir, tc.protoFile)); os.IsNotExist(statErr) {
+				t.Fatalf("Proto file not found: %s", tc.protoFile)
+			}
+
+			goldenDir := filepath.Join(baseDir, "testdata", "golden", "es-result", tc.dir)
+			if mkdirErr := os.MkdirAll(goldenDir, 0o755); mkdirErr != nil {
+				t.Fatalf("Failed to create golden directory: %v", mkdirErr)
+			}
+
+			outDir := t.TempDir()
+
+			// Pass 1: protoc-gen-es emits <proto>_pb.ts (imported by the client).
+			esArgs := []string{
+				"--plugin=protoc-gen-es=" + esPluginPath,
+				"--es_out=" + outDir,
+				"--es_opt=target=ts,import_extension=js",
+			}
+			esArgs = append(esArgs, protoPaths...)
+			esArgs = append(esArgs, tc.protoFile)
+			esCmd := exec.Command("protoc", esArgs...)
+			esCmd.Dir = protoDir
+			var esStderr bytes.Buffer
+			esCmd.Stderr = &esStderr
+			if runErr := esCmd.Run(); runErr != nil {
+				t.Fatalf("protoc (protoc-gen-es) failed: %v\nstderr: %s", runErr, esStderr.String())
+			}
+
+			// Pass 2: sebuf ts-client in es + Result mode.
+			clientArgs := []string{
+				"--plugin=protoc-gen-ts-client=" + pluginPath,
+				"--ts-client_out=" + outDir,
+				"--ts-client_opt=paths=source_relative,ts_runtime=protobuf-es,ts_error_handling=result",
+			}
+			clientArgs = append(clientArgs, protoPaths...)
+			clientArgs = append(clientArgs, tc.protoFile)
+			clientCmd := exec.Command("protoc", clientArgs...)
+			clientCmd.Dir = protoDir
+			var clientStderr bytes.Buffer
+			clientCmd.Stderr = &clientStderr
+			if runErr := clientCmd.Run(); runErr != nil {
+				t.Fatalf("protoc (ts-client) failed: %v\nstderr: %s", runErr, clientStderr.String())
+			}
+
+			for _, rel := range generatedTSFiles(t, outDir) {
+				generatedContent, readErr := os.ReadFile(filepath.Join(outDir, rel))
+				if readErr != nil {
+					t.Fatalf("Failed to read generated file %s: %v", rel, readErr)
+				}
+				goldenPath := filepath.Join(goldenDir, rel)
+				if updateGolden {
+					updateGoldenFile(t, goldenPath, generatedContent)
+					continue
+				}
+				compareGoldenFile(t, rel, goldenPath, generatedContent)
+			}
+		})
+	}
+}
+
 // generatedTSFiles returns the relative paths of every .ts file under dir, sorted.
 func generatedTSFiles(t *testing.T, dir string) []string {
 	t.Helper()

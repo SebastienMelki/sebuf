@@ -35,7 +35,7 @@ func allGenerators() []generatorCase {
 		{"go-client", func(p *protogen.Plugin) error { return clientgen.New(p).Generate() }},
 		{"py-client", func(p *protogen.Plugin) error { return pyclientgen.New(p).Generate() }},
 		{"ts-client", func(p *protogen.Plugin) error {
-			return tsclientgen.New(p, tscommon.MessageRuntimeHandRolled).Generate()
+			return tsclientgen.New(p, tscommon.MessageRuntimeHandRolled, tscommon.ErrorHandlingThrow).Generate()
 		}},
 		{"ts-server", func(p *protogen.Plugin) error {
 			return tsservergen.New(p, tscommon.MessageRuntimeHandRolled).Generate()
