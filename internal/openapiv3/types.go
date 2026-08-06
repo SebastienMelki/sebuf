@@ -22,6 +22,7 @@ const (
 	headerTypeUint64  = "uint64"
 	headerTypeInteger = "integer"
 	headerTypeNumber  = "number"
+	headerTypeBoolean = "boolean"
 	headerTypeFloat   = "float"
 	headerTypeDouble  = "double"
 	formatByte        = "byte"
@@ -227,18 +228,12 @@ func (g *Generator) convertScalarField(field *protogen.Field) *base.SchemaProxy 
 	// Add field examples if available
 	if examples := annotations.GetFieldExamples(field); len(examples) > 0 {
 		// Set the first example as the default example
-		schema.Example = &yaml.Node{
-			Kind:  yaml.ScalarNode,
-			Value: examples[0],
-		}
+		schema.Example = newExampleNodeForSchema(schema, examples[0])
 
 		// Add all examples using OpenAPI 3.1 examples array format
 		schema.Examples = make([]*yaml.Node, len(examples))
 		for i, example := range examples {
-			schema.Examples[i] = &yaml.Node{
-				Kind:  yaml.ScalarNode,
-				Value: example,
-			}
+			schema.Examples[i] = newExampleNodeForSchema(schema, example)
 		}
 	}
 
@@ -400,10 +395,7 @@ func convertHeadersToParameters(headers []*http.Header) []*v3.Parameter {
 
 		// Add example if specified
 		if header.GetExample() != "" {
-			schema.Example = &yaml.Node{
-				Kind:  yaml.ScalarNode,
-				Value: header.GetExample(),
-			}
+			schema.Example = newExampleNodeForSchema(schema, header.GetExample())
 		}
 
 		// Create the parameter
@@ -435,14 +427,46 @@ func mapHeaderTypeToOpenAPI(headerType string) string {
 		return headerTypeInteger
 	case headerTypeNumber, headerTypeFloat, headerTypeDouble:
 		return headerTypeNumber
-	case "boolean", "bool":
-		return "boolean"
+	case headerTypeBoolean, "bool":
+		return headerTypeBoolean
 	case "array":
 		return "array"
 	default:
 		// Default to string for unknown types
 		return headerTypeString
 	}
+}
+
+// newExampleNodeForSchema creates a YAML scalar node tagged to match the OpenAPI schema type.
+// Tagging string examples prevents YAML implicit resolution from changing numeric- or
+// timestamp-looking strings into numbers or timestamps in generated OpenAPI specs.
+func newExampleNodeForSchema(schema *base.Schema, value string) *yaml.Node {
+	return &yaml.Node{
+		Kind:  yaml.ScalarNode,
+		Tag:   yamlTagForSchema(schema),
+		Value: value,
+	}
+}
+
+func yamlTagForSchema(schema *base.Schema) string {
+	if schema == nil {
+		return "!!str"
+	}
+
+	for _, schemaType := range schema.Type {
+		switch schemaType {
+		case headerTypeInteger:
+			return "!!int"
+		case headerTypeNumber:
+			return "!!float"
+		case headerTypeBoolean:
+			return "!!bool"
+		case headerTypeString:
+			return "!!str"
+		}
+	}
+
+	return "!!str"
 }
 
 // convertTimestampField creates an OpenAPI schema for a google.protobuf.Timestamp field
@@ -518,16 +542,10 @@ func (g *Generator) convertWrapperField(field *protogen.Field, schema *base.Sche
 
 	// Add field examples if available
 	if examples := annotations.GetFieldExamples(field); len(examples) > 0 {
-		schema.Example = &yaml.Node{
-			Kind:  yaml.ScalarNode,
-			Value: examples[0],
-		}
+		schema.Example = newExampleNodeForSchema(schema, examples[0])
 		schema.Examples = make([]*yaml.Node, len(examples))
 		for i, example := range examples {
-			schema.Examples[i] = &yaml.Node{
-				Kind:  yaml.ScalarNode,
-				Value: example,
-			}
+			schema.Examples[i] = newExampleNodeForSchema(schema, example)
 		}
 	}
 

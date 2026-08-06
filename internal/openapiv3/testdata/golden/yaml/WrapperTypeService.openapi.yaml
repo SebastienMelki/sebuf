@@ -206,6 +206,11 @@ components:
             properties:
                 id:
                     type: string
+                    examples:
+                        - "50000.00"
+                        - "2024-01-01T00:00:00Z"
+                        - ACTIVE
+                    example: "50000.00"
             description: WrapperRequest is a simple request.
         WrapperFieldsMessage:
             type: object
@@ -251,9 +256,10 @@ components:
                         - string
                         - "null"
                     examples:
-                        - hello
-                        - world
-                    example: hello
+                        - "50000.00"
+                        - "2024-01-01T00:00:00Z"
+                        - ACTIVE
+                    example: "50000.00"
                 bytesVal:
                     type:
                         - string

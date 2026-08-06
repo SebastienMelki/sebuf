@@ -642,7 +642,6 @@ func (g *Generator) generateURLBuilding(p printer, cfg *rpcMethodConfig) {
 	}
 
 	// Query parameters
-	//nolint:nestif // Query param generation requires multiple nested conditions
 	if (cfg.httpMethod == "GET" || cfg.httpMethod == "DELETE") && len(cfg.queryParams) > 0 {
 		p("    const params = new URLSearchParams();")
 		for _, qp := range cfg.queryParams {

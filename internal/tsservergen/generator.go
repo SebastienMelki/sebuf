@@ -631,7 +631,8 @@ func (g *Generator) emitPathParamAssignment(
 	prefix string,
 	suffix string,
 ) {
-	if ppf.field != nil && ppf.field.Desc.Kind() == protoreflect.EnumKind && ppf.field.Enum != nil {
+	switch {
+	case ppf.field != nil && ppf.field.Desc.Kind() == protoreflect.EnumKind && ppf.field.Enum != nil:
 		// Hand-rolled mode only: enums are string unions here, so the cast is
 		// sound. protobuf-es mode rejects enum path params before emission (see
 		// checkNoEnumParamsES).
@@ -640,12 +641,12 @@ func (g *Generator) emitPathParamAssignment(
 			"%s%s: pathParams[\"%s\"] as %s%s",
 			prefix, ppf.jsonName, ppf.protoName, enumName, suffix,
 		)
-	} else if g.ctx.MessageRuntime == tscommon.MessageRuntimeES {
+	case g.ctx.MessageRuntime == tscommon.MessageRuntimeES:
 		// protobuf-es MessageInitShape is strongly typed, so a raw string path
 		// param won't assign to a numeric/bool field. Coerce to the field's type.
 		raw := fmt.Sprintf("pathParams[%q]", ppf.protoName)
 		p("%s%s: %s%s", prefix, ppf.jsonName, esPathParamInitExpr(ppf.field, raw), suffix)
-	} else {
+	default:
 		p("%s%s: pathParams[\"%s\"]%s", prefix, ppf.jsonName, ppf.protoName, suffix)
 	}
 }
@@ -737,7 +738,8 @@ func (g *Generator) generatePathParamMerge(p tscommon.Printer, cfg *rpcRouteConf
 		return
 	}
 	for _, ppf := range cfg.pathParamFields {
-		if ppf.field != nil && ppf.field.Desc.Kind() == protoreflect.EnumKind && ppf.field.Enum != nil {
+		switch {
+		case ppf.field != nil && ppf.field.Desc.Kind() == protoreflect.EnumKind && ppf.field.Enum != nil:
 			// Hand-rolled mode only: protobuf-es mode rejects enum path params
 			// before emission (see checkNoEnumParamsES).
 			enumName := g.ctx.RefEnum(ppf.field.Enum)
@@ -745,12 +747,12 @@ func (g *Generator) generatePathParamMerge(p tscommon.Printer, cfg *rpcRouteConf
 				"          body.%s = pathParams[\"%s\"] as %s;",
 				ppf.jsonName, ppf.protoName, enumName,
 			)
-		} else if g.ctx.MessageRuntime == tscommon.MessageRuntimeES {
+		case g.ctx.MessageRuntime == tscommon.MessageRuntimeES:
 			// body is a branded protobuf-es message (from fromJson); its numeric/
 			// bool fields won't accept a raw string, so coerce to the field's type.
 			raw := fmt.Sprintf("pathParams[%q]", ppf.protoName)
 			p("          body.%s = %s;", ppf.jsonName, esPathParamInitExpr(ppf.field, raw))
-		} else {
+		default:
 			p("          body.%s = pathParams[\"%s\"];", ppf.jsonName, ppf.protoName)
 		}
 	}

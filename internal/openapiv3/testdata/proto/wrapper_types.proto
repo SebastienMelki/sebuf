@@ -17,7 +17,7 @@ message WrapperFieldsMessage {
   google.protobuf.Int32Value int32_val = 5;
   google.protobuf.UInt32Value uint32_val = 6;
   google.protobuf.BoolValue bool_val = 7;
-  google.protobuf.StringValue string_val = 8 [(sebuf.http.field_examples) = { values: ["hello", "world"] }];
+  google.protobuf.StringValue string_val = 8 [(sebuf.http.field_examples) = { values: ["50000.00", "2024-01-01T00:00:00Z", "ACTIVE"] }];
   google.protobuf.BytesValue bytes_val = 9;
 }
 
@@ -37,7 +37,7 @@ message MapWrapperMessage {
 
 // WrapperRequest is a simple request.
 message WrapperRequest {
-  string id = 1;
+  string id = 1 [(sebuf.http.field_examples) = { values: ["50000.00", "2024-01-01T00:00:00Z", "ACTIVE"] }];
 }
 
 // WrapperTypeService tests wrapper types in various positions.

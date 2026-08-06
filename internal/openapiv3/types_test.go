@@ -1,7 +1,11 @@
 package openapiv3
 
 import (
+	"strings"
 	"testing"
+
+	"github.com/pb33f/libopenapi/datamodel/high/base"
+	yaml "go.yaml.in/yaml/v4"
 )
 
 func TestMapHeaderTypeToOpenAPI(t *testing.T) {
@@ -49,6 +53,100 @@ func TestMapHeaderTypeToOpenAPI(t *testing.T) {
 			result := mapHeaderTypeToOpenAPI(tt.headerType)
 			if result != tt.expected {
 				t.Errorf("mapHeaderTypeToOpenAPI(%q) = %q, expected %q", tt.headerType, result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestNewExampleNodeForSchemaTagsStringExamples(t *testing.T) {
+	schema := &base.Schema{Type: []string{"string"}}
+
+	tests := []struct {
+		name          string
+		example       string
+		wantMarshaled string
+	}{
+		{
+			name:          "numeric-looking string remains a YAML string",
+			example:       "50000.00",
+			wantMarshaled: "\"50000.00\"",
+		},
+		{
+			name:          "timestamp-looking string remains a YAML string",
+			example:       "2024-01-01T00:00:00Z",
+			wantMarshaled: "\"2024-01-01T00:00:00Z\"",
+		},
+		{
+			name:          "unambiguous string is not over-quoted",
+			example:       "ACTIVE",
+			wantMarshaled: "ACTIVE",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			node := newExampleNodeForSchema(schema, tt.example)
+			if node.Tag != "!!str" {
+				t.Fatalf("node.Tag = %q, want %q", node.Tag, "!!str")
+			}
+
+			marshaled, err := yaml.Marshal(node)
+			if err != nil {
+				t.Fatalf("yaml.Marshal returned error: %v", err)
+			}
+			got := strings.TrimSpace(string(marshaled))
+			if got != tt.wantMarshaled {
+				t.Fatalf("marshaled example = %q, want %q", got, tt.wantMarshaled)
+			}
+		})
+	}
+}
+
+func TestNewExampleNodeForSchemaTagsNativeScalarExamples(t *testing.T) {
+	tests := []struct {
+		name     string
+		schema   *base.Schema
+		example  string
+		wantTag  string
+		wantYAML string
+	}{
+		{
+			name:     "integer example remains numeric",
+			schema:   &base.Schema{Type: []string{"integer"}},
+			example:  "42",
+			wantTag:  "!!int",
+			wantYAML: "42",
+		},
+		{
+			name:     "number example remains numeric",
+			schema:   &base.Schema{Type: []string{"number"}},
+			example:  "42.50",
+			wantTag:  "!!float",
+			wantYAML: "42.50",
+		},
+		{
+			name:     "boolean example remains boolean",
+			schema:   &base.Schema{Type: []string{"boolean"}},
+			example:  "true",
+			wantTag:  "!!bool",
+			wantYAML: "true",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			node := newExampleNodeForSchema(tt.schema, tt.example)
+			if node.Tag != tt.wantTag {
+				t.Fatalf("node.Tag = %q, want %q", node.Tag, tt.wantTag)
+			}
+
+			marshaled, err := yaml.Marshal(node)
+			if err != nil {
+				t.Fatalf("yaml.Marshal returned error: %v", err)
+			}
+			got := strings.TrimSpace(string(marshaled))
+			if got != tt.wantYAML {
+				t.Fatalf("marshaled example = %q, want %q", got, tt.wantYAML)
 			}
 		})
 	}
