@@ -1,0 +1,33 @@
+syntax = "proto3";
+
+package test.contracts.v1;
+
+option go_package = "github.com/SebastienMelki/sebuf/internal/testcontracts;testcontracts";
+
+import "google/protobuf/struct.proto";
+
+message Item {
+  string id = 1;
+  repeated string tags = 2;
+  google.protobuf.Struct meta = 3;
+  State state = 4;
+  Details details = 5;
+
+  enum State {
+    STATE_UNSPECIFIED = 0;
+    STATE_READY = 1;
+  }
+
+  message Details {
+    string note = 1;
+    repeated int32 scores = 2;
+  }
+}
+
+message FetchItemRequest {
+  string id = 1;
+}
+
+service ContractService {
+  rpc FetchItem(FetchItemRequest) returns (Item);
+}

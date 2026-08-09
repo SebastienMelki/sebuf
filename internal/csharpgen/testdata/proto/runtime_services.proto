@@ -1,0 +1,63 @@
+syntax = "proto3";
+
+package test.contracts.v1;
+
+option go_package = "github.com/SebastienMelki/sebuf/internal/testcontracts;testcontracts";
+
+import "sebuf/http/annotations.proto";
+import "sebuf/http/headers.proto";
+import "comprehensive_models.proto";
+
+message RuntimeWidgetRequest {
+  string id = 1;
+  string owner_id = 2 [(sebuf.http.query) = { name: "owner" }];
+  Widget widget = 3;
+}
+
+message RuntimeSearchRequest {
+  string owner_id = 1 [(sebuf.http.query) = { name: "owner" }];
+  repeated string tag_ids = 2 [(sebuf.http.query) = { name: "tag" }];
+}
+
+// RuntimeService exists only for generated-client execution tests. It exposes
+// representative request shapes without adding test-only methods to the golden
+// contract fixture.
+service RuntimeService {
+  option (sebuf.http.service_config) = {
+    base_path: "/runtime/v1"
+  };
+  option (sebuf.http.service_headers) = {
+    required_headers: [{ name: "X-Service" type: "string" required: true }]
+  };
+
+  rpc EchoWidget(RuntimeWidgetRequest) returns (Widget) {
+    option (sebuf.http.config) = {
+      method: HTTP_METHOD_PATCH
+      path: "/widgets/{id}"
+    };
+    option (sebuf.http.method_headers) = {
+      required_headers: [{ name: "X-Request-ID" type: "string" required: true }]
+    };
+  }
+
+  rpc SearchWidgets(RuntimeSearchRequest) returns (Widget) {
+    option (sebuf.http.config) = {
+      method: HTTP_METHOD_GET
+      path: "/widgets"
+    };
+  }
+
+  rpc EchoShape(ShapeEnvelope) returns (ShapeEnvelope) {
+    option (sebuf.http.config) = {
+      method: HTTP_METHOD_POST
+      path: "/shapes"
+    };
+  }
+
+  rpc EchoTags(TagList) returns (TagList) {
+    option (sebuf.http.config) = {
+      method: HTTP_METHOD_PUT
+      path: "/tags"
+    };
+  }
+}

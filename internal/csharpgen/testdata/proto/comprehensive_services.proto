@@ -1,0 +1,51 @@
+syntax = "proto3";
+
+package test.contracts.v1;
+
+option go_package = "github.com/SebastienMelki/sebuf/internal/testcontracts;testcontracts";
+
+import "google/protobuf/empty.proto";
+import "sebuf/http/annotations.proto";
+import "comprehensive_models.proto";
+
+message GetWidgetRequest {
+  string id = 1;
+}
+
+message SearchWidgetsRequest {
+  string owner_id = 1 [(sebuf.http.query) = { name: "owner" }];
+  repeated string tag_ids = 2 [(sebuf.http.query) = { name: "tag_id" }];
+}
+
+service WidgetService {
+  option (sebuf.http.service_config) = {
+    base_path: "/api/v1"
+  };
+
+  rpc GetWidget(GetWidgetRequest) returns (Widget) {
+    option (sebuf.http.config) = {
+      method: HTTP_METHOD_GET
+      path: "/widgets/{id}"
+    };
+  }
+
+  rpc SearchWidgets(SearchWidgetsRequest) returns (Widget) {
+    option (sebuf.http.config) = {
+      method: HTTP_METHOD_GET
+      path: "/widgets"
+    };
+  }
+}
+
+service AdminService {
+  option (sebuf.http.service_config) = {
+    base_path: "/api/v1/admin"
+  };
+
+  rpc ResetWidget(GetWidgetRequest) returns (google.protobuf.Empty) {
+    option (sebuf.http.config) = {
+      method: HTTP_METHOD_POST
+      path: "/widgets/{id}:reset"
+    };
+  }
+}

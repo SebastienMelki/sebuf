@@ -1,0 +1,62 @@
+syntax = "proto3";
+
+package demo.contracts.v1;
+
+option go_package = "github.com/SebastienMelki/sebuf/examples/csharp-contracts-demo/gen/go;contracts";
+
+import "google/protobuf/empty.proto";
+import "google/protobuf/timestamp.proto";
+import "sebuf/http/annotations.proto";
+
+message Product {
+  string id = 1;
+  optional string display_name = 2 [(sebuf.http.nullable) = true];
+  Metadata metadata = 3 [(sebuf.http.flatten) = true, (sebuf.http.flatten_prefix) = "meta_"];
+  google.protobuf.Timestamp updated_at = 4 [(sebuf.http.timestamp_format) = TIMESTAMP_FORMAT_UNIX_MILLIS];
+
+  message Metadata {
+    string owner = 1;
+  }
+}
+
+message ProductEvent {
+  oneof payload {
+    option (sebuf.http.oneof_config) = {
+      discriminator: "kind"
+      flatten: true
+    };
+
+    Created created = 1;
+    Deleted deleted = 2 [(sebuf.http.oneof_value) = "removed"];
+  }
+
+  message Created {
+    string product_id = 1;
+  }
+
+  message Deleted {
+    string product_id = 1;
+    string reason = 2;
+  }
+}
+
+message ProductIds {
+  repeated string values = 1 [(sebuf.http.unwrap) = true];
+}
+
+message ArchiveProductRequest {
+  string id = 1;
+}
+
+service ProductService {
+  option (sebuf.http.service_config) = {
+    base_path: "/api/v1"
+  };
+
+  rpc ArchiveProduct(ArchiveProductRequest) returns (google.protobuf.Empty) {
+    option (sebuf.http.config) = {
+      method: HTTP_METHOD_POST
+      path: "/products/{id}:archive"
+    };
+  }
+}
