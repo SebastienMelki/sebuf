@@ -300,6 +300,38 @@ func TestNestedDelegationInt64UnderTimestampParent(t *testing.T) {
 		t.Fatalf("at = %#v, want numeric 1705312200", raw["at"])
 	}
 }
+
+func TestNestedDelegationBytesUnderNullableParentUnmarshal(t *testing.T) {
+	msg := &NullableOuter{}
+	if err := msg.UnmarshalJSONSebuf([]byte(` + "`" + `{"inner":{"b":"48656c6c6f"},"n":null}` + "`" + `), protojson.UnmarshalOptions{}); err != nil {
+		t.Fatalf("UnmarshalJSONSebuf: %v", err)
+	}
+	if msg.Inner == nil {
+		t.Fatalf("Inner = nil, want HexInner")
+	}
+	if got := string(msg.Inner.B); got != "Hello" {
+		t.Fatalf("Inner.B = %q, want Hello", got)
+	}
+	if msg.N != nil {
+		t.Fatalf("N = %#v, want nil optional presence for explicit null", *msg.N)
+	}
+}
+
+func TestNestedDelegationInt64UnderTimestampParentUnmarshal(t *testing.T) {
+	msg := &TimestampOuter{}
+	if err := msg.UnmarshalJSONSebuf([]byte(` + "`" + `{"inner":{"id":12345},"at":1705312200}` + "`" + `), protojson.UnmarshalOptions{}); err != nil {
+		t.Fatalf("UnmarshalJSONSebuf: %v", err)
+	}
+	if msg.Inner == nil {
+		t.Fatalf("Inner = nil, want NumberInner")
+	}
+	if msg.Inner.Id != 12345 {
+		t.Fatalf("Inner.Id = %d, want 12345", msg.Inner.Id)
+	}
+	if got := msg.At.AsTime().Unix(); got != 1705312200 {
+		t.Fatalf("At = %d, want 1705312200", got)
+	}
+}
 `
 }
 
