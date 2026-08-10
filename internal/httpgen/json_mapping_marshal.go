@@ -165,7 +165,6 @@ func (g *Generator) generateJSONMappingNestedDelegation(
 }
 
 func (g *Generator) generateJSONMappingSingularNestedDelegation(gf *protogen.GeneratedFile, field *protogen.Field) {
-	jsonName := field.Desc.JSONName()
 	fieldName := field.GoName
 
 	gf.P("// Delegate nested JSON mapping for field: ", field.Desc.Name())
@@ -174,13 +173,12 @@ func (g *Generator) generateJSONMappingSingularNestedDelegation(gf *protogen.Gen
 	gf.P("if err != nil {")
 	gf.P("return nil, err")
 	gf.P("}")
-	gf.P(`raw["`, jsonName, `"] = data`)
+	emitRawFieldSetForMarshalOptions(gf, field, "data")
 	gf.P("}")
 	gf.P()
 }
 
 func (g *Generator) generateJSONMappingRepeatedNestedDelegation(gf *protogen.GeneratedFile, field *protogen.Field) {
-	jsonName := field.Desc.JSONName()
 	fieldName := field.GoName
 
 	gf.P("// Delegate nested JSON mapping for repeated field: ", field.Desc.Name())
@@ -197,13 +195,12 @@ func (g *Generator) generateJSONMappingRepeatedNestedDelegation(gf *protogen.Gen
 	gf.P("if err != nil {")
 	gf.P("return nil, err")
 	gf.P("}")
-	gf.P(`raw["`, jsonName, `"] = data`)
+	emitRawFieldSetForMarshalOptions(gf, field, "data")
 	gf.P("}")
 	gf.P()
 }
 
 func (g *Generator) generateJSONMappingMapNestedDelegation(gf *protogen.GeneratedFile, field *protogen.Field) {
-	jsonName := field.Desc.JSONName()
 	fieldName := field.GoName
 
 	gf.P("// Delegate nested JSON mapping for map field: ", field.Desc.Name())
@@ -223,9 +220,26 @@ func (g *Generator) generateJSONMappingMapNestedDelegation(gf *protogen.Generate
 	gf.P("if err != nil {")
 	gf.P("return nil, err")
 	gf.P("}")
-	gf.P(`raw["`, jsonName, `"] = data`)
+	emitRawFieldSetForMarshalOptions(gf, field, "data")
 	gf.P("}")
 	gf.P()
+}
+
+func emitRawFieldSetForMarshalOptions(gf *protogen.GeneratedFile, field *protogen.Field, valueExpr string) {
+	jsonName := field.Desc.JSONName()
+	protoName := string(field.Desc.Name())
+	if protoName == jsonName {
+		gf.P(`raw["`, jsonName, `"] = `, valueExpr)
+		return
+	}
+
+	gf.P("if opts.UseProtoNames {")
+	gf.P(`raw["`, protoName, `"] = `, valueExpr)
+	gf.P(`delete(raw, "`, jsonName, `")`)
+	gf.P("} else {")
+	gf.P(`raw["`, jsonName, `"] = `, valueExpr)
+	gf.P(`delete(raw, "`, protoName, `")`)
+	gf.P("}")
 }
 
 func (g *Generator) generateJSONMappingFieldMarshal(
@@ -366,17 +380,33 @@ func (g *Generator) generateJSONMappingRootUnwrapMarshal(
 	gf *protogen.GeneratedFile,
 	rootUnwrap *RootUnwrapMessage,
 ) {
-	jsonName := rootUnwrap.UnwrapField.Desc.JSONName()
-	protoName := string(rootUnwrap.UnwrapField.Desc.Name())
+	fieldName := rootUnwrap.UnwrapField.GoName
 
 	gf.P("// Apply root-level unwrap last.")
-	gf.P(`if v, ok := raw["`, jsonName, `"]; ok {`)
-	gf.P("return json.Marshal(v)")
-	gf.P("}")
-	if protoName != jsonName {
-		gf.P(`if v, ok := raw["`, protoName, `"]; ok {`)
-		gf.P("return json.Marshal(v)")
-		gf.P("}")
+	if rootUnwrap.IsMap {
+		switch {
+		case rootUnwrap.ValueUnwrap != nil:
+			g.generateRootMapWithValueUnwrapMarshal(gf, rootUnwrap, fieldName)
+		case rootUnwrap.ValueMessage != nil:
+			g.generateRootMapMessageValueMarshal(gf, rootUnwrap, fieldName)
+		default:
+			gf.P("return json.Marshal(x.", fieldName, ")")
+		}
+		return
 	}
-	gf.P("return []byte(\"null\"), nil")
+
+	if rootUnwrap.UnwrapField.Message != nil {
+		gf.P("items := make([]json.RawMessage, 0, len(x.", fieldName, "))")
+		gf.P("for _, item := range x.", fieldName, " {")
+		emitInlineMarshalChild(gf, "item")
+		gf.P("if err != nil {")
+		gf.P("return nil, err")
+		gf.P("}")
+		gf.P("items = append(items, data)")
+		gf.P("}")
+		gf.P("return json.Marshal(items)")
+		return
+	}
+
+	gf.P("return json.Marshal(x.", fieldName, ")")
 }

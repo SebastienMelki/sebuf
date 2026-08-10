@@ -351,6 +351,28 @@ message MapUnwrapWithSibling {
   map<string, MapItemList> items = 1;
   google.protobuf.Timestamp at = 2 [(sebuf.http.timestamp_format) = TIMESTAMP_FORMAT_UNIX_SECONDS];
 }
+
+message RootMapItem {
+  string id = 1;
+}
+
+message RootMessageMap {
+  map<string, RootMapItem> items = 1 [(sebuf.http.unwrap) = true];
+}
+
+message RootMessageList {
+  repeated RootMapItem items = 1 [(sebuf.http.unwrap) = true];
+}
+
+message ProtoNameInner {
+  int64 id = 1 [(sebuf.http.int64_encoding) = INT64_ENCODING_NUMBER];
+}
+
+message ProtoNameOuter {
+  ProtoNameInner child_message = 1;
+  repeated ProtoNameInner child_messages = 2;
+  map<string, ProtoNameInner> child_map = 3;
+}
 `)
 }
 
@@ -424,6 +446,75 @@ func TestMapValueUnwrapAndTimestampMarshalCompose(t *testing.T) {
 	}
 	if _, ok := items["AAPL"].([]any); !ok {
 		t.Fatalf("items.AAPL = %#v, want unwrapped array", items["AAPL"])
+	}
+}
+
+func TestRootUnwrapEmptyMarshalPreservesOldDefaults(t *testing.T) {
+	mapGot, err := (&RootMessageMap{}).MarshalJSONSebuf(protojson.MarshalOptions{})
+	if err != nil {
+		t.Fatalf("RootMessageMap MarshalJSONSebuf: %v", err)
+	}
+	if string(mapGot) != "{}" {
+		t.Fatalf("RootMessageMap empty marshal = %s, want {}", mapGot)
+	}
+
+	listGot, err := (&RootMessageList{}).MarshalJSONSebuf(protojson.MarshalOptions{})
+	if err != nil {
+		t.Fatalf("RootMessageList MarshalJSONSebuf: %v", err)
+	}
+	if string(listGot) != "[]" {
+		t.Fatalf("RootMessageList empty marshal = %s, want []", listGot)
+	}
+}
+
+func TestNestedDelegationUseProtoNamesDoesNotDuplicateCamelCaseKey(t *testing.T) {
+	msg := &ProtoNameOuter{
+		ChildMessage: &ProtoNameInner{Id: 123},
+		ChildMessages: []*ProtoNameInner{{Id: 456}},
+		ChildMap: map[string]*ProtoNameInner{"first": &ProtoNameInner{Id: 789}},
+	}
+	got, err := msg.MarshalJSONSebuf(protojson.MarshalOptions{UseProtoNames: true})
+	if err != nil {
+		t.Fatalf("MarshalJSONSebuf: %v", err)
+	}
+	var raw map[string]any
+	if err := json.Unmarshal(got, &raw); err != nil {
+		t.Fatalf("json.Unmarshal(%s): %v", got, err)
+	}
+	for _, camelKey := range []string{"childMessage", "childMessages", "childMap"} {
+		if _, ok := raw[camelKey]; ok {
+			t.Fatalf("unexpected camelCase key %q in UseProtoNames output: %s", camelKey, got)
+		}
+	}
+
+	child, ok := raw["child_message"].(map[string]any)
+	if !ok {
+		t.Fatalf("child_message = %#v, want object", raw["child_message"])
+	}
+	if gotID, ok := child["id"].(float64); !ok || gotID != 123 {
+		t.Fatalf("child_message.id = %#v, want numeric 123", child["id"])
+	}
+	children, ok := raw["child_messages"].([]any)
+	if !ok || len(children) != 1 {
+		t.Fatalf("child_messages = %#v, want one-item array", raw["child_messages"])
+	}
+	firstChild, ok := children[0].(map[string]any)
+	if !ok {
+		t.Fatalf("child_messages[0] = %#v, want object", children[0])
+	}
+	if gotID, ok := firstChild["id"].(float64); !ok || gotID != 456 {
+		t.Fatalf("child_messages[0].id = %#v, want numeric 456", firstChild["id"])
+	}
+	childMap, ok := raw["child_map"].(map[string]any)
+	if !ok {
+		t.Fatalf("child_map = %#v, want object", raw["child_map"])
+	}
+	mappedChild, ok := childMap["first"].(map[string]any)
+	if !ok {
+		t.Fatalf("child_map.first = %#v, want object", childMap["first"])
+	}
+	if gotID, ok := mappedChild["id"].(float64); !ok || gotID != 789 {
+		t.Fatalf("child_map.first.id = %#v, want numeric 789", mappedChild["id"])
 	}
 }
 `
