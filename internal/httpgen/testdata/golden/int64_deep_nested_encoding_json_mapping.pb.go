@@ -27,7 +27,8 @@ func (x *Leaf) MarshalJSONSebuf(opts protojson.MarshalOptions) ([]byte, error) {
 
 	// Convert Value from string to number
 	if x.Value != 0 {
-		raw["value"], _ = json.Marshal(x.Value)
+		data, _ = json.Marshal(x.Value)
+		raw["value"] = data
 	} else {
 		// Remove the field if zero (proto3 default behavior)
 		delete(raw, "value")
@@ -50,10 +51,12 @@ func (x *Leaf) UnmarshalJSONSebuf(data []byte, opts protojson.UnmarshalOptions) 
 	}
 
 	// Convert value from number to string for protojson
-	if rawVal, ok := raw["value"]; ok {
-		var num int64
-		if err := json.Unmarshal(rawVal, &num); err == nil {
-			raw["value"], _ = json.Marshal(strconv.FormatInt(num, 10))
+	for _, k := range []string{"value"} {
+		if rawVal, ok := raw[k]; ok {
+			var num int64
+			if err := json.Unmarshal(rawVal, &num); err == nil {
+				raw[k], _ = json.Marshal(strconv.FormatInt(num, 10))
+			}
 		}
 	}
 
@@ -378,7 +381,8 @@ func (x *Node) MarshalJSONSebuf(opts protojson.MarshalOptions) ([]byte, error) {
 
 	// Convert Id from string to number
 	if x.Id != 0 {
-		raw["id"], _ = json.Marshal(x.Id)
+		data, _ = json.Marshal(x.Id)
+		raw["id"] = data
 	} else {
 		// Remove the field if zero (proto3 default behavior)
 		delete(raw, "id")
@@ -401,10 +405,12 @@ func (x *Node) UnmarshalJSONSebuf(data []byte, opts protojson.UnmarshalOptions) 
 	}
 
 	// Convert id from number to string for protojson
-	if rawVal, ok := raw["id"]; ok {
-		var num int64
-		if err := json.Unmarshal(rawVal, &num); err == nil {
-			raw["id"], _ = json.Marshal(strconv.FormatInt(num, 10))
+	for _, k := range []string{"id"} {
+		if rawVal, ok := raw[k]; ok {
+			var num int64
+			if err := json.Unmarshal(rawVal, &num); err == nil {
+				raw[k], _ = json.Marshal(strconv.FormatInt(num, 10))
+			}
 		}
 	}
 

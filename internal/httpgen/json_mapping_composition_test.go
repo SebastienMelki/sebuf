@@ -407,6 +407,18 @@ message ProtoNameOuter {
   repeated ProtoNameInner child_messages = 2;
   map<string, ProtoNameInner> child_map = 3;
 }
+
+message DirectProtoNameFlattenChild {
+  string child_name = 1;
+}
+
+message DirectProtoNameSubject {
+  int64 count_value = 1 [(sebuf.http.int64_encoding) = INT64_ENCODING_NUMBER];
+  bytes binary_data = 2 [(sebuf.http.bytes_encoding) = BYTES_ENCODING_HEX];
+  google.protobuf.Timestamp event_time = 3 [(sebuf.http.timestamp_format) = TIMESTAMP_FORMAT_UNIX_SECONDS];
+  EmptyChild empty_value = 4 [(sebuf.http.empty_behavior) = EMPTY_BEHAVIOR_NULL];
+  DirectProtoNameFlattenChild flattened_child = 5 [(sebuf.http.flatten) = true, (sebuf.http.flatten_prefix) = "flat_"];
+}
 `)
 }
 
@@ -612,6 +624,44 @@ func TestNestedDelegationUseProtoNamesDoesNotDuplicateCamelCaseKey(t *testing.T)
 		t.Fatalf("child_map.first.id = %#v, want numeric 789", mappedChild["id"])
 	}
 }
+
+func TestDirectTransformsUseProtoNamesDoesNotDuplicateCamelCaseKeys(t *testing.T) {
+	msg := &DirectProtoNameSubject{
+		CountValue: 12345,
+		BinaryData: []byte("Hi"),
+		EventTime: timestamppb.New(time.Unix(1705312200, 0)),
+		EmptyValue: &EmptyChild{},
+		FlattenedChild: &DirectProtoNameFlattenChild{ChildName: "Ada"},
+	}
+	got, err := msg.MarshalJSONSebuf(protojson.MarshalOptions{UseProtoNames: true})
+	if err != nil {
+		t.Fatalf("MarshalJSONSebuf: %v", err)
+	}
+	var raw map[string]any
+	if err := json.Unmarshal(got, &raw); err != nil {
+		t.Fatalf("json.Unmarshal(%s): %v", got, err)
+	}
+	for _, badKey := range []string{"countValue", "binaryData", "eventTime", "emptyValue", "flattenedChild", "flattened_child"} {
+		if _, ok := raw[badKey]; ok {
+			t.Fatalf("unexpected key %q in UseProtoNames direct-transform output: %s", badKey, got)
+		}
+	}
+	if gotCount, ok := raw["count_value"].(float64); !ok || gotCount != 12345 {
+		t.Fatalf("count_value = %#v, want numeric 12345", raw["count_value"])
+	}
+	if raw["binary_data"] != "4869" {
+		t.Fatalf("binary_data = %#v, want hex 4869", raw["binary_data"])
+	}
+	if gotAt, ok := raw["event_time"].(float64); !ok || gotAt != 1705312200 {
+		t.Fatalf("event_time = %#v, want numeric 1705312200", raw["event_time"])
+	}
+	if _, ok := raw["empty_value"]; !ok || raw["empty_value"] != nil {
+		t.Fatalf("empty_value = %#v, want explicit null", raw["empty_value"])
+	}
+	if raw["flat_child_name"] != "Ada" {
+		t.Fatalf("flat_child_name = %#v, want Ada", raw["flat_child_name"])
+	}
+}
 `
 }
 
@@ -680,6 +730,29 @@ func TestRootUnwrapMapValueUnwrapUnmarshalCompose(t *testing.T) {
 	}
 	if msg.Items["AAPL"] == nil || len(msg.Items["AAPL"].Items) != 1 || string(msg.Items["AAPL"].Items[0].B) != "Hi" {
 		t.Fatalf("Items[AAPL] = %#v, want one unwrapped item with bytes Hi", msg.Items["AAPL"])
+	}
+}
+
+func TestDirectTransformsAcceptProtoNameInputUnmarshal(t *testing.T) {
+	msg := &DirectProtoNameSubject{}
+	data := []byte(` + "`" + `{"count_value":12345,"binary_data":"4869","event_time":1705312200,"empty_value":null,"flat_child_name":"Ada"}` + "`" + `)
+	if err := msg.UnmarshalJSONSebuf(data, protojson.UnmarshalOptions{}); err != nil {
+		t.Fatalf("UnmarshalJSONSebuf: %v", err)
+	}
+	if msg.CountValue != 12345 {
+		t.Fatalf("CountValue = %d, want 12345", msg.CountValue)
+	}
+	if string(msg.BinaryData) != "Hi" {
+		t.Fatalf("BinaryData = %q, want Hi", string(msg.BinaryData))
+	}
+	if got := msg.EventTime.AsTime().Unix(); got != 1705312200 {
+		t.Fatalf("EventTime = %d, want 1705312200", got)
+	}
+	if msg.EmptyValue == nil {
+		t.Fatalf("EmptyValue = nil, want empty message from null empty_behavior")
+	}
+	if msg.FlattenedChild == nil || msg.FlattenedChild.ChildName != "Ada" {
+		t.Fatalf("FlattenedChild = %#v, want child_name Ada", msg.FlattenedChild)
 	}
 }
 `

@@ -249,8 +249,10 @@ func verifyCriterion2Int64Number(t *testing.T, baseDir string) {
 	if !strings.Contains(goContent, "func (x *Int64EncodingTest) MarshalJSONSebuf(") {
 		t.Error("Go should generate composed MarshalJSONSebuf for NUMBER int64 fields")
 	}
-	if !strings.Contains(goContent, `raw["numberInt64"], _ = json.Marshal(x.NumberInt64)`) {
-		t.Error("Go should patch NUMBER int64 fields to JSON numbers")
+	if !strings.Contains(goContent, `data, _ = json.Marshal(x.NumberInt64)`) ||
+		!strings.Contains(goContent, `raw["numberInt64"] = data`) ||
+		!strings.Contains(goContent, `raw["number_int64"] = data`) {
+		t.Error("Go should patch NUMBER int64 fields to JSON numbers under JSON and proto-name keys")
 	}
 
 	// TypeScript: number type

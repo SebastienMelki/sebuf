@@ -48,7 +48,6 @@ func validateTimestampFormatInMessages(messages []*protogen.Message) error {
 func (g *Generator) generateTimestampFieldMarshal(gf *protogen.GeneratedFile, fieldInfo *TimestampFormatFieldInfo) {
 	field := fieldInfo.Field
 	goName := field.GoName
-	jsonName := field.Desc.JSONName()
 	format := fieldInfo.Format
 
 	gf.P("// Convert ", field.Desc.Name(), " to ", format.String(), " format")
@@ -57,12 +56,13 @@ func (g *Generator) generateTimestampFieldMarshal(gf *protogen.GeneratedFile, fi
 
 	switch format {
 	case http.TimestampFormat_TIMESTAMP_FORMAT_UNIX_SECONDS:
-		gf.P(`raw["`, jsonName, `"], _ = json.Marshal(t.Unix())`)
+		gf.P("data, _ = json.Marshal(t.Unix())")
 	case http.TimestampFormat_TIMESTAMP_FORMAT_UNIX_MILLIS:
-		gf.P(`raw["`, jsonName, `"], _ = json.Marshal(t.UnixMilli())`)
+		gf.P("data, _ = json.Marshal(t.UnixMilli())")
 	case http.TimestampFormat_TIMESTAMP_FORMAT_DATE:
-		gf.P(`raw["`, jsonName, `"], _ = json.Marshal(t.Format("2006-01-02"))`)
+		gf.P(`data, _ = json.Marshal(t.Format("2006-01-02"))`)
 	}
+	emitRawFieldSetForMarshalOptions(gf, field, "data")
 
 	gf.P("}")
 	gf.P()
@@ -73,35 +73,36 @@ func (g *Generator) generateTimestampFieldMarshal(gf *protogen.GeneratedFile, fi
 //nolint:exhaustive // Only non-default formats need handling; default/RFC3339 are excluded by HasTimestampFormatAnnotation
 func (g *Generator) generateTimestampFieldUnmarshal(gf *protogen.GeneratedFile, fieldInfo *TimestampFormatFieldInfo) {
 	field := fieldInfo.Field
-	jsonName := field.Desc.JSONName()
 	format := fieldInfo.Format
 
-	gf.P("// Convert ", jsonName, " from ", format.String(), " to RFC 3339 for protojson")
-	gf.P(`if v, ok := raw["`, jsonName, `"]; ok {`)
+	gf.P("// Convert ", field.Desc.Name(), " from ", format.String(), " to RFC 3339 for protojson")
+	gf.P("for _, k := range []string{", enumFieldJSONKeys(field), "} {")
+	gf.P("if v, ok := raw[k]; ok {")
 
 	switch format {
 	case http.TimestampFormat_TIMESTAMP_FORMAT_UNIX_SECONDS:
 		gf.P("var n int64")
 		gf.P("if err := json.Unmarshal(v, &n); err == nil {")
 		gf.P("t := time.Unix(n, 0)")
-		gf.P(`raw["`, jsonName, `"], _ = json.Marshal(t.Format(time.RFC3339Nano))`)
+		gf.P("raw[k], _ = json.Marshal(t.Format(time.RFC3339Nano))")
 		gf.P("}")
 	case http.TimestampFormat_TIMESTAMP_FORMAT_UNIX_MILLIS:
 		gf.P("var n int64")
 		gf.P("if err := json.Unmarshal(v, &n); err == nil {")
 		gf.P("t := time.UnixMilli(n)")
-		gf.P(`raw["`, jsonName, `"], _ = json.Marshal(t.Format(time.RFC3339Nano))`)
+		gf.P("raw[k], _ = json.Marshal(t.Format(time.RFC3339Nano))")
 		gf.P("}")
 	case http.TimestampFormat_TIMESTAMP_FORMAT_DATE:
 		gf.P("var s string")
 		gf.P("if err := json.Unmarshal(v, &s); err == nil {")
 		gf.P(`t, parseErr := time.Parse("2006-01-02", s)`)
 		gf.P("if parseErr == nil {")
-		gf.P(`raw["`, jsonName, `"], _ = json.Marshal(t.Format(time.RFC3339Nano))`)
+		gf.P("raw[k], _ = json.Marshal(t.Format(time.RFC3339Nano))")
 		gf.P("}")
 		gf.P("}")
 	}
 
+	gf.P("}")
 	gf.P("}")
 	gf.P()
 }

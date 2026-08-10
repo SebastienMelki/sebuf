@@ -28,22 +28,50 @@ func (x *BytesEncodingTest) MarshalJSONSebuf(opts protojson.MarshalOptions) ([]b
 
 	// Encode base64_raw_data with BYTES_ENCODING_BASE64_RAW
 	if len(x.Base64RawData) > 0 {
-		raw["base64RawData"], _ = json.Marshal(base64.RawStdEncoding.EncodeToString(x.Base64RawData))
+		data, _ = json.Marshal(base64.RawStdEncoding.EncodeToString(x.Base64RawData))
+		if opts.UseProtoNames {
+			raw["base64_raw_data"] = data
+			delete(raw, "base64RawData")
+		} else {
+			raw["base64RawData"] = data
+			delete(raw, "base64_raw_data")
+		}
 	}
 
 	// Encode base64url_data with BYTES_ENCODING_BASE64URL
 	if len(x.Base64UrlData) > 0 {
-		raw["base64urlData"], _ = json.Marshal(base64.URLEncoding.EncodeToString(x.Base64UrlData))
+		data, _ = json.Marshal(base64.URLEncoding.EncodeToString(x.Base64UrlData))
+		if opts.UseProtoNames {
+			raw["base64url_data"] = data
+			delete(raw, "base64urlData")
+		} else {
+			raw["base64urlData"] = data
+			delete(raw, "base64url_data")
+		}
 	}
 
 	// Encode base64url_raw_data with BYTES_ENCODING_BASE64URL_RAW
 	if len(x.Base64UrlRawData) > 0 {
-		raw["base64urlRawData"], _ = json.Marshal(base64.RawURLEncoding.EncodeToString(x.Base64UrlRawData))
+		data, _ = json.Marshal(base64.RawURLEncoding.EncodeToString(x.Base64UrlRawData))
+		if opts.UseProtoNames {
+			raw["base64url_raw_data"] = data
+			delete(raw, "base64urlRawData")
+		} else {
+			raw["base64urlRawData"] = data
+			delete(raw, "base64url_raw_data")
+		}
 	}
 
 	// Encode hex_data with BYTES_ENCODING_HEX
 	if len(x.HexData) > 0 {
-		raw["hexData"], _ = json.Marshal(hex.EncodeToString(x.HexData))
+		data, _ = json.Marshal(hex.EncodeToString(x.HexData))
+		if opts.UseProtoNames {
+			raw["hex_data"] = data
+			delete(raw, "hexData")
+		} else {
+			raw["hexData"] = data
+			delete(raw, "hex_data")
+		}
 	}
 
 	return json.Marshal(raw)
@@ -63,45 +91,53 @@ func (x *BytesEncodingTest) UnmarshalJSONSebuf(data []byte, opts protojson.Unmar
 	}
 
 	// Decode base64_raw_data from BYTES_ENCODING_BASE64_RAW to standard base64
-	if v, ok := raw["base64RawData"]; ok {
-		var s string
-		if err := json.Unmarshal(v, &s); err == nil {
-			decoded, decErr := base64.RawStdEncoding.DecodeString(s)
-			if decErr == nil {
-				raw["base64RawData"], _ = json.Marshal(base64.StdEncoding.EncodeToString(decoded))
+	for _, k := range []string{"base64RawData", "base64_raw_data"} {
+		if v, ok := raw[k]; ok {
+			var s string
+			if err := json.Unmarshal(v, &s); err == nil {
+				decoded, decErr := base64.RawStdEncoding.DecodeString(s)
+				if decErr == nil {
+					raw[k], _ = json.Marshal(base64.StdEncoding.EncodeToString(decoded))
+				}
 			}
 		}
 	}
 
 	// Decode base64url_data from BYTES_ENCODING_BASE64URL to standard base64
-	if v, ok := raw["base64urlData"]; ok {
-		var s string
-		if err := json.Unmarshal(v, &s); err == nil {
-			decoded, decErr := base64.URLEncoding.DecodeString(s)
-			if decErr == nil {
-				raw["base64urlData"], _ = json.Marshal(base64.StdEncoding.EncodeToString(decoded))
+	for _, k := range []string{"base64urlData", "base64url_data"} {
+		if v, ok := raw[k]; ok {
+			var s string
+			if err := json.Unmarshal(v, &s); err == nil {
+				decoded, decErr := base64.URLEncoding.DecodeString(s)
+				if decErr == nil {
+					raw[k], _ = json.Marshal(base64.StdEncoding.EncodeToString(decoded))
+				}
 			}
 		}
 	}
 
 	// Decode base64url_raw_data from BYTES_ENCODING_BASE64URL_RAW to standard base64
-	if v, ok := raw["base64urlRawData"]; ok {
-		var s string
-		if err := json.Unmarshal(v, &s); err == nil {
-			decoded, decErr := base64.RawURLEncoding.DecodeString(s)
-			if decErr == nil {
-				raw["base64urlRawData"], _ = json.Marshal(base64.StdEncoding.EncodeToString(decoded))
+	for _, k := range []string{"base64urlRawData", "base64url_raw_data"} {
+		if v, ok := raw[k]; ok {
+			var s string
+			if err := json.Unmarshal(v, &s); err == nil {
+				decoded, decErr := base64.RawURLEncoding.DecodeString(s)
+				if decErr == nil {
+					raw[k], _ = json.Marshal(base64.StdEncoding.EncodeToString(decoded))
+				}
 			}
 		}
 	}
 
 	// Decode hex_data from BYTES_ENCODING_HEX to standard base64
-	if v, ok := raw["hexData"]; ok {
-		var s string
-		if err := json.Unmarshal(v, &s); err == nil {
-			decoded, decErr := hex.DecodeString(s)
-			if decErr == nil {
-				raw["hexData"], _ = json.Marshal(base64.StdEncoding.EncodeToString(decoded))
+	for _, k := range []string{"hexData", "hex_data"} {
+		if v, ok := raw[k]; ok {
+			var s string
+			if err := json.Unmarshal(v, &s); err == nil {
+				decoded, decErr := hex.DecodeString(s)
+				if decErr == nil {
+					raw[k], _ = json.Marshal(base64.StdEncoding.EncodeToString(decoded))
+				}
 			}
 		}
 	}

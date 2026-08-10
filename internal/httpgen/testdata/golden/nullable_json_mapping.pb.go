@@ -27,7 +27,13 @@ func (x *User) MarshalJSONSebuf(opts protojson.MarshalOptions) ([]byte, error) {
 	// Handle nullable field: middle_name
 	// proto3 optional + nullable=true: emit null when not set
 	if x.MiddleName == nil {
-		raw["middleName"] = []byte("null")
+		if opts.UseProtoNames {
+			raw["middle_name"] = []byte("null")
+			delete(raw, "middleName")
+		} else {
+			raw["middleName"] = []byte("null")
+			delete(raw, "middle_name")
+		}
 	}
 
 	// Handle nullable field: age
@@ -39,7 +45,13 @@ func (x *User) MarshalJSONSebuf(opts protojson.MarshalOptions) ([]byte, error) {
 	// Handle nullable field: is_verified
 	// proto3 optional + nullable=true: emit null when not set
 	if x.IsVerified == nil {
-		raw["isVerified"] = []byte("null")
+		if opts.UseProtoNames {
+			raw["is_verified"] = []byte("null")
+			delete(raw, "isVerified")
+		} else {
+			raw["isVerified"] = []byte("null")
+			delete(raw, "is_verified")
+		}
 	}
 
 	return json.Marshal(raw)

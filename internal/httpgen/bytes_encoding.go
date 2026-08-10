@@ -47,7 +47,6 @@ func validateBytesEncodingInMessages(messages []*protogen.Message) error {
 func (g *Generator) generateBytesFieldMarshal(gf *protogen.GeneratedFile, fieldInfo *BytesEncodingFieldInfo) {
 	field := fieldInfo.Field
 	goName := field.GoName
-	jsonName := field.Desc.JSONName()
 	encoding := fieldInfo.Encoding
 
 	gf.P("// Encode ", field.Desc.Name(), " with ", encoding.String())
@@ -56,16 +55,17 @@ func (g *Generator) generateBytesFieldMarshal(gf *protogen.GeneratedFile, fieldI
 	//exhaustive:ignore -- only non-default encodings reach here; UNSPECIFIED/BASE64 are filtered by hasBytesEncodingFields
 	switch encoding {
 	case http.BytesEncoding_BYTES_ENCODING_HEX:
-		gf.P(`raw["`, jsonName, `"], _ = json.Marshal(hex.EncodeToString(x.`, goName, `))`)
+		gf.P("data, _ = json.Marshal(hex.EncodeToString(x.", goName, "))")
 	case http.BytesEncoding_BYTES_ENCODING_BASE64_RAW:
-		gf.P(`raw["`, jsonName, `"], _ = json.Marshal(base64.RawStdEncoding.EncodeToString(x.`, goName, `))`)
+		gf.P("data, _ = json.Marshal(base64.RawStdEncoding.EncodeToString(x.", goName, "))")
 	case http.BytesEncoding_BYTES_ENCODING_BASE64URL:
-		gf.P(`raw["`, jsonName, `"], _ = json.Marshal(base64.URLEncoding.EncodeToString(x.`, goName, `))`)
+		gf.P("data, _ = json.Marshal(base64.URLEncoding.EncodeToString(x.", goName, "))")
 	case http.BytesEncoding_BYTES_ENCODING_BASE64URL_RAW:
-		gf.P(`raw["`, jsonName, `"], _ = json.Marshal(base64.RawURLEncoding.EncodeToString(x.`, goName, `))`)
+		gf.P("data, _ = json.Marshal(base64.RawURLEncoding.EncodeToString(x.", goName, "))")
 	default:
 		// Should not be reached since we only collect non-default encodings.
 	}
+	emitRawFieldSetForMarshalOptions(gf, field, "data")
 
 	gf.P("}")
 	gf.P()
@@ -74,11 +74,11 @@ func (g *Generator) generateBytesFieldMarshal(gf *protogen.GeneratedFile, fieldI
 // generateBytesFieldUnmarshal emits the field-level unmarshal transform for bytes_encoding.
 func (g *Generator) generateBytesFieldUnmarshal(gf *protogen.GeneratedFile, fieldInfo *BytesEncodingFieldInfo) {
 	field := fieldInfo.Field
-	jsonName := field.Desc.JSONName()
 	encoding := fieldInfo.Encoding
 
 	gf.P("// Decode ", field.Desc.Name(), " from ", encoding.String(), " to standard base64")
-	gf.P(`if v, ok := raw["`, jsonName, `"]; ok {`)
+	gf.P("for _, k := range []string{", enumFieldJSONKeys(field), "} {")
+	gf.P("if v, ok := raw[k]; ok {")
 	gf.P("var s string")
 	gf.P("if err := json.Unmarshal(v, &s); err == nil {")
 
@@ -87,27 +87,28 @@ func (g *Generator) generateBytesFieldUnmarshal(gf *protogen.GeneratedFile, fiel
 	case http.BytesEncoding_BYTES_ENCODING_HEX:
 		gf.P("decoded, decErr := hex.DecodeString(s)")
 		gf.P("if decErr == nil {")
-		gf.P(`raw["`, jsonName, `"], _ = json.Marshal(base64.StdEncoding.EncodeToString(decoded))`)
+		gf.P("raw[k], _ = json.Marshal(base64.StdEncoding.EncodeToString(decoded))")
 		gf.P("}")
 	case http.BytesEncoding_BYTES_ENCODING_BASE64_RAW:
 		gf.P("decoded, decErr := base64.RawStdEncoding.DecodeString(s)")
 		gf.P("if decErr == nil {")
-		gf.P(`raw["`, jsonName, `"], _ = json.Marshal(base64.StdEncoding.EncodeToString(decoded))`)
+		gf.P("raw[k], _ = json.Marshal(base64.StdEncoding.EncodeToString(decoded))")
 		gf.P("}")
 	case http.BytesEncoding_BYTES_ENCODING_BASE64URL:
 		gf.P("decoded, decErr := base64.URLEncoding.DecodeString(s)")
 		gf.P("if decErr == nil {")
-		gf.P(`raw["`, jsonName, `"], _ = json.Marshal(base64.StdEncoding.EncodeToString(decoded))`)
+		gf.P("raw[k], _ = json.Marshal(base64.StdEncoding.EncodeToString(decoded))")
 		gf.P("}")
 	case http.BytesEncoding_BYTES_ENCODING_BASE64URL_RAW:
 		gf.P("decoded, decErr := base64.RawURLEncoding.DecodeString(s)")
 		gf.P("if decErr == nil {")
-		gf.P(`raw["`, jsonName, `"], _ = json.Marshal(base64.StdEncoding.EncodeToString(decoded))`)
+		gf.P("raw[k], _ = json.Marshal(base64.StdEncoding.EncodeToString(decoded))")
 		gf.P("}")
 	default:
 		// Should not be reached.
 	}
 
+	gf.P("}")
 	gf.P("}")
 	gf.P("}")
 	gf.P()

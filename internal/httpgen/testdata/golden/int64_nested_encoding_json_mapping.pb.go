@@ -27,15 +27,24 @@ func (x *SensorReading) MarshalJSONSebuf(opts protojson.MarshalOptions) ([]byte,
 
 	// Convert TimestampMs from string to number
 	if x.TimestampMs != 0 {
-		raw["timestampMs"], _ = json.Marshal(x.TimestampMs)
+		data, _ = json.Marshal(x.TimestampMs)
+		if opts.UseProtoNames {
+			raw["timestamp_ms"] = data
+			delete(raw, "timestampMs")
+		} else {
+			raw["timestampMs"] = data
+			delete(raw, "timestamp_ms")
+		}
 	} else {
 		// Remove the field if zero (proto3 default behavior)
 		delete(raw, "timestampMs")
+		delete(raw, "timestamp_ms")
 	}
 
 	// Convert repeated Values from strings to numbers
 	if len(x.Values) > 0 {
-		raw["values"], _ = json.Marshal(x.Values)
+		data, _ = json.Marshal(x.Values)
+		raw["values"] = data
 	}
 
 	return json.Marshal(raw)
@@ -54,23 +63,27 @@ func (x *SensorReading) UnmarshalJSONSebuf(data []byte, opts protojson.Unmarshal
 		return err
 	}
 
-	// Convert timestampMs from number to string for protojson
-	if rawVal, ok := raw["timestampMs"]; ok {
-		var num int64
-		if err := json.Unmarshal(rawVal, &num); err == nil {
-			raw["timestampMs"], _ = json.Marshal(strconv.FormatInt(num, 10))
+	// Convert timestamp_ms from number to string for protojson
+	for _, k := range []string{"timestampMs", "timestamp_ms"} {
+		if rawVal, ok := raw[k]; ok {
+			var num int64
+			if err := json.Unmarshal(rawVal, &num); err == nil {
+				raw[k], _ = json.Marshal(strconv.FormatInt(num, 10))
+			}
 		}
 	}
 
 	// Convert repeated values from numbers to strings for protojson
-	if rawVal, ok := raw["values"]; ok {
-		var nums []int64
-		if err := json.Unmarshal(rawVal, &nums); err == nil {
-			strs := make([]string, len(nums))
-			for i, n := range nums {
-				strs[i] = strconv.FormatInt(n, 10)
+	for _, k := range []string{"values"} {
+		if rawVal, ok := raw[k]; ok {
+			var nums []int64
+			if err := json.Unmarshal(rawVal, &nums); err == nil {
+				strs := make([]string, len(nums))
+				for i, n := range nums {
+					strs[i] = strconv.FormatInt(n, 10)
+				}
+				raw[k], _ = json.Marshal(strs)
 			}
-			raw["values"], _ = json.Marshal(strs)
 		}
 	}
 

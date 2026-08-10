@@ -27,7 +27,8 @@ func (x *Stock) MarshalJSONSebuf(opts protojson.MarshalOptions) ([]byte, error) 
 
 	// Convert Volume from string to number
 	if x.Volume != 0 {
-		raw["volume"], _ = json.Marshal(x.Volume)
+		data, _ = json.Marshal(x.Volume)
+		raw["volume"] = data
 	} else {
 		// Remove the field if zero (proto3 default behavior)
 		delete(raw, "volume")
@@ -50,10 +51,12 @@ func (x *Stock) UnmarshalJSONSebuf(data []byte, opts protojson.UnmarshalOptions)
 	}
 
 	// Convert volume from number to string for protojson
-	if rawVal, ok := raw["volume"]; ok {
-		var num int64
-		if err := json.Unmarshal(rawVal, &num); err == nil {
-			raw["volume"], _ = json.Marshal(strconv.FormatInt(num, 10))
+	for _, k := range []string{"volume"} {
+		if rawVal, ok := raw[k]; ok {
+			var num int64
+			if err := json.Unmarshal(rawVal, &num); err == nil {
+				raw[k], _ = json.Marshal(strconv.FormatInt(num, 10))
+			}
 		}
 	}
 

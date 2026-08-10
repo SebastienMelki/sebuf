@@ -34,13 +34,20 @@ func (x *Response) MarshalJSONSebuf(opts protojson.MarshalOptions) ([]byte, erro
 	// Handle empty_behavior for field: metadata_null
 	if x.MetadataNull != nil && proto.Size(x.MetadataNull) == 0 {
 		// EMPTY_BEHAVIOR_NULL: serialize empty message as null
-		raw["metadataNull"] = []byte("null")
+		if opts.UseProtoNames {
+			raw["metadata_null"] = []byte("null")
+			delete(raw, "metadataNull")
+		} else {
+			raw["metadataNull"] = []byte("null")
+			delete(raw, "metadata_null")
+		}
 	}
 
 	// Handle empty_behavior for field: metadata_omit
 	if x.MetadataOmit != nil && proto.Size(x.MetadataOmit) == 0 {
 		// EMPTY_BEHAVIOR_OMIT: remove field when message is empty
 		delete(raw, "metadataOmit")
+		delete(raw, "metadata_omit")
 	}
 
 	// Handle empty_behavior for field: settings

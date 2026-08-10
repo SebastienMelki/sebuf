@@ -28,7 +28,8 @@ func (x *Bar) MarshalJSONSebuf(opts protojson.MarshalOptions) ([]byte, error) {
 
 	// Convert Volume from string to number
 	if x.Volume != 0 {
-		raw["volume"], _ = json.Marshal(x.Volume)
+		data, _ = json.Marshal(x.Volume)
+		raw["volume"] = data
 	} else {
 		// Remove the field if zero (proto3 default behavior)
 		delete(raw, "volume")
@@ -51,10 +52,12 @@ func (x *Bar) UnmarshalJSONSebuf(data []byte, opts protojson.UnmarshalOptions) e
 	}
 
 	// Convert volume from number to string for protojson
-	if rawVal, ok := raw["volume"]; ok {
-		var num int64
-		if err := json.Unmarshal(rawVal, &num); err == nil {
-			raw["volume"], _ = json.Marshal(strconv.FormatInt(num, 10))
+	for _, k := range []string{"volume"} {
+		if rawVal, ok := raw[k]; ok {
+			var num int64
+			if err := json.Unmarshal(rawVal, &num); err == nil {
+				raw[k], _ = json.Marshal(strconv.FormatInt(num, 10))
+			}
 		}
 	}
 
@@ -196,7 +199,8 @@ func (x *Meta) MarshalJSONSebuf(opts protojson.MarshalOptions) ([]byte, error) {
 
 	// Convert Timestamp from string to number
 	if x.Timestamp != 0 {
-		raw["timestamp"], _ = json.Marshal(x.Timestamp)
+		data, _ = json.Marshal(x.Timestamp)
+		raw["timestamp"] = data
 	} else {
 		// Remove the field if zero (proto3 default behavior)
 		delete(raw, "timestamp")
@@ -219,10 +223,12 @@ func (x *Meta) UnmarshalJSONSebuf(data []byte, opts protojson.UnmarshalOptions) 
 	}
 
 	// Convert timestamp from number to string for protojson
-	if rawVal, ok := raw["timestamp"]; ok {
-		var num int64
-		if err := json.Unmarshal(rawVal, &num); err == nil {
-			raw["timestamp"], _ = json.Marshal(strconv.FormatInt(num, 10))
+	for _, k := range []string{"timestamp"} {
+		if rawVal, ok := raw[k]; ok {
+			var num int64
+			if err := json.Unmarshal(rawVal, &num); err == nil {
+				raw[k], _ = json.Marshal(strconv.FormatInt(num, 10))
+			}
 		}
 	}
 

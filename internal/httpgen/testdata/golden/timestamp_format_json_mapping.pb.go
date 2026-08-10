@@ -28,19 +28,40 @@ func (x *TimestampFormatTest) MarshalJSONSebuf(opts protojson.MarshalOptions) ([
 	// Convert unix_seconds_ts to TIMESTAMP_FORMAT_UNIX_SECONDS format
 	if x.UnixSecondsTs != nil {
 		t := x.UnixSecondsTs.AsTime()
-		raw["unixSecondsTs"], _ = json.Marshal(t.Unix())
+		data, _ = json.Marshal(t.Unix())
+		if opts.UseProtoNames {
+			raw["unix_seconds_ts"] = data
+			delete(raw, "unixSecondsTs")
+		} else {
+			raw["unixSecondsTs"] = data
+			delete(raw, "unix_seconds_ts")
+		}
 	}
 
 	// Convert unix_millis_ts to TIMESTAMP_FORMAT_UNIX_MILLIS format
 	if x.UnixMillisTs != nil {
 		t := x.UnixMillisTs.AsTime()
-		raw["unixMillisTs"], _ = json.Marshal(t.UnixMilli())
+		data, _ = json.Marshal(t.UnixMilli())
+		if opts.UseProtoNames {
+			raw["unix_millis_ts"] = data
+			delete(raw, "unixMillisTs")
+		} else {
+			raw["unixMillisTs"] = data
+			delete(raw, "unix_millis_ts")
+		}
 	}
 
 	// Convert date_ts to TIMESTAMP_FORMAT_DATE format
 	if x.DateTs != nil {
 		t := x.DateTs.AsTime()
-		raw["dateTs"], _ = json.Marshal(t.Format("2006-01-02"))
+		data, _ = json.Marshal(t.Format("2006-01-02"))
+		if opts.UseProtoNames {
+			raw["date_ts"] = data
+			delete(raw, "dateTs")
+		} else {
+			raw["dateTs"] = data
+			delete(raw, "date_ts")
+		}
 	}
 
 	return json.Marshal(raw)
@@ -59,31 +80,37 @@ func (x *TimestampFormatTest) UnmarshalJSONSebuf(data []byte, opts protojson.Unm
 		return err
 	}
 
-	// Convert unixSecondsTs from TIMESTAMP_FORMAT_UNIX_SECONDS to RFC 3339 for protojson
-	if v, ok := raw["unixSecondsTs"]; ok {
-		var n int64
-		if err := json.Unmarshal(v, &n); err == nil {
-			t := time.Unix(n, 0)
-			raw["unixSecondsTs"], _ = json.Marshal(t.Format(time.RFC3339Nano))
+	// Convert unix_seconds_ts from TIMESTAMP_FORMAT_UNIX_SECONDS to RFC 3339 for protojson
+	for _, k := range []string{"unixSecondsTs", "unix_seconds_ts"} {
+		if v, ok := raw[k]; ok {
+			var n int64
+			if err := json.Unmarshal(v, &n); err == nil {
+				t := time.Unix(n, 0)
+				raw[k], _ = json.Marshal(t.Format(time.RFC3339Nano))
+			}
 		}
 	}
 
-	// Convert unixMillisTs from TIMESTAMP_FORMAT_UNIX_MILLIS to RFC 3339 for protojson
-	if v, ok := raw["unixMillisTs"]; ok {
-		var n int64
-		if err := json.Unmarshal(v, &n); err == nil {
-			t := time.UnixMilli(n)
-			raw["unixMillisTs"], _ = json.Marshal(t.Format(time.RFC3339Nano))
+	// Convert unix_millis_ts from TIMESTAMP_FORMAT_UNIX_MILLIS to RFC 3339 for protojson
+	for _, k := range []string{"unixMillisTs", "unix_millis_ts"} {
+		if v, ok := raw[k]; ok {
+			var n int64
+			if err := json.Unmarshal(v, &n); err == nil {
+				t := time.UnixMilli(n)
+				raw[k], _ = json.Marshal(t.Format(time.RFC3339Nano))
+			}
 		}
 	}
 
-	// Convert dateTs from TIMESTAMP_FORMAT_DATE to RFC 3339 for protojson
-	if v, ok := raw["dateTs"]; ok {
-		var s string
-		if err := json.Unmarshal(v, &s); err == nil {
-			t, parseErr := time.Parse("2006-01-02", s)
-			if parseErr == nil {
-				raw["dateTs"], _ = json.Marshal(t.Format(time.RFC3339Nano))
+	// Convert date_ts from TIMESTAMP_FORMAT_DATE to RFC 3339 for protojson
+	for _, k := range []string{"dateTs", "date_ts"} {
+		if v, ok := raw[k]; ok {
+			var s string
+			if err := json.Unmarshal(v, &s); err == nil {
+				t, parseErr := time.Parse("2006-01-02", s)
+				if parseErr == nil {
+					raw[k], _ = json.Marshal(t.Format(time.RFC3339Nano))
+				}
 			}
 		}
 	}

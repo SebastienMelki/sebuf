@@ -45,7 +45,6 @@ func validateEmptyBehaviorInMessages(messages []*protogen.Message) error {
 // generateEmptyBehaviorFieldMarshal emits the field-level marshal transform for empty_behavior.
 func (g *Generator) generateEmptyBehaviorFieldMarshal(gf *protogen.GeneratedFile, fieldInfo *EmptyBehaviorFieldInfo) {
 	field := fieldInfo.Field
-	jsonName := field.Desc.JSONName()
 	goName := field.GoName
 	behavior := fieldInfo.Behavior
 
@@ -55,10 +54,10 @@ func (g *Generator) generateEmptyBehaviorFieldMarshal(gf *protogen.GeneratedFile
 	switch behavior {
 	case http.EmptyBehavior_EMPTY_BEHAVIOR_NULL:
 		gf.P("// EMPTY_BEHAVIOR_NULL: serialize empty message as null")
-		gf.P(`raw["`, jsonName, `"] = []byte("null")`)
+		emitRawFieldSetForMarshalOptions(gf, field, `[]byte("null")`)
 	case http.EmptyBehavior_EMPTY_BEHAVIOR_OMIT:
 		gf.P("// EMPTY_BEHAVIOR_OMIT: remove field when message is empty")
-		gf.P(`delete(raw, "`, jsonName, `")`)
+		emitRawFieldDeleteAllJSONKeys(gf, field)
 	case http.EmptyBehavior_EMPTY_BEHAVIOR_PRESERVE:
 		gf.P("// EMPTY_BEHAVIOR_PRESERVE: keep as {} (default protojson behavior)")
 		gf.P("// No action needed - protojson already emits {}")

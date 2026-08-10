@@ -260,6 +260,15 @@ func emitRawFieldSetForMarshalOptions(gf *protogen.GeneratedFile, field *protoge
 	gf.P("}")
 }
 
+func emitRawFieldDeleteAllJSONKeys(gf *protogen.GeneratedFile, field *protogen.Field) {
+	jsonName := field.Desc.JSONName()
+	protoName := string(field.Desc.Name())
+	gf.P(`delete(raw, "`, jsonName, `")`)
+	if protoName != jsonName {
+		gf.P(`delete(raw, "`, protoName, `")`)
+	}
+}
+
 func (g *Generator) generateJSONMappingFieldMarshal(
 	gf *protogen.GeneratedFile,
 	ctx *JSONMappingContext,
@@ -309,13 +318,12 @@ func (g *Generator) generateJSONMappingFieldMarshal(
 }
 
 func (g *Generator) generateNullableFieldMarshal(gf *protogen.GeneratedFile, field *protogen.Field) {
-	jsonName := field.Desc.JSONName()
 	goName := field.GoName
 
 	gf.P("// Handle nullable field: ", field.Desc.Name())
 	gf.P("// proto3 optional + nullable=true: emit null when not set")
 	gf.P("if x.", goName, " == nil {")
-	gf.P(`raw["`, jsonName, `"] = []byte("null")`)
+	emitRawFieldSetForMarshalOptions(gf, field, `[]byte("null")`)
 	gf.P("}")
 	gf.P()
 }

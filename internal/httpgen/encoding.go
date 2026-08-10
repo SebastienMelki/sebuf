@@ -30,84 +30,74 @@ func isInt64Type(field *protogen.Field) bool {
 
 // generateInt64FieldMarshal emits the field-level marshal transform for int64_encoding=NUMBER.
 func (g *Generator) generateInt64FieldMarshal(gf *protogen.GeneratedFile, field *protogen.Field) {
-	fieldName := field.GoName
-	jsonName := field.Desc.JSONName()
-
 	if field.Desc.IsList() {
-		g.generateRepeatedInt64FieldMarshal(gf, fieldName, jsonName)
+		g.generateRepeatedInt64FieldMarshal(gf, field)
 	} else {
-		g.generateSingularInt64FieldMarshal(gf, fieldName, jsonName)
+		g.generateSingularInt64FieldMarshal(gf, field)
 	}
 }
 
-func (g *Generator) generateSingularInt64FieldMarshal(
-	gf *protogen.GeneratedFile,
-	fieldName, jsonName string,
-) {
+func (g *Generator) generateSingularInt64FieldMarshal(gf *protogen.GeneratedFile, field *protogen.Field) {
+	fieldName := field.GoName
+
 	gf.P("// Convert ", fieldName, " from string to number")
 	gf.P("if x.", fieldName, " != 0 {")
-	gf.P(`raw["`, jsonName, `"], _ = json.Marshal(x.`, fieldName, `)`)
+	gf.P("data, _ = json.Marshal(x.", fieldName, ")")
+	emitRawFieldSetForMarshalOptions(gf, field, "data")
 	gf.P("} else {")
 	gf.P("// Remove the field if zero (proto3 default behavior)")
-	gf.P(`delete(raw, "`, jsonName, `")`)
+	emitRawFieldDeleteAllJSONKeys(gf, field)
 	gf.P("}")
 	gf.P()
 }
 
-func (g *Generator) generateRepeatedInt64FieldMarshal(
-	gf *protogen.GeneratedFile,
-	fieldName, jsonName string,
-) {
+func (g *Generator) generateRepeatedInt64FieldMarshal(gf *protogen.GeneratedFile, field *protogen.Field) {
+	fieldName := field.GoName
+
 	gf.P("// Convert repeated ", fieldName, " from strings to numbers")
 	gf.P("if len(x.", fieldName, ") > 0 {")
-	gf.P(`raw["`, jsonName, `"], _ = json.Marshal(x.`, fieldName, `)`)
+	gf.P("data, _ = json.Marshal(x.", fieldName, ")")
+	emitRawFieldSetForMarshalOptions(gf, field, "data")
 	gf.P("}")
 	gf.P()
 }
 
 // generateInt64FieldUnmarshal emits the field-level unmarshal transform for int64_encoding=NUMBER.
 func (g *Generator) generateInt64FieldUnmarshal(gf *protogen.GeneratedFile, field *protogen.Field) {
-	jsonName := field.Desc.JSONName()
-
 	if field.Desc.IsList() {
-		g.generateRepeatedInt64FieldUnmarshal(gf, field, jsonName)
+		g.generateRepeatedInt64FieldUnmarshal(gf, field)
 	} else {
-		g.generateSingularInt64FieldUnmarshal(gf, field, jsonName)
+		g.generateSingularInt64FieldUnmarshal(gf, field)
 	}
 }
 
-func (g *Generator) generateSingularInt64FieldUnmarshal(
-	gf *protogen.GeneratedFile,
-	field *protogen.Field,
-	jsonName string,
-) {
+func (g *Generator) generateSingularInt64FieldUnmarshal(gf *protogen.GeneratedFile, field *protogen.Field) {
 	isUnsigned := isUint64Type(field)
 
-	gf.P("// Convert ", jsonName, " from number to string for protojson")
-	gf.P(`if rawVal, ok := raw["`, jsonName, `"]; ok {`)
+	gf.P("// Convert ", field.Desc.Name(), " from number to string for protojson")
+	gf.P("for _, k := range []string{", enumFieldJSONKeys(field), "} {")
+	gf.P("if rawVal, ok := raw[k]; ok {")
 	if isUnsigned {
 		gf.P("var num uint64")
 		gf.P("if err := json.Unmarshal(rawVal, &num); err == nil {")
-		gf.P(`raw["`, jsonName, `"], _ = json.Marshal(strconv.FormatUint(num, 10))`)
+		gf.P("raw[k], _ = json.Marshal(strconv.FormatUint(num, 10))")
 	} else {
 		gf.P("var num int64")
 		gf.P("if err := json.Unmarshal(rawVal, &num); err == nil {")
-		gf.P(`raw["`, jsonName, `"], _ = json.Marshal(strconv.FormatInt(num, 10))`)
+		gf.P("raw[k], _ = json.Marshal(strconv.FormatInt(num, 10))")
 	}
+	gf.P("}")
 	gf.P("}")
 	gf.P("}")
 	gf.P()
 }
 
-func (g *Generator) generateRepeatedInt64FieldUnmarshal(
-	gf *protogen.GeneratedFile,
-	field *protogen.Field,
-	jsonName string,
-) {
+func (g *Generator) generateRepeatedInt64FieldUnmarshal(gf *protogen.GeneratedFile, field *protogen.Field) {
 	isUnsigned := isUint64Type(field)
 
-	gf.P("// Convert repeated ", jsonName, " from numbers to strings for protojson")
-	gf.P(`if rawVal, ok := raw["`, jsonName, `"]; ok {`)
+	gf.P("// Convert repeated ", field.Desc.Name(), " from numbers to strings for protojson")
+	gf.P("for _, k := range []string{", enumFieldJSONKeys(field), "} {")
+	gf.P("if rawVal, ok := raw[k]; ok {")
 	if isUnsigned {
 		gf.P("var nums []uint64")
 		gf.P("if err := json.Unmarshal(rawVal, &nums); err == nil {")
@@ -115,7 +105,7 @@ func (g *Generator) generateRepeatedInt64FieldUnmarshal(
 		gf.P("for i, n := range nums {")
 		gf.P("strs[i] = strconv.FormatUint(n, 10)")
 		gf.P("}")
-		gf.P(`raw["`, jsonName, `"], _ = json.Marshal(strs)`)
+		gf.P("raw[k], _ = json.Marshal(strs)")
 	} else {
 		gf.P("var nums []int64")
 		gf.P("if err := json.Unmarshal(rawVal, &nums); err == nil {")
@@ -123,8 +113,9 @@ func (g *Generator) generateRepeatedInt64FieldUnmarshal(
 		gf.P("for i, n := range nums {")
 		gf.P("strs[i] = strconv.FormatInt(n, 10)")
 		gf.P("}")
-		gf.P(`raw["`, jsonName, `"], _ = json.Marshal(strs)`)
+		gf.P("raw[k], _ = json.Marshal(strs)")
 	}
+	gf.P("}")
 	gf.P("}")
 	gf.P("}")
 	gf.P()

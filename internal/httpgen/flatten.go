@@ -50,12 +50,11 @@ func validateFlattenInMessages(messages []*protogen.Message) error {
 func (g *Generator) generateFlattenFieldMarshal(gf *protogen.GeneratedFile, info *FlattenFieldInfo) {
 	field := info.Field
 	goName := field.GoName
-	jsonName := field.Desc.JSONName()
 	prefix := info.Prefix
 
 	gf.P("// Flatten field: ", field.Desc.Name())
 	gf.P("if x.", goName, " != nil {")
-	gf.P(`delete(raw, "`, jsonName, `")`)
+	emitRawFieldDeleteAllJSONKeys(gf, field)
 	gf.P("// Forward opts to child's MarshalJSONSebuf when available (annotation composability)")
 	gf.P("var childData []byte")
 	gf.P("var childErr error")

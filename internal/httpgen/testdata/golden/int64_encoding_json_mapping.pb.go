@@ -27,63 +27,126 @@ func (x *Int64EncodingTest) MarshalJSONSebuf(opts protojson.MarshalOptions) ([]b
 
 	// Convert NumberInt64 from string to number
 	if x.NumberInt64 != 0 {
-		raw["numberInt64"], _ = json.Marshal(x.NumberInt64)
+		data, _ = json.Marshal(x.NumberInt64)
+		if opts.UseProtoNames {
+			raw["number_int64"] = data
+			delete(raw, "numberInt64")
+		} else {
+			raw["numberInt64"] = data
+			delete(raw, "number_int64")
+		}
 	} else {
 		// Remove the field if zero (proto3 default behavior)
 		delete(raw, "numberInt64")
+		delete(raw, "number_int64")
 	}
 
 	// Convert NumberUint64 from string to number
 	if x.NumberUint64 != 0 {
-		raw["numberUint64"], _ = json.Marshal(x.NumberUint64)
+		data, _ = json.Marshal(x.NumberUint64)
+		if opts.UseProtoNames {
+			raw["number_uint64"] = data
+			delete(raw, "numberUint64")
+		} else {
+			raw["numberUint64"] = data
+			delete(raw, "number_uint64")
+		}
 	} else {
 		// Remove the field if zero (proto3 default behavior)
 		delete(raw, "numberUint64")
+		delete(raw, "number_uint64")
 	}
 
 	// Convert NumberSint64 from string to number
 	if x.NumberSint64 != 0 {
-		raw["numberSint64"], _ = json.Marshal(x.NumberSint64)
+		data, _ = json.Marshal(x.NumberSint64)
+		if opts.UseProtoNames {
+			raw["number_sint64"] = data
+			delete(raw, "numberSint64")
+		} else {
+			raw["numberSint64"] = data
+			delete(raw, "number_sint64")
+		}
 	} else {
 		// Remove the field if zero (proto3 default behavior)
 		delete(raw, "numberSint64")
+		delete(raw, "number_sint64")
 	}
 
 	// Convert NumberSfixed64 from string to number
 	if x.NumberSfixed64 != 0 {
-		raw["numberSfixed64"], _ = json.Marshal(x.NumberSfixed64)
+		data, _ = json.Marshal(x.NumberSfixed64)
+		if opts.UseProtoNames {
+			raw["number_sfixed64"] = data
+			delete(raw, "numberSfixed64")
+		} else {
+			raw["numberSfixed64"] = data
+			delete(raw, "number_sfixed64")
+		}
 	} else {
 		// Remove the field if zero (proto3 default behavior)
 		delete(raw, "numberSfixed64")
+		delete(raw, "number_sfixed64")
 	}
 
 	// Convert NumberFixed64 from string to number
 	if x.NumberFixed64 != 0 {
-		raw["numberFixed64"], _ = json.Marshal(x.NumberFixed64)
+		data, _ = json.Marshal(x.NumberFixed64)
+		if opts.UseProtoNames {
+			raw["number_fixed64"] = data
+			delete(raw, "numberFixed64")
+		} else {
+			raw["numberFixed64"] = data
+			delete(raw, "number_fixed64")
+		}
 	} else {
 		// Remove the field if zero (proto3 default behavior)
 		delete(raw, "numberFixed64")
+		delete(raw, "number_fixed64")
 	}
 
 	// Convert repeated RepeatedNumberInt64 from strings to numbers
 	if len(x.RepeatedNumberInt64) > 0 {
-		raw["repeatedNumberInt64"], _ = json.Marshal(x.RepeatedNumberInt64)
+		data, _ = json.Marshal(x.RepeatedNumberInt64)
+		if opts.UseProtoNames {
+			raw["repeated_number_int64"] = data
+			delete(raw, "repeatedNumberInt64")
+		} else {
+			raw["repeatedNumberInt64"] = data
+			delete(raw, "repeated_number_int64")
+		}
 	}
 
 	// Convert OptionalNumberInt64 from string to number
 	if x.OptionalNumberInt64 != 0 {
-		raw["optionalNumberInt64"], _ = json.Marshal(x.OptionalNumberInt64)
+		data, _ = json.Marshal(x.OptionalNumberInt64)
+		if opts.UseProtoNames {
+			raw["optional_number_int64"] = data
+			delete(raw, "optionalNumberInt64")
+		} else {
+			raw["optionalNumberInt64"] = data
+			delete(raw, "optional_number_int64")
+		}
 	} else {
 		// Remove the field if zero (proto3 default behavior)
 		delete(raw, "optionalNumberInt64")
+		delete(raw, "optional_number_int64")
 	}
 
 	// Convert CommentedNumberInt64 from string to number
 	if x.CommentedNumberInt64 != 0 {
-		raw["commentedNumberInt64"], _ = json.Marshal(x.CommentedNumberInt64)
+		data, _ = json.Marshal(x.CommentedNumberInt64)
+		if opts.UseProtoNames {
+			raw["commented_number_int64"] = data
+			delete(raw, "commentedNumberInt64")
+		} else {
+			raw["commentedNumberInt64"] = data
+			delete(raw, "commented_number_int64")
+		}
 	} else {
 		// Remove the field if zero (proto3 default behavior)
 		delete(raw, "commentedNumberInt64")
+		delete(raw, "commented_number_int64")
 	}
 
 	return json.Marshal(raw)
@@ -102,71 +165,87 @@ func (x *Int64EncodingTest) UnmarshalJSONSebuf(data []byte, opts protojson.Unmar
 		return err
 	}
 
-	// Convert numberInt64 from number to string for protojson
-	if rawVal, ok := raw["numberInt64"]; ok {
-		var num int64
-		if err := json.Unmarshal(rawVal, &num); err == nil {
-			raw["numberInt64"], _ = json.Marshal(strconv.FormatInt(num, 10))
-		}
-	}
-
-	// Convert numberUint64 from number to string for protojson
-	if rawVal, ok := raw["numberUint64"]; ok {
-		var num uint64
-		if err := json.Unmarshal(rawVal, &num); err == nil {
-			raw["numberUint64"], _ = json.Marshal(strconv.FormatUint(num, 10))
-		}
-	}
-
-	// Convert numberSint64 from number to string for protojson
-	if rawVal, ok := raw["numberSint64"]; ok {
-		var num int64
-		if err := json.Unmarshal(rawVal, &num); err == nil {
-			raw["numberSint64"], _ = json.Marshal(strconv.FormatInt(num, 10))
-		}
-	}
-
-	// Convert numberSfixed64 from number to string for protojson
-	if rawVal, ok := raw["numberSfixed64"]; ok {
-		var num int64
-		if err := json.Unmarshal(rawVal, &num); err == nil {
-			raw["numberSfixed64"], _ = json.Marshal(strconv.FormatInt(num, 10))
-		}
-	}
-
-	// Convert numberFixed64 from number to string for protojson
-	if rawVal, ok := raw["numberFixed64"]; ok {
-		var num uint64
-		if err := json.Unmarshal(rawVal, &num); err == nil {
-			raw["numberFixed64"], _ = json.Marshal(strconv.FormatUint(num, 10))
-		}
-	}
-
-	// Convert repeated repeatedNumberInt64 from numbers to strings for protojson
-	if rawVal, ok := raw["repeatedNumberInt64"]; ok {
-		var nums []int64
-		if err := json.Unmarshal(rawVal, &nums); err == nil {
-			strs := make([]string, len(nums))
-			for i, n := range nums {
-				strs[i] = strconv.FormatInt(n, 10)
+	// Convert number_int64 from number to string for protojson
+	for _, k := range []string{"numberInt64", "number_int64"} {
+		if rawVal, ok := raw[k]; ok {
+			var num int64
+			if err := json.Unmarshal(rawVal, &num); err == nil {
+				raw[k], _ = json.Marshal(strconv.FormatInt(num, 10))
 			}
-			raw["repeatedNumberInt64"], _ = json.Marshal(strs)
 		}
 	}
 
-	// Convert optionalNumberInt64 from number to string for protojson
-	if rawVal, ok := raw["optionalNumberInt64"]; ok {
-		var num int64
-		if err := json.Unmarshal(rawVal, &num); err == nil {
-			raw["optionalNumberInt64"], _ = json.Marshal(strconv.FormatInt(num, 10))
+	// Convert number_uint64 from number to string for protojson
+	for _, k := range []string{"numberUint64", "number_uint64"} {
+		if rawVal, ok := raw[k]; ok {
+			var num uint64
+			if err := json.Unmarshal(rawVal, &num); err == nil {
+				raw[k], _ = json.Marshal(strconv.FormatUint(num, 10))
+			}
 		}
 	}
 
-	// Convert commentedNumberInt64 from number to string for protojson
-	if rawVal, ok := raw["commentedNumberInt64"]; ok {
-		var num int64
-		if err := json.Unmarshal(rawVal, &num); err == nil {
-			raw["commentedNumberInt64"], _ = json.Marshal(strconv.FormatInt(num, 10))
+	// Convert number_sint64 from number to string for protojson
+	for _, k := range []string{"numberSint64", "number_sint64"} {
+		if rawVal, ok := raw[k]; ok {
+			var num int64
+			if err := json.Unmarshal(rawVal, &num); err == nil {
+				raw[k], _ = json.Marshal(strconv.FormatInt(num, 10))
+			}
+		}
+	}
+
+	// Convert number_sfixed64 from number to string for protojson
+	for _, k := range []string{"numberSfixed64", "number_sfixed64"} {
+		if rawVal, ok := raw[k]; ok {
+			var num int64
+			if err := json.Unmarshal(rawVal, &num); err == nil {
+				raw[k], _ = json.Marshal(strconv.FormatInt(num, 10))
+			}
+		}
+	}
+
+	// Convert number_fixed64 from number to string for protojson
+	for _, k := range []string{"numberFixed64", "number_fixed64"} {
+		if rawVal, ok := raw[k]; ok {
+			var num uint64
+			if err := json.Unmarshal(rawVal, &num); err == nil {
+				raw[k], _ = json.Marshal(strconv.FormatUint(num, 10))
+			}
+		}
+	}
+
+	// Convert repeated repeated_number_int64 from numbers to strings for protojson
+	for _, k := range []string{"repeatedNumberInt64", "repeated_number_int64"} {
+		if rawVal, ok := raw[k]; ok {
+			var nums []int64
+			if err := json.Unmarshal(rawVal, &nums); err == nil {
+				strs := make([]string, len(nums))
+				for i, n := range nums {
+					strs[i] = strconv.FormatInt(n, 10)
+				}
+				raw[k], _ = json.Marshal(strs)
+			}
+		}
+	}
+
+	// Convert optional_number_int64 from number to string for protojson
+	for _, k := range []string{"optionalNumberInt64", "optional_number_int64"} {
+		if rawVal, ok := raw[k]; ok {
+			var num int64
+			if err := json.Unmarshal(rawVal, &num); err == nil {
+				raw[k], _ = json.Marshal(strconv.FormatInt(num, 10))
+			}
+		}
+	}
+
+	// Convert commented_number_int64 from number to string for protojson
+	for _, k := range []string{"commentedNumberInt64", "commented_number_int64"} {
+		if rawVal, ok := raw[k]; ok {
+			var num int64
+			if err := json.Unmarshal(rawVal, &num); err == nil {
+				raw[k], _ = json.Marshal(strconv.FormatInt(num, 10))
+			}
 		}
 	}
 
