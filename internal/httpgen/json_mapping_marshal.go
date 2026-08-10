@@ -44,8 +44,14 @@ func (g *Generator) writeJSONMappingImports(gf *protogen.GeneratedFile, contexts
 	needsTime := false
 
 	for _, ctx := range contexts {
+		mapValueUnwrapFields := make(map[*protogen.Field]bool)
+		for _, transform := range ctx.FieldTransforms {
+			if transform.Kind == TransformMapValueUnwrap {
+				mapValueUnwrapFields[transform.Field] = true
+			}
+		}
 		for _, field := range ctx.NestedDelegationFields {
-			if field.Desc.IsMap() {
+			if field.Desc.IsMap() && !mapValueUnwrapFields[field] {
 				needsFmt = true
 			}
 		}
@@ -66,7 +72,8 @@ func (g *Generator) writeJSONMappingImports(gf *protogen.GeneratedFile, contexts
 				needsTime = true
 			case TransformMapValueUnwrap:
 				if valueMsg := getMapValueMessage(transform.Field); valueMsg != nil {
-					if unwrapInfo := unwrapInfoForMessage(valueMsg, nil); unwrapInfo != nil && unwrapInfo.ElementType != nil {
+					unwrapInfo := unwrapInfoForMessage(valueMsg, nil)
+					if unwrapInfo != nil && (unwrapInfo.ElementType != nil || transform.Field.Desc.MapKey().Kind() != protoreflect.StringKind) {
 						needsFmt = true
 					}
 				}
@@ -377,10 +384,6 @@ func (g *Generator) generateJSONMappingUnwrapMapMarshal(
 		gf.P(`arrayData, ok = wrapperObject["`, unwrapProtoName, `"]`)
 		gf.P("}")
 	}
-	gf.P("if !ok {")
-	gf.P("continue")
-	gf.P("}")
-
 	if isMessageType {
 		gf.P("for goKey, wrapper := range x.", fieldName, " {")
 		gf.P("if fmt.Sprint(goKey) != mapKey || wrapper == nil {")
@@ -399,9 +402,31 @@ func (g *Generator) generateJSONMappingUnwrapMapMarshal(
 		gf.P("return nil, err")
 		gf.P("}")
 		gf.P("arrayData = rewrittenArray")
+		gf.P("ok = true")
 		gf.P("break")
 		gf.P("}")
+	} else {
+		gf.P("if !ok {")
+		gf.P("for goKey, wrapper := range x.", fieldName, " {")
+		if field.Desc.MapKey().Kind() == protoreflect.StringKind {
+			gf.P("if goKey != mapKey || wrapper == nil {")
+		} else {
+			gf.P("if fmt.Sprint(goKey) != mapKey || wrapper == nil {")
+		}
+		gf.P("continue")
+		gf.P("}")
+		gf.P("arrayData, err = json.Marshal(wrapper.Get", unwrapFieldName, "())")
+		gf.P("if err != nil {")
+		gf.P("return nil, err")
+		gf.P("}")
+		gf.P("ok = true")
+		gf.P("break")
+		gf.P("}")
+		gf.P("}")
 	}
+	gf.P("if !ok {")
+	gf.P("continue")
+	gf.P("}")
 
 	gf.P("mapData[mapKey] = arrayData")
 	gf.P("}")

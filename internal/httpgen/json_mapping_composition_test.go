@@ -27,6 +27,7 @@ func TestJSONMappingFeaturePairsGenerateAndBuild(t *testing.T) {
 		{"int64_number", "nullable"},
 		{"int64_number", "timestamp_format"},
 		{"map_value_unwrap", "timestamp_format"},
+		{"nullable", "scalar_map_value_unwrap"},
 		{"root_unwrap", "bytes_encoding"},
 	}
 
@@ -206,6 +207,8 @@ func pairFeatureField(feature string, number int) string {
 `, number, number, number)
 	case "map_value_unwrap":
 		return fmt.Sprintf("  map<string, MapItemList> map_value_unwrap_items = %d;\n", number)
+	case "scalar_map_value_unwrap":
+		return fmt.Sprintf("  map<string, IntList> scalar_map_value_unwrap_items = %d;\n", number)
 	default:
 		panic("unknown JSON mapping feature: " + feature)
 	}
@@ -362,6 +365,11 @@ message MapUnwrapWithSibling {
   google.protobuf.Timestamp at = 2 [(sebuf.http.timestamp_format) = TIMESTAMP_FORMAT_UNIX_SECONDS];
 }
 
+message ScalarMapUnwrapWithSibling {
+  map<string, IntList> items = 1;
+  google.protobuf.Timestamp at = 2 [(sebuf.http.timestamp_format) = TIMESTAMP_FORMAT_UNIX_SECONDS];
+}
+
 message RootMapItem {
   string id = 1;
 }
@@ -472,6 +480,25 @@ func TestMapValueUnwrapAndTimestampMarshalCompose(t *testing.T) {
 	}
 	if _, ok := items["AAPL"].([]any); !ok {
 		t.Fatalf("items.AAPL = %#v, want unwrapped array", items["AAPL"])
+	}
+}
+
+func TestMapValueUnwrapEmptyWrapperMarshalUsesEmptyArray(t *testing.T) {
+	msg := &MapUnwrapWithSibling{Items: map[string]*MapItemList{"AAPL": &MapItemList{}}}
+	got, err := msg.MarshalJSONSebuf(protojson.MarshalOptions{})
+	if err != nil {
+		t.Fatalf("MarshalJSONSebuf message unwrap: %v", err)
+	}
+	var raw map[string]any
+	if err := json.Unmarshal(got, &raw); err != nil {
+		t.Fatalf("json.Unmarshal(%s): %v", got, err)
+	}
+	items, ok := raw["items"].(map[string]any)
+	if !ok {
+		t.Fatalf("items = %#v, want object", raw["items"])
+	}
+	if gotArray, ok := items["AAPL"].([]any); !ok || len(gotArray) != 0 {
+		t.Fatalf("items.AAPL = %#v, want empty unwrapped array", items["AAPL"])
 	}
 }
 
@@ -684,6 +711,10 @@ message MapItem {
 
 message MapItemList {
   repeated MapItem items = 1 [(sebuf.http.unwrap) = true];
+}
+
+message IntList {
+  repeated int32 values = 1 [(sebuf.http.unwrap) = true];
 }
 `
 }
