@@ -29,6 +29,7 @@ func (g *Generator) generateJSONMappingFile(file *protogen.File) error {
 
 	for _, ctx := range contexts {
 		g.generateJSONMappingMarshalJSON(gf, ctx)
+		g.generateJSONMappingUnmarshalJSON(gf, ctx)
 	}
 
 	return nil
@@ -39,6 +40,8 @@ func (g *Generator) writeJSONMappingImports(gf *protogen.GeneratedFile, contexts
 	needsHex := false
 	needsFmt := false
 	needsProto := false
+	needsStrconv := false
+	needsTime := false
 
 	for _, ctx := range contexts {
 		for _, field := range ctx.NestedDelegationFields {
@@ -48,18 +51,22 @@ func (g *Generator) writeJSONMappingImports(gf *protogen.GeneratedFile, contexts
 		}
 		for _, transform := range ctx.FieldTransforms {
 			switch transform.Kind {
+			case TransformInt64Number:
+				needsStrconv = true
 			case TransformBytesEncoding:
+				// Unmarshal always re-encodes custom bytes to standard base64 for protojson.
+				needsBase64 = true
 				switch annotations.GetBytesEncoding(transform.Field) {
 				case http.BytesEncoding_BYTES_ENCODING_HEX:
 					needsHex = true
-				case http.BytesEncoding_BYTES_ENCODING_BASE64_RAW,
-					http.BytesEncoding_BYTES_ENCODING_BASE64URL,
-					http.BytesEncoding_BYTES_ENCODING_BASE64URL_RAW:
-					needsBase64 = true
 				default:
 					// No extra import needed.
 				}
+			case TransformTimestampFormat:
+				needsTime = true
 			case TransformMapValueUnwrap:
+				needsFmt = true
+			case TransformOneofDiscriminator:
 				needsFmt = true
 			case TransformEmptyBehavior:
 				needsProto = true
@@ -80,6 +87,12 @@ func (g *Generator) writeJSONMappingImports(gf *protogen.GeneratedFile, contexts
 	if needsFmt {
 		gf.P(`"fmt"`)
 	}
+	if needsStrconv {
+		gf.P(`"strconv"`)
+	}
+	if needsTime {
+		gf.P(`"time"`)
+	}
 	gf.P()
 	gf.P(`"google.golang.org/protobuf/encoding/protojson"`)
 	if needsProto {
@@ -90,8 +103,7 @@ func (g *Generator) writeJSONMappingImports(gf *protogen.GeneratedFile, contexts
 }
 
 // generateJSONMappingMarshalJSON emits one composed MarshalJSONSebuf/MarshalJSON pair for a
-// mapped message. UnmarshalJSONSebuf is intentionally a protojson stub here; Task 5 owns the full
-// inverse composed pipeline.
+// mapped message.
 func (g *Generator) generateJSONMappingMarshalJSON(gf *protogen.GeneratedFile, ctx *JSONMappingContext) {
 	msgName := ctx.Message.GoIdent.GoName
 
@@ -131,18 +143,6 @@ func (g *Generator) generateJSONMappingMarshalJSON(gf *protogen.GeneratedFile, c
 	gf.P("}")
 	gf.P()
 
-	gf.P("// UnmarshalJSONSebuf implements the generated API surface for ", msgName, ".")
-	gf.P("// Full composed unmarshal behavior is implemented in the next refactor task.")
-	gf.P("func (x *", msgName, ") UnmarshalJSONSebuf(data []byte, opts protojson.UnmarshalOptions) error {")
-	gf.P("return opts.Unmarshal(data, x)")
-	gf.P("}")
-	gf.P()
-
-	gf.P("// UnmarshalJSON implements json.Unmarshaler for ", msgName, ".")
-	gf.P("func (x *", msgName, ") UnmarshalJSON(data []byte) error {")
-	gf.P("return x.UnmarshalJSONSebuf(data, protojson.UnmarshalOptions{})")
-	gf.P("}")
-	gf.P()
 }
 
 func (g *Generator) generateJSONMappingNestedDelegation(
