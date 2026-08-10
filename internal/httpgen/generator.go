@@ -16,13 +16,6 @@ type Generator struct {
 	plugin       *protogen.Plugin
 	generateMock bool
 	globalUnwrap *GlobalUnwrapInfo // Global unwrap info collected from all files
-
-	// directEncodingMsgNames is set per-file before generateUnwrapFile runs.
-	// It holds the full names of messages that will have custom MarshalJSON/UnmarshalJSON
-	// from the encoding generator (direct int64_encoding=NUMBER fields).
-	// The unwrap generator uses this to call json.Marshal instead of protojson.Marshal
-	// for those types, ensuring the custom encoding is applied.
-	directEncodingMsgNames map[string]bool
 }
 
 // Options configures the generator.

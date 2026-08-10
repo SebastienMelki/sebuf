@@ -100,11 +100,9 @@ func TestDeepNestedInt64WrapperGenerated(t *testing.T) {
 	}
 }
 
-// TestInt64WrapperMarshalJSONConflict verifies that a message needing a transitive int64 wrapper
-// which also owns MarshalJSON via another annotation is rejected at generation time. Widening
-// wrapper detection widens the set of messages that can collide: a silent skip would serialize
-// the int64 as a quoted string, and a duplicate emit would not compile.
-func TestInt64WrapperMarshalJSONConflict(t *testing.T) {
+// TestInt64WrapperComposition verifies that the former transitive int64 wrapper collision shape
+// is accepted by go-http now that JSON mapping features share a composed marshaler.
+func TestInt64WrapperComposition(t *testing.T) {
 	requireProtocForInt64Tests(t)
 
 	generators := []struct {
@@ -115,17 +113,10 @@ func TestInt64WrapperMarshalJSONConflict(t *testing.T) {
 		{"go-client", func(p *protogen.Plugin) error { return clientgen.New(p).Generate() }},
 	}
 
-	t.Run("go-http rejects conflicts and names both features", func(t *testing.T) {
+	t.Run("go-http accepts former int64 wrapper plus flatten conflict", func(t *testing.T) {
 		err := New(buildInt64TestPlugin(t, []string{"int64_wrapper_conflict.proto"})).Generate()
-		if err == nil {
-			t.Fatal("expected go-http generation to fail for a message that is both an int64 " +
-				"wrapper and carries flatten -- emitting both would declare " +
-				"MarshalJSONSebuf twice on the same Go type")
-		}
-		for _, want := range []string{"ConflictingResponse", "flatten", "only one MarshalJSON"} {
-			if !strings.Contains(err.Error(), want) {
-				t.Errorf("conflict error should mention %q, got: %v", want, err)
-			}
+		if err != nil {
+			t.Fatalf("go-http rejected a composable int64 wrapper plus flatten shape: %v", err)
 		}
 	})
 
