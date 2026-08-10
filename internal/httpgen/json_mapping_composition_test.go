@@ -317,6 +317,16 @@ func TestNestedDelegationBytesUnderNullableParentUnmarshal(t *testing.T) {
 	}
 }
 
+func TestNestedDelegationNullMessageFieldUnmarshalPreservesProtojsonSemantics(t *testing.T) {
+	msg := &NullableOuter{}
+	if err := msg.UnmarshalJSONSebuf([]byte(` + "`" + `{"inner":null}` + "`" + `), protojson.UnmarshalOptions{}); err != nil {
+		t.Fatalf("UnmarshalJSONSebuf: %v", err)
+	}
+	if msg.Inner != nil {
+		t.Fatalf("Inner = %#v, want nil for nested message null", msg.Inner)
+	}
+}
+
 func TestNestedDelegationInt64UnderTimestampParentUnmarshal(t *testing.T) {
 	msg := &TimestampOuter{}
 	if err := msg.UnmarshalJSONSebuf([]byte(` + "`" + `{"inner":{"id":12345},"at":1705312200}` + "`" + `), protojson.UnmarshalOptions{}); err != nil {
