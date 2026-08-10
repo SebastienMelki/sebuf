@@ -10,6 +10,7 @@ The `protoc-gen-go-http` plugin generates complete HTTP server infrastructure fr
 - [Installation](#installation)
 - [Quick Start](#quick-start)
 - [HTTP Annotations](#http-annotations)
+- [JSON Body Mapping Annotations](#json-body-mapping-annotations)
 - [Field Examples](#field-examples)
 - [Mock Server Generation](#mock-server-generation)
 - [Header Validation](#header-validation)
@@ -341,6 +342,28 @@ The final HTTP path is determined by:
    ```protobuf
    // Results in: POST /userapi/create_user (no annotations)
    ```
+
+## JSON Body Mapping Annotations
+
+The HTTP generator supports JSON body mapping annotations for protobuf/JSON differences such as:
+
+- `int64_encoding=NUMBER` for numeric int64/uint64 JSON output
+- `enum_value` / field enum string encoding for custom enum strings
+- `nullable` for explicit `null` on optional primitive fields
+- `empty_behavior` for empty message field preservation, nulling, or omission
+- `timestamp_format` for RFC3339, Unix seconds/millis, or date-only timestamps
+- `bytes_encoding` for base64 variants or hex bytes
+- `flatten` / `flatten_prefix` for promoting nested message fields
+- `oneof_config` / `oneof_value` for discriminated oneof JSON shapes
+- `unwrap` for map-value arrays and root-level object/array responses
+
+JSON-mapping annotations compose within one message. The Go HTTP generator emits one sebuf-aware `MarshalJSONSebuf`/`UnmarshalJSONSebuf` method pair for each affected message and applies child delegation, field transforms, then any root unwrap document transform.
+
+Child message custom mappings are preserved when nested under another custom-mapped message, including singular, repeated, and map-value message fields. Root unwrap is a document transform and runs after field/child transforms. On unmarshal, the root JSON document is wrapped back into the protobuf field shape before inverse field transforms and child delegation run.
+
+These annotations apply to JSON request/response bodies only. Query/path scalar restrictions are unchanged: query and path parameters must still use the supported scalar types below, with repeated fields allowed for query parameters only.
+
+See [JSON and Protobuf Compatibility](./json-protobuf-compatibility.md) for examples and annotation-specific constraints.
 
 ## Supported Query & Path Parameter Types
 

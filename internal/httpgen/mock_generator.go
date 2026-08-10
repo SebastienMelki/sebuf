@@ -201,7 +201,7 @@ func (g *Generator) generateMockFieldAssignments(
 				// Handle map fields
 				g.generateMockMapFieldAssignment(gf, field, varName)
 			case field.Desc.IsList():
-				gf.P("// TODO: Handle repeated message field ", fieldName)
+				gf.P("// Mock generation does not populate repeated message field ", fieldName)
 			default:
 				gf.P(varName, ".", fieldName, " = &", field.Message.GoIdent, "{}")
 				g.generateMockFieldAssignments(gf, field.Message, varName+"."+fieldName)
@@ -217,9 +217,9 @@ func (g *Generator) generateMockFieldAssignments(
 			protoreflect.Fixed64Kind,
 			protoreflect.BytesKind,
 			protoreflect.GroupKind:
-			gf.P("// TODO: Handle field ", fieldName, " of type ", field.Desc.Kind())
+			gf.P("// Mock generation does not populate field ", fieldName, " of type ", field.Desc.Kind())
 		default:
-			gf.P("// TODO: Handle field ", fieldName, " of type ", field.Desc.Kind())
+			gf.P("// Mock generation does not populate field ", fieldName, " of type ", field.Desc.Kind())
 		}
 	}
 }

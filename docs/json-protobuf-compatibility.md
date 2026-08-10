@@ -9,6 +9,7 @@ Protobuf and JSON have different type systems and serialization behaviors. While
 ## Table of Contents
 
 - [Overview](#overview)
+- [Composed JSON Mapping Annotations](#composed-json-mapping-annotations)
 - [Map Value Unwrapping](#map-value-unwrapping)
 - [Root-Level Unwrapping](#root-level-unwrapping)
 - [When to Use Unwrap](#when-to-use-unwrap)
@@ -27,6 +28,16 @@ JSON and protobuf differ in several key areas:
 | Numbers | Typed (int32, int64, float, double) | Single `number` type |
 
 Most of these differences are handled automatically. However, **map values containing arrays** require special handling because protobuf doesn't allow `repeated` types directly as map values.
+
+## Composed JSON Mapping Annotations
+
+The Go HTTP generator composes JSON-mapping annotations within one message into a single generated `MarshalJSONSebuf`/`UnmarshalJSONSebuf` method pair. A message can combine supported field and document transforms such as `int64_encoding=NUMBER`, `enum_value`, `nullable`, `empty_behavior`, `timestamp_format`, `bytes_encoding`, `flatten`, `oneof_config`, and `unwrap` when the annotations are otherwise semantically valid.
+
+Nested messages keep their own custom mappings when they are serialized or parsed through a custom-mapped parent. The generated parent delegates to child `MarshalJSONSebuf`/`UnmarshalJSONSebuf` implementations for singular message fields, repeated message fields, and map values whose message type has sebuf JSON mapping.
+
+Root unwrap is a document transform and runs after field/child transforms. On unmarshal, the root document shape is wrapped back into the protobuf field before field transforms and child delegation run.
+
+These JSON body mappings do not change URL binding rules. Query/path scalar restrictions are unchanged: query and path parameters must still use supported scalar types, with repeated fields allowed for query parameters only.
 
 ## Map Value Unwrapping
 
@@ -115,7 +126,7 @@ With `unwrap`, the JSON output matches the desired format:
 
 When you use the `unwrap` annotation:
 
-1. **HTTP Generation**: sebuf generates custom `MarshalJSON()` and `UnmarshalJSON()` methods for messages containing maps with unwrapped values
+1. **HTTP Generation**: sebuf includes unwrap in the composed `MarshalJSONSebuf`/`UnmarshalJSONSebuf` pipeline, with standard `MarshalJSON()`/`UnmarshalJSON()` methods delegating to that sebuf-aware implementation
 2. **Client Generation**: The generated client automatically uses those custom marshalers when they are present. Generate `protoc-gen-go-http` alongside `protoc-gen-go-client` when Go clients need sebuf JSON-mapping behavior.
 3. **OpenAPI Generation**: The OpenAPI schema shows the unwrapped structure (array values, not wrapper objects)
 
@@ -374,14 +385,15 @@ Use the `unwrap` annotation when:
 
 ### Two Unwrap Modes
 
-**Map-Value Unwrap** (existing):
+**Map-Value Unwrap**:
 - Applied to repeated fields in messages used as map values
 - Collapses the wrapper when the message is a map value
 - Message can have other fields (but only the unwrap field is used)
 
-**Root Unwrap** (new):
+**Root Unwrap**:
 - Applied to the single field in a message (map or repeated)
 - Entire message serializes to just that field's value
+- Runs as the final document transform after field and child message transforms
 - Message **must have exactly one field**
 
 ### Validation Errors
@@ -400,56 +412,11 @@ only one field per message can have the unwrap annotation
 map fields with unwrap annotation require the message to have exactly one field (root unwrap)
 ```
 
-## One MarshalJSON-Generating Feature Per Message
+## Composing with Other JSON Mapping Features
 
-Most JSON-mapping annotations work by generating `MarshalJSONSebuf`/`UnmarshalJSONSebuf` on
-the Go type. Go allows only one declaration of each, so **a message may be claimed by only
-one such feature**: `int64_encoding=NUMBER`, `enum_value`, `nullable`, `empty_behavior`,
-`timestamp_format`, `bytes_encoding`, `flatten`, `oneof_config`, and `unwrap`.
+Unwrap composes with the other sebuf JSON body annotations. For example, map values can unwrap to arrays of messages that also use `bytes_encoding`, `timestamp_format`, `enum_value`, or `int64_encoding=NUMBER`; the child message mapping is preserved before the map value is collapsed. Likewise, a parent message can combine `nullable`, `empty_behavior`, `flatten`, `oneof_config`, and other field transforms when the transformed JSON keys do not violate each annotation's semantic rules.
 
-This applies transitively. A message that merely *contains* another message carrying
-`int64_encoding = INT64_ENCODING_NUMBER` needs its own marshaler — otherwise `protojson`
-owns serialization of that field and emits the int64 as a quoted string. That transitive
-wrapper is generated at any nesting depth and across `.proto` file boundaries, so a message
-can be claimed by `int64_encoding` without carrying the annotation itself:
-
-```protobuf
-// reading.proto
-message SensorReading {
-  int64 timestamp_ms = 1 [(sebuf.http.int64_encoding) = INT64_ENCODING_NUMBER];
-}
-
-// response.proto — imports reading.proto
-message GetSensorReadingResponse {
-  SensorReading reading = 1;   // gets a transitive marshaler; cannot also use flatten
-}
-```
-
-Combining two such features on one message is rejected at generation time:
-
-```
-message GetSensorReadingResponse: nested int64_encoding=NUMBER requires MarshalJSON but
-conflicts with flatten (also requires MarshalJSON) -- only one MarshalJSON-generating
-feature is supported per message
-```
-
-To resolve it, move the conflicting annotation to a different message — typically by
-introducing a nested message that owns one of the two behaviors.
-
-### Reachability through map values
-
-Transitive propagation follows singular and repeated message fields. It does **not** follow
-map values, because the generated marshaler cannot re-serialize a map field. A message that
-reaches an annotated field *only* through a `map<_, Message>` value gets no marshaler, and
-its int64 stays a quoted string:
-
-```protobuf
-message Leaf   { int64 value = 1 [(sebuf.http.int64_encoding) = INT64_ENCODING_NUMBER]; }
-message Child  { map<string, Leaf> leaves = 1; }   // no marshaler generated
-```
-
-Wrap the map value in a message that reaches the annotated field by a non-map path, or drop
-`int64_encoding=NUMBER` for that type and encode the value as a string.
+Root unwrap composes with child and map-value transforms by running last during marshal. This lets a root-unwrapped response produce the final object or array shape after nested message mappings and map-value unwraps have already been applied. During unmarshal, the root object or array is first wrapped back into the protobuf field shape, then field transforms and child `UnmarshalJSONSebuf` delegation are applied before protojson receives the data.
 
 ## Best Practices
 
