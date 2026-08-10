@@ -366,12 +366,28 @@ message RootMapItem {
   string id = 1;
 }
 
+message RootHexItem {
+  bytes b = 1 [(sebuf.http.bytes_encoding) = BYTES_ENCODING_HEX];
+}
+
+message RootHexItemList {
+  repeated RootHexItem items = 1 [(sebuf.http.unwrap) = true];
+}
+
 message RootMessageMap {
   map<string, RootMapItem> items = 1 [(sebuf.http.unwrap) = true];
 }
 
 message RootMessageList {
   repeated RootMapItem items = 1 [(sebuf.http.unwrap) = true];
+}
+
+message RootChildTransformMap {
+  map<string, RootHexItem> items = 1 [(sebuf.http.unwrap) = true];
+}
+
+message RootMapValueUnwrapTransform {
+  map<string, RootHexItemList> items = 1 [(sebuf.http.unwrap) = true];
 }
 
 message ProtoNameInner {
@@ -477,6 +493,48 @@ func TestRootUnwrapEmptyMarshalPreservesOldDefaults(t *testing.T) {
 	}
 }
 
+func TestRootUnwrapComposesWithChildTransformMarshal(t *testing.T) {
+	msg := &RootChildTransformMap{Items: map[string]*RootHexItem{"AAPL": &RootHexItem{B: []byte("Hi")}}}
+	got, err := msg.MarshalJSONSebuf(protojson.MarshalOptions{})
+	if err != nil {
+		t.Fatalf("MarshalJSONSebuf: %v", err)
+	}
+	var raw map[string]any
+	if err := json.Unmarshal(got, &raw); err != nil {
+		t.Fatalf("json.Unmarshal(%s): %v", got, err)
+	}
+	item, ok := raw["AAPL"].(map[string]any)
+	if !ok {
+		t.Fatalf("AAPL = %#v, want object", raw["AAPL"])
+	}
+	if item["b"] != "4869" {
+		t.Fatalf("AAPL.b = %#v, want hex 4869", item["b"])
+	}
+}
+
+func TestRootUnwrapComposesWithMapValueUnwrapMarshal(t *testing.T) {
+	msg := &RootMapValueUnwrapTransform{Items: map[string]*RootHexItemList{"AAPL": &RootHexItemList{Items: []*RootHexItem{{B: []byte("Hi")}}}}}
+	got, err := msg.MarshalJSONSebuf(protojson.MarshalOptions{})
+	if err != nil {
+		t.Fatalf("MarshalJSONSebuf: %v", err)
+	}
+	var raw map[string]any
+	if err := json.Unmarshal(got, &raw); err != nil {
+		t.Fatalf("json.Unmarshal(%s): %v", got, err)
+	}
+	items, ok := raw["AAPL"].([]any)
+	if !ok || len(items) != 1 {
+		t.Fatalf("AAPL = %#v, want one-item array", raw["AAPL"])
+	}
+	item, ok := items[0].(map[string]any)
+	if !ok {
+		t.Fatalf("AAPL[0] = %#v, want object", items[0])
+	}
+	if item["b"] != "4869" {
+		t.Fatalf("AAPL[0].b = %#v, want hex 4869", item["b"])
+	}
+}
+
 func TestNestedDelegationUseProtoNamesDoesNotDuplicateCamelCaseKey(t *testing.T) {
 	msg := &ProtoNameOuter{
 		ChildMessage: &ProtoNameInner{Id: 123},
@@ -575,6 +633,26 @@ func TestMapValueUnwrapTimestampUnmarshalCompose(t *testing.T) {
 	}
 	if msg.Items["AAPL"] == nil || len(msg.Items["AAPL"].Items) != 1 || msg.Items["AAPL"].Items[0].Id != "one" {
 		t.Fatalf("Items[AAPL] = %#v, want one unwrapped item with id one", msg.Items["AAPL"])
+	}
+}
+
+func TestRootUnwrapChildTransformUnmarshalCompose(t *testing.T) {
+	msg := &RootChildTransformMap{}
+	if err := msg.UnmarshalJSONSebuf([]byte(` + "`" + `{"AAPL":{"b":"4869"}}` + "`" + `), protojson.UnmarshalOptions{}); err != nil {
+		t.Fatalf("UnmarshalJSONSebuf: %v", err)
+	}
+	if msg.Items["AAPL"] == nil || string(msg.Items["AAPL"].B) != "Hi" {
+		t.Fatalf("Items[AAPL] = %#v, want bytes Hi", msg.Items["AAPL"])
+	}
+}
+
+func TestRootUnwrapMapValueUnwrapUnmarshalCompose(t *testing.T) {
+	msg := &RootMapValueUnwrapTransform{}
+	if err := msg.UnmarshalJSONSebuf([]byte(` + "`" + `{"AAPL":[{"b":"4869"}]}` + "`" + `), protojson.UnmarshalOptions{}); err != nil {
+		t.Fatalf("UnmarshalJSONSebuf: %v", err)
+	}
+	if msg.Items["AAPL"] == nil || len(msg.Items["AAPL"].Items) != 1 || string(msg.Items["AAPL"].Items[0].B) != "Hi" {
+		t.Fatalf("Items[AAPL] = %#v, want one unwrapped item with bytes Hi", msg.Items["AAPL"])
 	}
 }
 `

@@ -11,7 +11,7 @@ import (
 	"github.com/SebastienMelki/sebuf/internal/annotations"
 )
 
-// TestUnwrapFileGeneration tests that the unwrap file is generated correctly.
+// TestUnwrapFileGeneration tests that unwrap handling is generated in the composed JSON mapping file.
 func TestUnwrapFileGeneration(t *testing.T) {
 	// Skip if protoc is not available
 	if _, err := exec.LookPath("protoc"); err != nil {
@@ -28,14 +28,7 @@ func TestUnwrapFileGeneration(t *testing.T) {
 	tempDir := t.TempDir()
 	pluginPath := filepath.Join(projectRoot, "bin", "protoc-gen-go-http")
 
-	// Build the plugin if it doesn't exist
-	if _, buildStatErr := os.Stat(pluginPath); os.IsNotExist(buildStatErr) {
-		buildCmd := exec.Command("make", "build")
-		buildCmd.Dir = projectRoot
-		if buildErr := buildCmd.Run(); buildErr != nil {
-			t.Fatalf("Failed to build plugin: %v", buildErr)
-		}
-	}
+	buildHTTPPluginForUnwrapTest(t, projectRoot, pluginPath)
 
 	// Generate code
 	cmd := exec.Command("protoc",
@@ -57,14 +50,18 @@ func TestUnwrapFileGeneration(t *testing.T) {
 		t.Fatalf("protoc failed: %v\nstderr: %s", runErr, stderr.String())
 	}
 
-	// Read generated unwrap file
-	unwrapPath := filepath.Join(tempDir, "unwrap_unwrap.pb.go")
-	unwrapContent, err := os.ReadFile(unwrapPath)
-	if err != nil {
-		t.Fatalf("Failed to read generated unwrap file: %v", err)
+	if _, statErr := os.Stat(filepath.Join(tempDir, "unwrap_unwrap.pb.go")); !os.IsNotExist(statErr) {
+		t.Fatalf("legacy standalone unwrap file should not be generated, stat error: %v", statErr)
 	}
 
-	content := string(unwrapContent)
+	// Read generated composed JSON mapping file
+	mappingPath := filepath.Join(tempDir, "unwrap_json_mapping.pb.go")
+	mappingContent, err := os.ReadFile(mappingPath)
+	if err != nil {
+		t.Fatalf("Failed to read generated JSON mapping file: %v", err)
+	}
+
+	content := string(mappingContent)
 
 	t.Run("MarshalJSON is generated for GetOptionBarsResponse", func(t *testing.T) {
 		if !strings.Contains(content, "func (x *GetOptionBarsResponse) MarshalJSON() ([]byte, error)") {
@@ -85,23 +82,21 @@ func TestUnwrapFileGeneration(t *testing.T) {
 		}
 	})
 
-	t.Run("UnmarshalJSON creates wrapper correctly", func(t *testing.T) {
-		// Should create the wrapper with the unwrap field
-		if !strings.Contains(content, "&OptionBarsList{Bars: items}") {
-			t.Error("UnmarshalJSON should create OptionBarsList with Bars field")
+	t.Run("UnmarshalJSON rewraps values before protojson", func(t *testing.T) {
+		if !strings.Contains(content, "Re-wrap map values for unwrap field: bars") {
+			t.Error("UnmarshalJSON should re-wrap map values in the composed pipeline")
+		}
+		if !strings.Contains(content, `"bars": arrayRaw`) {
+			t.Error("UnmarshalJSON should wrap arrays under the Bars JSON field")
 		}
 	})
 
-	t.Run("MixedResponse handles both unwrap and regular maps", func(t *testing.T) {
+	t.Run("MixedResponse handles unwrap map through composed transform", func(t *testing.T) {
 		if !strings.Contains(content, "func (x *MixedResponse) MarshalJSON() ([]byte, error)") {
 			t.Error("MarshalJSON not generated for MixedResponse")
 		}
-		// Check that it handles both unwrap and regular map fields
 		if !strings.Contains(content, "Handle unwrap map field: UnwrappedBars") {
 			t.Error("MixedResponse should handle unwrap map field")
-		}
-		if !strings.Contains(content, "Handle regular map field: RegularBars") {
-			t.Error("MixedResponse should handle regular map field")
 		}
 	})
 
@@ -110,6 +105,16 @@ func TestUnwrapFileGeneration(t *testing.T) {
 			t.Error("MarshalJSON not generated for ScalarMapResponse")
 		}
 	})
+}
+
+func buildHTTPPluginForUnwrapTest(t *testing.T, projectRoot, pluginPath string) {
+	t.Helper()
+
+	buildCmd := exec.Command("go", "build", "-o", pluginPath, "./cmd/protoc-gen-go-http")
+	buildCmd.Dir = projectRoot
+	if out, err := buildCmd.CombinedOutput(); err != nil {
+		t.Fatalf("Failed to build plugin: %v\n%s", err, out)
+	}
 }
 
 // TestUnwrapBindingIntegration tests that the binding file checks for json.Marshaler/Unmarshaler.
@@ -129,14 +134,7 @@ func TestUnwrapBindingIntegration(t *testing.T) {
 	tempDir := t.TempDir()
 	pluginPath := filepath.Join(projectRoot, "bin", "protoc-gen-go-http")
 
-	// Build the plugin if it doesn't exist
-	if _, buildStatErr := os.Stat(pluginPath); os.IsNotExist(buildStatErr) {
-		buildCmd := exec.Command("make", "build")
-		buildCmd.Dir = projectRoot
-		if buildErr := buildCmd.Run(); buildErr != nil {
-			t.Fatalf("Failed to build plugin: %v", buildErr)
-		}
-	}
+	buildHTTPPluginForUnwrapTest(t, projectRoot, pluginPath)
 
 	// Generate code
 	cmd := exec.Command("protoc",
@@ -220,14 +218,7 @@ func TestRootUnwrapFileGeneration(t *testing.T) {
 	tempDir := t.TempDir()
 	pluginPath := filepath.Join(projectRoot, "bin", "protoc-gen-go-http")
 
-	// Build the plugin if it doesn't exist
-	if _, buildStatErr := os.Stat(pluginPath); os.IsNotExist(buildStatErr) {
-		buildCmd := exec.Command("make", "build")
-		buildCmd.Dir = projectRoot
-		if buildErr := buildCmd.Run(); buildErr != nil {
-			t.Fatalf("Failed to build plugin: %v", buildErr)
-		}
-	}
+	buildHTTPPluginForUnwrapTest(t, projectRoot, pluginPath)
 
 	// Generate code
 	cmd := exec.Command("protoc",
@@ -249,14 +240,18 @@ func TestRootUnwrapFileGeneration(t *testing.T) {
 		t.Fatalf("protoc failed: %v\nstderr: %s", runErr, stderr.String())
 	}
 
-	// Read generated unwrap file
-	unwrapPath := filepath.Join(tempDir, "unwrap_unwrap.pb.go")
-	unwrapContent, err := os.ReadFile(unwrapPath)
-	if err != nil {
-		t.Fatalf("Failed to read generated unwrap file: %v", err)
+	if _, statErr := os.Stat(filepath.Join(tempDir, "unwrap_unwrap.pb.go")); !os.IsNotExist(statErr) {
+		t.Fatalf("legacy standalone unwrap file should not be generated, stat error: %v", statErr)
 	}
 
-	content := string(unwrapContent)
+	// Read generated composed JSON mapping file
+	mappingPath := filepath.Join(tempDir, "unwrap_json_mapping.pb.go")
+	mappingContent, err := os.ReadFile(mappingPath)
+	if err != nil {
+		t.Fatalf("Failed to read generated JSON mapping file: %v", err)
+	}
+
+	content := string(mappingContent)
 
 	t.Run("RootMapResponse MarshalJSON is generated", func(t *testing.T) {
 		if !strings.Contains(content, "func (x *RootMapResponse) MarshalJSON() ([]byte, error)") {
@@ -300,21 +295,12 @@ func TestRootUnwrapFileGeneration(t *testing.T) {
 		}
 	})
 
-	t.Run("Root map marshal uses protojson for message values", func(t *testing.T) {
-		// RootMapResponse has message values, should use protojson.Marshal
-		expectedDoc := "// This method performs root-level unwrap, " +
-			"serializing the message as just the map value."
-		if !strings.Contains(content, expectedDoc) {
-			t.Error("Root map unwrap documentation not found")
+	t.Run("Root unwrap marshal returns transformed raw field", func(t *testing.T) {
+		if !strings.Contains(content, "// Apply root-level unwrap last.") {
+			t.Error("root unwrap should run as the final composed marshal transform")
 		}
-	})
-
-	t.Run("Root repeated marshal uses protojson for items", func(t *testing.T) {
-		// RootRepeatedResponse has message items, should use protojson.Marshal
-		expectedDoc := "// This method performs root-level unwrap, " +
-			"serializing the message as just the array value."
-		if !strings.Contains(content, expectedDoc) {
-			t.Error("Root repeated unwrap documentation not found")
+		if !strings.Contains(content, "return rootRaw, nil") {
+			t.Error("root unwrap should return the transformed raw field value")
 		}
 	})
 }
@@ -337,14 +323,7 @@ func TestCrossFileUnwrapResolution(t *testing.T) {
 	tempDir := t.TempDir()
 	pluginPath := filepath.Join(projectRoot, "bin", "protoc-gen-go-http")
 
-	// Build the plugin if it doesn't exist
-	if _, buildStatErr := os.Stat(pluginPath); os.IsNotExist(buildStatErr) {
-		buildCmd := exec.Command("make", "build")
-		buildCmd.Dir = projectRoot
-		if buildErr := buildCmd.Run(); buildErr != nil {
-			t.Fatalf("Failed to build plugin: %v", buildErr)
-		}
-	}
+	buildHTTPPluginForUnwrapTest(t, projectRoot, pluginPath)
 
 	// Generate code for BOTH proto files simultaneously (same package, different files)
 	// This is the key: protoc processes both files together, and our generator must
@@ -369,16 +348,20 @@ func TestCrossFileUnwrapResolution(t *testing.T) {
 		t.Fatalf("protoc failed: %v\nstderr: %s", runErr, stderr.String())
 	}
 
-	// The unwrap file should be generated for same_pkg_service.proto because
-	// GetBarsResponse has a map<string, BarList> where BarList (from same_pkg_wrapper.proto)
-	// has an unwrap field
-	unwrapPath := filepath.Join(tempDir, "same_pkg_service_unwrap.pb.go")
-	unwrapContent, err := os.ReadFile(unwrapPath)
-	if err != nil {
-		t.Fatalf("Failed to read generated unwrap file (cross-file resolution failed): %v", err)
+	if _, statErr := os.Stat(filepath.Join(tempDir, "same_pkg_service_unwrap.pb.go")); !os.IsNotExist(statErr) {
+		t.Fatalf("legacy standalone unwrap file should not be generated, stat error: %v", statErr)
 	}
 
-	content := string(unwrapContent)
+	// The JSON mapping file should be generated for same_pkg_service.proto because
+	// GetBarsResponse has a map<string, BarList> where BarList (from same_pkg_wrapper.proto)
+	// has an unwrap field.
+	mappingPath := filepath.Join(tempDir, "same_pkg_service_json_mapping.pb.go")
+	mappingContent, err := os.ReadFile(mappingPath)
+	if err != nil {
+		t.Fatalf("Failed to read generated JSON mapping file (cross-file resolution failed): %v", err)
+	}
+
+	content := string(mappingContent)
 
 	t.Run("GetBarsResponse MarshalJSON is generated", func(t *testing.T) {
 		if !strings.Contains(content, "func (x *GetBarsResponse) MarshalJSON() ([]byte, error)") {
@@ -398,9 +381,9 @@ func TestCrossFileUnwrapResolution(t *testing.T) {
 		}
 	})
 
-	t.Run("UnmarshalJSON creates BarList wrapper", func(t *testing.T) {
-		if !strings.Contains(content, "BarList{Bars: items}") {
-			t.Error("UnmarshalJSON should create BarList with Bars field")
+	t.Run("UnmarshalJSON rewraps arrays under BarList Bars field", func(t *testing.T) {
+		if !strings.Contains(content, `"bars": arrayRaw`) {
+			t.Error("UnmarshalJSON should wrap arrays under the BarList Bars JSON field")
 		}
 	})
 }
@@ -427,13 +410,7 @@ func TestCrossFileInt64EncodingUnwrap(t *testing.T) {
 	tempDir := t.TempDir()
 	pluginPath := filepath.Join(projectRoot, "bin", "protoc-gen-go-http")
 
-	if _, buildStatErr := os.Stat(pluginPath); os.IsNotExist(buildStatErr) {
-		buildCmd := exec.Command("make", "build")
-		buildCmd.Dir = projectRoot
-		if buildErr := buildCmd.Run(); buildErr != nil {
-			t.Fatalf("Failed to build plugin: %v", buildErr)
-		}
-	}
+	buildHTTPPluginForUnwrapTest(t, projectRoot, pluginPath)
 
 	// Both files are passed together — Bar is in cross_int64_bar.proto,
 	// GetBarsResponse is in cross_int64_service.proto.
@@ -457,12 +434,16 @@ func TestCrossFileInt64EncodingUnwrap(t *testing.T) {
 		t.Fatalf("protoc failed: %v\nstderr: %s", runErr, stderr.String())
 	}
 
-	// The unwrap file is generated for cross_int64_service.proto (it owns GetBarsResponse).
-	unwrapContent, readErr := os.ReadFile(filepath.Join(tempDir, "cross_int64_service_unwrap.pb.go"))
-	if readErr != nil {
-		t.Fatalf("Failed to read generated unwrap file: %v", readErr)
+	if _, statErr := os.Stat(filepath.Join(tempDir, "cross_int64_service_unwrap.pb.go")); !os.IsNotExist(statErr) {
+		t.Fatalf("legacy standalone unwrap file should not be generated, stat error: %v", statErr)
 	}
-	content := string(unwrapContent)
+
+	// The JSON mapping file is generated for cross_int64_service.proto (it owns GetBarsResponse).
+	mappingContent, readErr := os.ReadFile(filepath.Join(tempDir, "cross_int64_service_json_mapping.pb.go"))
+	if readErr != nil {
+		t.Fatalf("Failed to read generated JSON mapping file: %v", readErr)
+	}
+	content := string(mappingContent)
 
 	// Bar.MarshalJSONSebuf (from cross_int64_bar_encoding.pb.go) converts volume to a number.
 	// The unwrap generator emits an inline MarshalJSONSebuf type assertion for each item

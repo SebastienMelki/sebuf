@@ -339,41 +339,12 @@ func (g *Generator) hasEncodingMarshalJSON(msg *protogen.Message) bool {
 	return hasInt64NumberFields(msg)
 }
 
-// generateUnwrapFile generates the *_unwrap.pb.go file if needed.
+// generateUnwrapFile validates legacy unwrap metadata without emitting standalone JSON methods.
+// Unwrap is now emitted by the composed JSON mapping pipeline in *_json_mapping.pb.go.
 func (g *Generator) generateUnwrapFile(file *protogen.File) error {
-	ctx, err := g.collectUnwrapContext(file)
-	if err != nil {
+	if _, err := g.collectUnwrapContext(file); err != nil {
 		return fmt.Errorf("collecting unwrap context for %s: %w", file.Desc.Path(), err)
 	}
-
-	// If no messages need unwrap methods, skip generation
-	if len(ctx.ContainingMessages) == 0 && len(ctx.RootUnwrapMessages) == 0 {
-		return nil
-	}
-
-	filename := file.GeneratedFilenamePrefix + "_unwrap.pb.go"
-	gf := g.plugin.NewGeneratedFile(filename, file.GoImportPath)
-
-	g.writeHeader(gf, file)
-	g.writeUnwrapImports(gf)
-
-	// Generate root unwrap methods first
-	for _, rootUnwrap := range ctx.RootUnwrapMessages {
-		if rootUnwrap.IsMap {
-			g.generateRootMapUnwrapMarshalJSON(gf, rootUnwrap)
-			g.generateRootMapUnwrapUnmarshalJSON(gf, rootUnwrap)
-		} else {
-			g.generateRootRepeatedUnwrapMarshalJSON(gf, rootUnwrap)
-			g.generateRootRepeatedUnwrapUnmarshalJSON(gf, rootUnwrap)
-		}
-	}
-
-	// Generate map-value unwrap methods
-	for _, containing := range ctx.ContainingMessages {
-		g.generateUnwrapMarshalJSON(gf, containing)
-		g.generateUnwrapUnmarshalJSON(gf, containing)
-	}
-
 	return nil
 }
 

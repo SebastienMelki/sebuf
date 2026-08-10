@@ -65,7 +65,11 @@ func (g *Generator) writeJSONMappingImports(gf *protogen.GeneratedFile, contexts
 			case TransformTimestampFormat:
 				needsTime = true
 			case TransformMapValueUnwrap:
-				needsFmt = true
+				if valueMsg := getMapValueMessage(transform.Field); valueMsg != nil {
+					if unwrapInfo := unwrapInfoForMessage(valueMsg, nil); unwrapInfo != nil && unwrapInfo.ElementType != nil {
+						needsFmt = true
+					}
+				}
 			case TransformOneofDiscriminator:
 				needsFmt = true
 			case TransformEmptyBehavior:
@@ -123,7 +127,7 @@ func (g *Generator) generateJSONMappingMarshalJSON(gf *protogen.GeneratedFile, c
 	gf.P("}")
 	gf.P()
 
-	g.generateJSONMappingNestedDelegation(gf, ctx.NestedDelegationFields)
+	g.generateJSONMappingNestedDelegation(gf, ctx)
 
 	for _, transform := range ctx.FieldTransforms {
 		g.generateJSONMappingFieldMarshal(gf, ctx, transform)
@@ -147,10 +151,17 @@ func (g *Generator) generateJSONMappingMarshalJSON(gf *protogen.GeneratedFile, c
 
 func (g *Generator) generateJSONMappingNestedDelegation(
 	gf *protogen.GeneratedFile,
-	fields []*protogen.Field,
+	ctx *JSONMappingContext,
 ) {
-	for _, field := range fields {
-		if field.Desc.Kind() == protoreflect.BytesKind {
+	mapValueUnwrapFields := make(map[*protogen.Field]bool)
+	for _, transform := range ctx.FieldTransforms {
+		if transform.Kind == TransformMapValueUnwrap {
+			mapValueUnwrapFields[transform.Field] = true
+		}
+	}
+
+	for _, field := range ctx.NestedDelegationFields {
+		if field.Desc.Kind() == protoreflect.BytesKind || mapValueUnwrapFields[field] {
 			continue
 		}
 		switch {
@@ -337,17 +348,44 @@ func (g *Generator) generateJSONMappingUnwrapMapMarshal(
 	unwrapMapField *UnwrapMapField,
 ) {
 	fieldName := field.GoName
-	jsonName := field.Desc.JSONName()
 	unwrapFieldName := unwrapMapField.UnwrapField.Field.GoName
+	unwrapJSONName := unwrapMapField.UnwrapField.Field.Desc.JSONName()
+	unwrapProtoName := string(unwrapMapField.UnwrapField.Field.Desc.Name())
 	isMessageType := unwrapMapField.UnwrapField.ElementType != nil
 
 	gf.P("// Handle unwrap map field: ", fieldName)
-	gf.P("if len(x.", fieldName, ") > 0 {")
-	gf.P("mapData := make(map[string]json.RawMessage, len(x.", fieldName, "))")
-	gf.P("for k, wrapper := range x.", fieldName, " {")
-	gf.P("if wrapper != nil {")
+	gf.P("for _, k := range []string{", enumFieldJSONKeys(field), "} {")
+	gf.P("rawField, ok := raw[k]")
+	gf.P("if !ok {")
+	gf.P("continue")
+	gf.P("}")
+	gf.P("var mapData map[string]json.RawMessage")
+	gf.P("if err := json.Unmarshal(rawField, &mapData); err != nil {")
+	gf.P("return nil, err")
+	gf.P("}")
+	gf.P("for mapKey, wrapperRaw := range mapData {")
+	gf.P("if string(wrapperRaw) == \"null\" {")
+	gf.P("continue")
+	gf.P("}")
+	gf.P("var wrapperObject map[string]json.RawMessage")
+	gf.P("if err := json.Unmarshal(wrapperRaw, &wrapperObject); err != nil {")
+	gf.P("return nil, err")
+	gf.P("}")
+	gf.P(`arrayData, ok := wrapperObject["`, unwrapJSONName, `"]`)
+	if unwrapProtoName != unwrapJSONName {
+		gf.P("if !ok {")
+		gf.P(`arrayData, ok = wrapperObject["`, unwrapProtoName, `"]`)
+		gf.P("}")
+	}
+	gf.P("if !ok {")
+	gf.P("continue")
+	gf.P("}")
 
 	if isMessageType {
+		gf.P("for goKey, wrapper := range x.", fieldName, " {")
+		gf.P("if fmt.Sprint(goKey) != mapKey || wrapper == nil {")
+		gf.P("continue")
+		gf.P("}")
 		gf.P("items := make([]json.RawMessage, 0, len(wrapper.Get", unwrapFieldName, "()))")
 		gf.P("for _, item := range wrapper.Get", unwrapFieldName, "() {")
 		emitInlineMarshalChild(gf, "item")
@@ -356,22 +394,22 @@ func (g *Generator) generateJSONMappingUnwrapMapMarshal(
 		gf.P("}")
 		gf.P("items = append(items, data)")
 		gf.P("}")
-		gf.P("arrayData, err := json.Marshal(items)")
-	} else {
-		gf.P("arrayData, err := json.Marshal(wrapper.Get", unwrapFieldName, "())")
+		gf.P("rewrittenArray, err := json.Marshal(items)")
+		gf.P("if err != nil {")
+		gf.P("return nil, err")
+		gf.P("}")
+		gf.P("arrayData = rewrittenArray")
+		gf.P("break")
+		gf.P("}")
 	}
 
-	gf.P("if err != nil {")
-	gf.P("return nil, err")
-	gf.P("}")
-	gf.P("mapData[fmt.Sprint(k)] = arrayData")
-	gf.P("}")
+	gf.P("mapData[mapKey] = arrayData")
 	gf.P("}")
 	gf.P("data, err := json.Marshal(mapData)")
 	gf.P("if err != nil {")
 	gf.P("return nil, err")
 	gf.P("}")
-	gf.P(`raw["`, jsonName, `"] = data`)
+	gf.P("raw[k] = data")
 	gf.P("}")
 	gf.P()
 }
@@ -380,33 +418,16 @@ func (g *Generator) generateJSONMappingRootUnwrapMarshal(
 	gf *protogen.GeneratedFile,
 	rootUnwrap *RootUnwrapMessage,
 ) {
-	fieldName := rootUnwrap.UnwrapField.GoName
+	defaultJSON := "[]"
+	if rootUnwrap.IsMap {
+		defaultJSON = "{}"
+	}
 
 	gf.P("// Apply root-level unwrap last.")
-	if rootUnwrap.IsMap {
-		switch {
-		case rootUnwrap.ValueUnwrap != nil:
-			g.generateRootMapWithValueUnwrapMarshal(gf, rootUnwrap, fieldName)
-		case rootUnwrap.ValueMessage != nil:
-			g.generateRootMapMessageValueMarshal(gf, rootUnwrap, fieldName)
-		default:
-			gf.P("return json.Marshal(x.", fieldName, ")")
-		}
-		return
-	}
-
-	if rootUnwrap.UnwrapField.Message != nil {
-		gf.P("items := make([]json.RawMessage, 0, len(x.", fieldName, "))")
-		gf.P("for _, item := range x.", fieldName, " {")
-		emitInlineMarshalChild(gf, "item")
-		gf.P("if err != nil {")
-		gf.P("return nil, err")
-		gf.P("}")
-		gf.P("items = append(items, data)")
-		gf.P("}")
-		gf.P("return json.Marshal(items)")
-		return
-	}
-
-	gf.P("return json.Marshal(x.", fieldName, ")")
+	gf.P("for _, k := range []string{", enumFieldJSONKeys(rootUnwrap.UnwrapField), "} {")
+	gf.P("if rootRaw, ok := raw[k]; ok {")
+	gf.P("return rootRaw, nil")
+	gf.P("}")
+	gf.P("}")
+	gf.P(`return []byte("`, defaultJSON, `"), nil`)
 }
