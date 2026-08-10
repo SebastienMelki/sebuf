@@ -11,20 +11,15 @@ import (
 )
 
 // MarshalJSONSebuf implements sebufMarshaler for SensorReading.
-// This method handles int64_encoding=NUMBER fields: timestamp_ms, values
-// Warning: int64 fields with NUMBER encoding may lose precision for values > 2^53 in JavaScript.
+// This method composes sebuf JSON mapping annotations and nested message delegation.
 func (x *SensorReading) MarshalJSONSebuf(opts protojson.MarshalOptions) ([]byte, error) {
 	if x == nil {
 		return []byte("null"), nil
 	}
-
-	// Use protojson for base serialization (handles all other fields correctly)
 	data, err := opts.Marshal(x)
 	if err != nil {
 		return nil, err
 	}
-
-	// Parse into a map to modify NUMBER-encoded int64 fields
 	var raw map[string]json.RawMessage
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return nil, err
@@ -52,9 +47,8 @@ func (x *SensorReading) MarshalJSON() ([]byte, error) {
 }
 
 // UnmarshalJSONSebuf implements sebufUnmarshaler for SensorReading.
-// This method handles int64_encoding=NUMBER fields: timestamp_ms, values
+// This method composes inverse sebuf JSON mapping annotations and nested message delegation.
 func (x *SensorReading) UnmarshalJSONSebuf(data []byte, opts protojson.UnmarshalOptions) error {
-	// First, parse the raw JSON to extract NUMBER-encoded fields
 	var raw map[string]json.RawMessage
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return err
@@ -80,13 +74,10 @@ func (x *SensorReading) UnmarshalJSONSebuf(data []byte, opts protojson.Unmarshal
 		}
 	}
 
-	// Re-marshal to JSON with string values for protojson
 	modified, err := json.Marshal(raw)
 	if err != nil {
 		return err
 	}
-
-	// Use protojson to unmarshal the rest
 	return opts.Unmarshal(modified, x)
 }
 
@@ -96,36 +87,35 @@ func (x *SensorReading) UnmarshalJSON(data []byte) error {
 }
 
 // MarshalJSONSebuf implements sebufMarshaler for GetSensorReadingResponse.
-// This method re-marshals nested messages that have int64_encoding=NUMBER fields: reading
+// This method composes sebuf JSON mapping annotations and nested message delegation.
 func (x *GetSensorReadingResponse) MarshalJSONSebuf(opts protojson.MarshalOptions) ([]byte, error) {
 	if x == nil {
 		return []byte("null"), nil
 	}
-
-	// Use protojson for base serialization (handles all other fields correctly)
 	data, err := opts.Marshal(x)
 	if err != nil {
 		return nil, err
 	}
-
-	// Parse into a map to re-serialize nested messages with custom MarshalJSON
 	var raw map[string]json.RawMessage
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return nil, err
 	}
 
-	// Re-serialize "reading" forwarding opts when child supports MarshalJSONSebuf
+	// Delegate nested JSON mapping for field: reading
 	if x.Reading != nil {
+		var data []byte
+		var err error
 		if m, ok := any(x.Reading).(interface {
 			MarshalJSONSebuf(protojson.MarshalOptions) ([]byte, error)
 		}); ok {
-			raw["reading"], err = m.MarshalJSONSebuf(opts)
+			data, err = m.MarshalJSONSebuf(opts)
 		} else {
-			raw["reading"], err = opts.Marshal(x.Reading)
+			data, err = opts.Marshal(x.Reading)
 		}
 		if err != nil {
 			return nil, err
 		}
+		raw["reading"] = data
 	}
 
 	return json.Marshal(raw)
@@ -137,15 +127,22 @@ func (x *GetSensorReadingResponse) MarshalJSON() ([]byte, error) {
 }
 
 // UnmarshalJSONSebuf implements sebufUnmarshaler for GetSensorReadingResponse.
-// This method handles nested messages that have int64_encoding=NUMBER fields: reading
+// This method composes inverse sebuf JSON mapping annotations and nested message delegation.
 func (x *GetSensorReadingResponse) UnmarshalJSONSebuf(data []byte, opts protojson.UnmarshalOptions) error {
 	var raw map[string]json.RawMessage
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return err
 	}
 
-	// Handle "reading" using its custom unmarshaler
-	if rawVal, ok := raw["reading"]; ok {
+	// Delegate nested JSON unmarshal for field: reading
+	for _, k := range []string{"reading"} {
+		rawVal, ok := raw[k]
+		if !ok {
+			continue
+		}
+		if string(rawVal) == "null" {
+			continue
+		}
 		inner := &SensorReading{}
 		if u, ok := any(inner).(interface {
 			UnmarshalJSONSebuf([]byte, protojson.UnmarshalOptions) error
@@ -156,18 +153,17 @@ func (x *GetSensorReadingResponse) UnmarshalJSONSebuf(data []byte, opts protojso
 		} else if err := json.Unmarshal(rawVal, inner); err != nil {
 			return err
 		}
-		innerJSON, err := protojson.Marshal(inner)
-		if err != nil {
-			return err
+		innerJSON, marshalErr := protojson.Marshal(inner)
+		if marshalErr != nil {
+			return marshalErr
 		}
-		raw["reading"] = innerJSON
+		raw[k] = innerJSON
 	}
 
 	modified, err := json.Marshal(raw)
 	if err != nil {
 		return err
 	}
-
 	return opts.Unmarshal(modified, x)
 }
 
@@ -177,50 +173,52 @@ func (x *GetSensorReadingResponse) UnmarshalJSON(data []byte) error {
 }
 
 // MarshalJSONSebuf implements sebufMarshaler for GetMultiSensorResponse.
-// This method re-marshals nested messages that have int64_encoding=NUMBER fields: primary, secondary
+// This method composes sebuf JSON mapping annotations and nested message delegation.
 func (x *GetMultiSensorResponse) MarshalJSONSebuf(opts protojson.MarshalOptions) ([]byte, error) {
 	if x == nil {
 		return []byte("null"), nil
 	}
-
-	// Use protojson for base serialization (handles all other fields correctly)
 	data, err := opts.Marshal(x)
 	if err != nil {
 		return nil, err
 	}
-
-	// Parse into a map to re-serialize nested messages with custom MarshalJSON
 	var raw map[string]json.RawMessage
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return nil, err
 	}
 
-	// Re-serialize "primary" forwarding opts when child supports MarshalJSONSebuf
+	// Delegate nested JSON mapping for field: primary
 	if x.Primary != nil {
+		var data []byte
+		var err error
 		if m, ok := any(x.Primary).(interface {
 			MarshalJSONSebuf(protojson.MarshalOptions) ([]byte, error)
 		}); ok {
-			raw["primary"], err = m.MarshalJSONSebuf(opts)
+			data, err = m.MarshalJSONSebuf(opts)
 		} else {
-			raw["primary"], err = opts.Marshal(x.Primary)
+			data, err = opts.Marshal(x.Primary)
 		}
 		if err != nil {
 			return nil, err
 		}
+		raw["primary"] = data
 	}
 
-	// Re-serialize "secondary" forwarding opts when child supports MarshalJSONSebuf
+	// Delegate nested JSON mapping for field: secondary
 	if x.Secondary != nil {
+		var data []byte
+		var err error
 		if m, ok := any(x.Secondary).(interface {
 			MarshalJSONSebuf(protojson.MarshalOptions) ([]byte, error)
 		}); ok {
-			raw["secondary"], err = m.MarshalJSONSebuf(opts)
+			data, err = m.MarshalJSONSebuf(opts)
 		} else {
-			raw["secondary"], err = opts.Marshal(x.Secondary)
+			data, err = opts.Marshal(x.Secondary)
 		}
 		if err != nil {
 			return nil, err
 		}
+		raw["secondary"] = data
 	}
 
 	return json.Marshal(raw)
@@ -232,15 +230,22 @@ func (x *GetMultiSensorResponse) MarshalJSON() ([]byte, error) {
 }
 
 // UnmarshalJSONSebuf implements sebufUnmarshaler for GetMultiSensorResponse.
-// This method handles nested messages that have int64_encoding=NUMBER fields: primary, secondary
+// This method composes inverse sebuf JSON mapping annotations and nested message delegation.
 func (x *GetMultiSensorResponse) UnmarshalJSONSebuf(data []byte, opts protojson.UnmarshalOptions) error {
 	var raw map[string]json.RawMessage
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return err
 	}
 
-	// Handle "primary" using its custom unmarshaler
-	if rawVal, ok := raw["primary"]; ok {
+	// Delegate nested JSON unmarshal for field: primary
+	for _, k := range []string{"primary"} {
+		rawVal, ok := raw[k]
+		if !ok {
+			continue
+		}
+		if string(rawVal) == "null" {
+			continue
+		}
 		inner := &SensorReading{}
 		if u, ok := any(inner).(interface {
 			UnmarshalJSONSebuf([]byte, protojson.UnmarshalOptions) error
@@ -251,15 +256,22 @@ func (x *GetMultiSensorResponse) UnmarshalJSONSebuf(data []byte, opts protojson.
 		} else if err := json.Unmarshal(rawVal, inner); err != nil {
 			return err
 		}
-		innerJSON, err := protojson.Marshal(inner)
-		if err != nil {
-			return err
+		innerJSON, marshalErr := protojson.Marshal(inner)
+		if marshalErr != nil {
+			return marshalErr
 		}
-		raw["primary"] = innerJSON
+		raw[k] = innerJSON
 	}
 
-	// Handle "secondary" using its custom unmarshaler
-	if rawVal, ok := raw["secondary"]; ok {
+	// Delegate nested JSON unmarshal for field: secondary
+	for _, k := range []string{"secondary"} {
+		rawVal, ok := raw[k]
+		if !ok {
+			continue
+		}
+		if string(rawVal) == "null" {
+			continue
+		}
 		inner := &SensorReading{}
 		if u, ok := any(inner).(interface {
 			UnmarshalJSONSebuf([]byte, protojson.UnmarshalOptions) error
@@ -270,18 +282,17 @@ func (x *GetMultiSensorResponse) UnmarshalJSONSebuf(data []byte, opts protojson.
 		} else if err := json.Unmarshal(rawVal, inner); err != nil {
 			return err
 		}
-		innerJSON, err := protojson.Marshal(inner)
-		if err != nil {
-			return err
+		innerJSON, marshalErr := protojson.Marshal(inner)
+		if marshalErr != nil {
+			return marshalErr
 		}
-		raw["secondary"] = innerJSON
+		raw[k] = innerJSON
 	}
 
 	modified, err := json.Marshal(raw)
 	if err != nil {
 		return err
 	}
-
 	return opts.Unmarshal(modified, x)
 }
 

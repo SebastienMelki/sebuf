@@ -11,19 +11,15 @@ import (
 )
 
 // MarshalJSONSebuf implements sebufMarshaler for TimestampFormatTest.
-// This method handles timestamp_format fields: unix_seconds_ts, unix_millis_ts, date_ts
+// This method composes sebuf JSON mapping annotations and nested message delegation.
 func (x *TimestampFormatTest) MarshalJSONSebuf(opts protojson.MarshalOptions) ([]byte, error) {
 	if x == nil {
 		return []byte("null"), nil
 	}
-
-	// Use protojson for base serialization (handles all other fields correctly)
 	data, err := opts.Marshal(x)
 	if err != nil {
 		return nil, err
 	}
-
-	// Parse into a map to modify timestamp format fields
 	var raw map[string]json.RawMessage
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return nil, err
@@ -55,10 +51,9 @@ func (x *TimestampFormatTest) MarshalJSON() ([]byte, error) {
 	return x.MarshalJSONSebuf(protojson.MarshalOptions{})
 }
 
-// UnmarshalJSON implements json.Unmarshaler for TimestampFormatTest.
-// This method handles timestamp_format fields: unix_seconds_ts, unix_millis_ts, date_ts
-func (x *TimestampFormatTest) UnmarshalJSON(data []byte) error {
-	// Parse the raw JSON to extract timestamp format fields
+// UnmarshalJSONSebuf implements sebufUnmarshaler for TimestampFormatTest.
+// This method composes inverse sebuf JSON mapping annotations and nested message delegation.
+func (x *TimestampFormatTest) UnmarshalJSONSebuf(data []byte, opts protojson.UnmarshalOptions) error {
 	var raw map[string]json.RawMessage
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return err
@@ -93,12 +88,14 @@ func (x *TimestampFormatTest) UnmarshalJSON(data []byte) error {
 		}
 	}
 
-	// Re-marshal with RFC 3339 values for protojson
 	modified, err := json.Marshal(raw)
 	if err != nil {
 		return err
 	}
+	return opts.Unmarshal(modified, x)
+}
 
-	// Use protojson to unmarshal the rest
-	return protojson.Unmarshal(modified, x)
+// UnmarshalJSON implements json.Unmarshaler for TimestampFormatTest.
+func (x *TimestampFormatTest) UnmarshalJSON(data []byte) error {
+	return x.UnmarshalJSONSebuf(data, protojson.UnmarshalOptions{})
 }

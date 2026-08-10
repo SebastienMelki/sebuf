@@ -11,20 +11,15 @@ import (
 )
 
 // MarshalJSONSebuf implements sebufMarshaler for Int64EncodingTest.
-// This method handles int64_encoding=NUMBER fields: number_int64, number_uint64, number_sint64, number_sfixed64, number_fixed64, repeated_number_int64, optional_number_int64, commented_number_int64
-// Warning: int64 fields with NUMBER encoding may lose precision for values > 2^53 in JavaScript.
+// This method composes sebuf JSON mapping annotations and nested message delegation.
 func (x *Int64EncodingTest) MarshalJSONSebuf(opts protojson.MarshalOptions) ([]byte, error) {
 	if x == nil {
 		return []byte("null"), nil
 	}
-
-	// Use protojson for base serialization (handles all other fields correctly)
 	data, err := opts.Marshal(x)
 	if err != nil {
 		return nil, err
 	}
-
-	// Parse into a map to modify NUMBER-encoded int64 fields
 	var raw map[string]json.RawMessage
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return nil, err
@@ -100,9 +95,8 @@ func (x *Int64EncodingTest) MarshalJSON() ([]byte, error) {
 }
 
 // UnmarshalJSONSebuf implements sebufUnmarshaler for Int64EncodingTest.
-// This method handles int64_encoding=NUMBER fields: number_int64, number_uint64, number_sint64, number_sfixed64, number_fixed64, repeated_number_int64, optional_number_int64, commented_number_int64
+// This method composes inverse sebuf JSON mapping annotations and nested message delegation.
 func (x *Int64EncodingTest) UnmarshalJSONSebuf(data []byte, opts protojson.UnmarshalOptions) error {
-	// First, parse the raw JSON to extract NUMBER-encoded fields
 	var raw map[string]json.RawMessage
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return err
@@ -176,13 +170,10 @@ func (x *Int64EncodingTest) UnmarshalJSONSebuf(data []byte, opts protojson.Unmar
 		}
 	}
 
-	// Re-marshal to JSON with string values for protojson
 	modified, err := json.Marshal(raw)
 	if err != nil {
 		return err
 	}
-
-	// Use protojson to unmarshal the rest
 	return opts.Unmarshal(modified, x)
 }
 

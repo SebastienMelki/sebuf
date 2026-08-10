@@ -12,19 +12,15 @@ import (
 )
 
 // MarshalJSONSebuf implements sebufMarshaler for BytesEncodingTest.
-// This method handles bytes_encoding fields: base64_raw_data, base64url_data, base64url_raw_data, hex_data
+// This method composes sebuf JSON mapping annotations and nested message delegation.
 func (x *BytesEncodingTest) MarshalJSONSebuf(opts protojson.MarshalOptions) ([]byte, error) {
 	if x == nil {
 		return []byte("null"), nil
 	}
-
-	// Use protojson for base serialization (handles all other fields correctly)
 	data, err := opts.Marshal(x)
 	if err != nil {
 		return nil, err
 	}
-
-	// Parse into a map to modify bytes-encoded fields
 	var raw map[string]json.RawMessage
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return nil, err
@@ -58,10 +54,9 @@ func (x *BytesEncodingTest) MarshalJSON() ([]byte, error) {
 	return x.MarshalJSONSebuf(protojson.MarshalOptions{})
 }
 
-// UnmarshalJSON implements json.Unmarshaler for BytesEncodingTest.
-// This method handles bytes_encoding fields: base64_raw_data, base64url_data, base64url_raw_data, hex_data
-func (x *BytesEncodingTest) UnmarshalJSON(data []byte) error {
-	// Parse the raw JSON to extract bytes-encoded fields
+// UnmarshalJSONSebuf implements sebufUnmarshaler for BytesEncodingTest.
+// This method composes inverse sebuf JSON mapping annotations and nested message delegation.
+func (x *BytesEncodingTest) UnmarshalJSONSebuf(data []byte, opts protojson.UnmarshalOptions) error {
 	var raw map[string]json.RawMessage
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return err
@@ -111,12 +106,14 @@ func (x *BytesEncodingTest) UnmarshalJSON(data []byte) error {
 		}
 	}
 
-	// Re-marshal with standard base64 values for protojson
 	modified, err := json.Marshal(raw)
 	if err != nil {
 		return err
 	}
+	return opts.Unmarshal(modified, x)
+}
 
-	// Use protojson to unmarshal the rest
-	return protojson.Unmarshal(modified, x)
+// UnmarshalJSON implements json.Unmarshaler for BytesEncodingTest.
+func (x *BytesEncodingTest) UnmarshalJSON(data []byte) error {
+	return x.UnmarshalJSONSebuf(data, protojson.UnmarshalOptions{})
 }

@@ -10,19 +10,15 @@ import (
 )
 
 // MarshalJSONSebuf implements sebufMarshaler for SimpleFlatten.
-// This method handles flatten fields: address
+// This method composes sebuf JSON mapping annotations and nested message delegation.
 func (x *SimpleFlatten) MarshalJSONSebuf(opts protojson.MarshalOptions) ([]byte, error) {
 	if x == nil {
 		return []byte("null"), nil
 	}
-
-	// Use protojson for base serialization (handles all other fields correctly)
 	data, err := opts.Marshal(x)
 	if err != nil {
 		return nil, err
 	}
-
-	// Parse into a map to promote flattened child fields
 	var raw map[string]json.RawMessage
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return nil, err
@@ -61,15 +57,15 @@ func (x *SimpleFlatten) MarshalJSON() ([]byte, error) {
 	return x.MarshalJSONSebuf(protojson.MarshalOptions{})
 }
 
-// UnmarshalJSON implements json.Unmarshaler for SimpleFlatten.
-// This method handles flatten fields: address
-func (x *SimpleFlatten) UnmarshalJSON(data []byte) error {
+// UnmarshalJSONSebuf implements sebufUnmarshaler for SimpleFlatten.
+// This method composes inverse sebuf JSON mapping annotations and nested message delegation.
+func (x *SimpleFlatten) UnmarshalJSONSebuf(data []byte, opts protojson.UnmarshalOptions) error {
 	var raw map[string]json.RawMessage
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return err
 	}
 
-	// Extract flattened child fields for: address
+	// Reconstruct flattened child object for field: address
 	{
 		childRaw := make(map[string]json.RawMessage)
 		if v, ok := raw["street"]; ok {
@@ -89,37 +85,32 @@ func (x *SimpleFlatten) UnmarshalJSON(data []byte) error {
 			if childErr != nil {
 				return childErr
 			}
-			x.Address = &Address{}
-			// Use json.Unmarshal to invoke child's UnmarshalJSON (annotation composability)
-			if childErr = json.Unmarshal(childData, x.Address); childErr != nil {
-				return childErr
-			}
+			raw["address"] = childData
 		}
 	}
 
-	// Re-marshal remaining fields for protojson
-	remaining, err := json.Marshal(raw)
+	modified, err := json.Marshal(raw)
 	if err != nil {
 		return err
 	}
+	return opts.Unmarshal(modified, x)
+}
 
-	return protojson.Unmarshal(remaining, x)
+// UnmarshalJSON implements json.Unmarshaler for SimpleFlatten.
+func (x *SimpleFlatten) UnmarshalJSON(data []byte) error {
+	return x.UnmarshalJSONSebuf(data, protojson.UnmarshalOptions{})
 }
 
 // MarshalJSONSebuf implements sebufMarshaler for DualFlatten.
-// This method handles flatten fields: billing, shipping
+// This method composes sebuf JSON mapping annotations and nested message delegation.
 func (x *DualFlatten) MarshalJSONSebuf(opts protojson.MarshalOptions) ([]byte, error) {
 	if x == nil {
 		return []byte("null"), nil
 	}
-
-	// Use protojson for base serialization (handles all other fields correctly)
 	data, err := opts.Marshal(x)
 	if err != nil {
 		return nil, err
 	}
-
-	// Parse into a map to promote flattened child fields
 	var raw map[string]json.RawMessage
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return nil, err
@@ -183,15 +174,15 @@ func (x *DualFlatten) MarshalJSON() ([]byte, error) {
 	return x.MarshalJSONSebuf(protojson.MarshalOptions{})
 }
 
-// UnmarshalJSON implements json.Unmarshaler for DualFlatten.
-// This method handles flatten fields: billing, shipping
-func (x *DualFlatten) UnmarshalJSON(data []byte) error {
+// UnmarshalJSONSebuf implements sebufUnmarshaler for DualFlatten.
+// This method composes inverse sebuf JSON mapping annotations and nested message delegation.
+func (x *DualFlatten) UnmarshalJSONSebuf(data []byte, opts protojson.UnmarshalOptions) error {
 	var raw map[string]json.RawMessage
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return err
 	}
 
-	// Extract flattened child fields for: billing
+	// Reconstruct flattened child object for field: billing
 	{
 		childRaw := make(map[string]json.RawMessage)
 		if v, ok := raw["billing_street"]; ok {
@@ -211,15 +202,11 @@ func (x *DualFlatten) UnmarshalJSON(data []byte) error {
 			if childErr != nil {
 				return childErr
 			}
-			x.Billing = &Address{}
-			// Use json.Unmarshal to invoke child's UnmarshalJSON (annotation composability)
-			if childErr = json.Unmarshal(childData, x.Billing); childErr != nil {
-				return childErr
-			}
+			raw["billing"] = childData
 		}
 	}
 
-	// Extract flattened child fields for: shipping
+	// Reconstruct flattened child object for field: shipping
 	{
 		childRaw := make(map[string]json.RawMessage)
 		if v, ok := raw["shipping_street"]; ok {
@@ -239,37 +226,32 @@ func (x *DualFlatten) UnmarshalJSON(data []byte) error {
 			if childErr != nil {
 				return childErr
 			}
-			x.Shipping = &Address{}
-			// Use json.Unmarshal to invoke child's UnmarshalJSON (annotation composability)
-			if childErr = json.Unmarshal(childData, x.Shipping); childErr != nil {
-				return childErr
-			}
+			raw["shipping"] = childData
 		}
 	}
 
-	// Re-marshal remaining fields for protojson
-	remaining, err := json.Marshal(raw)
+	modified, err := json.Marshal(raw)
 	if err != nil {
 		return err
 	}
+	return opts.Unmarshal(modified, x)
+}
 
-	return protojson.Unmarshal(remaining, x)
+// UnmarshalJSON implements json.Unmarshaler for DualFlatten.
+func (x *DualFlatten) UnmarshalJSON(data []byte) error {
+	return x.UnmarshalJSONSebuf(data, protojson.UnmarshalOptions{})
 }
 
 // MarshalJSONSebuf implements sebufMarshaler for MixedFlatten.
-// This method handles flatten fields: address
+// This method composes sebuf JSON mapping annotations and nested message delegation.
 func (x *MixedFlatten) MarshalJSONSebuf(opts protojson.MarshalOptions) ([]byte, error) {
 	if x == nil {
 		return []byte("null"), nil
 	}
-
-	// Use protojson for base serialization (handles all other fields correctly)
 	data, err := opts.Marshal(x)
 	if err != nil {
 		return nil, err
 	}
-
-	// Parse into a map to promote flattened child fields
 	var raw map[string]json.RawMessage
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return nil, err
@@ -308,15 +290,15 @@ func (x *MixedFlatten) MarshalJSON() ([]byte, error) {
 	return x.MarshalJSONSebuf(protojson.MarshalOptions{})
 }
 
-// UnmarshalJSON implements json.Unmarshaler for MixedFlatten.
-// This method handles flatten fields: address
-func (x *MixedFlatten) UnmarshalJSON(data []byte) error {
+// UnmarshalJSONSebuf implements sebufUnmarshaler for MixedFlatten.
+// This method composes inverse sebuf JSON mapping annotations and nested message delegation.
+func (x *MixedFlatten) UnmarshalJSONSebuf(data []byte, opts protojson.UnmarshalOptions) error {
 	var raw map[string]json.RawMessage
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return err
 	}
 
-	// Extract flattened child fields for: address
+	// Reconstruct flattened child object for field: address
 	{
 		childRaw := make(map[string]json.RawMessage)
 		if v, ok := raw["street"]; ok {
@@ -336,19 +318,18 @@ func (x *MixedFlatten) UnmarshalJSON(data []byte) error {
 			if childErr != nil {
 				return childErr
 			}
-			x.Address = &Address{}
-			// Use json.Unmarshal to invoke child's UnmarshalJSON (annotation composability)
-			if childErr = json.Unmarshal(childData, x.Address); childErr != nil {
-				return childErr
-			}
+			raw["address"] = childData
 		}
 	}
 
-	// Re-marshal remaining fields for protojson
-	remaining, err := json.Marshal(raw)
+	modified, err := json.Marshal(raw)
 	if err != nil {
 		return err
 	}
+	return opts.Unmarshal(modified, x)
+}
 
-	return protojson.Unmarshal(remaining, x)
+// UnmarshalJSON implements json.Unmarshaler for MixedFlatten.
+func (x *MixedFlatten) UnmarshalJSON(data []byte) error {
+	return x.UnmarshalJSONSebuf(data, protojson.UnmarshalOptions{})
 }

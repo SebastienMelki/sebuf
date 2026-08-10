@@ -11,20 +11,15 @@ import (
 )
 
 // MarshalJSONSebuf implements sebufMarshaler for Leaf.
-// This method handles int64_encoding=NUMBER fields: value
-// Warning: int64 fields with NUMBER encoding may lose precision for values > 2^53 in JavaScript.
+// This method composes sebuf JSON mapping annotations and nested message delegation.
 func (x *Leaf) MarshalJSONSebuf(opts protojson.MarshalOptions) ([]byte, error) {
 	if x == nil {
 		return []byte("null"), nil
 	}
-
-	// Use protojson for base serialization (handles all other fields correctly)
 	data, err := opts.Marshal(x)
 	if err != nil {
 		return nil, err
 	}
-
-	// Parse into a map to modify NUMBER-encoded int64 fields
 	var raw map[string]json.RawMessage
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return nil, err
@@ -47,9 +42,8 @@ func (x *Leaf) MarshalJSON() ([]byte, error) {
 }
 
 // UnmarshalJSONSebuf implements sebufUnmarshaler for Leaf.
-// This method handles int64_encoding=NUMBER fields: value
+// This method composes inverse sebuf JSON mapping annotations and nested message delegation.
 func (x *Leaf) UnmarshalJSONSebuf(data []byte, opts protojson.UnmarshalOptions) error {
-	// First, parse the raw JSON to extract NUMBER-encoded fields
 	var raw map[string]json.RawMessage
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return err
@@ -63,13 +57,10 @@ func (x *Leaf) UnmarshalJSONSebuf(data []byte, opts protojson.UnmarshalOptions) 
 		}
 	}
 
-	// Re-marshal to JSON with string values for protojson
 	modified, err := json.Marshal(raw)
 	if err != nil {
 		return err
 	}
-
-	// Use protojson to unmarshal the rest
 	return opts.Unmarshal(modified, x)
 }
 
@@ -78,139 +69,36 @@ func (x *Leaf) UnmarshalJSON(data []byte) error {
 	return x.UnmarshalJSONSebuf(data, protojson.UnmarshalOptions{})
 }
 
-// MarshalJSONSebuf implements sebufMarshaler for Node.
-// This method handles int64_encoding=NUMBER fields: id
-// It also re-marshals nested messages that reach int64_encoding=NUMBER fields: child
-// Warning: int64 fields with NUMBER encoding may lose precision for values > 2^53 in JavaScript.
-func (x *Node) MarshalJSONSebuf(opts protojson.MarshalOptions) ([]byte, error) {
-	if x == nil {
-		return []byte("null"), nil
-	}
-
-	// Use protojson for base serialization (handles all other fields correctly)
-	data, err := opts.Marshal(x)
-	if err != nil {
-		return nil, err
-	}
-
-	// Parse into a map to modify NUMBER-encoded int64 fields
-	var raw map[string]json.RawMessage
-	if err := json.Unmarshal(data, &raw); err != nil {
-		return nil, err
-	}
-
-	// Convert Id from string to number
-	if x.Id != 0 {
-		raw["id"], _ = json.Marshal(x.Id)
-	} else {
-		// Remove the field if zero (proto3 default behavior)
-		delete(raw, "id")
-	}
-
-	// Re-serialize "child" forwarding opts when child supports MarshalJSONSebuf
-	if x.Child != nil {
-		if m, ok := any(x.Child).(interface {
-			MarshalJSONSebuf(protojson.MarshalOptions) ([]byte, error)
-		}); ok {
-			raw["child"], err = m.MarshalJSONSebuf(opts)
-		} else {
-			raw["child"], err = opts.Marshal(x.Child)
-		}
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	return json.Marshal(raw)
-}
-
-// MarshalJSON implements json.Marshaler for Node.
-func (x *Node) MarshalJSON() ([]byte, error) {
-	return x.MarshalJSONSebuf(protojson.MarshalOptions{})
-}
-
-// UnmarshalJSONSebuf implements sebufUnmarshaler for Node.
-// This method handles int64_encoding=NUMBER fields: id
-func (x *Node) UnmarshalJSONSebuf(data []byte, opts protojson.UnmarshalOptions) error {
-	// First, parse the raw JSON to extract NUMBER-encoded fields
-	var raw map[string]json.RawMessage
-	if err := json.Unmarshal(data, &raw); err != nil {
-		return err
-	}
-
-	// Convert id from number to string for protojson
-	if rawVal, ok := raw["id"]; ok {
-		var num int64
-		if err := json.Unmarshal(rawVal, &num); err == nil {
-			raw["id"], _ = json.Marshal(strconv.FormatInt(num, 10))
-		}
-	}
-
-	// Handle "child" using its custom unmarshaler
-	if rawVal, ok := raw["child"]; ok {
-		inner := &Node{}
-		if u, ok := any(inner).(interface {
-			UnmarshalJSONSebuf([]byte, protojson.UnmarshalOptions) error
-		}); ok {
-			if err := u.UnmarshalJSONSebuf(rawVal, opts); err != nil {
-				return err
-			}
-		} else if err := json.Unmarshal(rawVal, inner); err != nil {
-			return err
-		}
-		innerJSON, err := protojson.Marshal(inner)
-		if err != nil {
-			return err
-		}
-		raw["child"] = innerJSON
-	}
-
-	// Re-marshal to JSON with string values for protojson
-	modified, err := json.Marshal(raw)
-	if err != nil {
-		return err
-	}
-
-	// Use protojson to unmarshal the rest
-	return opts.Unmarshal(modified, x)
-}
-
-// UnmarshalJSON implements json.Unmarshaler for Node.
-func (x *Node) UnmarshalJSON(data []byte) error {
-	return x.UnmarshalJSONSebuf(data, protojson.UnmarshalOptions{})
-}
-
 // MarshalJSONSebuf implements sebufMarshaler for Middle.
-// This method re-marshals nested messages that have int64_encoding=NUMBER fields: leaf
+// This method composes sebuf JSON mapping annotations and nested message delegation.
 func (x *Middle) MarshalJSONSebuf(opts protojson.MarshalOptions) ([]byte, error) {
 	if x == nil {
 		return []byte("null"), nil
 	}
-
-	// Use protojson for base serialization (handles all other fields correctly)
 	data, err := opts.Marshal(x)
 	if err != nil {
 		return nil, err
 	}
-
-	// Parse into a map to re-serialize nested messages with custom MarshalJSON
 	var raw map[string]json.RawMessage
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return nil, err
 	}
 
-	// Re-serialize "leaf" forwarding opts when child supports MarshalJSONSebuf
+	// Delegate nested JSON mapping for field: leaf
 	if x.Leaf != nil {
+		var data []byte
+		var err error
 		if m, ok := any(x.Leaf).(interface {
 			MarshalJSONSebuf(protojson.MarshalOptions) ([]byte, error)
 		}); ok {
-			raw["leaf"], err = m.MarshalJSONSebuf(opts)
+			data, err = m.MarshalJSONSebuf(opts)
 		} else {
-			raw["leaf"], err = opts.Marshal(x.Leaf)
+			data, err = opts.Marshal(x.Leaf)
 		}
 		if err != nil {
 			return nil, err
 		}
+		raw["leaf"] = data
 	}
 
 	return json.Marshal(raw)
@@ -222,15 +110,22 @@ func (x *Middle) MarshalJSON() ([]byte, error) {
 }
 
 // UnmarshalJSONSebuf implements sebufUnmarshaler for Middle.
-// This method handles nested messages that have int64_encoding=NUMBER fields: leaf
+// This method composes inverse sebuf JSON mapping annotations and nested message delegation.
 func (x *Middle) UnmarshalJSONSebuf(data []byte, opts protojson.UnmarshalOptions) error {
 	var raw map[string]json.RawMessage
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return err
 	}
 
-	// Handle "leaf" using its custom unmarshaler
-	if rawVal, ok := raw["leaf"]; ok {
+	// Delegate nested JSON unmarshal for field: leaf
+	for _, k := range []string{"leaf"} {
+		rawVal, ok := raw[k]
+		if !ok {
+			continue
+		}
+		if string(rawVal) == "null" {
+			continue
+		}
 		inner := &Leaf{}
 		if u, ok := any(inner).(interface {
 			UnmarshalJSONSebuf([]byte, protojson.UnmarshalOptions) error
@@ -241,18 +136,17 @@ func (x *Middle) UnmarshalJSONSebuf(data []byte, opts protojson.UnmarshalOptions
 		} else if err := json.Unmarshal(rawVal, inner); err != nil {
 			return err
 		}
-		innerJSON, err := protojson.Marshal(inner)
-		if err != nil {
-			return err
+		innerJSON, marshalErr := protojson.Marshal(inner)
+		if marshalErr != nil {
+			return marshalErr
 		}
-		raw["leaf"] = innerJSON
+		raw[k] = innerJSON
 	}
 
 	modified, err := json.Marshal(raw)
 	if err != nil {
 		return err
 	}
-
 	return opts.Unmarshal(modified, x)
 }
 
@@ -262,36 +156,35 @@ func (x *Middle) UnmarshalJSON(data []byte) error {
 }
 
 // MarshalJSONSebuf implements sebufMarshaler for Outer.
-// This method re-marshals nested messages that have int64_encoding=NUMBER fields: middle
+// This method composes sebuf JSON mapping annotations and nested message delegation.
 func (x *Outer) MarshalJSONSebuf(opts protojson.MarshalOptions) ([]byte, error) {
 	if x == nil {
 		return []byte("null"), nil
 	}
-
-	// Use protojson for base serialization (handles all other fields correctly)
 	data, err := opts.Marshal(x)
 	if err != nil {
 		return nil, err
 	}
-
-	// Parse into a map to re-serialize nested messages with custom MarshalJSON
 	var raw map[string]json.RawMessage
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return nil, err
 	}
 
-	// Re-serialize "middle" forwarding opts when child supports MarshalJSONSebuf
+	// Delegate nested JSON mapping for field: middle
 	if x.Middle != nil {
+		var data []byte
+		var err error
 		if m, ok := any(x.Middle).(interface {
 			MarshalJSONSebuf(protojson.MarshalOptions) ([]byte, error)
 		}); ok {
-			raw["middle"], err = m.MarshalJSONSebuf(opts)
+			data, err = m.MarshalJSONSebuf(opts)
 		} else {
-			raw["middle"], err = opts.Marshal(x.Middle)
+			data, err = opts.Marshal(x.Middle)
 		}
 		if err != nil {
 			return nil, err
 		}
+		raw["middle"] = data
 	}
 
 	return json.Marshal(raw)
@@ -303,15 +196,22 @@ func (x *Outer) MarshalJSON() ([]byte, error) {
 }
 
 // UnmarshalJSONSebuf implements sebufUnmarshaler for Outer.
-// This method handles nested messages that have int64_encoding=NUMBER fields: middle
+// This method composes inverse sebuf JSON mapping annotations and nested message delegation.
 func (x *Outer) UnmarshalJSONSebuf(data []byte, opts protojson.UnmarshalOptions) error {
 	var raw map[string]json.RawMessage
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return err
 	}
 
-	// Handle "middle" using its custom unmarshaler
-	if rawVal, ok := raw["middle"]; ok {
+	// Delegate nested JSON unmarshal for field: middle
+	for _, k := range []string{"middle"} {
+		rawVal, ok := raw[k]
+		if !ok {
+			continue
+		}
+		if string(rawVal) == "null" {
+			continue
+		}
 		inner := &Middle{}
 		if u, ok := any(inner).(interface {
 			UnmarshalJSONSebuf([]byte, protojson.UnmarshalOptions) error
@@ -322,18 +222,17 @@ func (x *Outer) UnmarshalJSONSebuf(data []byte, opts protojson.UnmarshalOptions)
 		} else if err := json.Unmarshal(rawVal, inner); err != nil {
 			return err
 		}
-		innerJSON, err := protojson.Marshal(inner)
-		if err != nil {
-			return err
+		innerJSON, marshalErr := protojson.Marshal(inner)
+		if marshalErr != nil {
+			return marshalErr
 		}
-		raw["middle"] = innerJSON
+		raw[k] = innerJSON
 	}
 
 	modified, err := json.Marshal(raw)
 	if err != nil {
 		return err
 	}
-
 	return opts.Unmarshal(modified, x)
 }
 
@@ -343,48 +242,43 @@ func (x *Outer) UnmarshalJSON(data []byte) error {
 }
 
 // MarshalJSONSebuf implements sebufMarshaler for OuterList.
-// This method re-marshals nested messages that have int64_encoding=NUMBER fields: middles
+// This method composes sebuf JSON mapping annotations and nested message delegation.
 func (x *OuterList) MarshalJSONSebuf(opts protojson.MarshalOptions) ([]byte, error) {
 	if x == nil {
 		return []byte("null"), nil
 	}
-
-	// Use protojson for base serialization (handles all other fields correctly)
 	data, err := opts.Marshal(x)
 	if err != nil {
 		return nil, err
 	}
-
-	// Parse into a map to re-serialize nested messages with custom MarshalJSON
 	var raw map[string]json.RawMessage
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return nil, err
 	}
 
-	// Re-serialize repeated "middles" forwarding opts to each element
+	// Delegate nested JSON mapping for repeated field: middles
 	if len(x.Middles) > 0 {
 		items := make([]json.RawMessage, 0, len(x.Middles))
 		for _, item := range x.Middles {
+			var data []byte
+			var err error
 			if m, ok := any(item).(interface {
 				MarshalJSONSebuf(protojson.MarshalOptions) ([]byte, error)
 			}); ok {
-				itemData, itemErr := m.MarshalJSONSebuf(opts)
-				if itemErr != nil {
-					return nil, itemErr
-				}
-				items = append(items, itemData)
+				data, err = m.MarshalJSONSebuf(opts)
 			} else {
-				itemData, itemErr := opts.Marshal(item)
-				if itemErr != nil {
-					return nil, itemErr
-				}
-				items = append(items, itemData)
+				data, err = opts.Marshal(item)
 			}
+			if err != nil {
+				return nil, err
+			}
+			items = append(items, data)
 		}
-		raw["middles"], err = json.Marshal(items)
+		data, err := json.Marshal(items)
 		if err != nil {
 			return nil, err
 		}
+		raw["middles"] = data
 	}
 
 	return json.Marshal(raw)
@@ -396,15 +290,19 @@ func (x *OuterList) MarshalJSON() ([]byte, error) {
 }
 
 // UnmarshalJSONSebuf implements sebufUnmarshaler for OuterList.
-// This method handles nested messages that have int64_encoding=NUMBER fields: middles
+// This method composes inverse sebuf JSON mapping annotations and nested message delegation.
 func (x *OuterList) UnmarshalJSONSebuf(data []byte, opts protojson.UnmarshalOptions) error {
 	var raw map[string]json.RawMessage
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return err
 	}
 
-	// Handle repeated "middles" using its custom unmarshaler
-	if rawVal, ok := raw["middles"]; ok {
+	// Delegate nested JSON unmarshal for repeated field: middles
+	for _, k := range []string{"middles"} {
+		rawVal, ok := raw[k]
+		if !ok {
+			continue
+		}
 		var rawItems []json.RawMessage
 		if err := json.Unmarshal(rawVal, &rawItems); err != nil {
 			return err
@@ -431,14 +329,13 @@ func (x *OuterList) UnmarshalJSONSebuf(data []byte, opts protojson.UnmarshalOpti
 		if marshalErr != nil {
 			return marshalErr
 		}
-		raw["middles"] = protoJSON
+		raw[k] = protoJSON
 	}
 
 	modified, err := json.Marshal(raw)
 	if err != nil {
 		return err
 	}
-
 	return opts.Unmarshal(modified, x)
 }
 
@@ -447,37 +344,138 @@ func (x *OuterList) UnmarshalJSON(data []byte) error {
 	return x.UnmarshalJSONSebuf(data, protojson.UnmarshalOptions{})
 }
 
-// MarshalJSONSebuf implements sebufMarshaler for NodeHolder.
-// This method re-marshals nested messages that have int64_encoding=NUMBER fields: root
-func (x *NodeHolder) MarshalJSONSebuf(opts protojson.MarshalOptions) ([]byte, error) {
+// MarshalJSONSebuf implements sebufMarshaler for Node.
+// This method composes sebuf JSON mapping annotations and nested message delegation.
+func (x *Node) MarshalJSONSebuf(opts protojson.MarshalOptions) ([]byte, error) {
 	if x == nil {
 		return []byte("null"), nil
 	}
-
-	// Use protojson for base serialization (handles all other fields correctly)
 	data, err := opts.Marshal(x)
 	if err != nil {
 		return nil, err
 	}
-
-	// Parse into a map to re-serialize nested messages with custom MarshalJSON
 	var raw map[string]json.RawMessage
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return nil, err
 	}
 
-	// Re-serialize "root" forwarding opts when child supports MarshalJSONSebuf
-	if x.Root != nil {
-		if m, ok := any(x.Root).(interface {
+	// Delegate nested JSON mapping for field: child
+	if x.Child != nil {
+		var data []byte
+		var err error
+		if m, ok := any(x.Child).(interface {
 			MarshalJSONSebuf(protojson.MarshalOptions) ([]byte, error)
 		}); ok {
-			raw["root"], err = m.MarshalJSONSebuf(opts)
+			data, err = m.MarshalJSONSebuf(opts)
 		} else {
-			raw["root"], err = opts.Marshal(x.Root)
+			data, err = opts.Marshal(x.Child)
 		}
 		if err != nil {
 			return nil, err
 		}
+		raw["child"] = data
+	}
+
+	// Convert Id from string to number
+	if x.Id != 0 {
+		raw["id"], _ = json.Marshal(x.Id)
+	} else {
+		// Remove the field if zero (proto3 default behavior)
+		delete(raw, "id")
+	}
+
+	return json.Marshal(raw)
+}
+
+// MarshalJSON implements json.Marshaler for Node.
+func (x *Node) MarshalJSON() ([]byte, error) {
+	return x.MarshalJSONSebuf(protojson.MarshalOptions{})
+}
+
+// UnmarshalJSONSebuf implements sebufUnmarshaler for Node.
+// This method composes inverse sebuf JSON mapping annotations and nested message delegation.
+func (x *Node) UnmarshalJSONSebuf(data []byte, opts protojson.UnmarshalOptions) error {
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return err
+	}
+
+	// Convert id from number to string for protojson
+	if rawVal, ok := raw["id"]; ok {
+		var num int64
+		if err := json.Unmarshal(rawVal, &num); err == nil {
+			raw["id"], _ = json.Marshal(strconv.FormatInt(num, 10))
+		}
+	}
+
+	// Delegate nested JSON unmarshal for field: child
+	for _, k := range []string{"child"} {
+		rawVal, ok := raw[k]
+		if !ok {
+			continue
+		}
+		if string(rawVal) == "null" {
+			continue
+		}
+		inner := &Node{}
+		if u, ok := any(inner).(interface {
+			UnmarshalJSONSebuf([]byte, protojson.UnmarshalOptions) error
+		}); ok {
+			if err := u.UnmarshalJSONSebuf(rawVal, opts); err != nil {
+				return err
+			}
+		} else if err := json.Unmarshal(rawVal, inner); err != nil {
+			return err
+		}
+		innerJSON, marshalErr := protojson.Marshal(inner)
+		if marshalErr != nil {
+			return marshalErr
+		}
+		raw[k] = innerJSON
+	}
+
+	modified, err := json.Marshal(raw)
+	if err != nil {
+		return err
+	}
+	return opts.Unmarshal(modified, x)
+}
+
+// UnmarshalJSON implements json.Unmarshaler for Node.
+func (x *Node) UnmarshalJSON(data []byte) error {
+	return x.UnmarshalJSONSebuf(data, protojson.UnmarshalOptions{})
+}
+
+// MarshalJSONSebuf implements sebufMarshaler for NodeHolder.
+// This method composes sebuf JSON mapping annotations and nested message delegation.
+func (x *NodeHolder) MarshalJSONSebuf(opts protojson.MarshalOptions) ([]byte, error) {
+	if x == nil {
+		return []byte("null"), nil
+	}
+	data, err := opts.Marshal(x)
+	if err != nil {
+		return nil, err
+	}
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return nil, err
+	}
+
+	// Delegate nested JSON mapping for field: root
+	if x.Root != nil {
+		var data []byte
+		var err error
+		if m, ok := any(x.Root).(interface {
+			MarshalJSONSebuf(protojson.MarshalOptions) ([]byte, error)
+		}); ok {
+			data, err = m.MarshalJSONSebuf(opts)
+		} else {
+			data, err = opts.Marshal(x.Root)
+		}
+		if err != nil {
+			return nil, err
+		}
+		raw["root"] = data
 	}
 
 	return json.Marshal(raw)
@@ -489,15 +487,22 @@ func (x *NodeHolder) MarshalJSON() ([]byte, error) {
 }
 
 // UnmarshalJSONSebuf implements sebufUnmarshaler for NodeHolder.
-// This method handles nested messages that have int64_encoding=NUMBER fields: root
+// This method composes inverse sebuf JSON mapping annotations and nested message delegation.
 func (x *NodeHolder) UnmarshalJSONSebuf(data []byte, opts protojson.UnmarshalOptions) error {
 	var raw map[string]json.RawMessage
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return err
 	}
 
-	// Handle "root" using its custom unmarshaler
-	if rawVal, ok := raw["root"]; ok {
+	// Delegate nested JSON unmarshal for field: root
+	for _, k := range []string{"root"} {
+		rawVal, ok := raw[k]
+		if !ok {
+			continue
+		}
+		if string(rawVal) == "null" {
+			continue
+		}
 		inner := &Node{}
 		if u, ok := any(inner).(interface {
 			UnmarshalJSONSebuf([]byte, protojson.UnmarshalOptions) error
@@ -508,18 +513,17 @@ func (x *NodeHolder) UnmarshalJSONSebuf(data []byte, opts protojson.UnmarshalOpt
 		} else if err := json.Unmarshal(rawVal, inner); err != nil {
 			return err
 		}
-		innerJSON, err := protojson.Marshal(inner)
-		if err != nil {
-			return err
+		innerJSON, marshalErr := protojson.Marshal(inner)
+		if marshalErr != nil {
+			return marshalErr
 		}
-		raw["root"] = innerJSON
+		raw[k] = innerJSON
 	}
 
 	modified, err := json.Marshal(raw)
 	if err != nil {
 		return err
 	}
-
 	return opts.Unmarshal(modified, x)
 }
 
