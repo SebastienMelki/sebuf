@@ -211,23 +211,15 @@ func TestPhase4SuccessCriteria(t *testing.T) {
 func verifyCriterion1Int64String(t *testing.T, baseDir string) {
 	t.Helper()
 
-	// Go: default behavior via protojson (no custom MarshalJSON for STRING fields)
-	httpgenFile := filepath.Join(baseDir, "testdata", "golden", "int64_encoding_encoding.pb.go")
-	content, readErr := os.ReadFile(httpgenFile)
-	if readErr != nil {
-		t.Fatalf("Failed to read file: %v", readErr)
-	}
+	// Go: default behavior via protojson (no composed JSON mapping patch for STRING fields).
+	goContent := readGeneratedJSONMappingGoldenFixture(t, baseDir, "int64_encoding")
 
-	// The MarshalJSON function should NOT modify STRING-encoded fields
-	// It only modifies NUMBER fields listed in the comment
-	if !strings.Contains(string(content), "int64_encoding=NUMBER fields:") {
-		t.Error("Go encoding file should document which fields have NUMBER encoding")
+	// The composed marshaler should patch NUMBER fields but not STRING/default fields.
+	if !strings.Contains(goContent, `raw["numberInt64"]`) {
+		t.Error("Go composed JSON mapping file should patch NUMBER int64 fields")
 	}
-
-	// Verify STRING fields are not in the NUMBER modification list
-	if strings.Contains(string(content), "DefaultInt64") &&
-		strings.Contains(string(content), "raw[\"defaultInt64\"]") {
-		t.Error("STRING-encoded defaultInt64 should not be modified in MarshalJSON")
+	if strings.Contains(goContent, `raw["defaultInt64"]`) {
+		t.Error("STRING-encoded defaultInt64 should not be patched by composed JSON mapping")
 	}
 
 	// TypeScript: string type
@@ -251,19 +243,14 @@ func verifyCriterion1Int64String(t *testing.T, baseDir string) {
 func verifyCriterion2Int64Number(t *testing.T, baseDir string) {
 	t.Helper()
 
-	// Go: MarshalJSON converts to number
-	httpgenFile := filepath.Join(baseDir, "testdata", "golden", "int64_encoding_encoding.pb.go")
-	content, _ := os.ReadFile(httpgenFile)
-	goContent := string(content)
+	// Go: composed MarshalJSON converts NUMBER fields to JSON numbers.
+	goContent := readGeneratedJSONMappingGoldenFixture(t, baseDir, "int64_encoding")
 
-	// Should have MarshalJSON for NUMBER fields
-	if !strings.Contains(goContent, "func (x *Int64EncodingTest) MarshalJSON()") {
-		t.Error("Go should generate MarshalJSON for NUMBER int64 fields")
+	if !strings.Contains(goContent, "func (x *Int64EncodingTest) MarshalJSONSebuf(") {
+		t.Error("Go should generate composed MarshalJSONSebuf for NUMBER int64 fields")
 	}
-
-	// Should contain precision warning comment
-	if !strings.Contains(goContent, "may lose precision for values > 2^53") {
-		t.Error("Go should include precision warning for NUMBER encoding")
+	if !strings.Contains(goContent, `raw["numberInt64"], _ = json.Marshal(x.NumberInt64)`) {
+		t.Error("Go should patch NUMBER int64 fields to JSON numbers")
 	}
 
 	// TypeScript: number type
@@ -311,16 +298,14 @@ func verifyCriterion3EnumString(t *testing.T, baseDir string) {
 func verifyCriterion4EnumValue(t *testing.T, baseDir string) {
 	t.Helper()
 
-	// Go: lookup maps with custom values
-	httpgenFile := filepath.Join(baseDir, "testdata", "golden", "enum_encoding_enum_encoding.pb.go")
-	content, _ := os.ReadFile(httpgenFile)
-	goContent := string(content)
+	// Go: composed JSON mapping uses enum custom-value lookup maps for annotated fields.
+	goContent := readGeneratedJSONMappingGoldenFixture(t, baseDir, "enum_encoding")
 
-	if !strings.Contains(goContent, `Status_STATUS_UNSPECIFIED: "unknown"`) {
-		t.Error("Go should map STATUS_UNSPECIFIED to custom value 'unknown'")
+	if !strings.Contains(goContent, "statusToJSON[e]") {
+		t.Error("Go composed JSON mapping should use statusToJSON for custom enum_value fields")
 	}
-	if !strings.Contains(goContent, `Status_STATUS_ACTIVE:      "active"`) {
-		t.Error("Go should map STATUS_ACTIVE to custom value 'active'")
+	if !strings.Contains(goContent, "e.String()") {
+		t.Error("Go composed JSON mapping should convert custom enum strings back to proto names for protojson")
 	}
 
 	// TypeScript: custom values in union type
@@ -389,12 +374,15 @@ func verifyCriterion5OpenAPISchemas(t *testing.T, baseDir string) {
 func verifyCriterion6CrossGenerator(t *testing.T, baseDir string) {
 	t.Helper()
 
-	// This criterion is verified by the other tests (TestGoGenerators*, TestTypeScript*, TestOpenAPI*)
-	// Here we just verify all golden files exist
+	// This criterion is verified by the other tests (TestGoGenerators*, TestTypeScript*, TestOpenAPI*).
+	// For Go, validate the current composed output rather than obsolete per-feature golden files.
+	for _, fixture := range []string{"int64_encoding", "enum_encoding"} {
+		if src := readGeneratedJSONMappingGoldenFixture(t, baseDir, fixture); !strings.Contains(src, "MarshalJSONSebuf") {
+			t.Errorf("generated composed JSON mapping for %s should contain MarshalJSONSebuf", fixture)
+		}
+	}
+
 	goldenFiles := []string{
-		// Go httpgen
-		filepath.Join(baseDir, "testdata", "golden", "int64_encoding_encoding.pb.go"),
-		filepath.Join(baseDir, "testdata", "golden", "enum_encoding_enum_encoding.pb.go"),
 		// TypeScript
 		filepath.Join(baseDir, "..", "tsclientgen", "testdata", "golden", "int64_encoding_client.ts"),
 		filepath.Join(baseDir, "..", "tsclientgen", "testdata", "golden", "enum_encoding_client.ts"),
@@ -409,7 +397,7 @@ func verifyCriterion6CrossGenerator(t *testing.T, baseDir string) {
 		}
 	}
 
-	t.Log("PASS: Criterion 6 verified - Go, TypeScript, and OpenAPI encoding golden files exist")
+	t.Log("PASS: Criterion 6 verified - Go composed output, TypeScript, and OpenAPI encoding coverage exists")
 }
 
 // TestBackwardCompatibility verifies protos without encoding annotations are unchanged.
@@ -419,13 +407,8 @@ func TestBackwardCompatibility(t *testing.T) {
 		t.Fatalf("Failed to get working directory: %v", baseErr)
 	}
 
-	t.Run("Proto without encoding annotations produces no encoding file", func(t *testing.T) {
-		// Check that backward_compat.proto (no encoding annotations) doesn't generate
-		// an encoding file
-		encodingFile := filepath.Join(baseDir, "testdata", "golden", "backward_compat_encoding.pb.go")
-		if _, statErr := os.Stat(encodingFile); statErr == nil {
-			t.Error("backward_compat.proto should not generate an encoding file (no encoding annotations)")
-		}
+	t.Run("Proto without encoding annotations produces no JSON mapping file", func(t *testing.T) {
+		assertHTTPGenFixtureDoesNotGenerate(t, baseDir, "backward_compat_json_mapping.pb.go", "backward_compat.proto")
 
 		t.Log("PASS: Protos without encoding annotations are unchanged")
 	})

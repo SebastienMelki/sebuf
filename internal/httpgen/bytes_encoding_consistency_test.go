@@ -147,22 +147,17 @@ func TestBytesEncodingCrossGeneratorAgreement(t *testing.T) {
 		t.Fatalf("Failed to get working directory: %v", baseErr)
 	}
 
-	// Read all golden files
-	goFile := filepath.Join(baseDir, "testdata", "golden", "bytes_encoding_bytes_encoding.pb.go")
+	// Read current composed Go output plus the cross-generator golden files.
+	goStr := readGeneratedJSONMappingGoldenFixture(t, baseDir, "bytes_encoding")
 	yamlFile := filepath.Join(
 		baseDir, "..", "openapiv3", "testdata", "golden", "yaml", "BytesEncodingService.openapi.yaml",
 	)
 
-	goContent, err := os.ReadFile(goFile)
-	if err != nil {
-		t.Fatalf("Failed to read Go golden file: %v", err)
-	}
 	yamlContent, err := os.ReadFile(yamlFile)
 	if err != nil {
 		t.Fatalf("Failed to read OpenAPI golden file: %v", err)
 	}
 
-	goStr := string(goContent)
 	tsStr := readCombinedTSGolden(t, baseDir, "bytes_encoding")
 	yamlStr := string(yamlContent)
 
@@ -225,9 +220,8 @@ func TestBytesEncodingCrossGeneratorAgreement(t *testing.T) {
 		})
 	}
 
-	// Verify all golden files exist for cross-generator coverage
+	// Verify cross-generator golden files exist; Go coverage comes from generated composed output above.
 	goldenFiles := []string{
-		filepath.Join(baseDir, "testdata", "golden", "bytes_encoding_bytes_encoding.pb.go"),
 		filepath.Join(baseDir, "..", "tsclientgen", "testdata", "golden", "bytes_encoding_client.ts"),
 		filepath.Join(
 			baseDir, "..", "openapiv3", "testdata", "golden", "yaml", "BytesEncodingService.openapi.yaml",
