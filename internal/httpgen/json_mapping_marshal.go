@@ -1,0 +1,382 @@
+package httpgen
+
+import (
+	"fmt"
+
+	"google.golang.org/protobuf/compiler/protogen"
+	"google.golang.org/protobuf/reflect/protoreflect"
+
+	"github.com/SebastienMelki/sebuf/http"
+	"github.com/SebastienMelki/sebuf/internal/annotations"
+)
+
+// generateJSONMappingFile emits the composed JSON mapping implementation for every message in
+// the file that needs direct transforms, nested delegation, or root unwrap handling.
+func (g *Generator) generateJSONMappingFile(file *protogen.File) error {
+	contexts, err := collectJSONMappingContexts(file)
+	if err != nil {
+		return fmt.Errorf("collecting JSON mapping contexts for %s: %w", file.Desc.Path(), err)
+	}
+	if len(contexts) == 0 {
+		return nil
+	}
+
+	filename := file.GeneratedFilenamePrefix + "_json_mapping.pb.go"
+	gf := g.plugin.NewGeneratedFile(filename, file.GoImportPath)
+
+	g.writeHeader(gf, file)
+	g.writeJSONMappingImports(gf, contexts)
+
+	for _, ctx := range contexts {
+		g.generateJSONMappingMarshalJSON(gf, ctx)
+	}
+
+	return nil
+}
+
+func (g *Generator) writeJSONMappingImports(gf *protogen.GeneratedFile, contexts []*JSONMappingContext) {
+	needsBase64 := false
+	needsHex := false
+	needsFmt := false
+	needsProto := false
+
+	for _, ctx := range contexts {
+		for _, field := range ctx.NestedDelegationFields {
+			if field.Desc.IsMap() {
+				needsFmt = true
+			}
+		}
+		for _, transform := range ctx.FieldTransforms {
+			switch transform.Kind {
+			case TransformBytesEncoding:
+				switch annotations.GetBytesEncoding(transform.Field) {
+				case http.BytesEncoding_BYTES_ENCODING_HEX:
+					needsHex = true
+				case http.BytesEncoding_BYTES_ENCODING_BASE64_RAW,
+					http.BytesEncoding_BYTES_ENCODING_BASE64URL,
+					http.BytesEncoding_BYTES_ENCODING_BASE64URL_RAW:
+					needsBase64 = true
+				default:
+					// No extra import needed.
+				}
+			case TransformMapValueUnwrap:
+				needsFmt = true
+			case TransformEmptyBehavior:
+				needsProto = true
+			default:
+				// No extra import needed.
+			}
+		}
+	}
+
+	gf.P("import (")
+	if needsBase64 {
+		gf.P(`"encoding/base64"`)
+	}
+	if needsHex {
+		gf.P(`"encoding/hex"`)
+	}
+	gf.P(`"encoding/json"`)
+	if needsFmt {
+		gf.P(`"fmt"`)
+	}
+	gf.P()
+	gf.P(`"google.golang.org/protobuf/encoding/protojson"`)
+	if needsProto {
+		gf.P(`"google.golang.org/protobuf/proto"`)
+	}
+	gf.P(")")
+	gf.P()
+}
+
+// generateJSONMappingMarshalJSON emits one composed MarshalJSONSebuf/MarshalJSON pair for a
+// mapped message. UnmarshalJSONSebuf is intentionally a protojson stub here; Task 5 owns the full
+// inverse composed pipeline.
+func (g *Generator) generateJSONMappingMarshalJSON(gf *protogen.GeneratedFile, ctx *JSONMappingContext) {
+	msgName := ctx.Message.GoIdent.GoName
+
+	gf.P("// MarshalJSONSebuf implements sebufMarshaler for ", msgName, ".")
+	gf.P("// This method composes sebuf JSON mapping annotations and nested message delegation.")
+	gf.P("func (x *", msgName, ") MarshalJSONSebuf(opts protojson.MarshalOptions) ([]byte, error) {")
+	gf.P("if x == nil {")
+	gf.P("return []byte(\"null\"), nil")
+	gf.P("}")
+	gf.P("data, err := opts.Marshal(x)")
+	gf.P("if err != nil {")
+	gf.P("return nil, err")
+	gf.P("}")
+	gf.P("var raw map[string]json.RawMessage")
+	gf.P("if err := json.Unmarshal(data, &raw); err != nil {")
+	gf.P("return nil, err")
+	gf.P("}")
+	gf.P()
+
+	g.generateJSONMappingNestedDelegation(gf, ctx.NestedDelegationFields)
+
+	for _, transform := range ctx.FieldTransforms {
+		g.generateJSONMappingFieldMarshal(gf, ctx, transform)
+	}
+
+	if ctx.RootUnwrap != nil {
+		g.generateJSONMappingRootUnwrapMarshal(gf, ctx.RootUnwrap)
+	} else {
+		gf.P("return json.Marshal(raw)")
+	}
+	gf.P("}")
+	gf.P()
+
+	gf.P("// MarshalJSON implements json.Marshaler for ", msgName, ".")
+	gf.P("func (x *", msgName, ") MarshalJSON() ([]byte, error) {")
+	gf.P("return x.MarshalJSONSebuf(protojson.MarshalOptions{})")
+	gf.P("}")
+	gf.P()
+
+	gf.P("// UnmarshalJSONSebuf implements the generated API surface for ", msgName, ".")
+	gf.P("// Full composed unmarshal behavior is implemented in the next refactor task.")
+	gf.P("func (x *", msgName, ") UnmarshalJSONSebuf(data []byte, opts protojson.UnmarshalOptions) error {")
+	gf.P("return opts.Unmarshal(data, x)")
+	gf.P("}")
+	gf.P()
+
+	gf.P("// UnmarshalJSON implements json.Unmarshaler for ", msgName, ".")
+	gf.P("func (x *", msgName, ") UnmarshalJSON(data []byte) error {")
+	gf.P("return x.UnmarshalJSONSebuf(data, protojson.UnmarshalOptions{})")
+	gf.P("}")
+	gf.P()
+}
+
+func (g *Generator) generateJSONMappingNestedDelegation(
+	gf *protogen.GeneratedFile,
+	fields []*protogen.Field,
+) {
+	for _, field := range fields {
+		if field.Desc.Kind() == protoreflect.BytesKind {
+			continue
+		}
+		switch {
+		case field.Desc.IsMap():
+			g.generateJSONMappingMapNestedDelegation(gf, field)
+		case field.Desc.IsList():
+			g.generateJSONMappingRepeatedNestedDelegation(gf, field)
+		default:
+			g.generateJSONMappingSingularNestedDelegation(gf, field)
+		}
+	}
+}
+
+func (g *Generator) generateJSONMappingSingularNestedDelegation(gf *protogen.GeneratedFile, field *protogen.Field) {
+	jsonName := field.Desc.JSONName()
+	fieldName := field.GoName
+
+	gf.P("// Delegate nested JSON mapping for field: ", field.Desc.Name())
+	gf.P("if x.", fieldName, " != nil {")
+	emitInlineMarshalChild(gf, "x."+fieldName)
+	gf.P("if err != nil {")
+	gf.P("return nil, err")
+	gf.P("}")
+	gf.P(`raw["`, jsonName, `"] = data`)
+	gf.P("}")
+	gf.P()
+}
+
+func (g *Generator) generateJSONMappingRepeatedNestedDelegation(gf *protogen.GeneratedFile, field *protogen.Field) {
+	jsonName := field.Desc.JSONName()
+	fieldName := field.GoName
+
+	gf.P("// Delegate nested JSON mapping for repeated field: ", field.Desc.Name())
+	gf.P("if len(x.", fieldName, ") > 0 {")
+	gf.P("items := make([]json.RawMessage, 0, len(x.", fieldName, "))")
+	gf.P("for _, item := range x.", fieldName, " {")
+	emitInlineMarshalChild(gf, "item")
+	gf.P("if err != nil {")
+	gf.P("return nil, err")
+	gf.P("}")
+	gf.P("items = append(items, data)")
+	gf.P("}")
+	gf.P("data, err := json.Marshal(items)")
+	gf.P("if err != nil {")
+	gf.P("return nil, err")
+	gf.P("}")
+	gf.P(`raw["`, jsonName, `"] = data`)
+	gf.P("}")
+	gf.P()
+}
+
+func (g *Generator) generateJSONMappingMapNestedDelegation(gf *protogen.GeneratedFile, field *protogen.Field) {
+	jsonName := field.Desc.JSONName()
+	fieldName := field.GoName
+
+	gf.P("// Delegate nested JSON mapping for map field: ", field.Desc.Name())
+	gf.P("if len(x.", fieldName, ") > 0 {")
+	gf.P("items := make(map[string]json.RawMessage, len(x.", fieldName, "))")
+	gf.P("for k, item := range x.", fieldName, " {")
+	gf.P("if item == nil {")
+	gf.P("continue")
+	gf.P("}")
+	emitInlineMarshalChild(gf, "item")
+	gf.P("if err != nil {")
+	gf.P("return nil, err")
+	gf.P("}")
+	gf.P("items[fmt.Sprint(k)] = data")
+	gf.P("}")
+	gf.P("data, err := json.Marshal(items)")
+	gf.P("if err != nil {")
+	gf.P("return nil, err")
+	gf.P("}")
+	gf.P(`raw["`, jsonName, `"] = data`)
+	gf.P("}")
+	gf.P()
+}
+
+func (g *Generator) generateJSONMappingFieldMarshal(
+	gf *protogen.GeneratedFile,
+	ctx *JSONMappingContext,
+	transform *JSONMappingFieldTransform,
+) {
+	field := transform.Field
+	if field == nil {
+		return
+	}
+
+	switch transform.Kind {
+	case TransformInt64Number:
+		g.generateInt64FieldMarshal(gf, field)
+	case TransformEnumValue:
+		if info := customEnumFieldInfo(field, ctx.Message.GoIdent.GoImportPath); info != nil {
+			g.generateEnumFieldMarshal(gf, info)
+		}
+	case TransformBytesEncoding:
+		g.generateBytesFieldMarshal(gf, &BytesEncodingFieldInfo{
+			Field:    field,
+			Encoding: annotations.GetBytesEncoding(field),
+		})
+	case TransformTimestampFormat:
+		g.generateTimestampFieldMarshal(gf, &TimestampFormatFieldInfo{
+			Field:  field,
+			Format: annotations.GetTimestampFormat(field),
+		})
+	case TransformNullable:
+		g.generateNullableFieldMarshal(gf, field)
+	case TransformEmptyBehavior:
+		g.generateEmptyBehaviorFieldMarshal(gf, &EmptyBehaviorFieldInfo{
+			Field:    field,
+			Behavior: annotations.GetEmptyBehavior(field),
+		})
+	case TransformFlatten:
+		g.generateFlattenFieldMarshal(gf, &FlattenFieldInfo{
+			Field:  field,
+			Prefix: annotations.GetFlattenPrefix(field),
+		})
+	case TransformOneofDiscriminator:
+		if info := oneofDiscriminatorInfoForField(ctx.Message, field); info != nil {
+			g.generateOneofMarshalVariants(gf, info)
+		}
+	case TransformMapValueUnwrap:
+		g.generateJSONMappingMapValueUnwrapMarshal(gf, field)
+	}
+}
+
+func (g *Generator) generateNullableFieldMarshal(gf *protogen.GeneratedFile, field *protogen.Field) {
+	jsonName := field.Desc.JSONName()
+	goName := field.GoName
+
+	gf.P("// Handle nullable field: ", field.Desc.Name())
+	gf.P("// proto3 optional + nullable=true: emit null when not set")
+	gf.P("if x.", goName, " == nil {")
+	gf.P(`raw["`, jsonName, `"] = []byte("null")`)
+	gf.P("}")
+	gf.P()
+}
+
+func oneofDiscriminatorInfoForField(
+	msg *protogen.Message,
+	field *protogen.Field,
+) *annotations.OneofDiscriminatorInfo {
+	for _, oneof := range msg.Oneofs {
+		if firstOneofField(oneof) != field {
+			continue
+		}
+		if info := annotations.GetOneofDiscriminatorInfo(oneof); info != nil {
+			return info
+		}
+	}
+	return nil
+}
+
+func (g *Generator) generateJSONMappingMapValueUnwrapMarshal(gf *protogen.GeneratedFile, field *protogen.Field) {
+	valueMsg := getMapValueMessage(field)
+	unwrapInfo := unwrapInfoForMessage(valueMsg, nil)
+	if valueMsg == nil || unwrapInfo == nil {
+		return
+	}
+
+	g.generateJSONMappingUnwrapMapMarshal(gf, field, &UnwrapMapField{
+		Field:        field,
+		ValueMessage: valueMsg,
+		UnwrapField:  unwrapInfo,
+	})
+}
+
+func (g *Generator) generateJSONMappingUnwrapMapMarshal(
+	gf *protogen.GeneratedFile,
+	field *protogen.Field,
+	unwrapMapField *UnwrapMapField,
+) {
+	fieldName := field.GoName
+	jsonName := field.Desc.JSONName()
+	unwrapFieldName := unwrapMapField.UnwrapField.Field.GoName
+	isMessageType := unwrapMapField.UnwrapField.ElementType != nil
+
+	gf.P("// Handle unwrap map field: ", fieldName)
+	gf.P("if len(x.", fieldName, ") > 0 {")
+	gf.P("mapData := make(map[string]json.RawMessage, len(x.", fieldName, "))")
+	gf.P("for k, wrapper := range x.", fieldName, " {")
+	gf.P("if wrapper != nil {")
+
+	if isMessageType {
+		gf.P("items := make([]json.RawMessage, 0, len(wrapper.Get", unwrapFieldName, "()))")
+		gf.P("for _, item := range wrapper.Get", unwrapFieldName, "() {")
+		emitInlineMarshalChild(gf, "item")
+		gf.P("if err != nil {")
+		gf.P("return nil, err")
+		gf.P("}")
+		gf.P("items = append(items, data)")
+		gf.P("}")
+		gf.P("arrayData, err := json.Marshal(items)")
+	} else {
+		gf.P("arrayData, err := json.Marshal(wrapper.Get", unwrapFieldName, "())")
+	}
+
+	gf.P("if err != nil {")
+	gf.P("return nil, err")
+	gf.P("}")
+	gf.P("mapData[fmt.Sprint(k)] = arrayData")
+	gf.P("}")
+	gf.P("}")
+	gf.P("data, err := json.Marshal(mapData)")
+	gf.P("if err != nil {")
+	gf.P("return nil, err")
+	gf.P("}")
+	gf.P(`raw["`, jsonName, `"] = data`)
+	gf.P("}")
+	gf.P()
+}
+
+func (g *Generator) generateJSONMappingRootUnwrapMarshal(
+	gf *protogen.GeneratedFile,
+	rootUnwrap *RootUnwrapMessage,
+) {
+	jsonName := rootUnwrap.UnwrapField.Desc.JSONName()
+	protoName := string(rootUnwrap.UnwrapField.Desc.Name())
+
+	gf.P("// Apply root-level unwrap last.")
+	gf.P(`if v, ok := raw["`, jsonName, `"]; ok {`)
+	gf.P("return json.Marshal(v)")
+	gf.P("}")
+	if protoName != jsonName {
+		gf.P(`if v, ok := raw["`, protoName, `"]; ok {`)
+		gf.P("return json.Marshal(v)")
+		gf.P("}")
+	}
+	gf.P("return []byte(\"null\"), nil")
+}
