@@ -91,3 +91,8 @@ internal/tsservergen/testdata/es/node_modules
 internal/tsclientgen/testdata/golden/es/node_modules
 internal/tsclientgen/testdata/golden/es-result/node_modules
 internal/tsservergen/testdata/golden/es/node_modules
+
+# Local agent/superpowers artifacts
+.superpowers/
+.pi-subagents/
+docs/superpowers/

@@ -114,22 +114,17 @@ func TestTimestampFormatCrossGeneratorAgreement(t *testing.T) {
 		t.Fatalf("Failed to get working directory: %v", baseErr)
 	}
 
-	// Read all golden files
-	goFile := filepath.Join(baseDir, "testdata", "golden", "timestamp_format_timestamp_format.pb.go")
+	// Read current composed Go output plus the cross-generator golden files.
+	goStr := readGeneratedJSONMappingGoldenFixture(t, baseDir, "timestamp_format")
 	yamlFile := filepath.Join(
 		baseDir, "..", "openapiv3", "testdata", "golden", "yaml", "TimestampFormatService.openapi.yaml",
 	)
 
-	goContent, err := os.ReadFile(goFile)
-	if err != nil {
-		t.Fatalf("Failed to read Go golden file: %v", err)
-	}
 	yamlContent, err := os.ReadFile(yamlFile)
 	if err != nil {
 		t.Fatalf("Failed to read OpenAPI golden file: %v", err)
 	}
 
-	goStr := string(goContent)
 	tsStr := readCombinedTSGolden(t, baseDir, "timestamp_format")
 	yamlStr := string(yamlContent)
 
@@ -178,9 +173,8 @@ func TestTimestampFormatCrossGeneratorAgreement(t *testing.T) {
 		})
 	}
 
-	// Verify all golden files exist for cross-generator coverage
+	// Verify cross-generator golden files exist; Go coverage comes from generated composed output above.
 	goldenFiles := []string{
-		filepath.Join(baseDir, "testdata", "golden", "timestamp_format_timestamp_format.pb.go"),
 		filepath.Join(baseDir, "..", "tsclientgen", "testdata", "golden", "timestamp_format_client.ts"),
 		filepath.Join(
 			baseDir, "..", "openapiv3", "testdata", "golden", "yaml", "TimestampFormatService.openapi.yaml",

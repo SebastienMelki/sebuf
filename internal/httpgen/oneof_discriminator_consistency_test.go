@@ -99,15 +99,9 @@ func TestOneofDiscriminatorGeneratedErrorsWrapUnderlyingError(t *testing.T) {
 		t.Fatalf("Failed to get working directory: %v", baseErr)
 	}
 
-	goFile := filepath.Join(
-		baseDir, "testdata", "golden", "oneof_discriminator_oneof_discriminator.pb.go",
-	)
-	content, readErr := os.ReadFile(goFile)
-	if readErr != nil {
-		t.Fatalf("Failed to read Go oneof discriminator golden file: %v", readErr)
-	}
+	content := readGeneratedJSONMappingGoldenFixture(t, baseDir, "oneof_discriminator")
 
-	if strings.Contains(string(content), "%%w") {
+	if strings.Contains(content, "%%w") {
 		t.Fatalf("generated oneof discriminator errors should use %%w, not escaped %%%%w")
 	}
 }
@@ -202,25 +196,18 @@ func TestOneofDiscriminatorCrossGeneratorAgreement(t *testing.T) {
 		t.Fatalf("Failed to get working directory: %v", baseErr)
 	}
 
-	// Read all golden files
-	goFile := filepath.Join(
-		baseDir, "testdata", "golden", "oneof_discriminator_oneof_discriminator.pb.go",
-	)
+	// Read current composed Go output plus the cross-generator golden files.
+	goStr := readGeneratedJSONMappingGoldenFixture(t, baseDir, "oneof_discriminator")
 	yamlFile := filepath.Join(
 		baseDir, "..", "openapiv3", "testdata", "golden", "yaml",
 		"OneofDiscriminatorService.openapi.yaml",
 	)
 
-	goContent, err := os.ReadFile(goFile)
-	if err != nil {
-		t.Fatalf("Failed to read Go golden file: %v", err)
-	}
 	yamlContent, err := os.ReadFile(yamlFile)
 	if err != nil {
 		t.Fatalf("Failed to read OpenAPI golden file: %v", err)
 	}
 
-	goStr := string(goContent)
 	tsStr := readCombinedTSGolden(t, baseDir, "oneof_discriminator")
 	yamlStr := string(yamlContent)
 
@@ -268,11 +255,8 @@ func TestOneofDiscriminatorCrossGeneratorAgreement(t *testing.T) {
 		})
 	}
 
-	// Verify all golden files exist for cross-generator coverage
+	// Verify cross-generator golden files exist; Go coverage comes from generated composed output above.
 	goldenFiles := []string{
-		filepath.Join(
-			baseDir, "testdata", "golden", "oneof_discriminator_oneof_discriminator.pb.go",
-		),
 		filepath.Join(
 			baseDir, "..", "tsclientgen", "testdata", "golden", "oneof_discriminator_client.ts",
 		),

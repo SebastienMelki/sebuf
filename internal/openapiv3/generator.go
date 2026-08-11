@@ -309,14 +309,16 @@ func (g *Generator) buildObjectSchema(message *protogen.Message) *base.SchemaPro
 		return g.buildRootUnwrapSchema(message, rootUnwrap)
 	}
 
+	// Check if message has discriminated oneofs before standalone flatten handling so
+	// messages that compose regular flattened fields with oneof discriminators keep
+	// both JSON-shape transforms in the OpenAPI schema.
+	if annotations.HasOneofDiscriminator(message) {
+		return g.buildOneofDiscriminatorSchema(message)
+	}
+
 	// Check if message has flatten fields -- use allOf for clean representation
 	if annotations.HasFlattenFields(message) {
 		return g.buildFlattenedObjectSchema(message)
-	}
-
-	// Check if message has discriminated oneofs
-	if annotations.HasOneofDiscriminator(message) {
-		return g.buildOneofDiscriminatorSchema(message)
 	}
 
 	properties := orderedmap.New[string, *base.SchemaProxy]()
@@ -444,13 +446,9 @@ func (g *Generator) buildFlattenedVariantSchemas(
 		// Build variant schema: common fields + discriminator + variant fields
 		variantProps := orderedmap.New[string, *base.SchemaProxy]()
 
-		// Add common (non-oneof) fields
-		for _, field := range message.Fields {
-			if oneofFields[string(field.Desc.Name())] {
-				continue
-			}
-			variantProps.Set(field.Desc.JSONName(), g.convertField(field))
-		}
+		// Add common (non-oneof) fields, expanding regular flattened fields so
+		// flattened oneof variants reflect the same composed JSON shape as runtime.
+		g.addCommonFieldsToProperties(message, oneofFields, variantProps)
 
 		// Add discriminator field
 		discSchema := &base.Schema{
@@ -508,9 +506,10 @@ func (g *Generator) buildNestedOneofSchema(
 	properties := orderedmap.New[string, *base.SchemaProxy]()
 	var required []string
 
-	// Add non-oneof fields
+	// Add non-oneof, non-flattened fields. Regular flattened fields are appended
+	// below as allOf fragments so they compose with the oneOf/discriminator shape.
 	for _, field := range message.Fields {
-		if oneofFields[string(field.Desc.Name())] {
+		if oneofFields[string(field.Desc.Name())] || annotations.IsFlattenField(field) {
 			continue
 		}
 		fieldName := field.Desc.JSONName()
@@ -523,13 +522,24 @@ func (g *Generator) buildNestedOneofSchema(
 	// For each non-flattened discriminated oneof, add discriminator property and oneOf
 	oneOfSchemas, discInfo := g.buildNestedOneofVariants(discriminatedOneofs, properties)
 
-	schema := &base.Schema{
+	baseSchema := &base.Schema{
 		Type:       []string{"object"},
 		Properties: properties,
 	}
 
 	if len(required) > 0 {
-		schema.Required = required
+		baseSchema.Required = required
+	}
+
+	schema := &base.Schema{}
+	allOfSchemas := []*base.SchemaProxy{base.CreateSchemaProxy(baseSchema)}
+	allOfSchemas = append(allOfSchemas, g.buildFlattenedFieldSchemas(message)...)
+	if len(allOfSchemas) > 1 {
+		schema.AllOf = allOfSchemas
+	} else {
+		schema.Type = baseSchema.Type
+		schema.Properties = baseSchema.Properties
+		schema.Required = baseSchema.Required
 	}
 
 	if len(oneOfSchemas) > 0 {
@@ -607,6 +617,57 @@ func (g *Generator) buildNestedDiscriminator(info *annotations.OneofDiscriminato
 	}
 }
 
+func (g *Generator) addCommonFieldsToProperties(
+	message *protogen.Message,
+	oneofFields map[string]bool,
+	properties *orderedmap.Map[string, *base.SchemaProxy],
+) {
+	for _, field := range message.Fields {
+		if oneofFields[string(field.Desc.Name())] {
+			continue
+		}
+		if annotations.IsFlattenField(field) && field.Message != nil {
+			prefix := annotations.GetFlattenPrefix(field)
+			for _, childField := range field.Message.Fields {
+				flattenedName := prefix + childField.Desc.JSONName()
+				properties.Set(flattenedName, g.convertField(childField))
+			}
+			continue
+		}
+		properties.Set(field.Desc.JSONName(), g.convertField(field))
+	}
+}
+
+func (g *Generator) buildFlattenedFieldSchemas(message *protogen.Message) []*base.SchemaProxy {
+	var schemas []*base.SchemaProxy
+	for _, field := range message.Fields {
+		if !annotations.IsFlattenField(field) || field.Message == nil {
+			continue
+		}
+
+		prefix := annotations.GetFlattenPrefix(field)
+		flatProps := orderedmap.New[string, *base.SchemaProxy]()
+
+		for _, childField := range field.Message.Fields {
+			childSchema := g.convertField(childField)
+			flattenedName := prefix + childField.Desc.JSONName()
+			flatProps.Set(flattenedName, childSchema)
+		}
+
+		flatSchema := &base.Schema{
+			Type:       []string{"object"},
+			Properties: flatProps,
+		}
+		if prefix != "" {
+			flatSchema.Description = fmt.Sprintf("Flattened from %s with prefix %q", field.Desc.Name(), prefix)
+		} else {
+			flatSchema.Description = fmt.Sprintf("Flattened from %s", field.Desc.Name())
+		}
+		schemas = append(schemas, base.CreateSchemaProxy(flatSchema))
+	}
+	return schemas
+}
+
 // buildFlattenedObjectSchema creates an OpenAPI schema using allOf for messages with flatten fields.
 // Non-flattened fields go into one object schema, each flattened field's children go into
 // separate object schemas with prefixed property names.
@@ -642,32 +703,7 @@ func (g *Generator) buildFlattenedObjectSchema(message *protogen.Message) *base.
 		allOfSchemas = append(allOfSchemas, base.CreateSchemaProxy(baseSchema))
 	}
 
-	// Second: for each flattened field, create an object schema with prefixed properties
-	for _, field := range message.Fields {
-		if !annotations.IsFlattenField(field) || field.Message == nil {
-			continue
-		}
-
-		prefix := annotations.GetFlattenPrefix(field)
-		flatProps := orderedmap.New[string, *base.SchemaProxy]()
-
-		for _, childField := range field.Message.Fields {
-			childSchema := g.convertField(childField)
-			flattenedName := prefix + childField.Desc.JSONName()
-			flatProps.Set(flattenedName, childSchema)
-		}
-
-		flatSchema := &base.Schema{
-			Type:       []string{"object"},
-			Properties: flatProps,
-		}
-		if prefix != "" {
-			flatSchema.Description = fmt.Sprintf("Flattened from %s with prefix %q", field.Desc.Name(), prefix)
-		} else {
-			flatSchema.Description = fmt.Sprintf("Flattened from %s", field.Desc.Name())
-		}
-		allOfSchemas = append(allOfSchemas, base.CreateSchemaProxy(flatSchema))
-	}
+	allOfSchemas = append(allOfSchemas, g.buildFlattenedFieldSchemas(message)...)
 
 	schema := &base.Schema{
 		AllOf: allOfSchemas,

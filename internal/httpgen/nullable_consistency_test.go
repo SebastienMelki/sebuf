@@ -124,16 +124,21 @@ func TestNullableConsistencyBackwardCompat(t *testing.T) {
 		t.Fatalf("Failed to get working directory: %v", baseErr)
 	}
 
-	// backward_compat.proto should NOT generate a nullable file
-	nullableFile := filepath.Join(baseDir, "testdata", "golden", "backward_compat_nullable.pb.go")
-	if _, statErr := os.Stat(nullableFile); statErr == nil {
-		t.Error("backward_compat.proto should not generate a nullable file (no nullable annotations)")
+	assertHTTPGenFixtureDoesNotGenerate(t, baseDir, "backward_compat_json_mapping.pb.go", "backward_compat.proto")
+
+	if src := readGeneratedJSONMappingGoldenFixture(
+		t,
+		baseDir,
+		"nullable",
+	); !strings.Contains(
+		src,
+		`raw["middleName"] = []byte("null")`,
+	) {
+		t.Error("nullable.proto composed JSON mapping should preserve explicit null fields")
 	}
 
-	// Verify all generators have nullable golden files
+	// Verify TypeScript and OpenAPI nullable golden files exist; Go coverage comes from generated composed output above.
 	goldenFiles := []string{
-		// Go httpgen
-		filepath.Join(baseDir, "testdata", "golden", "nullable_nullable.pb.go"),
 		// TypeScript
 		filepath.Join(baseDir, "..", "tsclientgen", "testdata", "golden", "nullable_client.ts"),
 		// OpenAPI

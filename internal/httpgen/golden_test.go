@@ -30,7 +30,7 @@ func TestHTTPGenGoldenFiles(t *testing.T) {
 		// extraProtoFiles holds additional proto files to pass to protoc alongside protoFile.
 		// Used for cross-file scenarios where two or more files must be compiled together.
 		extraProtoFiles []string
-		// Expected generated files (without path prefix)
+		// Expected generated files (without path prefix) compared against checked-in golden files.
 		expectedFiles []string
 	}{
 		{
@@ -67,7 +67,7 @@ func TestHTTPGenGoldenFiles(t *testing.T) {
 				"unwrap_http.pb.go",
 				"unwrap_http_binding.pb.go",
 				"unwrap_http_config.pb.go",
-				"unwrap_unwrap.pb.go",
+				"unwrap_json_mapping.pb.go",
 			},
 		},
 		{
@@ -77,7 +77,7 @@ func TestHTTPGenGoldenFiles(t *testing.T) {
 				"int64_encoding_http.pb.go",
 				"int64_encoding_http_binding.pb.go",
 				"int64_encoding_http_config.pb.go",
-				"int64_encoding_encoding.pb.go",
+				"int64_encoding_json_mapping.pb.go",
 			},
 		},
 		{
@@ -87,7 +87,7 @@ func TestHTTPGenGoldenFiles(t *testing.T) {
 				"int64_nested_encoding_http.pb.go",
 				"int64_nested_encoding_http_binding.pb.go",
 				"int64_nested_encoding_http_config.pb.go",
-				"int64_nested_encoding_encoding.pb.go",
+				"int64_nested_encoding_json_mapping.pb.go",
 			},
 		},
 		{
@@ -98,7 +98,7 @@ func TestHTTPGenGoldenFiles(t *testing.T) {
 				"enum_encoding_http_binding.pb.go",
 				"enum_encoding_http_config.pb.go",
 				"enum_encoding_enum_encoding.pb.go",
-				"enum_encoding_enum_field_encoding.pb.go",
+				"enum_encoding_json_mapping.pb.go",
 			},
 		},
 		{
@@ -109,7 +109,7 @@ func TestHTTPGenGoldenFiles(t *testing.T) {
 				"enum_nested_http_binding.pb.go",
 				"enum_nested_http_config.pb.go",
 				"enum_nested_enum_encoding.pb.go",
-				"enum_nested_enum_field_encoding.pb.go",
+				"enum_nested_json_mapping.pb.go",
 			},
 		},
 		{
@@ -119,7 +119,7 @@ func TestHTTPGenGoldenFiles(t *testing.T) {
 				"nullable_http.pb.go",
 				"nullable_http_binding.pb.go",
 				"nullable_http_config.pb.go",
-				"nullable_nullable.pb.go",
+				"nullable_json_mapping.pb.go",
 			},
 		},
 		{
@@ -129,7 +129,7 @@ func TestHTTPGenGoldenFiles(t *testing.T) {
 				"empty_behavior_http.pb.go",
 				"empty_behavior_http_binding.pb.go",
 				"empty_behavior_http_config.pb.go",
-				"empty_behavior_empty_behavior.pb.go",
+				"empty_behavior_json_mapping.pb.go",
 			},
 		},
 		{
@@ -148,7 +148,7 @@ func TestHTTPGenGoldenFiles(t *testing.T) {
 				"timestamp_format_http.pb.go",
 				"timestamp_format_http_binding.pb.go",
 				"timestamp_format_http_config.pb.go",
-				"timestamp_format_timestamp_format.pb.go",
+				"timestamp_format_json_mapping.pb.go",
 			},
 		},
 		{
@@ -158,7 +158,7 @@ func TestHTTPGenGoldenFiles(t *testing.T) {
 				"bytes_encoding_http.pb.go",
 				"bytes_encoding_http_binding.pb.go",
 				"bytes_encoding_http_config.pb.go",
-				"bytes_encoding_bytes_encoding.pb.go",
+				"bytes_encoding_json_mapping.pb.go",
 			},
 		},
 		{
@@ -168,7 +168,7 @@ func TestHTTPGenGoldenFiles(t *testing.T) {
 				"flatten_http.pb.go",
 				"flatten_http_binding.pb.go",
 				"flatten_http_config.pb.go",
-				"flatten_flatten.pb.go",
+				"flatten_json_mapping.pb.go",
 			},
 		},
 		{
@@ -178,7 +178,7 @@ func TestHTTPGenGoldenFiles(t *testing.T) {
 				"oneof_discriminator_http.pb.go",
 				"oneof_discriminator_http_binding.pb.go",
 				"oneof_discriminator_http_config.pb.go",
-				"oneof_discriminator_oneof_discriminator.pb.go",
+				"oneof_discriminator_json_mapping.pb.go",
 			},
 		},
 		{
@@ -188,8 +188,7 @@ func TestHTTPGenGoldenFiles(t *testing.T) {
 				"unwrap_int64_encoding_http.pb.go",
 				"unwrap_int64_encoding_http_binding.pb.go",
 				"unwrap_int64_encoding_http_config.pb.go",
-				"unwrap_int64_encoding_unwrap.pb.go",
-				"unwrap_int64_encoding_encoding.pb.go",
+				"unwrap_int64_encoding_json_mapping.pb.go",
 			},
 		},
 		{
@@ -199,7 +198,7 @@ func TestHTTPGenGoldenFiles(t *testing.T) {
 				"int64_repeated_nested_encoding_http.pb.go",
 				"int64_repeated_nested_encoding_http_binding.pb.go",
 				"int64_repeated_nested_encoding_http_config.pb.go",
-				"int64_repeated_nested_encoding_encoding.pb.go",
+				"int64_repeated_nested_encoding_json_mapping.pb.go",
 			},
 		},
 		{
@@ -210,8 +209,8 @@ func TestHTTPGenGoldenFiles(t *testing.T) {
 				"cross_int64_service_http.pb.go",
 				"cross_int64_service_http_binding.pb.go",
 				"cross_int64_service_http_config.pb.go",
-				"cross_int64_service_unwrap.pb.go",
-				"cross_int64_bar_encoding.pb.go",
+				"cross_int64_service_json_mapping.pb.go",
+				"cross_int64_bar_json_mapping.pb.go",
 			},
 		},
 		{
@@ -222,8 +221,8 @@ func TestHTTPGenGoldenFiles(t *testing.T) {
 				"int64_cross_file_response_http.pb.go",
 				"int64_cross_file_response_http_binding.pb.go",
 				"int64_cross_file_response_http_config.pb.go",
-				"int64_cross_file_response_encoding.pb.go",
-				"int64_cross_file_reading_encoding.pb.go",
+				"int64_cross_file_response_json_mapping.pb.go",
+				"int64_cross_file_reading_json_mapping.pb.go",
 			},
 		},
 		{
@@ -233,7 +232,7 @@ func TestHTTPGenGoldenFiles(t *testing.T) {
 				"int64_deep_nested_encoding_http.pb.go",
 				"int64_deep_nested_encoding_http_binding.pb.go",
 				"int64_deep_nested_encoding_http_config.pb.go",
-				"int64_deep_nested_encoding_encoding.pb.go",
+				"int64_deep_nested_encoding_json_mapping.pb.go",
 			},
 		},
 		{

@@ -11,20 +11,15 @@ import (
 )
 
 // MarshalJSONSebuf implements sebufMarshaler for SensorReading.
-// This method handles int64_encoding=NUMBER fields: timestamp_ms
-// Warning: int64 fields with NUMBER encoding may lose precision for values > 2^53 in JavaScript.
+// This method composes sebuf JSON mapping annotations and nested message delegation.
 func (x *SensorReading) MarshalJSONSebuf(opts protojson.MarshalOptions) ([]byte, error) {
 	if x == nil {
 		return []byte("null"), nil
 	}
-
-	// Use protojson for base serialization (handles all other fields correctly)
 	data, err := opts.Marshal(x)
 	if err != nil {
 		return nil, err
 	}
-
-	// Parse into a map to modify NUMBER-encoded int64 fields
 	var raw map[string]json.RawMessage
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return nil, err
@@ -32,10 +27,18 @@ func (x *SensorReading) MarshalJSONSebuf(opts protojson.MarshalOptions) ([]byte,
 
 	// Convert TimestampMs from string to number
 	if x.TimestampMs != 0 {
-		raw["timestampMs"], _ = json.Marshal(x.TimestampMs)
+		data, _ = json.Marshal(x.TimestampMs)
+		if opts.UseProtoNames {
+			raw["timestamp_ms"] = data
+			delete(raw, "timestampMs")
+		} else {
+			raw["timestampMs"] = data
+			delete(raw, "timestamp_ms")
+		}
 	} else {
 		// Remove the field if zero (proto3 default behavior)
 		delete(raw, "timestampMs")
+		delete(raw, "timestamp_ms")
 	}
 
 	return json.Marshal(raw)
@@ -47,29 +50,27 @@ func (x *SensorReading) MarshalJSON() ([]byte, error) {
 }
 
 // UnmarshalJSONSebuf implements sebufUnmarshaler for SensorReading.
-// This method handles int64_encoding=NUMBER fields: timestamp_ms
+// This method composes inverse sebuf JSON mapping annotations and nested message delegation.
 func (x *SensorReading) UnmarshalJSONSebuf(data []byte, opts protojson.UnmarshalOptions) error {
-	// First, parse the raw JSON to extract NUMBER-encoded fields
 	var raw map[string]json.RawMessage
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return err
 	}
 
-	// Convert timestampMs from number to string for protojson
-	if rawVal, ok := raw["timestampMs"]; ok {
-		var num int64
-		if err := json.Unmarshal(rawVal, &num); err == nil {
-			raw["timestampMs"], _ = json.Marshal(strconv.FormatInt(num, 10))
+	// Convert timestamp_ms from number to string for protojson
+	for _, k := range []string{"timestampMs", "timestamp_ms"} {
+		if rawVal, ok := raw[k]; ok {
+			var num int64
+			if err := json.Unmarshal(rawVal, &num); err == nil {
+				raw[k], _ = json.Marshal(strconv.FormatInt(num, 10))
+			}
 		}
 	}
 
-	// Re-marshal to JSON with string values for protojson
 	modified, err := json.Marshal(raw)
 	if err != nil {
 		return err
 	}
-
-	// Use protojson to unmarshal the rest
 	return opts.Unmarshal(modified, x)
 }
 

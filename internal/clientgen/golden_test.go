@@ -384,13 +384,12 @@ func TestCombinedGoHTTPAndGoClientGenerationDoesNotDuplicateJSONMappingFiles(t *
 		t.Fatalf("combined go-http + go-client generation failed: %v\nstderr: %s", runErr, stderr.String())
 	}
 
-	unexpectedClientOwnedMappingFiles := []string{
-		"int64_deep_nested_encoding_encoding.pb.go",
-		"enum_encoding_enum_encoding.pb.go",
-		"enum_encoding_enum_field_encoding.pb.go",
-		"flatten_flatten.pb.go",
+	httpOwnedMappingFiles := []string{
+		"int64_deep_nested_encoding_json_mapping.pb.go",
+		"enum_encoding_json_mapping.pb.go",
+		"flatten_json_mapping.pb.go",
 	}
-	for _, filename := range unexpectedClientOwnedMappingFiles {
+	for _, filename := range httpOwnedMappingFiles {
 		content, readErr := os.ReadFile(filepath.Join(tempDir, filename))
 		if readErr != nil {
 			t.Fatalf("expected go-http-owned JSON mapping file %s to exist: %v", filename, readErr)

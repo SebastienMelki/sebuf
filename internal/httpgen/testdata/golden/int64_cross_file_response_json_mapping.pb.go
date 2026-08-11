@@ -10,36 +10,35 @@ import (
 )
 
 // MarshalJSONSebuf implements sebufMarshaler for GetSensorReadingResponse.
-// This method re-marshals nested messages that have int64_encoding=NUMBER fields: reading
+// This method composes sebuf JSON mapping annotations and nested message delegation.
 func (x *GetSensorReadingResponse) MarshalJSONSebuf(opts protojson.MarshalOptions) ([]byte, error) {
 	if x == nil {
 		return []byte("null"), nil
 	}
-
-	// Use protojson for base serialization (handles all other fields correctly)
 	data, err := opts.Marshal(x)
 	if err != nil {
 		return nil, err
 	}
-
-	// Parse into a map to re-serialize nested messages with custom MarshalJSON
 	var raw map[string]json.RawMessage
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return nil, err
 	}
 
-	// Re-serialize "reading" forwarding opts when child supports MarshalJSONSebuf
+	// Delegate nested JSON mapping for field: reading
 	if x.Reading != nil {
+		var data []byte
+		var err error
 		if m, ok := any(x.Reading).(interface {
 			MarshalJSONSebuf(protojson.MarshalOptions) ([]byte, error)
 		}); ok {
-			raw["reading"], err = m.MarshalJSONSebuf(opts)
+			data, err = m.MarshalJSONSebuf(opts)
 		} else {
-			raw["reading"], err = opts.Marshal(x.Reading)
+			data, err = opts.Marshal(x.Reading)
 		}
 		if err != nil {
 			return nil, err
 		}
+		raw["reading"] = data
 	}
 
 	return json.Marshal(raw)
@@ -51,15 +50,22 @@ func (x *GetSensorReadingResponse) MarshalJSON() ([]byte, error) {
 }
 
 // UnmarshalJSONSebuf implements sebufUnmarshaler for GetSensorReadingResponse.
-// This method handles nested messages that have int64_encoding=NUMBER fields: reading
+// This method composes inverse sebuf JSON mapping annotations and nested message delegation.
 func (x *GetSensorReadingResponse) UnmarshalJSONSebuf(data []byte, opts protojson.UnmarshalOptions) error {
 	var raw map[string]json.RawMessage
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return err
 	}
 
-	// Handle "reading" using its custom unmarshaler
-	if rawVal, ok := raw["reading"]; ok {
+	// Delegate nested JSON unmarshal for field: reading
+	for _, k := range []string{"reading"} {
+		rawVal, ok := raw[k]
+		if !ok {
+			continue
+		}
+		if string(rawVal) == "null" {
+			continue
+		}
 		inner := &SensorReading{}
 		if u, ok := any(inner).(interface {
 			UnmarshalJSONSebuf([]byte, protojson.UnmarshalOptions) error
@@ -70,18 +76,17 @@ func (x *GetSensorReadingResponse) UnmarshalJSONSebuf(data []byte, opts protojso
 		} else if err := json.Unmarshal(rawVal, inner); err != nil {
 			return err
 		}
-		innerJSON, err := protojson.Marshal(inner)
-		if err != nil {
-			return err
+		innerJSON, marshalErr := protojson.Marshal(inner)
+		if marshalErr != nil {
+			return marshalErr
 		}
-		raw["reading"] = innerJSON
+		raw[k] = innerJSON
 	}
 
 	modified, err := json.Marshal(raw)
 	if err != nil {
 		return err
 	}
-
 	return opts.Unmarshal(modified, x)
 }
 
@@ -91,48 +96,43 @@ func (x *GetSensorReadingResponse) UnmarshalJSON(data []byte) error {
 }
 
 // MarshalJSONSebuf implements sebufMarshaler for GetSensorReadingsResponse.
-// This method re-marshals nested messages that have int64_encoding=NUMBER fields: readings
+// This method composes sebuf JSON mapping annotations and nested message delegation.
 func (x *GetSensorReadingsResponse) MarshalJSONSebuf(opts protojson.MarshalOptions) ([]byte, error) {
 	if x == nil {
 		return []byte("null"), nil
 	}
-
-	// Use protojson for base serialization (handles all other fields correctly)
 	data, err := opts.Marshal(x)
 	if err != nil {
 		return nil, err
 	}
-
-	// Parse into a map to re-serialize nested messages with custom MarshalJSON
 	var raw map[string]json.RawMessage
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return nil, err
 	}
 
-	// Re-serialize repeated "readings" forwarding opts to each element
+	// Delegate nested JSON mapping for repeated field: readings
 	if len(x.Readings) > 0 {
 		items := make([]json.RawMessage, 0, len(x.Readings))
 		for _, item := range x.Readings {
+			var data []byte
+			var err error
 			if m, ok := any(item).(interface {
 				MarshalJSONSebuf(protojson.MarshalOptions) ([]byte, error)
 			}); ok {
-				itemData, itemErr := m.MarshalJSONSebuf(opts)
-				if itemErr != nil {
-					return nil, itemErr
-				}
-				items = append(items, itemData)
+				data, err = m.MarshalJSONSebuf(opts)
 			} else {
-				itemData, itemErr := opts.Marshal(item)
-				if itemErr != nil {
-					return nil, itemErr
-				}
-				items = append(items, itemData)
+				data, err = opts.Marshal(item)
 			}
+			if err != nil {
+				return nil, err
+			}
+			items = append(items, data)
 		}
-		raw["readings"], err = json.Marshal(items)
+		data, err := json.Marshal(items)
 		if err != nil {
 			return nil, err
 		}
+		raw["readings"] = data
 	}
 
 	return json.Marshal(raw)
@@ -144,15 +144,19 @@ func (x *GetSensorReadingsResponse) MarshalJSON() ([]byte, error) {
 }
 
 // UnmarshalJSONSebuf implements sebufUnmarshaler for GetSensorReadingsResponse.
-// This method handles nested messages that have int64_encoding=NUMBER fields: readings
+// This method composes inverse sebuf JSON mapping annotations and nested message delegation.
 func (x *GetSensorReadingsResponse) UnmarshalJSONSebuf(data []byte, opts protojson.UnmarshalOptions) error {
 	var raw map[string]json.RawMessage
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return err
 	}
 
-	// Handle repeated "readings" using its custom unmarshaler
-	if rawVal, ok := raw["readings"]; ok {
+	// Delegate nested JSON unmarshal for repeated field: readings
+	for _, k := range []string{"readings"} {
+		rawVal, ok := raw[k]
+		if !ok {
+			continue
+		}
 		var rawItems []json.RawMessage
 		if err := json.Unmarshal(rawVal, &rawItems); err != nil {
 			return err
@@ -179,14 +183,13 @@ func (x *GetSensorReadingsResponse) UnmarshalJSONSebuf(data []byte, opts protojs
 		if marshalErr != nil {
 			return marshalErr
 		}
-		raw["readings"] = protoJSON
+		raw[k] = protoJSON
 	}
 
 	modified, err := json.Marshal(raw)
 	if err != nil {
 		return err
 	}
-
 	return opts.Unmarshal(modified, x)
 }
 

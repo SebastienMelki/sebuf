@@ -2,7 +2,6 @@ package httpgen
 
 import (
 	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -16,13 +15,7 @@ func TestEnumFieldEncodingTransitiveNesting(t *testing.T) {
 		t.Fatalf("Failed to get working directory: %v", baseErr)
 	}
 
-	content, readErr := os.ReadFile(
-		filepath.Join(baseDir, "testdata", "golden", "enum_nested_enum_field_encoding.pb.go"),
-	)
-	if readErr != nil {
-		t.Fatalf("Failed to read enum_nested golden file: %v", readErr)
-	}
-	src := string(content)
+	src := readGeneratedJSONMappingGoldenFixture(t, baseDir, "enum_nested")
 
 	// Every message in the chain (leaf, one-level wrapper, two-level wrapper) gets a marshaler.
 	for _, method := range []string{
@@ -38,9 +31,9 @@ func TestEnumFieldEncodingTransitiveNesting(t *testing.T) {
 	// The wrapper re-serializes nested children (singular + repeated) via their marshaler, and the
 	// leaf still patches its direct enum fields.
 	for _, snippet := range []string{
-		`Re-serialize "leadItem" forwarding opts`,          // singular nested
-		`Re-serialize repeated "itemList" forwarding opts`, // repeated nested
-		`Re-serialize "itemGroup" forwarding opts`,         // two-level nested
+		`Delegate nested JSON mapping for field: lead_item`,          // singular nested
+		`Delegate nested JSON mapping for repeated field: item_list`, // repeated nested
+		`Delegate nested JSON mapping for field: item_group`,         // two-level nested
 		"gradeToJSON[e]", // leaf direct enum still patched
 	} {
 		if !strings.Contains(src, snippet) {
@@ -70,13 +63,7 @@ func TestEnumFieldEncodingCoversAllShapes(t *testing.T) {
 		t.Fatalf("Failed to get working directory: %v", baseErr)
 	}
 
-	content, readErr := os.ReadFile(
-		filepath.Join(baseDir, "testdata", "golden", "enum_encoding_enum_field_encoding.pb.go"),
-	)
-	if readErr != nil {
-		t.Fatalf("Failed to read enum_field_encoding golden file: %v", readErr)
-	}
-	src := string(content)
+	src := readGeneratedJSONMappingGoldenFixture(t, baseDir, "enum_encoding")
 
 	// Both dispatch methods must exist for the server (marshal) and both clients (unmarshal).
 	for _, method := range []string{

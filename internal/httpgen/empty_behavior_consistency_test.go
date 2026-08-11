@@ -85,16 +85,21 @@ func TestEmptyBehaviorConsistencyBackwardCompat(t *testing.T) {
 		t.Fatalf("Failed to get working directory: %v", baseErr)
 	}
 
-	// backward_compat.proto should NOT generate an empty_behavior file
-	emptyBehaviorFile := filepath.Join(baseDir, "testdata", "golden", "backward_compat_empty_behavior.pb.go")
-	if _, statErr := os.Stat(emptyBehaviorFile); statErr == nil {
-		t.Error("backward_compat.proto should not generate an empty_behavior file (no empty_behavior annotations)")
+	assertHTTPGenFixtureDoesNotGenerate(t, baseDir, "backward_compat_json_mapping.pb.go", "backward_compat.proto")
+
+	if src := readGeneratedJSONMappingGoldenFixture(
+		t,
+		baseDir,
+		"empty_behavior",
+	); !strings.Contains(
+		src,
+		`raw["metadataNull"] = []byte("null")`,
+	) {
+		t.Error("empty_behavior.proto composed JSON mapping should write null for EMPTY_BEHAVIOR_NULL fields")
 	}
 
-	// Verify all generators have empty_behavior golden files
+	// Verify TypeScript and OpenAPI empty_behavior golden files exist; Go coverage comes from generated composed output above.
 	goldenFiles := []string{
-		// Go httpgen
-		filepath.Join(baseDir, "testdata", "golden", "empty_behavior_empty_behavior.pb.go"),
 		// TypeScript
 		filepath.Join(baseDir, "..", "tsclientgen", "testdata", "golden", "empty_behavior_client.ts"),
 		// OpenAPI

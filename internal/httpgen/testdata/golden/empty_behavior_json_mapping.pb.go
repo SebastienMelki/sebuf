@@ -11,19 +11,15 @@ import (
 )
 
 // MarshalJSONSebuf implements sebufMarshaler for Response.
-// This method handles empty_behavior fields: metadata_preserve, metadata_null, metadata_omit, settings
+// This method composes sebuf JSON mapping annotations and nested message delegation.
 func (x *Response) MarshalJSONSebuf(opts protojson.MarshalOptions) ([]byte, error) {
 	if x == nil {
 		return []byte("null"), nil
 	}
-
-	// Use protojson for base serialization
 	data, err := opts.Marshal(x)
 	if err != nil {
 		return nil, err
 	}
-
-	// Parse into a map to handle empty_behavior fields
 	var raw map[string]json.RawMessage
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return nil, err
@@ -38,13 +34,20 @@ func (x *Response) MarshalJSONSebuf(opts protojson.MarshalOptions) ([]byte, erro
 	// Handle empty_behavior for field: metadata_null
 	if x.MetadataNull != nil && proto.Size(x.MetadataNull) == 0 {
 		// EMPTY_BEHAVIOR_NULL: serialize empty message as null
-		raw["metadataNull"] = []byte("null")
+		if opts.UseProtoNames {
+			raw["metadata_null"] = []byte("null")
+			delete(raw, "metadataNull")
+		} else {
+			raw["metadataNull"] = []byte("null")
+			delete(raw, "metadata_null")
+		}
 	}
 
 	// Handle empty_behavior for field: metadata_omit
 	if x.MetadataOmit != nil && proto.Size(x.MetadataOmit) == 0 {
 		// EMPTY_BEHAVIOR_OMIT: remove field when message is empty
 		delete(raw, "metadataOmit")
+		delete(raw, "metadata_omit")
 	}
 
 	// Handle empty_behavior for field: settings
@@ -61,30 +64,36 @@ func (x *Response) MarshalJSON() ([]byte, error) {
 	return x.MarshalJSONSebuf(protojson.MarshalOptions{})
 }
 
-// UnmarshalJSON implements json.Unmarshaler for Response.
-// This method handles empty_behavior fields: metadata_preserve, metadata_null, metadata_omit, settings
-func (x *Response) UnmarshalJSON(data []byte) error {
-	// Parse to check for explicit null values on empty_behavior=NULL fields
+// UnmarshalJSONSebuf implements sebufUnmarshaler for Response.
+// This method composes inverse sebuf JSON mapping annotations and nested message delegation.
+func (x *Response) UnmarshalJSONSebuf(data []byte, opts protojson.UnmarshalOptions) error {
 	var raw map[string]json.RawMessage
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return err
 	}
 
-	// Handle empty_behavior=NULL: convert null to {} for protojson
-	if rawVal, ok := raw["metadataNull"]; ok && string(rawVal) == "null" {
-		raw["metadataNull"] = []byte("{}")
+	// Handle empty_behavior=NULL for field: metadata_null
+	for _, k := range []string{"metadataNull", "metadata_null"} {
+		if rawVal, ok := raw[k]; ok && string(rawVal) == "null" {
+			raw[k] = []byte("{}")
+		}
 	}
 
-	// Handle empty_behavior=NULL: convert null to {} for protojson
-	if rawVal, ok := raw["settings"]; ok && string(rawVal) == "null" {
-		raw["settings"] = []byte("{}")
+	// Handle empty_behavior=NULL for field: settings
+	for _, k := range []string{"settings"} {
+		if rawVal, ok := raw[k]; ok && string(rawVal) == "null" {
+			raw[k] = []byte("{}")
+		}
 	}
 
-	// Re-marshal for protojson
 	modified, err := json.Marshal(raw)
 	if err != nil {
 		return err
 	}
+	return opts.Unmarshal(modified, x)
+}
 
-	return protojson.Unmarshal(modified, x)
+// UnmarshalJSON implements json.Unmarshaler for Response.
+func (x *Response) UnmarshalJSON(data []byte) error {
+	return x.UnmarshalJSONSebuf(data, protojson.UnmarshalOptions{})
 }

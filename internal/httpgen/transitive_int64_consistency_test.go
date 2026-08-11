@@ -15,34 +15,22 @@ import (
 	"github.com/SebastienMelki/sebuf/internal/clientgen"
 )
 
-// readInt64Golden reads a golden file produced by TestHTTPGenGoldenFiles, skipping the test if
-// it has not been generated yet.
-func readInt64Golden(t *testing.T, name string) string {
-	t.Helper()
-
-	baseDir, err := os.Getwd()
-	if err != nil {
-		t.Fatalf("Failed to get working directory: %v", err)
-	}
-
-	goldenFile := filepath.Join(baseDir, "testdata", "golden", name)
-	content, readErr := os.ReadFile(goldenFile)
-	if readErr != nil {
-		if os.IsNotExist(readErr) {
-			t.Skipf("Golden file not found: %s — run with UPDATE_GOLDEN=1 to generate it", goldenFile)
-		}
-		t.Fatalf("Failed to read golden file: %v", readErr)
-	}
-	return string(content)
-}
-
 // TestCrossFileInt64WrapperGenerated covers issue #217: when the message carrying
 // int64_encoding=NUMBER is declared in an imported file, the importing message must still get a
 // transitive MarshalJSONSebuf. Before the fix, wrapper detection tested membership in a name set
 // built from the file being generated, so imported types never qualified, no wrapper was emitted,
 // and protojson serialized the int64 as a quoted string.
 func TestCrossFileInt64WrapperGenerated(t *testing.T) {
-	src := readInt64Golden(t, "int64_cross_file_response_encoding.pb.go")
+	baseDir, baseErr := os.Getwd()
+	if baseErr != nil {
+		t.Fatalf("Failed to get working directory: %v", baseErr)
+	}
+	src := readGeneratedJSONMappingGoldenFixture(
+		t,
+		baseDir,
+		"int64_cross_file_response",
+		"int64_cross_file_reading.proto",
+	)
 
 	// Both the singular and the repeated case are reported in the issue.
 	for _, method := range []string{
@@ -74,7 +62,11 @@ func TestCrossFileInt64WrapperGenerated(t *testing.T) {
 // were never fed back into the qualifying set, so given Outer -> Middle -> Leaf only Middle got a
 // marshaler and Outer silently bypassed it — even within a single file.
 func TestDeepNestedInt64WrapperGenerated(t *testing.T) {
-	src := readInt64Golden(t, "int64_deep_nested_encoding_encoding.pb.go")
+	baseDir, baseErr := os.Getwd()
+	if baseErr != nil {
+		t.Fatalf("Failed to get working directory: %v", baseErr)
+	}
+	src := readGeneratedJSONMappingGoldenFixture(t, baseDir, "int64_deep_nested_encoding")
 
 	// Every message in the chain gets a marshaler: the leaf directly, the rest transitively.
 	for _, method := range []string{
@@ -100,11 +92,9 @@ func TestDeepNestedInt64WrapperGenerated(t *testing.T) {
 	}
 }
 
-// TestInt64WrapperMarshalJSONConflict verifies that a message needing a transitive int64 wrapper
-// which also owns MarshalJSON via another annotation is rejected at generation time. Widening
-// wrapper detection widens the set of messages that can collide: a silent skip would serialize
-// the int64 as a quoted string, and a duplicate emit would not compile.
-func TestInt64WrapperMarshalJSONConflict(t *testing.T) {
+// TestInt64WrapperComposition verifies that the former transitive int64 wrapper collision shape
+// is accepted by go-http now that JSON mapping features share a composed marshaler.
+func TestInt64WrapperComposition(t *testing.T) {
 	requireProtocForInt64Tests(t)
 
 	generators := []struct {
@@ -115,18 +105,27 @@ func TestInt64WrapperMarshalJSONConflict(t *testing.T) {
 		{"go-client", func(p *protogen.Plugin) error { return clientgen.New(p).Generate() }},
 	}
 
-	t.Run("go-http rejects conflicts and names both features", func(t *testing.T) {
-		err := New(buildInt64TestPlugin(t, []string{"int64_wrapper_conflict.proto"})).Generate()
-		if err == nil {
-			t.Fatal("expected go-http generation to fail for a message that is both an int64 " +
-				"wrapper and carries flatten -- emitting both would declare " +
-				"MarshalJSONSebuf twice on the same Go type")
+	t.Run("go-http generates and builds former int64 wrapper plus flatten conflict", func(t *testing.T) {
+		baseDir, baseErr := os.Getwd()
+		if baseErr != nil {
+			t.Fatalf("Failed to get working directory: %v", baseErr)
 		}
-		for _, want := range []string{"ConflictingResponse", "flatten", "only one MarshalJSON"} {
-			if !strings.Contains(err.Error(), want) {
-				t.Errorf("conflict error should mention %q, got: %v", want, err)
+		src := readGeneratedJSONMappingGoldenFixture(t, baseDir, "int64_wrapper_conflict")
+		for _, snippet := range []string{
+			"func (x *ConflictingResponse) MarshalJSONSebuf(",
+			"Delegate nested JSON mapping for field: leaf",
+			"Flatten field: address",
+		} {
+			if !strings.Contains(src, snippet) {
+				t.Fatalf("former conflict fixture generated code missing %q", snippet)
 			}
 		}
+		buildGeneratedHTTPGenGoldenFixture(
+			t,
+			baseDir,
+			"github.com/SebastienMelki/sebuf/internal/httpgen/testdata/int64wrapperconflict",
+			"int64_wrapper_conflict.proto",
+		)
 	})
 
 	// Positive control: the rejection must not over-match. A plain wrapper chain, including

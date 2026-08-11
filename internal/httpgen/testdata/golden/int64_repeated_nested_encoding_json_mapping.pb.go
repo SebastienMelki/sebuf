@@ -11,20 +11,15 @@ import (
 )
 
 // MarshalJSONSebuf implements sebufMarshaler for Stock.
-// This method handles int64_encoding=NUMBER fields: volume
-// Warning: int64 fields with NUMBER encoding may lose precision for values > 2^53 in JavaScript.
+// This method composes sebuf JSON mapping annotations and nested message delegation.
 func (x *Stock) MarshalJSONSebuf(opts protojson.MarshalOptions) ([]byte, error) {
 	if x == nil {
 		return []byte("null"), nil
 	}
-
-	// Use protojson for base serialization (handles all other fields correctly)
 	data, err := opts.Marshal(x)
 	if err != nil {
 		return nil, err
 	}
-
-	// Parse into a map to modify NUMBER-encoded int64 fields
 	var raw map[string]json.RawMessage
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return nil, err
@@ -32,7 +27,8 @@ func (x *Stock) MarshalJSONSebuf(opts protojson.MarshalOptions) ([]byte, error) 
 
 	// Convert Volume from string to number
 	if x.Volume != 0 {
-		raw["volume"], _ = json.Marshal(x.Volume)
+		data, _ = json.Marshal(x.Volume)
+		raw["volume"] = data
 	} else {
 		// Remove the field if zero (proto3 default behavior)
 		delete(raw, "volume")
@@ -47,29 +43,27 @@ func (x *Stock) MarshalJSON() ([]byte, error) {
 }
 
 // UnmarshalJSONSebuf implements sebufUnmarshaler for Stock.
-// This method handles int64_encoding=NUMBER fields: volume
+// This method composes inverse sebuf JSON mapping annotations and nested message delegation.
 func (x *Stock) UnmarshalJSONSebuf(data []byte, opts protojson.UnmarshalOptions) error {
-	// First, parse the raw JSON to extract NUMBER-encoded fields
 	var raw map[string]json.RawMessage
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return err
 	}
 
 	// Convert volume from number to string for protojson
-	if rawVal, ok := raw["volume"]; ok {
-		var num int64
-		if err := json.Unmarshal(rawVal, &num); err == nil {
-			raw["volume"], _ = json.Marshal(strconv.FormatInt(num, 10))
+	for _, k := range []string{"volume"} {
+		if rawVal, ok := raw[k]; ok {
+			var num int64
+			if err := json.Unmarshal(rawVal, &num); err == nil {
+				raw[k], _ = json.Marshal(strconv.FormatInt(num, 10))
+			}
 		}
 	}
 
-	// Re-marshal to JSON with string values for protojson
 	modified, err := json.Marshal(raw)
 	if err != nil {
 		return err
 	}
-
-	// Use protojson to unmarshal the rest
 	return opts.Unmarshal(modified, x)
 }
 
@@ -79,48 +73,43 @@ func (x *Stock) UnmarshalJSON(data []byte) error {
 }
 
 // MarshalJSONSebuf implements sebufMarshaler for GetStocksResponse.
-// This method re-marshals nested messages that have int64_encoding=NUMBER fields: stocks
+// This method composes sebuf JSON mapping annotations and nested message delegation.
 func (x *GetStocksResponse) MarshalJSONSebuf(opts protojson.MarshalOptions) ([]byte, error) {
 	if x == nil {
 		return []byte("null"), nil
 	}
-
-	// Use protojson for base serialization (handles all other fields correctly)
 	data, err := opts.Marshal(x)
 	if err != nil {
 		return nil, err
 	}
-
-	// Parse into a map to re-serialize nested messages with custom MarshalJSON
 	var raw map[string]json.RawMessage
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return nil, err
 	}
 
-	// Re-serialize repeated "stocks" forwarding opts to each element
+	// Delegate nested JSON mapping for repeated field: stocks
 	if len(x.Stocks) > 0 {
 		items := make([]json.RawMessage, 0, len(x.Stocks))
 		for _, item := range x.Stocks {
+			var data []byte
+			var err error
 			if m, ok := any(item).(interface {
 				MarshalJSONSebuf(protojson.MarshalOptions) ([]byte, error)
 			}); ok {
-				itemData, itemErr := m.MarshalJSONSebuf(opts)
-				if itemErr != nil {
-					return nil, itemErr
-				}
-				items = append(items, itemData)
+				data, err = m.MarshalJSONSebuf(opts)
 			} else {
-				itemData, itemErr := opts.Marshal(item)
-				if itemErr != nil {
-					return nil, itemErr
-				}
-				items = append(items, itemData)
+				data, err = opts.Marshal(item)
 			}
+			if err != nil {
+				return nil, err
+			}
+			items = append(items, data)
 		}
-		raw["stocks"], err = json.Marshal(items)
+		data, err := json.Marshal(items)
 		if err != nil {
 			return nil, err
 		}
+		raw["stocks"] = data
 	}
 
 	return json.Marshal(raw)
@@ -132,15 +121,19 @@ func (x *GetStocksResponse) MarshalJSON() ([]byte, error) {
 }
 
 // UnmarshalJSONSebuf implements sebufUnmarshaler for GetStocksResponse.
-// This method handles nested messages that have int64_encoding=NUMBER fields: stocks
+// This method composes inverse sebuf JSON mapping annotations and nested message delegation.
 func (x *GetStocksResponse) UnmarshalJSONSebuf(data []byte, opts protojson.UnmarshalOptions) error {
 	var raw map[string]json.RawMessage
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return err
 	}
 
-	// Handle repeated "stocks" using its custom unmarshaler
-	if rawVal, ok := raw["stocks"]; ok {
+	// Delegate nested JSON unmarshal for repeated field: stocks
+	for _, k := range []string{"stocks"} {
+		rawVal, ok := raw[k]
+		if !ok {
+			continue
+		}
 		var rawItems []json.RawMessage
 		if err := json.Unmarshal(rawVal, &rawItems); err != nil {
 			return err
@@ -167,14 +160,13 @@ func (x *GetStocksResponse) UnmarshalJSONSebuf(data []byte, opts protojson.Unmar
 		if marshalErr != nil {
 			return marshalErr
 		}
-		raw["stocks"] = protoJSON
+		raw[k] = protoJSON
 	}
 
 	modified, err := json.Marshal(raw)
 	if err != nil {
 		return err
 	}
-
 	return opts.Unmarshal(modified, x)
 }
 

@@ -10,19 +10,15 @@ import (
 )
 
 // MarshalJSONSebuf implements sebufMarshaler for EnumEncodingTest.
-// This method handles enum_value fields and nested messages: status, status_list, optional_status, status_map
+// This method composes sebuf JSON mapping annotations and nested message delegation.
 func (x *EnumEncodingTest) MarshalJSONSebuf(opts protojson.MarshalOptions) ([]byte, error) {
 	if x == nil {
 		return []byte("null"), nil
 	}
-
-	// Use protojson for base serialization (handles all other fields correctly)
 	data, err := opts.Marshal(x)
 	if err != nil {
 		return nil, err
 	}
-
-	// Parse into a map to rewrite enum fields and nested messages
 	var raw map[string]json.RawMessage
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return nil, err
@@ -103,9 +99,8 @@ func (x *EnumEncodingTest) MarshalJSON() ([]byte, error) {
 }
 
 // UnmarshalJSONSebuf implements sebufUnmarshaler for EnumEncodingTest.
-// This method handles enum_value fields and nested messages: status, status_list, optional_status, status_map
+// This method composes inverse sebuf JSON mapping annotations and nested message delegation.
 func (x *EnumEncodingTest) UnmarshalJSONSebuf(data []byte, opts protojson.UnmarshalOptions) error {
-	// Parse the raw JSON to rewrite custom enum_value strings and nested messages
 	var raw map[string]json.RawMessage
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return err
@@ -177,13 +172,10 @@ func (x *EnumEncodingTest) UnmarshalJSONSebuf(data []byte, opts protojson.Unmars
 		raw[k], _ = json.Marshal(m)
 	}
 
-	// Re-marshal with proto value names for protojson
 	modified, err := json.Marshal(raw)
 	if err != nil {
 		return err
 	}
-
-	// Use protojson to unmarshal the rest
 	return opts.Unmarshal(modified, x)
 }
 

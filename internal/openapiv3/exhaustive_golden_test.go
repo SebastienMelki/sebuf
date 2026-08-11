@@ -565,6 +565,21 @@ func TestExhaustiveGoldenFiles(t *testing.T) {
 			goldenFile:  "testdata/golden/json/OneofDiscriminatorService.openapi.json",
 			format:      "json",
 		},
+		// json_mapping_composition.proto -> JSONMappingCompositionService (composed JSON mapping annotations)
+		{
+			name:        "json_mapping_composition_service_yaml",
+			protoFile:   "testdata/proto/json_mapping_composition.proto",
+			serviceName: "JSONMappingCompositionService",
+			goldenFile:  "testdata/golden/yaml/JSONMappingCompositionService.openapi.yaml",
+			format:      "yaml",
+		},
+		{
+			name:        "json_mapping_composition_service_json",
+			protoFile:   "testdata/proto/json_mapping_composition.proto",
+			serviceName: "JSONMappingCompositionService",
+			goldenFile:  "testdata/golden/json/JSONMappingCompositionService.openapi.json",
+			format:      "json",
+		},
 		// sse.proto -> SSEService (Server-Sent Events streaming)
 		{
 			name:        "sse_service_yaml",
@@ -730,6 +745,7 @@ func TestExhaustiveRegression(t *testing.T) {
 		"testdata/proto/bytes_encoding.proto":           {"BytesEncodingService"},
 		"testdata/proto/flatten.proto":                  {"FlattenService"},
 		"testdata/proto/oneof_discriminator.proto":      {"OneofDiscriminatorService"},
+		"testdata/proto/json_mapping_composition.proto": {"JSONMappingCompositionService"},
 		"testdata/proto/sse.proto":                      {"SSEService"},
 		"testdata/proto/wrapper_types.proto":            {"WrapperTypeService", "WrapperSSEService"},
 	}

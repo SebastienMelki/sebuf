@@ -1,0 +1,75 @@
+syntax = "proto3";
+
+package testdata.json_mapping_composition;
+
+option go_package = "github.com/SebastienMelki/sebuf/internal/openapiv3/testdata/jsonmappingcomposition;jsonmappingcomposition";
+
+import "sebuf/http/annotations.proto";
+
+message AuditInfo {
+  string created_by = 1;
+  int64 version = 2 [(sebuf.http.int64_encoding) = INT64_ENCODING_NUMBER];
+}
+
+message TextPayload {
+  string body = 1;
+}
+
+message ImagePayload {
+  bytes raw = 1 [(sebuf.http.bytes_encoding) = BYTES_ENCODING_HEX];
+  int32 width = 2;
+}
+
+// FlattenWithNestedOneof composes a flattened common message field with a nested discriminated oneof.
+message FlattenWithNestedOneof {
+  string id = 1;
+  AuditInfo audit = 2 [
+    (sebuf.http.flatten) = true,
+    (sebuf.http.flatten_prefix) = "audit_"
+  ];
+  oneof payload {
+    option (sebuf.http.oneof_config) = {
+      discriminator: "kind"
+      flatten: false
+    };
+    TextPayload text = 3;
+    ImagePayload image = 4 [(sebuf.http.oneof_value) = "img"];
+  }
+}
+
+// FlattenWithFlatOneof composes a flattened common message field with a flattened discriminated oneof.
+message FlattenWithFlatOneof {
+  string id = 1;
+  AuditInfo audit = 2 [
+    (sebuf.http.flatten) = true,
+    (sebuf.http.flatten_prefix) = "audit_"
+  ];
+  oneof payload {
+    option (sebuf.http.oneof_config) = {
+      discriminator: "type"
+      flatten: true
+    };
+    TextPayload text = 3;
+    ImagePayload image = 4 [(sebuf.http.oneof_value) = "img"];
+  }
+}
+
+service JSONMappingCompositionService {
+  option (sebuf.http.service_config) = {
+    base_path: "/api/v1"
+  };
+
+  rpc TestFlattenWithNestedOneof(FlattenWithNestedOneof) returns (FlattenWithNestedOneof) {
+    option (sebuf.http.config) = {
+      path: "/composition/nested-oneof"
+      method: HTTP_METHOD_POST
+    };
+  }
+
+  rpc TestFlattenWithFlatOneof(FlattenWithFlatOneof) returns (FlattenWithFlatOneof) {
+    option (sebuf.http.config) = {
+      path: "/composition/flat-oneof"
+      method: HTTP_METHOD_POST
+    };
+  }
+}

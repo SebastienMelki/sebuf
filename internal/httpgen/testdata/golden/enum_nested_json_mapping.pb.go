@@ -10,19 +10,15 @@ import (
 )
 
 // MarshalJSONSebuf implements sebufMarshaler for Item.
-// This method handles enum_value fields and nested messages: grade, grades
+// This method composes sebuf JSON mapping annotations and nested message delegation.
 func (x *Item) MarshalJSONSebuf(opts protojson.MarshalOptions) ([]byte, error) {
 	if x == nil {
 		return []byte("null"), nil
 	}
-
-	// Use protojson for base serialization (handles all other fields correctly)
 	data, err := opts.Marshal(x)
 	if err != nil {
 		return nil, err
 	}
-
-	// Parse into a map to rewrite enum fields and nested messages
 	var raw map[string]json.RawMessage
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return nil, err
@@ -70,9 +66,8 @@ func (x *Item) MarshalJSON() ([]byte, error) {
 }
 
 // UnmarshalJSONSebuf implements sebufUnmarshaler for Item.
-// This method handles enum_value fields and nested messages: grade, grades
+// This method composes inverse sebuf JSON mapping annotations and nested message delegation.
 func (x *Item) UnmarshalJSONSebuf(data []byte, opts protojson.UnmarshalOptions) error {
-	// Parse the raw JSON to rewrite custom enum_value strings and nested messages
 	var raw map[string]json.RawMessage
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return err
@@ -111,13 +106,10 @@ func (x *Item) UnmarshalJSONSebuf(data []byte, opts protojson.UnmarshalOptions) 
 		raw[k], _ = json.Marshal(arr)
 	}
 
-	// Re-marshal with proto value names for protojson
 	modified, err := json.Marshal(raw)
 	if err != nil {
 		return err
 	}
-
-	// Use protojson to unmarshal the rest
 	return opts.Unmarshal(modified, x)
 }
 
@@ -127,69 +119,71 @@ func (x *Item) UnmarshalJSON(data []byte) error {
 }
 
 // MarshalJSONSebuf implements sebufMarshaler for ItemGroup.
-// This method handles enum_value fields and nested messages: lead_item, item_list
+// This method composes sebuf JSON mapping annotations and nested message delegation.
 func (x *ItemGroup) MarshalJSONSebuf(opts protojson.MarshalOptions) ([]byte, error) {
 	if x == nil {
 		return []byte("null"), nil
 	}
-
-	// Use protojson for base serialization (handles all other fields correctly)
 	data, err := opts.Marshal(x)
 	if err != nil {
 		return nil, err
 	}
-
-	// Parse into a map to rewrite enum fields and nested messages
 	var raw map[string]json.RawMessage
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return nil, err
 	}
 
-	// Re-serialize "leadItem" forwarding opts when child supports MarshalJSONSebuf
+	// Delegate nested JSON mapping for field: lead_item
 	if x.LeadItem != nil {
+		var data []byte
+		var err error
 		if m, ok := any(x.LeadItem).(interface {
 			MarshalJSONSebuf(protojson.MarshalOptions) ([]byte, error)
 		}); ok {
-			childData, childErr := m.MarshalJSONSebuf(opts)
-			if childErr != nil {
-				return nil, childErr
-			}
-			for _, k := range []string{"leadItem", "lead_item"} {
-				if _, ok := raw[k]; ok {
-					raw[k] = childData
-				}
-			}
+			data, err = m.MarshalJSONSebuf(opts)
+		} else {
+			data, err = opts.Marshal(x.LeadItem)
+		}
+		if err != nil {
+			return nil, err
+		}
+		if opts.UseProtoNames {
+			raw["lead_item"] = data
+			delete(raw, "leadItem")
+		} else {
+			raw["leadItem"] = data
+			delete(raw, "lead_item")
 		}
 	}
 
-	// Re-serialize repeated "itemList" forwarding opts to each element
+	// Delegate nested JSON mapping for repeated field: item_list
 	if len(x.ItemList) > 0 {
 		items := make([]json.RawMessage, 0, len(x.ItemList))
 		for _, item := range x.ItemList {
+			var data []byte
+			var err error
 			if m, ok := any(item).(interface {
 				MarshalJSONSebuf(protojson.MarshalOptions) ([]byte, error)
 			}); ok {
-				itemData, itemErr := m.MarshalJSONSebuf(opts)
-				if itemErr != nil {
-					return nil, itemErr
-				}
-				items = append(items, itemData)
+				data, err = m.MarshalJSONSebuf(opts)
 			} else {
-				itemData, itemErr := opts.Marshal(item)
-				if itemErr != nil {
-					return nil, itemErr
-				}
-				items = append(items, itemData)
+				data, err = opts.Marshal(item)
 			}
-		}
-		listData, listErr := json.Marshal(items)
-		if listErr != nil {
-			return nil, listErr
-		}
-		for _, k := range []string{"itemList", "item_list"} {
-			if _, ok := raw[k]; ok {
-				raw[k] = listData
+			if err != nil {
+				return nil, err
 			}
+			items = append(items, data)
+		}
+		data, err := json.Marshal(items)
+		if err != nil {
+			return nil, err
+		}
+		if opts.UseProtoNames {
+			raw["item_list"] = data
+			delete(raw, "itemList")
+		} else {
+			raw["itemList"] = data
+			delete(raw, "item_list")
 		}
 	}
 
@@ -202,18 +196,20 @@ func (x *ItemGroup) MarshalJSON() ([]byte, error) {
 }
 
 // UnmarshalJSONSebuf implements sebufUnmarshaler for ItemGroup.
-// This method handles enum_value fields and nested messages: lead_item, item_list
+// This method composes inverse sebuf JSON mapping annotations and nested message delegation.
 func (x *ItemGroup) UnmarshalJSONSebuf(data []byte, opts protojson.UnmarshalOptions) error {
-	// Parse the raw JSON to rewrite custom enum_value strings and nested messages
 	var raw map[string]json.RawMessage
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return err
 	}
 
-	// Handle "leadItem" using its custom unmarshaler
+	// Delegate nested JSON unmarshal for field: lead_item
 	for _, k := range []string{"leadItem", "lead_item"} {
 		rawVal, ok := raw[k]
 		if !ok {
+			continue
+		}
+		if string(rawVal) == "null" {
 			continue
 		}
 		inner := &Item{}
@@ -233,7 +229,7 @@ func (x *ItemGroup) UnmarshalJSONSebuf(data []byte, opts protojson.UnmarshalOpti
 		raw[k] = innerJSON
 	}
 
-	// Handle "itemList" using its custom unmarshaler
+	// Delegate nested JSON unmarshal for repeated field: item_list
 	for _, k := range []string{"itemList", "item_list"} {
 		rawVal, ok := raw[k]
 		if !ok {
@@ -268,13 +264,10 @@ func (x *ItemGroup) UnmarshalJSONSebuf(data []byte, opts protojson.UnmarshalOpti
 		raw[k] = protoJSON
 	}
 
-	// Re-marshal with proto value names for protojson
 	modified, err := json.Marshal(raw)
 	if err != nil {
 		return err
 	}
-
-	// Use protojson to unmarshal the rest
 	return opts.Unmarshal(modified, x)
 }
 
@@ -284,38 +277,40 @@ func (x *ItemGroup) UnmarshalJSON(data []byte) error {
 }
 
 // MarshalJSONSebuf implements sebufMarshaler for GetItemsResponse.
-// This method handles enum_value fields and nested messages: item_group
+// This method composes sebuf JSON mapping annotations and nested message delegation.
 func (x *GetItemsResponse) MarshalJSONSebuf(opts protojson.MarshalOptions) ([]byte, error) {
 	if x == nil {
 		return []byte("null"), nil
 	}
-
-	// Use protojson for base serialization (handles all other fields correctly)
 	data, err := opts.Marshal(x)
 	if err != nil {
 		return nil, err
 	}
-
-	// Parse into a map to rewrite enum fields and nested messages
 	var raw map[string]json.RawMessage
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return nil, err
 	}
 
-	// Re-serialize "itemGroup" forwarding opts when child supports MarshalJSONSebuf
+	// Delegate nested JSON mapping for field: item_group
 	if x.ItemGroup != nil {
+		var data []byte
+		var err error
 		if m, ok := any(x.ItemGroup).(interface {
 			MarshalJSONSebuf(protojson.MarshalOptions) ([]byte, error)
 		}); ok {
-			childData, childErr := m.MarshalJSONSebuf(opts)
-			if childErr != nil {
-				return nil, childErr
-			}
-			for _, k := range []string{"itemGroup", "item_group"} {
-				if _, ok := raw[k]; ok {
-					raw[k] = childData
-				}
-			}
+			data, err = m.MarshalJSONSebuf(opts)
+		} else {
+			data, err = opts.Marshal(x.ItemGroup)
+		}
+		if err != nil {
+			return nil, err
+		}
+		if opts.UseProtoNames {
+			raw["item_group"] = data
+			delete(raw, "itemGroup")
+		} else {
+			raw["itemGroup"] = data
+			delete(raw, "item_group")
 		}
 	}
 
@@ -328,18 +323,20 @@ func (x *GetItemsResponse) MarshalJSON() ([]byte, error) {
 }
 
 // UnmarshalJSONSebuf implements sebufUnmarshaler for GetItemsResponse.
-// This method handles enum_value fields and nested messages: item_group
+// This method composes inverse sebuf JSON mapping annotations and nested message delegation.
 func (x *GetItemsResponse) UnmarshalJSONSebuf(data []byte, opts protojson.UnmarshalOptions) error {
-	// Parse the raw JSON to rewrite custom enum_value strings and nested messages
 	var raw map[string]json.RawMessage
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return err
 	}
 
-	// Handle "itemGroup" using its custom unmarshaler
+	// Delegate nested JSON unmarshal for field: item_group
 	for _, k := range []string{"itemGroup", "item_group"} {
 		rawVal, ok := raw[k]
 		if !ok {
+			continue
+		}
+		if string(rawVal) == "null" {
 			continue
 		}
 		inner := &ItemGroup{}
@@ -359,13 +356,10 @@ func (x *GetItemsResponse) UnmarshalJSONSebuf(data []byte, opts protojson.Unmars
 		raw[k] = innerJSON
 	}
 
-	// Re-marshal with proto value names for protojson
 	modified, err := json.Marshal(raw)
 	if err != nil {
 		return err
 	}
-
-	// Use protojson to unmarshal the rest
 	return opts.Unmarshal(modified, x)
 }
 

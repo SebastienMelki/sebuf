@@ -1,0 +1,827 @@
+package httpgen
+
+import (
+	"bytes"
+	"fmt"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"testing"
+)
+
+// TestJSONMappingFeaturePairsGenerateAndBuild is the failing composition matrix
+// for Task 2 of the JSON mapping composition refactor. Each pair is expected to
+// generate and build once httpgen has a composed JSON-mapping emitter instead of
+// per-feature method emitters.
+func TestJSONMappingFeaturePairsGenerateAndBuild(t *testing.T) {
+	pairs := []struct{ left, right string }{
+		{"nullable", "timestamp_format"},
+		{"nullable", "enum_value"},
+		{"nullable", "bytes_encoding"},
+		{"nullable", "empty_behavior"},
+		{"nullable", "flatten"},
+		{"nullable", "oneof_config"},
+		{"nullable", "map_value_unwrap"},
+		{"timestamp_format", "bytes_encoding"},
+		{"enum_value", "bytes_encoding"},
+		{"int64_number", "nullable"},
+		{"int64_number", "timestamp_format"},
+		{"map_value_unwrap", "timestamp_format"},
+		{"nullable", "scalar_map_value_unwrap"},
+		{"root_unwrap", "bytes_encoding"},
+	}
+
+	for _, pair := range pairs {
+		t.Run(pair.left+"+"+pair.right, func(t *testing.T) {
+			module := generateJSONMappingModule(t, jsonMappingPairProto(pair.left, pair.right), "")
+			module.runGoTest(t)
+		})
+	}
+}
+
+// TestJSONMappingNestedDelegationRuntime covers annotated children inside an
+// annotated parent. It demonstrates the desired marshal behavior before the
+// composed emitter delegates child messages through MarshalJSONSebuf.
+func TestJSONMappingNestedDelegationRuntime(t *testing.T) {
+	module := generateJSONMappingModule(t, jsonMappingNestedDelegationProto(), jsonMappingNestedDelegationRuntimeTest())
+	module.runGoTest(t)
+}
+
+// TestJSONMappingComposedMarshalRuntime covers same-message field transforms
+// that must compose into a single MarshalJSONSebuf implementation.
+func TestJSONMappingComposedMarshalRuntime(t *testing.T) {
+	module := generateJSONMappingModule(t, jsonMappingComposedRuntimeProto(), jsonMappingComposedMarshalRuntimeTest())
+	module.runGoTest(t)
+}
+
+// TestJSONMappingComposedUnmarshalRuntime covers the inverse pipeline that must
+// be exposed through UnmarshalJSONSebuf for composed mappings.
+func TestJSONMappingComposedUnmarshalRuntime(t *testing.T) {
+	module := generateJSONMappingModule(t, jsonMappingComposedRuntimeProto(), jsonMappingComposedUnmarshalRuntimeTest())
+	module.runGoTest(t)
+}
+
+type jsonMappingGeneratedModule struct {
+	dir string
+}
+
+func generateJSONMappingModule(t *testing.T, protoSource, runtimeTestSource string) jsonMappingGeneratedModule {
+	t.Helper()
+
+	if _, err := exec.LookPath("protoc"); err != nil {
+		t.Skip("protoc not found, skipping JSON mapping composition tests")
+	}
+	if _, err := exec.LookPath("protoc-gen-go"); err != nil {
+		t.Skip("protoc-gen-go not found, skipping JSON mapping composition tests")
+	}
+
+	baseDir, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("get working directory: %v", err)
+	}
+	projectRoot := filepath.Join(baseDir, "..", "..")
+
+	tempDir := t.TempDir()
+	protoDir := filepath.Join(tempDir, "proto")
+	genDir := filepath.Join(tempDir, "gen")
+	if mkdirErr := os.MkdirAll(protoDir, 0o755); mkdirErr != nil {
+		t.Fatalf("create proto dir: %v", mkdirErr)
+	}
+	if mkdirErr := os.MkdirAll(genDir, 0o755); mkdirErr != nil {
+		t.Fatalf("create gen dir: %v", mkdirErr)
+	}
+
+	protoPath := filepath.Join(protoDir, "composition.proto")
+	if writeErr := os.WriteFile(protoPath, []byte(protoSource), 0o644); writeErr != nil {
+		t.Fatalf("write proto fixture: %v", writeErr)
+	}
+
+	pluginPath := filepath.Join(tempDir, "protoc-gen-go-http")
+	buildCmd := exec.Command("go", "build", "-o", pluginPath, "./cmd/protoc-gen-go-http")
+	buildCmd.Dir = projectRoot
+	if out, buildErr := buildCmd.CombinedOutput(); buildErr != nil {
+		t.Fatalf("build protoc-gen-go-http: %v\n%s", buildErr, out)
+	}
+
+	protocCmd := exec.Command("protoc",
+		"--plugin=protoc-gen-go-http="+pluginPath,
+		"--go_out="+genDir,
+		"--go_opt=paths=source_relative",
+		"--go-http_out="+genDir,
+		"--go-http_opt=paths=source_relative",
+		"--proto_path="+protoDir,
+		"--proto_path="+filepath.Join(projectRoot, "proto"),
+		"composition.proto",
+	)
+	protocCmd.Dir = protoDir
+	if out, protocErr := protocCmd.CombinedOutput(); protocErr != nil {
+		t.Fatalf("protoc JSON mapping composition fixture failed: %v\n%s", protocErr, out)
+	}
+
+	if runtimeTestSource != "" {
+		if writeErr := os.WriteFile(
+			filepath.Join(genDir, "json_mapping_runtime_test.go"),
+			[]byte(runtimeTestSource),
+			0o644,
+		); writeErr != nil {
+			t.Fatalf("write generated runtime test: %v", writeErr)
+		}
+	}
+
+	goMod := fmt.Sprintf(`module compositiontest
+
+go 1.26.0
+
+require (
+	github.com/SebastienMelki/sebuf v0.0.0
+	google.golang.org/protobuf %s
+)
+
+replace github.com/SebastienMelki/sebuf => %s
+`, extractProtobufVersionFromModFile(t, projectRoot), projectRoot)
+	if writeErr := os.WriteFile(filepath.Join(tempDir, "go.mod"), []byte(goMod), 0o644); writeErr != nil {
+		t.Fatalf("write generated module go.mod: %v", writeErr)
+	}
+
+	tidyCmd := exec.Command("go", "mod", "tidy")
+	tidyCmd.Dir = tempDir
+	if out, tidyErr := tidyCmd.CombinedOutput(); tidyErr != nil {
+		t.Fatalf("go mod tidy generated module: %v\n%s", tidyErr, out)
+	}
+
+	return jsonMappingGeneratedModule{dir: tempDir}
+}
+
+func (m jsonMappingGeneratedModule) runGoTest(t *testing.T) {
+	t.Helper()
+
+	cmd := exec.Command("go", "test", "./...", "-count=1", "-v")
+	cmd.Dir = m.dir
+	out, err := cmd.CombinedOutput()
+	t.Logf("generated module test output:\n%s", out)
+	if err != nil {
+		t.Fatalf("generated module go test failed: %v", err)
+	}
+}
+
+func jsonMappingPairProto(left, right string) string {
+	features := []string{left, right}
+	if left == "root_unwrap" || right == "root_unwrap" {
+		other := left
+		if other == "root_unwrap" {
+			other = right
+		}
+		return jsonMappingProtoWithBody(rootUnwrapPairBody(other))
+	}
+
+	var fields bytes.Buffer
+	for i, feature := range features {
+		fields.WriteString(pairFeatureField(feature, i+1))
+	}
+
+	body := jsonMappingSupportDeclarations() + `
+message PairSubject {
+` + fields.String() + `}
+`
+	return jsonMappingProtoWithBody(body)
+}
+
+func pairFeatureField(feature string, number int) string {
+	switch feature {
+	case "int64_number":
+		return fmt.Sprintf(
+			"  int64 int64_number_value = %d [(sebuf.http.int64_encoding) = INT64_ENCODING_NUMBER];\n",
+			number,
+		)
+	case "enum_value":
+		return fmt.Sprintf(
+			"  PairStatus enum_value_status = %d [(sebuf.http.enum_encoding) = ENUM_ENCODING_STRING];\n",
+			number,
+		)
+	case "bytes_encoding":
+		return fmt.Sprintf(
+			"  bytes bytes_encoding_value = %d [(sebuf.http.bytes_encoding) = BYTES_ENCODING_HEX];\n",
+			number,
+		)
+	case "timestamp_format":
+		return fmt.Sprintf(
+			"  google.protobuf.Timestamp timestamp_format_value = %d [(sebuf.http.timestamp_format) = TIMESTAMP_FORMAT_UNIX_SECONDS];\n",
+			number,
+		)
+	case "nullable":
+		return fmt.Sprintf("  optional string nullable_value = %d [(sebuf.http.nullable) = true];\n", number)
+	case "empty_behavior":
+		return fmt.Sprintf(
+			"  EmptyChild empty_behavior_value = %d [(sebuf.http.empty_behavior) = EMPTY_BEHAVIOR_NULL];\n",
+			number,
+		)
+	case "flatten":
+		return fmt.Sprintf(
+			"  FlattenChild flatten_value = %d [(sebuf.http.flatten) = true, (sebuf.http.flatten_prefix) = \"flat_\"];\n",
+			number,
+		)
+	case "oneof_config":
+		return fmt.Sprintf(`  oneof payload_%d {
+    option (sebuf.http.oneof_config) = { discriminator: "kind" flatten: true };
+    OneofText oneof_text_%d = %d [(sebuf.http.oneof_value) = "text"];
+  }
+`, number, number, number)
+	case "map_value_unwrap":
+		return fmt.Sprintf("  map<string, MapItemList> map_value_unwrap_items = %d;\n", number)
+	case "scalar_map_value_unwrap":
+		return fmt.Sprintf("  map<string, IntList> scalar_map_value_unwrap_items = %d;\n", number)
+	default:
+		panic("unknown JSON mapping feature: " + feature)
+	}
+}
+
+func rootUnwrapPairBody(otherFeature string) string {
+	var rootItemField string
+	switch otherFeature {
+	case "bytes_encoding":
+		rootItemField = "  bytes b = 1 [(sebuf.http.bytes_encoding) = BYTES_ENCODING_HEX];\n"
+	default:
+		rootItemField = "  string id = 1;\n"
+	}
+
+	return jsonMappingSupportDeclarations() + `
+message RootItem {
+` + rootItemField + `}
+
+message PairSubject {
+  map<string, RootItem> items = 1 [(sebuf.http.unwrap) = true];
+}
+`
+}
+
+func jsonMappingNestedDelegationProto() string {
+	return jsonMappingProtoWithBody(`
+message HexInner {
+  bytes b = 1 [(sebuf.http.bytes_encoding) = BYTES_ENCODING_HEX];
+}
+
+message NullableOuter {
+  HexInner inner = 1;
+  optional string n = 2 [(sebuf.http.nullable) = true];
+}
+
+message NumberInner {
+  int64 id = 1 [(sebuf.http.int64_encoding) = INT64_ENCODING_NUMBER];
+}
+
+message TimestampOuter {
+  NumberInner inner = 1;
+  google.protobuf.Timestamp at = 2 [(sebuf.http.timestamp_format) = TIMESTAMP_FORMAT_UNIX_SECONDS];
+}
+`)
+}
+
+func jsonMappingNestedDelegationRuntimeTest() string {
+	return `package gen
+
+import (
+	"encoding/json"
+	"testing"
+	"time"
+
+	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/types/known/timestamppb"
+)
+
+func TestNestedDelegationBytesUnderNullableParent(t *testing.T) {
+	msg := &NullableOuter{Inner: &HexInner{B: []byte("Hello")}}
+	got, err := msg.MarshalJSONSebuf(protojson.MarshalOptions{})
+	if err != nil {
+		t.Fatalf("MarshalJSONSebuf: %v", err)
+	}
+	want := ` + "`" + `{"inner":{"b":"48656c6c6f"},"n":null}` + "`" + `
+	if string(got) != want {
+		t.Fatalf("MarshalJSONSebuf = %s, want %s", got, want)
+	}
+}
+
+func TestNestedDelegationInt64UnderTimestampParent(t *testing.T) {
+	msg := &TimestampOuter{
+		Inner: &NumberInner{Id: 12345},
+		At: timestamppb.New(time.Unix(1705312200, 0)),
+	}
+	got, err := msg.MarshalJSONSebuf(protojson.MarshalOptions{})
+	if err != nil {
+		t.Fatalf("MarshalJSONSebuf: %v", err)
+	}
+	var raw map[string]any
+	if err := json.Unmarshal(got, &raw); err != nil {
+		t.Fatalf("json.Unmarshal(%s): %v", got, err)
+	}
+	inner, ok := raw["inner"].(map[string]any)
+	if !ok {
+		t.Fatalf("inner = %#v, want object", raw["inner"])
+	}
+	if gotID, ok := inner["id"].(float64); !ok || gotID != 12345 {
+		t.Fatalf("inner.id = %#v, want numeric 12345", inner["id"])
+	}
+	if gotAt, ok := raw["at"].(float64); !ok || gotAt != 1705312200 {
+		t.Fatalf("at = %#v, want numeric 1705312200", raw["at"])
+	}
+}
+
+func TestNestedDelegationBytesUnderNullableParentUnmarshal(t *testing.T) {
+	msg := &NullableOuter{}
+	if err := msg.UnmarshalJSONSebuf([]byte(` + "`" + `{"inner":{"b":"48656c6c6f"},"n":null}` + "`" + `), protojson.UnmarshalOptions{}); err != nil {
+		t.Fatalf("UnmarshalJSONSebuf: %v", err)
+	}
+	if msg.Inner == nil {
+		t.Fatalf("Inner = nil, want HexInner")
+	}
+	if got := string(msg.Inner.B); got != "Hello" {
+		t.Fatalf("Inner.B = %q, want Hello", got)
+	}
+	if msg.N != nil {
+		t.Fatalf("N = %#v, want nil optional presence for explicit null", *msg.N)
+	}
+}
+
+func TestNestedDelegationNullMessageFieldUnmarshalPreservesProtojsonSemantics(t *testing.T) {
+	msg := &NullableOuter{}
+	if err := msg.UnmarshalJSONSebuf([]byte(` + "`" + `{"inner":null}` + "`" + `), protojson.UnmarshalOptions{}); err != nil {
+		t.Fatalf("UnmarshalJSONSebuf: %v", err)
+	}
+	if msg.Inner != nil {
+		t.Fatalf("Inner = %#v, want nil for nested message null", msg.Inner)
+	}
+}
+
+func TestNestedDelegationInt64UnderTimestampParentUnmarshal(t *testing.T) {
+	msg := &TimestampOuter{}
+	if err := msg.UnmarshalJSONSebuf([]byte(` + "`" + `{"inner":{"id":12345},"at":1705312200}` + "`" + `), protojson.UnmarshalOptions{}); err != nil {
+		t.Fatalf("UnmarshalJSONSebuf: %v", err)
+	}
+	if msg.Inner == nil {
+		t.Fatalf("Inner = nil, want NumberInner")
+	}
+	if msg.Inner.Id != 12345 {
+		t.Fatalf("Inner.Id = %d, want 12345", msg.Inner.Id)
+	}
+	if got := msg.At.AsTime().Unix(); got != 1705312200 {
+		t.Fatalf("At = %d, want 1705312200", got)
+	}
+}
+`
+}
+
+func jsonMappingComposedRuntimeProto() string {
+	return jsonMappingProtoWithBody(jsonMappingSupportDeclarations() + `
+message NullableTimestamp {
+  optional string n = 1 [(sebuf.http.nullable) = true];
+  google.protobuf.Timestamp at = 2 [(sebuf.http.timestamp_format) = TIMESTAMP_FORMAT_UNIX_SECONDS];
+}
+
+message EnumNullable {
+  PairStatus status = 1 [(sebuf.http.enum_encoding) = ENUM_ENCODING_STRING];
+  optional string note = 2 [(sebuf.http.nullable) = true];
+}
+
+message MapUnwrapWithSibling {
+  map<string, MapItemList> items = 1;
+  google.protobuf.Timestamp at = 2 [(sebuf.http.timestamp_format) = TIMESTAMP_FORMAT_UNIX_SECONDS];
+}
+
+message ScalarMapUnwrapWithSibling {
+  map<string, IntList> items = 1;
+  google.protobuf.Timestamp at = 2 [(sebuf.http.timestamp_format) = TIMESTAMP_FORMAT_UNIX_SECONDS];
+}
+
+message RootMapItem {
+  string id = 1;
+}
+
+message RootHexItem {
+  bytes b = 1 [(sebuf.http.bytes_encoding) = BYTES_ENCODING_HEX];
+}
+
+message RootHexItemList {
+  repeated RootHexItem items = 1 [(sebuf.http.unwrap) = true];
+}
+
+message RootMessageMap {
+  map<string, RootMapItem> items = 1 [(sebuf.http.unwrap) = true];
+}
+
+message RootMessageList {
+  repeated RootMapItem items = 1 [(sebuf.http.unwrap) = true];
+}
+
+message RootChildTransformMap {
+  map<string, RootHexItem> items = 1 [(sebuf.http.unwrap) = true];
+}
+
+message RootMapValueUnwrapTransform {
+  map<string, RootHexItemList> items = 1 [(sebuf.http.unwrap) = true];
+}
+
+message ProtoNameInner {
+  int64 id = 1 [(sebuf.http.int64_encoding) = INT64_ENCODING_NUMBER];
+}
+
+message ProtoNameOuter {
+  ProtoNameInner child_message = 1;
+  repeated ProtoNameInner child_messages = 2;
+  map<string, ProtoNameInner> child_map = 3;
+}
+
+message DirectProtoNameFlattenChild {
+  string child_name = 1;
+}
+
+message DirectProtoNameSubject {
+  int64 count_value = 1 [(sebuf.http.int64_encoding) = INT64_ENCODING_NUMBER];
+  bytes binary_data = 2 [(sebuf.http.bytes_encoding) = BYTES_ENCODING_HEX];
+  google.protobuf.Timestamp event_time = 3 [(sebuf.http.timestamp_format) = TIMESTAMP_FORMAT_UNIX_SECONDS];
+  EmptyChild empty_value = 4 [(sebuf.http.empty_behavior) = EMPTY_BEHAVIOR_NULL];
+  DirectProtoNameFlattenChild flattened_child = 5 [(sebuf.http.flatten) = true, (sebuf.http.flatten_prefix) = "flat_"];
+}
+`)
+}
+
+func jsonMappingComposedMarshalRuntimeTest() string {
+	return `package gen
+
+import (
+	"encoding/json"
+	"testing"
+	"time"
+
+	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/types/known/timestamppb"
+)
+
+func TestNullableAndTimestampMarshalCompose(t *testing.T) {
+	msg := &NullableTimestamp{At: timestamppb.New(time.Unix(1705312200, 0))}
+	got, err := msg.MarshalJSONSebuf(protojson.MarshalOptions{})
+	if err != nil {
+		t.Fatalf("MarshalJSONSebuf: %v", err)
+	}
+	var raw map[string]any
+	if err := json.Unmarshal(got, &raw); err != nil {
+		t.Fatalf("json.Unmarshal(%s): %v", got, err)
+	}
+	if _, ok := raw["n"]; !ok || raw["n"] != nil {
+		t.Fatalf("n = %#v, want explicit null", raw["n"])
+	}
+	if gotAt, ok := raw["at"].(float64); !ok || gotAt != 1705312200 {
+		t.Fatalf("at = %#v, want numeric 1705312200", raw["at"])
+	}
+}
+
+func TestEnumValueAndNullableMarshalCompose(t *testing.T) {
+	msg := &EnumNullable{Status: PairStatus_PAIR_STATUS_ACTIVE}
+	got, err := msg.MarshalJSONSebuf(protojson.MarshalOptions{})
+	if err != nil {
+		t.Fatalf("MarshalJSONSebuf: %v", err)
+	}
+	var raw map[string]any
+	if err := json.Unmarshal(got, &raw); err != nil {
+		t.Fatalf("json.Unmarshal(%s): %v", got, err)
+	}
+	if raw["status"] != "active" {
+		t.Fatalf("status = %#v, want active", raw["status"])
+	}
+	if _, ok := raw["note"]; !ok || raw["note"] != nil {
+		t.Fatalf("note = %#v, want explicit null", raw["note"])
+	}
+}
+
+func TestMapValueUnwrapAndTimestampMarshalCompose(t *testing.T) {
+	msg := &MapUnwrapWithSibling{
+		Items: map[string]*MapItemList{"AAPL": &MapItemList{Items: []*MapItem{{Id: "one"}}}},
+		At: timestamppb.New(time.Unix(1705312200, 0)),
+	}
+	got, err := msg.MarshalJSONSebuf(protojson.MarshalOptions{})
+	if err != nil {
+		t.Fatalf("MarshalJSONSebuf: %v", err)
+	}
+	var raw map[string]any
+	if err := json.Unmarshal(got, &raw); err != nil {
+		t.Fatalf("json.Unmarshal(%s): %v", got, err)
+	}
+	if gotAt, ok := raw["at"].(float64); !ok || gotAt != 1705312200 {
+		t.Fatalf("at = %#v, want numeric 1705312200", raw["at"])
+	}
+	items, ok := raw["items"].(map[string]any)
+	if !ok {
+		t.Fatalf("items = %#v, want object", raw["items"])
+	}
+	if _, ok := items["AAPL"].([]any); !ok {
+		t.Fatalf("items.AAPL = %#v, want unwrapped array", items["AAPL"])
+	}
+}
+
+func TestMapValueUnwrapEmptyWrapperMarshalUsesEmptyArray(t *testing.T) {
+	msg := &MapUnwrapWithSibling{Items: map[string]*MapItemList{"AAPL": &MapItemList{}}}
+	got, err := msg.MarshalJSONSebuf(protojson.MarshalOptions{})
+	if err != nil {
+		t.Fatalf("MarshalJSONSebuf message unwrap: %v", err)
+	}
+	var raw map[string]any
+	if err := json.Unmarshal(got, &raw); err != nil {
+		t.Fatalf("json.Unmarshal(%s): %v", got, err)
+	}
+	items, ok := raw["items"].(map[string]any)
+	if !ok {
+		t.Fatalf("items = %#v, want object", raw["items"])
+	}
+	if gotArray, ok := items["AAPL"].([]any); !ok || len(gotArray) != 0 {
+		t.Fatalf("items.AAPL = %#v, want empty unwrapped array", items["AAPL"])
+	}
+}
+
+func TestRootUnwrapEmptyMarshalPreservesOldDefaults(t *testing.T) {
+	mapGot, err := (&RootMessageMap{}).MarshalJSONSebuf(protojson.MarshalOptions{})
+	if err != nil {
+		t.Fatalf("RootMessageMap MarshalJSONSebuf: %v", err)
+	}
+	if string(mapGot) != "{}" {
+		t.Fatalf("RootMessageMap empty marshal = %s, want {}", mapGot)
+	}
+
+	listGot, err := (&RootMessageList{}).MarshalJSONSebuf(protojson.MarshalOptions{})
+	if err != nil {
+		t.Fatalf("RootMessageList MarshalJSONSebuf: %v", err)
+	}
+	if string(listGot) != "[]" {
+		t.Fatalf("RootMessageList empty marshal = %s, want []", listGot)
+	}
+}
+
+func TestRootUnwrapComposesWithChildTransformMarshal(t *testing.T) {
+	msg := &RootChildTransformMap{Items: map[string]*RootHexItem{"AAPL": &RootHexItem{B: []byte("Hi")}}}
+	got, err := msg.MarshalJSONSebuf(protojson.MarshalOptions{})
+	if err != nil {
+		t.Fatalf("MarshalJSONSebuf: %v", err)
+	}
+	var raw map[string]any
+	if err := json.Unmarshal(got, &raw); err != nil {
+		t.Fatalf("json.Unmarshal(%s): %v", got, err)
+	}
+	item, ok := raw["AAPL"].(map[string]any)
+	if !ok {
+		t.Fatalf("AAPL = %#v, want object", raw["AAPL"])
+	}
+	if item["b"] != "4869" {
+		t.Fatalf("AAPL.b = %#v, want hex 4869", item["b"])
+	}
+}
+
+func TestRootUnwrapComposesWithMapValueUnwrapMarshal(t *testing.T) {
+	msg := &RootMapValueUnwrapTransform{Items: map[string]*RootHexItemList{"AAPL": &RootHexItemList{Items: []*RootHexItem{{B: []byte("Hi")}}}}}
+	got, err := msg.MarshalJSONSebuf(protojson.MarshalOptions{})
+	if err != nil {
+		t.Fatalf("MarshalJSONSebuf: %v", err)
+	}
+	var raw map[string]any
+	if err := json.Unmarshal(got, &raw); err != nil {
+		t.Fatalf("json.Unmarshal(%s): %v", got, err)
+	}
+	items, ok := raw["AAPL"].([]any)
+	if !ok || len(items) != 1 {
+		t.Fatalf("AAPL = %#v, want one-item array", raw["AAPL"])
+	}
+	item, ok := items[0].(map[string]any)
+	if !ok {
+		t.Fatalf("AAPL[0] = %#v, want object", items[0])
+	}
+	if item["b"] != "4869" {
+		t.Fatalf("AAPL[0].b = %#v, want hex 4869", item["b"])
+	}
+}
+
+func TestNestedDelegationUseProtoNamesDoesNotDuplicateCamelCaseKey(t *testing.T) {
+	msg := &ProtoNameOuter{
+		ChildMessage: &ProtoNameInner{Id: 123},
+		ChildMessages: []*ProtoNameInner{{Id: 456}},
+		ChildMap: map[string]*ProtoNameInner{"first": &ProtoNameInner{Id: 789}},
+	}
+	got, err := msg.MarshalJSONSebuf(protojson.MarshalOptions{UseProtoNames: true})
+	if err != nil {
+		t.Fatalf("MarshalJSONSebuf: %v", err)
+	}
+	var raw map[string]any
+	if err := json.Unmarshal(got, &raw); err != nil {
+		t.Fatalf("json.Unmarshal(%s): %v", got, err)
+	}
+	for _, camelKey := range []string{"childMessage", "childMessages", "childMap"} {
+		if _, ok := raw[camelKey]; ok {
+			t.Fatalf("unexpected camelCase key %q in UseProtoNames output: %s", camelKey, got)
+		}
+	}
+
+	child, ok := raw["child_message"].(map[string]any)
+	if !ok {
+		t.Fatalf("child_message = %#v, want object", raw["child_message"])
+	}
+	if gotID, ok := child["id"].(float64); !ok || gotID != 123 {
+		t.Fatalf("child_message.id = %#v, want numeric 123", child["id"])
+	}
+	children, ok := raw["child_messages"].([]any)
+	if !ok || len(children) != 1 {
+		t.Fatalf("child_messages = %#v, want one-item array", raw["child_messages"])
+	}
+	firstChild, ok := children[0].(map[string]any)
+	if !ok {
+		t.Fatalf("child_messages[0] = %#v, want object", children[0])
+	}
+	if gotID, ok := firstChild["id"].(float64); !ok || gotID != 456 {
+		t.Fatalf("child_messages[0].id = %#v, want numeric 456", firstChild["id"])
+	}
+	childMap, ok := raw["child_map"].(map[string]any)
+	if !ok {
+		t.Fatalf("child_map = %#v, want object", raw["child_map"])
+	}
+	mappedChild, ok := childMap["first"].(map[string]any)
+	if !ok {
+		t.Fatalf("child_map.first = %#v, want object", childMap["first"])
+	}
+	if gotID, ok := mappedChild["id"].(float64); !ok || gotID != 789 {
+		t.Fatalf("child_map.first.id = %#v, want numeric 789", mappedChild["id"])
+	}
+}
+
+func TestDirectTransformsUseProtoNamesDoesNotDuplicateCamelCaseKeys(t *testing.T) {
+	msg := &DirectProtoNameSubject{
+		CountValue: 12345,
+		BinaryData: []byte("Hi"),
+		EventTime: timestamppb.New(time.Unix(1705312200, 0)),
+		EmptyValue: &EmptyChild{},
+		FlattenedChild: &DirectProtoNameFlattenChild{ChildName: "Ada"},
+	}
+	got, err := msg.MarshalJSONSebuf(protojson.MarshalOptions{UseProtoNames: true})
+	if err != nil {
+		t.Fatalf("MarshalJSONSebuf: %v", err)
+	}
+	var raw map[string]any
+	if err := json.Unmarshal(got, &raw); err != nil {
+		t.Fatalf("json.Unmarshal(%s): %v", got, err)
+	}
+	for _, badKey := range []string{"countValue", "binaryData", "eventTime", "emptyValue", "flattenedChild", "flattened_child"} {
+		if _, ok := raw[badKey]; ok {
+			t.Fatalf("unexpected key %q in UseProtoNames direct-transform output: %s", badKey, got)
+		}
+	}
+	if gotCount, ok := raw["count_value"].(float64); !ok || gotCount != 12345 {
+		t.Fatalf("count_value = %#v, want numeric 12345", raw["count_value"])
+	}
+	if raw["binary_data"] != "4869" {
+		t.Fatalf("binary_data = %#v, want hex 4869", raw["binary_data"])
+	}
+	if gotAt, ok := raw["event_time"].(float64); !ok || gotAt != 1705312200 {
+		t.Fatalf("event_time = %#v, want numeric 1705312200", raw["event_time"])
+	}
+	if _, ok := raw["empty_value"]; !ok || raw["empty_value"] != nil {
+		t.Fatalf("empty_value = %#v, want explicit null", raw["empty_value"])
+	}
+	if raw["flat_child_name"] != "Ada" {
+		t.Fatalf("flat_child_name = %#v, want Ada", raw["flat_child_name"])
+	}
+}
+`
+}
+
+func jsonMappingComposedUnmarshalRuntimeTest() string {
+	return `package gen
+
+import (
+	"testing"
+
+	"google.golang.org/protobuf/encoding/protojson"
+)
+
+func TestNullableTimestampUnmarshalCompose(t *testing.T) {
+	msg := &NullableTimestamp{}
+	if err := msg.UnmarshalJSONSebuf([]byte(` + "`" + `{"n":null,"at":1705312200}` + "`" + `), protojson.UnmarshalOptions{}); err != nil {
+		t.Fatalf("UnmarshalJSONSebuf: %v", err)
+	}
+	if msg.N != nil {
+		t.Fatalf("N = %#v, want nil optional presence for explicit null", *msg.N)
+	}
+	if got := msg.At.AsTime().Unix(); got != 1705312200 {
+		t.Fatalf("At = %d, want 1705312200", got)
+	}
+}
+
+func TestEnumNullableUnmarshalCompose(t *testing.T) {
+	msg := &EnumNullable{}
+	if err := msg.UnmarshalJSONSebuf([]byte(` + "`" + `{"status":"active","note":null}` + "`" + `), protojson.UnmarshalOptions{}); err != nil {
+		t.Fatalf("UnmarshalJSONSebuf: %v", err)
+	}
+	if msg.Status != PairStatus_PAIR_STATUS_ACTIVE {
+		t.Fatalf("Status = %v, want PAIR_STATUS_ACTIVE", msg.Status)
+	}
+	if msg.Note != nil {
+		t.Fatalf("Note = %#v, want nil optional presence for explicit null", *msg.Note)
+	}
+}
+
+func TestMapValueUnwrapTimestampUnmarshalCompose(t *testing.T) {
+	msg := &MapUnwrapWithSibling{}
+	if err := msg.UnmarshalJSONSebuf([]byte(` + "`" + `{"items":{"AAPL":[{"id":"one"}]},"at":1705312200}` + "`" + `), protojson.UnmarshalOptions{}); err != nil {
+		t.Fatalf("UnmarshalJSONSebuf: %v", err)
+	}
+	if got := msg.At.AsTime().Unix(); got != 1705312200 {
+		t.Fatalf("At = %d, want 1705312200", got)
+	}
+	if msg.Items["AAPL"] == nil || len(msg.Items["AAPL"].Items) != 1 || msg.Items["AAPL"].Items[0].Id != "one" {
+		t.Fatalf("Items[AAPL] = %#v, want one unwrapped item with id one", msg.Items["AAPL"])
+	}
+}
+
+func TestRootUnwrapChildTransformUnmarshalCompose(t *testing.T) {
+	msg := &RootChildTransformMap{}
+	if err := msg.UnmarshalJSONSebuf([]byte(` + "`" + `{"AAPL":{"b":"4869"}}` + "`" + `), protojson.UnmarshalOptions{}); err != nil {
+		t.Fatalf("UnmarshalJSONSebuf: %v", err)
+	}
+	if msg.Items["AAPL"] == nil || string(msg.Items["AAPL"].B) != "Hi" {
+		t.Fatalf("Items[AAPL] = %#v, want bytes Hi", msg.Items["AAPL"])
+	}
+}
+
+func TestRootUnwrapMapValueUnwrapUnmarshalCompose(t *testing.T) {
+	msg := &RootMapValueUnwrapTransform{}
+	if err := msg.UnmarshalJSONSebuf([]byte(` + "`" + `{"AAPL":[{"b":"4869"}]}` + "`" + `), protojson.UnmarshalOptions{}); err != nil {
+		t.Fatalf("UnmarshalJSONSebuf: %v", err)
+	}
+	if msg.Items["AAPL"] == nil || len(msg.Items["AAPL"].Items) != 1 || string(msg.Items["AAPL"].Items[0].B) != "Hi" {
+		t.Fatalf("Items[AAPL] = %#v, want one unwrapped item with bytes Hi", msg.Items["AAPL"])
+	}
+}
+
+func TestDirectTransformsAcceptProtoNameInputUnmarshal(t *testing.T) {
+	msg := &DirectProtoNameSubject{}
+	data := []byte(` + "`" + `{"count_value":12345,"binary_data":"4869","event_time":1705312200,"empty_value":null,"flat_child_name":"Ada"}` + "`" + `)
+	if err := msg.UnmarshalJSONSebuf(data, protojson.UnmarshalOptions{}); err != nil {
+		t.Fatalf("UnmarshalJSONSebuf: %v", err)
+	}
+	if msg.CountValue != 12345 {
+		t.Fatalf("CountValue = %d, want 12345", msg.CountValue)
+	}
+	if string(msg.BinaryData) != "Hi" {
+		t.Fatalf("BinaryData = %q, want Hi", string(msg.BinaryData))
+	}
+	if got := msg.EventTime.AsTime().Unix(); got != 1705312200 {
+		t.Fatalf("EventTime = %d, want 1705312200", got)
+	}
+	if msg.EmptyValue == nil {
+		t.Fatalf("EmptyValue = nil, want empty message from null empty_behavior")
+	}
+	if msg.FlattenedChild == nil || msg.FlattenedChild.ChildName != "Ada" {
+		t.Fatalf("FlattenedChild = %#v, want child_name Ada", msg.FlattenedChild)
+	}
+}
+`
+}
+
+func jsonMappingSupportDeclarations() string {
+	return `
+enum PairStatus {
+  PAIR_STATUS_UNSPECIFIED = 0;
+  PAIR_STATUS_ACTIVE = 1 [(sebuf.http.enum_value) = "active"];
+  PAIR_STATUS_INACTIVE = 2 [(sebuf.http.enum_value) = "inactive"];
+}
+
+message EmptyChild {
+  string value = 1;
+}
+
+message FlattenChild {
+  string name = 1;
+}
+
+message OneofText {
+  string body = 1;
+}
+
+message MapItem {
+  string id = 1;
+}
+
+message MapItemList {
+  repeated MapItem items = 1 [(sebuf.http.unwrap) = true];
+}
+
+message IntList {
+  repeated int32 values = 1 [(sebuf.http.unwrap) = true];
+}
+`
+}
+
+func jsonMappingProtoWithBody(body string) string {
+	return `syntax = "proto3";
+
+package composition;
+
+import "google/protobuf/timestamp.proto";
+import "sebuf/http/annotations.proto";
+
+option go_package = "compositiontest/gen;gen";
+
+` + body
+}

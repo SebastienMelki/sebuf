@@ -16,13 +16,6 @@ type Generator struct {
 	plugin       *protogen.Plugin
 	generateMock bool
 	globalUnwrap *GlobalUnwrapInfo // Global unwrap info collected from all files
-
-	// directEncodingMsgNames is set per-file before generateUnwrapFile runs.
-	// It holds the full names of messages that will have custom MarshalJSON/UnmarshalJSON
-	// from the encoding generator (direct int64_encoding=NUMBER fields).
-	// The unwrap generator uses this to call json.Marshal instead of protojson.Marshal
-	// for those types, ensuring the custom encoding is applied.
-	directEncodingMsgNames map[string]bool
 }
 
 // Options configures the generator.
@@ -67,7 +60,6 @@ func (g *Generator) Generate() error {
 	return nil
 }
 
-//nolint:gocognit // Sequential encoding file generation adds unavoidable branching
 func (g *Generator) generateFile(file *protogen.File) error {
 	// Validate enum annotations first - fail fast if conflicting annotations exist
 	if err := g.validateEnumAnnotationsInFile(file); err != nil {
@@ -79,67 +71,14 @@ func (g *Generator) generateFile(file *protogen.File) error {
 		return err
 	}
 
-	// Pre-compute the set of messages with direct NUMBER encoding.
-	// Must be done before generateUnwrapFile so the unwrap generator can use json.Marshal
-	// for those types.
-	g.directEncodingMsgNames = collectDirectEncodingMsgNames(file)
-
-	// Generate unwrap file if there are messages with unwrap annotations
-	if err := g.generateUnwrapFile(file); err != nil {
-		return err
-	}
-
-	// Compute the set of message names that have unwrap-generated MarshalJSON.
-	// This is passed to the encoding generator to avoid duplicate method declarations.
-	unwrapMsgNames, unwrapErr := g.collectUnwrapMarshalJSONMessageNames(file)
-	if unwrapErr != nil {
-		return fmt.Errorf("collecting unwrap MarshalJSON message names for %s: %w", file.Desc.Path(), unwrapErr)
-	}
-
-	// Generate encoding file if there are messages with int64_encoding=NUMBER annotations
-	if err := g.generateInt64EncodingFile(file, unwrapMsgNames); err != nil {
-		return err
-	}
-
-	// Generate enum encoding file if there are enums with custom enum_value annotations
+	// Generate enum encoding support if there are enums with custom enum_value annotations.
+	// The composed message marshaler still depends on these lookup maps.
 	if err := g.generateEnumEncodingFile(file); err != nil {
 		return err
 	}
 
-	// Generate enum-field encoding file so the server applies custom enum_value strings on the
-	// message JSON (protojson emits raw proto value names; this patches them). Depends on the
-	// lookup maps emitted by generateEnumEncodingFile above.
-	if err := g.generateEnumFieldEncodingFile(file); err != nil {
-		return err
-	}
-
-	// Generate nullable encoding file if there are messages with nullable fields
-	if err := g.generateNullableEncodingFile(file); err != nil {
-		return err
-	}
-
-	// Generate empty_behavior encoding file if there are messages with empty_behavior fields
-	if err := g.generateEmptyBehaviorEncodingFile(file); err != nil {
-		return err
-	}
-
-	// Generate timestamp_format encoding file if there are messages with timestamp format annotations
-	if err := g.generateTimestampFormatEncodingFile(file); err != nil {
-		return err
-	}
-
-	// Generate bytes_encoding file if there are messages with non-default bytes encoding
-	if err := g.generateBytesEncodingFile(file); err != nil {
-		return err
-	}
-
-	// Generate flatten file if there are messages with flatten annotations
-	if err := g.generateFlattenFile(file); err != nil {
-		return err
-	}
-
-	// Generate oneof_discriminator file if there are messages with oneof_config annotations
-	if err := g.generateOneofDiscriminatorFile(file); err != nil {
+	// Generate one composed JSON mapping file for every message-level mapping concern.
+	if err := g.generateJSONMappingFile(file); err != nil {
 		return err
 	}
 

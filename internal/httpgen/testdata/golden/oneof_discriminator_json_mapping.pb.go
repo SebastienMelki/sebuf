@@ -11,19 +11,15 @@ import (
 )
 
 // MarshalJSONSebuf implements sebufMarshaler for FlattenedEvent.
-// This method handles oneof discriminator fields: content
+// This method composes sebuf JSON mapping annotations and nested message delegation.
 func (x *FlattenedEvent) MarshalJSONSebuf(opts protojson.MarshalOptions) ([]byte, error) {
 	if x == nil {
 		return []byte("null"), nil
 	}
-
-	// Use protojson for base serialization
 	data, err := opts.Marshal(x)
 	if err != nil {
 		return nil, err
 	}
-
-	// Parse into a map to add discriminator fields
 	var raw map[string]json.RawMessage
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return nil, err
@@ -91,10 +87,9 @@ func (x *FlattenedEvent) MarshalJSON() ([]byte, error) {
 	return x.MarshalJSONSebuf(protojson.MarshalOptions{})
 }
 
-// UnmarshalJSON implements json.Unmarshaler for FlattenedEvent.
-// This method handles oneof discriminator fields: content
-func (x *FlattenedEvent) UnmarshalJSON(data []byte) error {
-	// Parse into a map to read discriminator fields
+// UnmarshalJSONSebuf implements sebufUnmarshaler for FlattenedEvent.
+// This method composes inverse sebuf JSON mapping annotations and nested message delegation.
+func (x *FlattenedEvent) UnmarshalJSONSebuf(data []byte, opts protojson.UnmarshalOptions) error {
 	var raw map[string]json.RawMessage
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return err
@@ -147,32 +142,30 @@ func (x *FlattenedEvent) UnmarshalJSON(data []byte) error {
 		}
 	}
 
-	// Remove discriminator fields before protojson unmarshal
 	delete(raw, "type")
 
-	// Re-marshal remaining fields for protojson
 	modified, err := json.Marshal(raw)
 	if err != nil {
 		return err
 	}
+	return opts.Unmarshal(modified, x)
+}
 
-	return protojson.Unmarshal(modified, x)
+// UnmarshalJSON implements json.Unmarshaler for FlattenedEvent.
+func (x *FlattenedEvent) UnmarshalJSON(data []byte) error {
+	return x.UnmarshalJSONSebuf(data, protojson.UnmarshalOptions{})
 }
 
 // MarshalJSONSebuf implements sebufMarshaler for NestedEvent.
-// This method handles oneof discriminator fields: content
+// This method composes sebuf JSON mapping annotations and nested message delegation.
 func (x *NestedEvent) MarshalJSONSebuf(opts protojson.MarshalOptions) ([]byte, error) {
 	if x == nil {
 		return []byte("null"), nil
 	}
-
-	// Use protojson for base serialization
 	data, err := opts.Marshal(x)
 	if err != nil {
 		return nil, err
 	}
-
-	// Parse into a map to add discriminator fields
 	var raw map[string]json.RawMessage
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return nil, err
@@ -198,10 +191,9 @@ func (x *NestedEvent) MarshalJSON() ([]byte, error) {
 	return x.MarshalJSONSebuf(protojson.MarshalOptions{})
 }
 
-// UnmarshalJSON implements json.Unmarshaler for NestedEvent.
-// This method handles oneof discriminator fields: content
-func (x *NestedEvent) UnmarshalJSON(data []byte) error {
-	// Parse into a map to read discriminator fields
+// UnmarshalJSONSebuf implements sebufUnmarshaler for NestedEvent.
+// This method composes inverse sebuf JSON mapping annotations and nested message delegation.
+func (x *NestedEvent) UnmarshalJSONSebuf(data []byte, opts protojson.UnmarshalOptions) error {
 	var raw map[string]json.RawMessage
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return err
@@ -245,14 +237,16 @@ func (x *NestedEvent) UnmarshalJSON(data []byte) error {
 		}
 	}
 
-	// Remove discriminator fields before protojson unmarshal
 	delete(raw, "kind")
 
-	// Re-marshal remaining fields for protojson
 	modified, err := json.Marshal(raw)
 	if err != nil {
 		return err
 	}
+	return opts.Unmarshal(modified, x)
+}
 
-	return protojson.Unmarshal(modified, x)
+// UnmarshalJSON implements json.Unmarshaler for NestedEvent.
+func (x *NestedEvent) UnmarshalJSON(data []byte) error {
+	return x.UnmarshalJSONSebuf(data, protojson.UnmarshalOptions{})
 }
