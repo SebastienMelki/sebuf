@@ -40,8 +40,8 @@ func TestJSONMappingCompositionFlattensCommonFieldsAndPreservesOneofDiscriminato
 	}
 
 	var doc map[string]any
-	if err := json.Unmarshal(content, &doc); err != nil {
-		t.Fatalf("generated OpenAPI JSON is invalid: %v", err)
+	if unmarshalErr := json.Unmarshal(content, &doc); unmarshalErr != nil {
+		t.Fatalf("generated OpenAPI JSON is invalid: %v", unmarshalErr)
 	}
 
 	schemas := doc["components"].(map[string]any)["schemas"].(map[string]any)
@@ -115,7 +115,9 @@ func assertOneOfVariantHasProperties(t *testing.T, schemas map[string]any, schem
 	}
 }
 
-func assertOneOfVariantDoesNotHaveProperties(t *testing.T, schemas map[string]any, schema map[string]any, unwanted []string) {
+func assertOneOfVariantDoesNotHaveProperties(
+	t *testing.T, schemas map[string]any, schema map[string]any, unwanted []string,
+) {
 	t.Helper()
 	props := collectFirstOneOfVariantProperties(t, schemas, schema)
 	for _, name := range unwanted {
