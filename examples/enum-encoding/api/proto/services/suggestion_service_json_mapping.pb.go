@@ -10,19 +10,15 @@ import (
 )
 
 // MarshalJSONSebuf implements sebufMarshaler for OptionsContract.
-// This method handles enum_value fields and nested messages: type
+// This method composes sebuf JSON mapping annotations and nested message delegation.
 func (x *OptionsContract) MarshalJSONSebuf(opts protojson.MarshalOptions) ([]byte, error) {
 	if x == nil {
 		return []byte("null"), nil
 	}
-
-	// Use protojson for base serialization (handles all other fields correctly)
 	data, err := opts.Marshal(x)
 	if err != nil {
 		return nil, err
 	}
-
-	// Parse into a map to rewrite enum fields and nested messages
 	var raw map[string]json.RawMessage
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return nil, err
@@ -52,9 +48,8 @@ func (x *OptionsContract) MarshalJSON() ([]byte, error) {
 }
 
 // UnmarshalJSONSebuf implements sebufUnmarshaler for OptionsContract.
-// This method handles enum_value fields and nested messages: type
+// This method composes inverse sebuf JSON mapping annotations and nested message delegation.
 func (x *OptionsContract) UnmarshalJSONSebuf(data []byte, opts protojson.UnmarshalOptions) error {
-	// Parse the raw JSON to rewrite custom enum_value strings and nested messages
 	var raw map[string]json.RawMessage
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return err
@@ -75,13 +70,10 @@ func (x *OptionsContract) UnmarshalJSONSebuf(data []byte, opts protojson.Unmarsh
 		}
 	}
 
-	// Re-marshal with proto value names for protojson
 	modified, err := json.Marshal(raw)
 	if err != nil {
 		return err
 	}
-
-	// Use protojson to unmarshal the rest
 	return opts.Unmarshal(modified, x)
 }
 
@@ -91,22 +83,41 @@ func (x *OptionsContract) UnmarshalJSON(data []byte) error {
 }
 
 // MarshalJSONSebuf implements sebufMarshaler for EasyOptionSuggestion.
-// This method handles enum_value fields and nested messages: risk_level, options_contract
+// This method composes sebuf JSON mapping annotations and nested message delegation.
 func (x *EasyOptionSuggestion) MarshalJSONSebuf(opts protojson.MarshalOptions) ([]byte, error) {
 	if x == nil {
 		return []byte("null"), nil
 	}
-
-	// Use protojson for base serialization (handles all other fields correctly)
 	data, err := opts.Marshal(x)
 	if err != nil {
 		return nil, err
 	}
-
-	// Parse into a map to rewrite enum fields and nested messages
 	var raw map[string]json.RawMessage
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return nil, err
+	}
+
+	// Delegate nested JSON mapping for field: options_contract
+	if x.OptionsContract != nil {
+		var data []byte
+		var err error
+		if m, ok := any(x.OptionsContract).(interface {
+			MarshalJSONSebuf(protojson.MarshalOptions) ([]byte, error)
+		}); ok {
+			data, err = m.MarshalJSONSebuf(opts)
+		} else {
+			data, err = opts.Marshal(x.OptionsContract)
+		}
+		if err != nil {
+			return nil, err
+		}
+		if opts.UseProtoNames {
+			raw["options_contract"] = data
+			delete(raw, "optionsContract")
+		} else {
+			raw["optionsContract"] = data
+			delete(raw, "options_contract")
+		}
 	}
 
 	// Rewrite risk_level to custom enum_value strings
@@ -124,23 +135,6 @@ func (x *EasyOptionSuggestion) MarshalJSONSebuf(opts protojson.MarshalOptions) (
 		}
 	}
 
-	// Re-serialize "optionsContract" forwarding opts when child supports MarshalJSONSebuf
-	if x.OptionsContract != nil {
-		if m, ok := any(x.OptionsContract).(interface {
-			MarshalJSONSebuf(protojson.MarshalOptions) ([]byte, error)
-		}); ok {
-			childData, childErr := m.MarshalJSONSebuf(opts)
-			if childErr != nil {
-				return nil, childErr
-			}
-			for _, k := range []string{"optionsContract", "options_contract"} {
-				if _, ok := raw[k]; ok {
-					raw[k] = childData
-				}
-			}
-		}
-	}
-
 	return json.Marshal(raw)
 }
 
@@ -150,9 +144,8 @@ func (x *EasyOptionSuggestion) MarshalJSON() ([]byte, error) {
 }
 
 // UnmarshalJSONSebuf implements sebufUnmarshaler for EasyOptionSuggestion.
-// This method handles enum_value fields and nested messages: risk_level, options_contract
+// This method composes inverse sebuf JSON mapping annotations and nested message delegation.
 func (x *EasyOptionSuggestion) UnmarshalJSONSebuf(data []byte, opts protojson.UnmarshalOptions) error {
-	// Parse the raw JSON to rewrite custom enum_value strings and nested messages
 	var raw map[string]json.RawMessage
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return err
@@ -173,10 +166,13 @@ func (x *EasyOptionSuggestion) UnmarshalJSONSebuf(data []byte, opts protojson.Un
 		}
 	}
 
-	// Handle "optionsContract" using its custom unmarshaler
+	// Delegate nested JSON unmarshal for field: options_contract
 	for _, k := range []string{"optionsContract", "options_contract"} {
 		rawVal, ok := raw[k]
 		if !ok {
+			continue
+		}
+		if string(rawVal) == "null" {
 			continue
 		}
 		inner := &OptionsContract{}
@@ -196,13 +192,10 @@ func (x *EasyOptionSuggestion) UnmarshalJSONSebuf(data []byte, opts protojson.Un
 		raw[k] = innerJSON
 	}
 
-	// Re-marshal with proto value names for protojson
 	modified, err := json.Marshal(raw)
 	if err != nil {
 		return err
 	}
-
-	// Use protojson to unmarshal the rest
 	return opts.Unmarshal(modified, x)
 }
 
@@ -212,22 +205,49 @@ func (x *EasyOptionSuggestion) UnmarshalJSON(data []byte) error {
 }
 
 // MarshalJSONSebuf implements sebufMarshaler for GetEasyOptionsResponse.
-// This method handles enum_value fields and nested messages: overall_risk, option_suggestions
+// This method composes sebuf JSON mapping annotations and nested message delegation.
 func (x *GetEasyOptionsResponse) MarshalJSONSebuf(opts protojson.MarshalOptions) ([]byte, error) {
 	if x == nil {
 		return []byte("null"), nil
 	}
-
-	// Use protojson for base serialization (handles all other fields correctly)
 	data, err := opts.Marshal(x)
 	if err != nil {
 		return nil, err
 	}
-
-	// Parse into a map to rewrite enum fields and nested messages
 	var raw map[string]json.RawMessage
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return nil, err
+	}
+
+	// Delegate nested JSON mapping for repeated field: option_suggestions
+	if len(x.OptionSuggestions) > 0 {
+		items := make([]json.RawMessage, 0, len(x.OptionSuggestions))
+		for _, item := range x.OptionSuggestions {
+			var data []byte
+			var err error
+			if m, ok := any(item).(interface {
+				MarshalJSONSebuf(protojson.MarshalOptions) ([]byte, error)
+			}); ok {
+				data, err = m.MarshalJSONSebuf(opts)
+			} else {
+				data, err = opts.Marshal(item)
+			}
+			if err != nil {
+				return nil, err
+			}
+			items = append(items, data)
+		}
+		data, err := json.Marshal(items)
+		if err != nil {
+			return nil, err
+		}
+		if opts.UseProtoNames {
+			raw["option_suggestions"] = data
+			delete(raw, "optionSuggestions")
+		} else {
+			raw["optionSuggestions"] = data
+			delete(raw, "option_suggestions")
+		}
 	}
 
 	// Rewrite overall_risk to custom enum_value strings
@@ -245,37 +265,6 @@ func (x *GetEasyOptionsResponse) MarshalJSONSebuf(opts protojson.MarshalOptions)
 		}
 	}
 
-	// Re-serialize repeated "optionSuggestions" forwarding opts to each element
-	if len(x.OptionSuggestions) > 0 {
-		items := make([]json.RawMessage, 0, len(x.OptionSuggestions))
-		for _, item := range x.OptionSuggestions {
-			if m, ok := any(item).(interface {
-				MarshalJSONSebuf(protojson.MarshalOptions) ([]byte, error)
-			}); ok {
-				itemData, itemErr := m.MarshalJSONSebuf(opts)
-				if itemErr != nil {
-					return nil, itemErr
-				}
-				items = append(items, itemData)
-			} else {
-				itemData, itemErr := opts.Marshal(item)
-				if itemErr != nil {
-					return nil, itemErr
-				}
-				items = append(items, itemData)
-			}
-		}
-		listData, listErr := json.Marshal(items)
-		if listErr != nil {
-			return nil, listErr
-		}
-		for _, k := range []string{"optionSuggestions", "option_suggestions"} {
-			if _, ok := raw[k]; ok {
-				raw[k] = listData
-			}
-		}
-	}
-
 	return json.Marshal(raw)
 }
 
@@ -285,9 +274,8 @@ func (x *GetEasyOptionsResponse) MarshalJSON() ([]byte, error) {
 }
 
 // UnmarshalJSONSebuf implements sebufUnmarshaler for GetEasyOptionsResponse.
-// This method handles enum_value fields and nested messages: overall_risk, option_suggestions
+// This method composes inverse sebuf JSON mapping annotations and nested message delegation.
 func (x *GetEasyOptionsResponse) UnmarshalJSONSebuf(data []byte, opts protojson.UnmarshalOptions) error {
-	// Parse the raw JSON to rewrite custom enum_value strings and nested messages
 	var raw map[string]json.RawMessage
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return err
@@ -308,7 +296,7 @@ func (x *GetEasyOptionsResponse) UnmarshalJSONSebuf(data []byte, opts protojson.
 		}
 	}
 
-	// Handle "optionSuggestions" using its custom unmarshaler
+	// Delegate nested JSON unmarshal for repeated field: option_suggestions
 	for _, k := range []string{"optionSuggestions", "option_suggestions"} {
 		rawVal, ok := raw[k]
 		if !ok {
@@ -343,13 +331,10 @@ func (x *GetEasyOptionsResponse) UnmarshalJSONSebuf(data []byte, opts protojson.
 		raw[k] = protoJSON
 	}
 
-	// Re-marshal with proto value names for protojson
 	modified, err := json.Marshal(raw)
 	if err != nil {
 		return err
 	}
-
-	// Use protojson to unmarshal the rest
 	return opts.Unmarshal(modified, x)
 }
 
@@ -359,19 +344,15 @@ func (x *GetEasyOptionsResponse) UnmarshalJSON(data []byte) error {
 }
 
 // MarshalJSONSebuf implements sebufMarshaler for GetEasyOptionsRequest.
-// This method handles enum_value fields and nested messages: requested_risk
+// This method composes sebuf JSON mapping annotations and nested message delegation.
 func (x *GetEasyOptionsRequest) MarshalJSONSebuf(opts protojson.MarshalOptions) ([]byte, error) {
 	if x == nil {
 		return []byte("null"), nil
 	}
-
-	// Use protojson for base serialization (handles all other fields correctly)
 	data, err := opts.Marshal(x)
 	if err != nil {
 		return nil, err
 	}
-
-	// Parse into a map to rewrite enum fields and nested messages
 	var raw map[string]json.RawMessage
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return nil, err
@@ -401,9 +382,8 @@ func (x *GetEasyOptionsRequest) MarshalJSON() ([]byte, error) {
 }
 
 // UnmarshalJSONSebuf implements sebufUnmarshaler for GetEasyOptionsRequest.
-// This method handles enum_value fields and nested messages: requested_risk
+// This method composes inverse sebuf JSON mapping annotations and nested message delegation.
 func (x *GetEasyOptionsRequest) UnmarshalJSONSebuf(data []byte, opts protojson.UnmarshalOptions) error {
-	// Parse the raw JSON to rewrite custom enum_value strings and nested messages
 	var raw map[string]json.RawMessage
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return err
@@ -424,13 +404,10 @@ func (x *GetEasyOptionsRequest) UnmarshalJSONSebuf(data []byte, opts protojson.U
 		}
 	}
 
-	// Re-marshal with proto value names for protojson
 	modified, err := json.Marshal(raw)
 	if err != nil {
 		return err
 	}
-
-	// Use protojson to unmarshal the rest
 	return opts.Unmarshal(modified, x)
 }
 
