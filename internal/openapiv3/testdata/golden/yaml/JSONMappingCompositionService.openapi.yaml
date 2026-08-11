@@ -1,0 +1,212 @@
+openapi: 3.1.0
+info:
+    title: JSONMappingCompositionService API
+    version: 1.0.0
+paths:
+    /api/v1/composition/nested-oneof:
+        post:
+            tags:
+                - JSONMappingCompositionService
+            summary: TestFlattenWithNestedOneof
+            operationId: TestFlattenWithNestedOneof
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/FlattenWithNestedOneof'
+                required: true
+            responses:
+                "200":
+                    description: Successful response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/FlattenWithNestedOneof'
+                "400":
+                    description: Validation error
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ValidationError'
+                default:
+                    description: Error response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Error'
+    /api/v1/composition/flat-oneof:
+        post:
+            tags:
+                - JSONMappingCompositionService
+            summary: TestFlattenWithFlatOneof
+            operationId: TestFlattenWithFlatOneof
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/FlattenWithFlatOneof'
+                required: true
+            responses:
+                "200":
+                    description: Successful response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/FlattenWithFlatOneof'
+                "400":
+                    description: Validation error
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ValidationError'
+                default:
+                    description: Error response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Error'
+components:
+    schemas:
+        Error:
+            type: object
+            properties:
+                message:
+                    type: string
+                    description: Error message (e.g., 'user not found', 'database connection failed')
+            description: Error is returned when a handler encounters an error. It contains a simple error message that the developer can customize.
+        FieldViolation:
+            type: object
+            properties:
+                field:
+                    type: string
+                    description: The field path that failed validation (e.g., 'user.email' for nested fields). For header validation, this will be the header name (e.g., 'X-API-Key')
+                description:
+                    type: string
+                    description: Human-readable description of the validation violation (e.g., 'must be a valid email address', 'required field missing')
+            required:
+                - field
+                - description
+            description: FieldViolation describes a single validation error for a specific field.
+        ValidationError:
+            type: object
+            properties:
+                violations:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/FieldViolation'
+                    description: List of validation violations
+            required:
+                - violations
+            description: ValidationError is returned when request validation fails. It contains a list of field violations describing what went wrong.
+        FlattenWithNestedOneof:
+            allOf:
+                - type: object
+                  properties:
+                    id:
+                        type: string
+                    kind:
+                        type: string
+                        enum:
+                            - text
+                            - img
+                - type: object
+                  properties:
+                    audit_createdBy:
+                        type: string
+                    audit_version:
+                        type: integer
+                        format: int64
+                        description: 'Warning: Values > 2^53 may lose precision in JavaScript'
+                  description: Flattened from audit with prefix "audit_"
+            oneOf:
+                - type: object
+                  properties:
+                    text:
+                        $ref: '#/components/schemas/TextPayload'
+                - type: object
+                  properties:
+                    image:
+                        $ref: '#/components/schemas/ImagePayload'
+            discriminator:
+                propertyName: kind
+                mapping:
+                    text: '#/components/schemas/TextPayload'
+                    img: '#/components/schemas/ImagePayload'
+            description: FlattenWithNestedOneof composes a flattened common message field with a nested discriminated oneof.
+        AuditInfo:
+            type: object
+            properties:
+                createdBy:
+                    type: string
+                version:
+                    type: integer
+                    format: int64
+                    description: 'Warning: Values > 2^53 may lose precision in JavaScript'
+        TextPayload:
+            type: object
+            properties:
+                body:
+                    type: string
+        ImagePayload:
+            type: object
+            properties:
+                raw:
+                    type: string
+                    pattern: ^[0-9a-fA-F]*$
+                    format: hex
+                width:
+                    type: integer
+                    format: int32
+        FlattenWithFlatOneof_text:
+            type: object
+            properties:
+                id:
+                    type: string
+                audit_createdBy:
+                    type: string
+                audit_version:
+                    type: integer
+                    format: int64
+                    description: 'Warning: Values > 2^53 may lose precision in JavaScript'
+                type:
+                    type: string
+                    enum:
+                        - text
+                body:
+                    type: string
+            required:
+                - type
+        FlattenWithFlatOneof_img:
+            type: object
+            properties:
+                id:
+                    type: string
+                audit_createdBy:
+                    type: string
+                audit_version:
+                    type: integer
+                    format: int64
+                    description: 'Warning: Values > 2^53 may lose precision in JavaScript'
+                type:
+                    type: string
+                    enum:
+                        - img
+                raw:
+                    type: string
+                    pattern: ^[0-9a-fA-F]*$
+                    format: hex
+                width:
+                    type: integer
+                    format: int32
+            required:
+                - type
+        FlattenWithFlatOneof:
+            oneOf:
+                - $ref: '#/components/schemas/FlattenWithFlatOneof_text'
+                - $ref: '#/components/schemas/FlattenWithFlatOneof_img'
+            discriminator:
+                propertyName: type
+                mapping:
+                    text: '#/components/schemas/FlattenWithFlatOneof_text'
+                    img: '#/components/schemas/FlattenWithFlatOneof_img'
+            description: FlattenWithFlatOneof composes a flattened common message field with a flattened discriminated oneof.
