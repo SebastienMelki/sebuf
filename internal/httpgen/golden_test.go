@@ -329,7 +329,6 @@ func TestHTTPGenGoldenFiles(t *testing.T) {
 				}
 				compareGoldenFile(t, expectedFile, goldenPath, generatedContent)
 			}
-
 		})
 	}
 }

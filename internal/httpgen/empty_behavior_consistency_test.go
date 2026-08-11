@@ -87,7 +87,14 @@ func TestEmptyBehaviorConsistencyBackwardCompat(t *testing.T) {
 
 	assertHTTPGenFixtureDoesNotGenerate(t, baseDir, "backward_compat_json_mapping.pb.go", "backward_compat.proto")
 
-	if src := readGeneratedJSONMappingGoldenFixture(t, baseDir, "empty_behavior"); !strings.Contains(src, `raw["metadataNull"] = []byte("null")`) {
+	if src := readGeneratedJSONMappingGoldenFixture(
+		t,
+		baseDir,
+		"empty_behavior",
+	); !strings.Contains(
+		src,
+		`raw["metadataNull"] = []byte("null")`,
+	) {
 		t.Error("empty_behavior.proto composed JSON mapping should write null for EMPTY_BEHAVIOR_NULL fields")
 	}
 

@@ -32,7 +32,6 @@ func TestJSONMappingFeaturePairsGenerateAndBuild(t *testing.T) {
 	}
 
 	for _, pair := range pairs {
-		pair := pair
 		t.Run(pair.left+"+"+pair.right, func(t *testing.T) {
 			module := generateJSONMappingModule(t, jsonMappingPairProto(pair.left, pair.right), "")
 			module.runGoTest(t)
@@ -85,23 +84,23 @@ func generateJSONMappingModule(t *testing.T, protoSource, runtimeTestSource stri
 	tempDir := t.TempDir()
 	protoDir := filepath.Join(tempDir, "proto")
 	genDir := filepath.Join(tempDir, "gen")
-	if err := os.MkdirAll(protoDir, 0o755); err != nil {
-		t.Fatalf("create proto dir: %v", err)
+	if mkdirErr := os.MkdirAll(protoDir, 0o755); mkdirErr != nil {
+		t.Fatalf("create proto dir: %v", mkdirErr)
 	}
-	if err := os.MkdirAll(genDir, 0o755); err != nil {
-		t.Fatalf("create gen dir: %v", err)
+	if mkdirErr := os.MkdirAll(genDir, 0o755); mkdirErr != nil {
+		t.Fatalf("create gen dir: %v", mkdirErr)
 	}
 
 	protoPath := filepath.Join(protoDir, "composition.proto")
-	if err := os.WriteFile(protoPath, []byte(protoSource), 0o644); err != nil {
-		t.Fatalf("write proto fixture: %v", err)
+	if writeErr := os.WriteFile(protoPath, []byte(protoSource), 0o644); writeErr != nil {
+		t.Fatalf("write proto fixture: %v", writeErr)
 	}
 
 	pluginPath := filepath.Join(tempDir, "protoc-gen-go-http")
 	buildCmd := exec.Command("go", "build", "-o", pluginPath, "./cmd/protoc-gen-go-http")
 	buildCmd.Dir = projectRoot
-	if out, err := buildCmd.CombinedOutput(); err != nil {
-		t.Fatalf("build protoc-gen-go-http: %v\n%s", err, out)
+	if out, buildErr := buildCmd.CombinedOutput(); buildErr != nil {
+		t.Fatalf("build protoc-gen-go-http: %v\n%s", buildErr, out)
 	}
 
 	protocCmd := exec.Command("protoc",
@@ -115,13 +114,17 @@ func generateJSONMappingModule(t *testing.T, protoSource, runtimeTestSource stri
 		"composition.proto",
 	)
 	protocCmd.Dir = protoDir
-	if out, err := protocCmd.CombinedOutput(); err != nil {
-		t.Fatalf("protoc JSON mapping composition fixture failed: %v\n%s", err, out)
+	if out, protocErr := protocCmd.CombinedOutput(); protocErr != nil {
+		t.Fatalf("protoc JSON mapping composition fixture failed: %v\n%s", protocErr, out)
 	}
 
 	if runtimeTestSource != "" {
-		if err := os.WriteFile(filepath.Join(genDir, "json_mapping_runtime_test.go"), []byte(runtimeTestSource), 0o644); err != nil {
-			t.Fatalf("write generated runtime test: %v", err)
+		if writeErr := os.WriteFile(
+			filepath.Join(genDir, "json_mapping_runtime_test.go"),
+			[]byte(runtimeTestSource),
+			0o644,
+		); writeErr != nil {
+			t.Fatalf("write generated runtime test: %v", writeErr)
 		}
 	}
 
@@ -136,14 +139,14 @@ require (
 
 replace github.com/SebastienMelki/sebuf => %s
 `, extractProtobufVersionFromModFile(t, projectRoot), projectRoot)
-	if err := os.WriteFile(filepath.Join(tempDir, "go.mod"), []byte(goMod), 0o644); err != nil {
-		t.Fatalf("write generated module go.mod: %v", err)
+	if writeErr := os.WriteFile(filepath.Join(tempDir, "go.mod"), []byte(goMod), 0o644); writeErr != nil {
+		t.Fatalf("write generated module go.mod: %v", writeErr)
 	}
 
 	tidyCmd := exec.Command("go", "mod", "tidy")
 	tidyCmd.Dir = tempDir
-	if out, err := tidyCmd.CombinedOutput(); err != nil {
-		t.Fatalf("go mod tidy generated module: %v\n%s", err, out)
+	if out, tidyErr := tidyCmd.CombinedOutput(); tidyErr != nil {
+		t.Fatalf("go mod tidy generated module: %v\n%s", tidyErr, out)
 	}
 
 	return jsonMappingGeneratedModule{dir: tempDir}
@@ -186,19 +189,37 @@ message PairSubject {
 func pairFeatureField(feature string, number int) string {
 	switch feature {
 	case "int64_number":
-		return fmt.Sprintf("  int64 int64_number_value = %d [(sebuf.http.int64_encoding) = INT64_ENCODING_NUMBER];\n", number)
+		return fmt.Sprintf(
+			"  int64 int64_number_value = %d [(sebuf.http.int64_encoding) = INT64_ENCODING_NUMBER];\n",
+			number,
+		)
 	case "enum_value":
-		return fmt.Sprintf("  PairStatus enum_value_status = %d [(sebuf.http.enum_encoding) = ENUM_ENCODING_STRING];\n", number)
+		return fmt.Sprintf(
+			"  PairStatus enum_value_status = %d [(sebuf.http.enum_encoding) = ENUM_ENCODING_STRING];\n",
+			number,
+		)
 	case "bytes_encoding":
-		return fmt.Sprintf("  bytes bytes_encoding_value = %d [(sebuf.http.bytes_encoding) = BYTES_ENCODING_HEX];\n", number)
+		return fmt.Sprintf(
+			"  bytes bytes_encoding_value = %d [(sebuf.http.bytes_encoding) = BYTES_ENCODING_HEX];\n",
+			number,
+		)
 	case "timestamp_format":
-		return fmt.Sprintf("  google.protobuf.Timestamp timestamp_format_value = %d [(sebuf.http.timestamp_format) = TIMESTAMP_FORMAT_UNIX_SECONDS];\n", number)
+		return fmt.Sprintf(
+			"  google.protobuf.Timestamp timestamp_format_value = %d [(sebuf.http.timestamp_format) = TIMESTAMP_FORMAT_UNIX_SECONDS];\n",
+			number,
+		)
 	case "nullable":
 		return fmt.Sprintf("  optional string nullable_value = %d [(sebuf.http.nullable) = true];\n", number)
 	case "empty_behavior":
-		return fmt.Sprintf("  EmptyChild empty_behavior_value = %d [(sebuf.http.empty_behavior) = EMPTY_BEHAVIOR_NULL];\n", number)
+		return fmt.Sprintf(
+			"  EmptyChild empty_behavior_value = %d [(sebuf.http.empty_behavior) = EMPTY_BEHAVIOR_NULL];\n",
+			number,
+		)
 	case "flatten":
-		return fmt.Sprintf("  FlattenChild flatten_value = %d [(sebuf.http.flatten) = true, (sebuf.http.flatten_prefix) = \"flat_\"];\n", number)
+		return fmt.Sprintf(
+			"  FlattenChild flatten_value = %d [(sebuf.http.flatten) = true, (sebuf.http.flatten_prefix) = \"flat_\"];\n",
+			number,
+		)
 	case "oneof_config":
 		return fmt.Sprintf(`  oneof payload_%d {
     option (sebuf.http.oneof_config) = { discriminator: "kind" flatten: true };

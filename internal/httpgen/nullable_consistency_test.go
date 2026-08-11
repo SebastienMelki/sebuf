@@ -126,7 +126,14 @@ func TestNullableConsistencyBackwardCompat(t *testing.T) {
 
 	assertHTTPGenFixtureDoesNotGenerate(t, baseDir, "backward_compat_json_mapping.pb.go", "backward_compat.proto")
 
-	if src := readGeneratedJSONMappingGoldenFixture(t, baseDir, "nullable"); !strings.Contains(src, `raw["middleName"] = []byte("null")`) {
+	if src := readGeneratedJSONMappingGoldenFixture(
+		t,
+		baseDir,
+		"nullable",
+	); !strings.Contains(
+		src,
+		`raw["middleName"] = []byte("null")`,
+	) {
 		t.Error("nullable.proto composed JSON mapping should preserve explicit null fields")
 	}
 

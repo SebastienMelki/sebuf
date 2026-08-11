@@ -103,6 +103,7 @@ func buildJSONMappingContext(
 	return ctx
 }
 
+//nolint:gocognit // Each branch maps one independent annotation family to a transform.
 func directJSONMappingFieldTransforms(
 	msg *protogen.Message,
 	unwrapFields map[string]*annotations.UnwrapFieldInfo,

@@ -8,7 +8,11 @@ import (
 	"testing"
 )
 
-func readGeneratedJSONMappingGoldenFixture(t *testing.T, baseDir, fixtureBase string, extraProtoFiles ...string) string {
+func readGeneratedJSONMappingGoldenFixture(
+	t *testing.T,
+	baseDir, fixtureBase string,
+	extraProtoFiles ...string,
+) string {
 	t.Helper()
 
 	protoFiles := append([]string{fixtureBase + ".proto"}, extraProtoFiles...)

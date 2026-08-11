@@ -35,6 +35,7 @@ func (g *Generator) generateJSONMappingFile(file *protogen.File) error {
 	return nil
 }
 
+//nolint:gocognit,funlen // Import needs are derived from a compact cross-product of transform kinds.
 func (g *Generator) writeJSONMappingImports(gf *protogen.GeneratedFile, contexts []*JSONMappingContext) {
 	needsBase64 := false
 	needsHex := false
@@ -65,7 +66,11 @@ func (g *Generator) writeJSONMappingImports(gf *protogen.GeneratedFile, contexts
 				switch annotations.GetBytesEncoding(transform.Field) {
 				case http.BytesEncoding_BYTES_ENCODING_HEX:
 					needsHex = true
-				default:
+				case http.BytesEncoding_BYTES_ENCODING_UNSPECIFIED,
+					http.BytesEncoding_BYTES_ENCODING_BASE64,
+					http.BytesEncoding_BYTES_ENCODING_BASE64_RAW,
+					http.BytesEncoding_BYTES_ENCODING_BASE64URL,
+					http.BytesEncoding_BYTES_ENCODING_BASE64URL_RAW:
 					// No extra import needed.
 				}
 			case TransformTimestampFormat:
@@ -73,7 +78,8 @@ func (g *Generator) writeJSONMappingImports(gf *protogen.GeneratedFile, contexts
 			case TransformMapValueUnwrap:
 				if valueMsg := getMapValueMessage(transform.Field); valueMsg != nil {
 					unwrapInfo := unwrapInfoForMessage(valueMsg, nil)
-					if unwrapInfo != nil && (unwrapInfo.ElementType != nil || transform.Field.Desc.MapKey().Kind() != protoreflect.StringKind) {
+					if unwrapInfo != nil &&
+						(unwrapInfo.ElementType != nil || transform.Field.Desc.MapKey().Kind() != protoreflect.StringKind) {
 						needsFmt = true
 					}
 				}
@@ -81,7 +87,7 @@ func (g *Generator) writeJSONMappingImports(gf *protogen.GeneratedFile, contexts
 				needsFmt = true
 			case TransformEmptyBehavior:
 				needsProto = true
-			default:
+			case TransformEnumValue, TransformNullable, TransformFlatten:
 				// No extra import needed.
 			}
 		}
@@ -153,7 +159,6 @@ func (g *Generator) generateJSONMappingMarshalJSON(gf *protogen.GeneratedFile, c
 	gf.P("return x.MarshalJSONSebuf(protojson.MarshalOptions{})")
 	gf.P("}")
 	gf.P()
-
 }
 
 func (g *Generator) generateJSONMappingNestedDelegation(
@@ -357,6 +362,7 @@ func (g *Generator) generateJSONMappingMapValueUnwrapMarshal(gf *protogen.Genera
 	})
 }
 
+//nolint:funlen // Emits a structured generated-code block for map-value unwrap composition.
 func (g *Generator) generateJSONMappingUnwrapMapMarshal(
 	gf *protogen.GeneratedFile,
 	field *protogen.Field,

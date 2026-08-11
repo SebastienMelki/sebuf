@@ -17,33 +17,6 @@ func hasFlattenFields(message *protogen.Message) bool {
 	return annotations.HasFlattenFields(message)
 }
 
-// validateFlattenAnnotations validates all flatten annotations in a file.
-// It keeps semantic validation only: field validity and flattened-name collisions.
-func validateFlattenAnnotations(file *protogen.File) error {
-	return validateFlattenInMessages(file.Messages)
-}
-
-func validateFlattenInMessages(messages []*protogen.Message) error {
-	for _, msg := range messages {
-		for _, field := range msg.Fields {
-			if err := annotations.ValidateFlattenField(field, msg.GoIdent.GoName); err != nil {
-				return err
-			}
-		}
-
-		if hasFlattenFields(msg) {
-			if err := annotations.ValidateFlattenCollisions(msg); err != nil {
-				return err
-			}
-		}
-
-		if err := validateFlattenInMessages(msg.Messages); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
 // generateFlattenFieldMarshal emits the field-level marshal transform for flatten.
 // Forwards opts to child's MarshalJSONSebuf when available (annotation composability),
 // otherwise uses opts.Marshal so server-configured options reach plain messages too.

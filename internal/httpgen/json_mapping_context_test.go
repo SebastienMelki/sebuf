@@ -166,8 +166,8 @@ func buildJSONMappingContextTestFile(t *testing.T, body string) *protogen.File {
 
 	tempDir := t.TempDir()
 	protoPath := filepath.Join(tempDir, "context.proto")
-	if err := os.WriteFile(protoPath, []byte(jsonMappingContextTestProto(body)), 0o644); err != nil {
-		t.Fatalf("write proto fixture: %v", err)
+	if writeErr := os.WriteFile(protoPath, []byte(jsonMappingContextTestProto(body)), 0o644); writeErr != nil {
+		t.Fatalf("write proto fixture: %v", writeErr)
 	}
 
 	descPath := filepath.Join(tempDir, "descriptors.pb")
@@ -179,8 +179,8 @@ func buildJSONMappingContextTestFile(t *testing.T, body string) *protogen.File {
 		"context.proto",
 	)
 	cmd.Dir = tempDir
-	if out, err := cmd.CombinedOutput(); err != nil {
-		t.Fatalf("protoc descriptor_set_out failed: %v\n%s", err, out)
+	if out, cmdErr := cmd.CombinedOutput(); cmdErr != nil {
+		t.Fatalf("protoc descriptor_set_out failed: %v\n%s", cmdErr, out)
 	}
 
 	raw, err := os.ReadFile(descPath)
@@ -189,8 +189,8 @@ func buildJSONMappingContextTestFile(t *testing.T, body string) *protogen.File {
 	}
 
 	var fds descriptorpb.FileDescriptorSet
-	if err := proto.Unmarshal(raw, &fds); err != nil {
-		t.Fatalf("unmarshal descriptor set: %v", err)
+	if unmarshalErr := proto.Unmarshal(raw, &fds); unmarshalErr != nil {
+		t.Fatalf("unmarshal descriptor set: %v", unmarshalErr)
 	}
 
 	req := &pluginpb.CodeGeneratorRequest{

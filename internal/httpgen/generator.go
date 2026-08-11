@@ -60,7 +60,6 @@ func (g *Generator) Generate() error {
 	return nil
 }
 
-//nolint:gocognit // Sequential encoding file generation adds unavoidable branching
 func (g *Generator) generateFile(file *protogen.File) error {
 	// Validate enum annotations first - fail fast if conflicting annotations exist
 	if err := g.validateEnumAnnotationsInFile(file); err != nil {

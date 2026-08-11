@@ -186,6 +186,7 @@ func (g *Generator) generateJSONMappingMapValueUnwrapUnmarshal(gf *protogen.Gene
 	})
 }
 
+//nolint:funlen // Emits a structured generated-code block for map-value unwrap composition.
 func (g *Generator) generateJSONMappingUnwrapMapFieldUnmarshal(
 	gf *protogen.GeneratedFile,
 	field *protogen.Field,
@@ -378,7 +379,11 @@ func (g *Generator) generateJSONMappingMapNestedUnmarshalDelegation(
 }
 
 func emitJSONMappingUnmarshalChild(gf *protogen.GeneratedFile, valueExpr, dataExpr string) {
-	gf.P("if u, ok := any(", valueExpr, ").(interface{ UnmarshalJSONSebuf([]byte, protojson.UnmarshalOptions) error }); ok {")
+	gf.P(
+		"if u, ok := any(",
+		valueExpr,
+		").(interface{ UnmarshalJSONSebuf([]byte, protojson.UnmarshalOptions) error }); ok {",
+	)
 	gf.P("if err := u.UnmarshalJSONSebuf(", dataExpr, ", opts); err != nil {")
 	gf.P("return err")
 	gf.P("}")

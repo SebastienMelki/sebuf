@@ -379,7 +379,14 @@ func verifyCriterion6CrossGenerator(t *testing.T, baseDir string) {
 	// This criterion is verified by the other tests (TestGoGenerators*, TestTypeScript*, TestOpenAPI*).
 	// For Go, validate the current composed output rather than obsolete per-feature golden files.
 	for _, fixture := range []string{"int64_encoding", "enum_encoding"} {
-		if src := readGeneratedJSONMappingGoldenFixture(t, baseDir, fixture); !strings.Contains(src, "MarshalJSONSebuf") {
+		if src := readGeneratedJSONMappingGoldenFixture(
+			t,
+			baseDir,
+			fixture,
+		); !strings.Contains(
+			src,
+			"MarshalJSONSebuf",
+		) {
 			t.Errorf("generated composed JSON mapping for %s should contain MarshalJSONSebuf", fixture)
 		}
 	}
