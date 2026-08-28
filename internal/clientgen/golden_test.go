@@ -428,7 +428,7 @@ func TestGeneratedClientCodeCompiles(t *testing.T) {
 	// Create temp directory for generated files
 	tempDir := t.TempDir()
 
-	// Generate code for comprehensive test proto
+	// Generate code for an optional scalar query parameter.
 	cmd := exec.Command("protoc",
 		"--plugin=protoc-gen-go-client="+pluginPath,
 		"--go_out="+tempDir,
@@ -437,7 +437,7 @@ func TestGeneratedClientCodeCompiles(t *testing.T) {
 		"--go-client_opt=paths=source_relative",
 		"--proto_path="+protoDir,
 		"--proto_path="+filepath.Join(projectRoot, "proto"),
-		"http_verbs_comprehensive.proto",
+		"optional_query_params.proto",
 	)
 	cmd.Dir = protoDir
 
@@ -449,7 +449,26 @@ func TestGeneratedClientCodeCompiles(t *testing.T) {
 		t.Fatalf("protoc failed: %v\nstderr: %s", runErr, stderr.String())
 	}
 
-	// Note: This won't fully work without proper go.mod setup,
-	// but protoc success indicates the generated code is syntactically valid
-	t.Log("Generated code produced successfully")
+	generatedClientPath := filepath.Join(tempDir, "optional_query_params_client.pb.go")
+	generatedClient, readErr := os.ReadFile(generatedClientPath)
+	if readErr != nil {
+		t.Fatalf("failed to read generated client: %v", readErr)
+	}
+	if !bytes.Contains(generatedClient, []byte("if req.Until != nil {")) {
+		t.Error("optional scalar query param is not guarded by presence")
+	}
+	if !bytes.Contains(generatedClient, []byte(`queryParams.Set("until", fmt.Sprint(*req.Until))`)) {
+		t.Error("optional scalar query param value is not dereferenced")
+	}
+
+	compileCmd := exec.Command(
+		"go",
+		"test",
+		filepath.Join(tempDir, "optional_query_params.pb.go"),
+		generatedClientPath,
+	)
+	compileCmd.Dir = projectRoot
+	if output, compileErr := compileCmd.CombinedOutput(); compileErr != nil {
+		t.Fatalf("generated client does not compile: %v\n%s", compileErr, output)
+	}
 }
