@@ -1,0 +1,22 @@
+syntax = "proto3";
+
+package test.clientgen.optionalquery;
+
+option go_package = "github.com/SebastienMelki/sebuf/internal/clientgen/testdata/generated;generated";
+
+import "sebuf/http/annotations.proto";
+
+service OptionalQueryService {
+  rpc List(ListRequest) returns (ListResponse) {
+    option (sebuf.http.config) = {
+      path: "/list"
+      method: HTTP_METHOD_GET
+    };
+  }
+}
+
+message ListRequest {
+  optional string until = 1 [(sebuf.http.query) = { name: "until" }];
+}
+
+message ListResponse {}
