@@ -1,0 +1,47 @@
+syntax = "proto3";
+
+package marketdata.models;
+
+import "proto/models/option_bar.proto";
+import "sebuf/http/annotations.proto";
+
+// Trade is a single trade tick.
+message Trade {
+  string id = 1;
+  double price = 2;
+}
+
+// TradeList unwraps at the root, serializing as a bare JSON array.
+message TradeList {
+  repeated Trade trades = 1 [(sebuf.http.unwrap) = true];
+}
+
+// Quote is a top-of-book quote.
+message Quote {
+  double bid_price = 1;
+  double ask_price = 2;
+}
+
+// QuotesBySymbol unwraps at the root, serializing as a plain JSON object
+// keyed by symbol.
+message QuotesBySymbol {
+  map<string, Quote> quotes = 1 [(sebuf.http.unwrap) = true];
+}
+
+// SymbolNames maps a symbol to its display name; root unwrap with scalar
+// values.
+message SymbolNames {
+  map<string, string> names = 1 [(sebuf.http.unwrap) = true];
+}
+
+// BarsBySymbol combines a root map unwrap with the value message's own
+// unwrap, collapsing to a map of arrays.
+message BarsBySymbol {
+  map<string, OptionBarsList> bars = 1 [(sebuf.http.unwrap) = true];
+}
+
+// BarListSequence unwraps at the root and its elements are themselves
+// root-unwrap messages, so each element's JSON form is a bare array.
+message BarListSequence {
+  repeated OptionBarsList lists = 1 [(sebuf.http.unwrap) = true];
+}

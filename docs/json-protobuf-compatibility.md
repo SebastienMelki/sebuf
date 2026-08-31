@@ -115,7 +115,7 @@ With `unwrap`, the JSON output matches the desired format:
 
 When you use the `unwrap` annotation:
 
-1. **HTTP Generation**: sebuf generates custom `MarshalJSON()` and `UnmarshalJSON()` methods for messages containing maps with unwrapped values
+1. **HTTP Generation**: sebuf generates options-aware `MarshalJSONSebuf(opts)` and `UnmarshalJSONSebuf(data, opts)` methods for messages containing maps with unwrapped values, plus thin `MarshalJSON()`/`UnmarshalJSON()` wrappers for stdlib `encoding/json`, so client options like `DiscardUnknown` flow through the custom serialization
 2. **Client Generation**: The generated client automatically uses those custom marshalers when they are present. Generate `protoc-gen-go-http` alongside `protoc-gen-go-client` when Go clients need sebuf JSON-mapping behavior.
 3. **OpenAPI Generation**: The OpenAPI schema shows the unwrapped structure (array values, not wrapper objects)
 

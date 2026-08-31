@@ -164,6 +164,8 @@ func (g *Generator) generateBytesMarshalJSON(gf *protogen.GeneratedFile, ctx *By
 		fieldNames = append(fieldNames, string(f.Field.Desc.Name()))
 	}
 
+	// Wording is pinned by TestGoGeneratorsProduceIdenticalBytesEncoding, which requires this
+	// marshal block to match clientgen's byte for byte.
 	gf.P("// MarshalJSONSebuf implements sebufMarshaler for ", msgName, ".")
 	gf.P("// This method handles bytes_encoding fields: ", strings.Join(fieldNames, ", "))
 	gf.P(
@@ -236,8 +238,6 @@ func (g *Generator) generateBytesFieldMarshal(gf *protogen.GeneratedFile, fieldI
 
 // generateBytesUnmarshalJSON generates an UnmarshalJSON method that decodes bytes fields
 // from the configured encoding back to standard base64 for protojson.
-//
-//nolint:dupl // Code generation patterns naturally have similar structure across encoding types
 func (g *Generator) generateBytesUnmarshalJSON(gf *protogen.GeneratedFile, ctx *BytesEncodingContext) {
 	msgName := ctx.Message.GoIdent.GoName
 
@@ -246,9 +246,9 @@ func (g *Generator) generateBytesUnmarshalJSON(gf *protogen.GeneratedFile, ctx *
 		fieldNames = append(fieldNames, string(f.Field.Desc.Name()))
 	}
 
-	gf.P("// UnmarshalJSON implements json.Unmarshaler for ", msgName, ".")
+	gf.P("// UnmarshalJSONSebuf is the options-aware unmarshaler for ", msgName, ".")
 	gf.P("// This method handles bytes_encoding fields: ", strings.Join(fieldNames, ", "))
-	gf.P("func (x *", msgName, ") UnmarshalJSON(data []byte) error {")
+	gf.P("func (x *", msgName, ") UnmarshalJSONSebuf(data []byte, opts protojson.UnmarshalOptions) error {")
 	gf.P("// Parse the raw JSON to extract bytes-encoded fields")
 	gf.P("var raw map[string]json.RawMessage")
 	gf.P("if err := json.Unmarshal(data, &raw); err != nil {")
@@ -267,7 +267,13 @@ func (g *Generator) generateBytesUnmarshalJSON(gf *protogen.GeneratedFile, ctx *
 	gf.P("}")
 	gf.P()
 	gf.P("// Use protojson to unmarshal the rest")
-	gf.P("return protojson.Unmarshal(modified, x)")
+	gf.P("return opts.Unmarshal(modified, x)")
+	gf.P("}")
+	gf.P()
+
+	gf.P("// UnmarshalJSON implements json.Unmarshaler for ", msgName, ".")
+	gf.P("func (x *", msgName, ") UnmarshalJSON(data []byte) error {")
+	gf.P("return x.UnmarshalJSONSebuf(data, protojson.UnmarshalOptions{})")
 	gf.P("}")
 	gf.P()
 }

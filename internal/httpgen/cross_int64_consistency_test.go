@@ -55,12 +55,14 @@ func TestCrossFileInt64UnwrapUsesJsonMarshal(t *testing.T) {
 		}
 	})
 
-	t.Run("json.Unmarshal used for cross-file int64 NUMBER item deserialization", func(t *testing.T) {
-		// Unmarshal side: must use json.Unmarshal(itemRaw, item) not protojson.Unmarshal
+	t.Run("no bare protojson.Unmarshal for cross-file int64 NUMBER item deserialization", func(t *testing.T) {
+		// Unmarshal side: items must dispatch through the inline UnmarshalJSONSebuf
+		// assertion (with an opts.Unmarshal fallback), never a bare protojson call.
 		if strings.Contains(code, "protojson.Unmarshal(itemRaw, item)") {
 			t.Error("cross_int64_service_unwrap.pb.go uses protojson.Unmarshal(itemRaw, item): " +
-				"Bar.UnmarshalJSON will be bypassed and int64 NUMBER fields will fail to " +
-				"parse from JSON numbers. Fix: hasEncodingMarshalJSON must check field annotations directly.")
+				"Bar.UnmarshalJSONSebuf will be bypassed, int64 NUMBER fields will fail to " +
+				"parse from JSON numbers, and options like DiscardUnknown will be dropped. " +
+				"Fix: the unwrap emitters must dispatch items via emitInlineUnmarshalChild.")
 		}
 	})
 }

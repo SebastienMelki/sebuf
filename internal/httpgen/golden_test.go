@@ -215,6 +215,14 @@ func TestHTTPGenGoldenFiles(t *testing.T) {
 			},
 		},
 		{
+			name:            "cross-package singular message field",
+			protoFile:       "cross_pkg_response.proto",
+			extraProtoFiles: []string{"cross_pkg_meta.proto"},
+			expectedFiles: []string{
+				"cross_pkg_response_unwrap.pb.go",
+			},
+		},
+		{
 			name:            "cross-file nested int64 encoding (issue #217)",
 			protoFile:       "int64_cross_file_response.proto",
 			extraProtoFiles: []string{"int64_cross_file_reading.proto"},

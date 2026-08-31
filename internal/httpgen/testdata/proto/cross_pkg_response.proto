@@ -1,0 +1,27 @@
+// Test proto: unwrap containing message holding a singular message field whose type
+// lives in another Go package. The unwrap generator hand-writes UnmarshalJSON for the
+// containing message, so it allocates Meta itself. Allocating by bare type name emits an
+// unqualified reference with no import and the generated file does not compile.
+syntax = "proto3";
+
+package test.httpgen.crosspkg;
+
+option go_package = "github.com/SebastienMelki/sebuf/internal/httpgen/testdata/generated/crosspkg;crosspkg";
+
+import "sebuf/http/annotations.proto";
+import "cross_pkg_meta.proto";
+
+message Item {
+  string id = 1;
+}
+
+message ItemList {
+  repeated Item items = 1 [(sebuf.http.unwrap) = true];
+}
+
+// The map field makes this an unwrap containing message, so every field including
+// meta is decoded by hand rather than by protojson.
+message CrossPkgResponse {
+  map<string, ItemList> data = 1;
+  test.httpgen.crosspkgmeta.Meta meta = 2;
+}
