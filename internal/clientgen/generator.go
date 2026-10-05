@@ -806,6 +806,13 @@ func (g *Generator) generateQueryParamEncoding(gf *protogen.GeneratedFile, qp an
 		return
 	}
 
+	if qp.Field != nil && qp.Field.Desc.HasOptionalKeyword() {
+		gf.P("if req.", fieldGoName, " != nil {")
+		gf.P("queryParams.Set(\"", paramName, "\", fmt.Sprint(*req.", fieldGoName, "))")
+		gf.P("}")
+		return
+	}
+
 	// Scalar fields: zero-value check + Set()
 	gf.P("if req.", fieldGoName, " != ", getZeroValue(qp), " {")
 	gf.P("queryParams.Set(\"", paramName, "\", fmt.Sprint(req.", fieldGoName, "))")
