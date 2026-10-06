@@ -33,6 +33,20 @@ plugins:
 
 For each `.proto` source the plugin emits a single `<file>_client.py` containing every message dataclass, enum, error class, transport, and one client class per service in that file.
 
+#### Plugin options
+
+| Option | Values | Default | Effect |
+|---|---|---|---|
+| `field_names` | `json`, `proto` | `json` | The JSON object keys `to_dict` / `from_dict` (and the error-class markers) use. `json` is each field's `json_name`, lowerCamelCase unless the proto overrides it (what `protojson` writes). `proto` is the proto field name as written (`worker_type`), for services whose JSON keeps snake_case names. Without it a client for such a service reads none of a response's multi-word fields (`from_dict` returns defaults) and sends keys the server does not read. Python attribute names are the proto names in both modes. |
+
+```yaml
+  - local: protoc-gen-py-client
+    out: client/generated
+    opt:
+      - paths=source_relative
+      - field_names=proto
+```
+
 ### Basic Usage
 
 ```python
