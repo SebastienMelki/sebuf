@@ -161,8 +161,19 @@ func writeFieldToDict(p printer, f *protogen.Field, key fieldKey) {
 	// scalar wrappers, ...) are always nullable in proto3, so we guard them the
 	// same way as proto3 `optional` scalars to avoid AttributeError when the
 	// encoder calls methods like .timestamp() or .strftime() on a None default.
-	if f.Desc.HasOptionalKeyword() || annotations.IsNullableField(f) ||
-		f.Desc.Kind() == protoreflect.MessageKind {
+	//
+	// A nullable field is the one scalar whose unset state is on the wire: the
+	// annotation documents "unset field serializes as null", as the Go and
+	// TypeScript clients do. Dropping the key would make a null and an absent
+	// key indistinguishable to the receiver.
+	if annotations.IsNullableField(f) {
+		p("        if %s is None:", src)
+		p(`            d["%s"] = None`, jsonName)
+		p("        else:")
+		p(`            d["%s"] = %s`, jsonName, encodeScalarExpr(f, src))
+		return
+	}
+	if f.Desc.HasOptionalKeyword() || f.Desc.Kind() == protoreflect.MessageKind {
 		p("        if %s is not None:", src)
 		p(`            d["%s"] = %s`, jsonName, encodeScalarExpr(f, src))
 		return
