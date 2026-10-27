@@ -15,7 +15,7 @@ import (
 // for a single proto message. JSON encoding honors every JSON-mapping
 // annotation (int64, enum, bytes, timestamp, nullable, empty_behavior, unwrap,
 // flatten, oneof) and matches the wire format produced by the Go/TS generators.
-func writeMessage(p printer, msg *protogen.Message) {
+func writeMessage(p printer, msg *protogen.Message, key fieldKey) {
 	className := pythonTypeName(msg)
 
 	p("@dataclass")
@@ -28,7 +28,7 @@ func writeMessage(p printer, msg *protogen.Message) {
 		writeFieldDecl(p, f)
 	}
 	p("")
-	writeMessageSerialization(p, msg, className)
+	writeMessageSerialization(p, msg, className, key)
 }
 
 // visibleFields returns the fields we emit as dataclass attributes. Map-entry
@@ -50,13 +50,13 @@ func writeFieldDecl(p printer, f *protogen.Field) {
 //
 // to_dict honors root unwrap, map-value unwrap, flatten, and oneof discriminators.
 // from_dict is the inverse.
-func writeMessageSerialization(p printer, msg *protogen.Message, className string) {
-	writeToDict(p, msg)
-	writeFromDict(p, msg, className)
+func writeMessageSerialization(p printer, msg *protogen.Message, className string, key fieldKey) {
+	writeToDict(p, msg, key)
+	writeFromDict(p, msg, className, key)
 	p("")
 }
 
-func writeToDict(p printer, msg *protogen.Message) {
+func writeToDict(p printer, msg *protogen.Message, key fieldKey) {
 	// Handle root unwrap: when an unwrap field is at root, to_dict returns
 	// just the underlying field's encoded value (dict or list).
 	if annotations.IsRootUnwrap(msg) {
@@ -75,11 +75,11 @@ func writeToDict(p printer, msg *protogen.Message) {
 		if isOneofVariant(f, discriminator) {
 			continue // handled below
 		}
-		writeFieldToDict(p, f)
+		writeFieldToDict(p, f, key)
 	}
 
 	if discriminator != nil {
-		writeDiscriminatedOneofToDict(p, msg, discriminator)
+		writeDiscriminatedOneofToDict(p, msg, discriminator, key)
 	}
 
 	p("        return d")
@@ -131,9 +131,9 @@ func writeRootUnwrapToDict(p printer, msg *protogen.Message) {
 }
 
 // writeFieldToDict emits the to_dict lines for one field.
-func writeFieldToDict(p printer, f *protogen.Field) {
+func writeFieldToDict(p printer, f *protogen.Field, key fieldKey) {
 	name := pythonFieldName(f)
-	jsonName := jsonFieldName(f)
+	jsonName := key(f)
 	src := "self." + name
 
 	if annotations.IsFlattenField(f) {
@@ -161,8 +161,19 @@ func writeFieldToDict(p printer, f *protogen.Field) {
 	// scalar wrappers, ...) are always nullable in proto3, so we guard them the
 	// same way as proto3 `optional` scalars to avoid AttributeError when the
 	// encoder calls methods like .timestamp() or .strftime() on a None default.
-	if f.Desc.HasOptionalKeyword() || annotations.IsNullableField(f) ||
-		f.Desc.Kind() == protoreflect.MessageKind {
+	//
+	// A nullable field is the one scalar whose unset state is on the wire: the
+	// annotation documents "unset field serializes as null", as the Go and
+	// TypeScript clients do. Dropping the key would make a null and an absent
+	// key indistinguishable to the receiver.
+	if annotations.IsNullableField(f) {
+		p("        if %s is None:", src)
+		p(`            d["%s"] = None`, jsonName)
+		p("        else:")
+		p(`            d["%s"] = %s`, jsonName, encodeScalarExpr(f, src))
+		return
+	}
+	if f.Desc.HasOptionalKeyword() || f.Desc.Kind() == protoreflect.MessageKind {
 		p("        if %s is not None:", src)
 		p(`            d["%s"] = %s`, jsonName, encodeScalarExpr(f, src))
 		return
@@ -194,6 +205,14 @@ func writeMapToDict(p printer, f *protogen.Field, _, jsonName, src string) {
 
 func writeListToDict(p printer, f *protogen.Field, _, jsonName, src string) {
 	itemExpr := encodeListItemExpr(f, "v")
+	// A list that must reach the wire even when it is empty: protobuf cannot tell an empty repeated
+	// field from an unset one, so the default is to omit it, and a contract that always sends the
+	// member (a response such as "regions": []) marks the field with
+	// (sebuf.http.empty_behavior) = EMPTY_BEHAVIOR_PRESERVE.
+	if annotations.GetEmptyBehavior(f) == sebufhttp.EmptyBehavior_EMPTY_BEHAVIOR_PRESERVE {
+		p(`        d["%s"] = [%s for v in %s]`, jsonName, itemExpr, src)
+		return
+	}
 	p("        if %s:", src)
 	p(`            d["%s"] = [%s for v in %s]`, jsonName, itemExpr, src)
 }
@@ -279,7 +298,12 @@ func isOneofVariant(f *protogen.Field, info *annotations.OneofDiscriminatorInfo)
 }
 
 // writeDiscriminatedOneofToDict emits the discriminator key + the active variant.
-func writeDiscriminatedOneofToDict(p printer, _ *protogen.Message, info *annotations.OneofDiscriminatorInfo) {
+func writeDiscriminatedOneofToDict(
+	p printer,
+	_ *protogen.Message,
+	info *annotations.OneofDiscriminatorInfo,
+	key fieldKey,
+) {
 	for _, v := range info.Variants {
 		name := pythonFieldName(v.Field)
 		src := "self." + name
@@ -290,14 +314,14 @@ func writeDiscriminatedOneofToDict(p printer, _ *protogen.Message, info *annotat
 			p("            for _k, _v in %s.to_dict().items():", src)
 			p("                d[_k] = _v")
 		case v.Field.Message != nil:
-			p(`            d["%s"] = %s.to_dict()`, jsonFieldName(v.Field), src)
+			p(`            d["%s"] = %s.to_dict()`, key(v.Field), src)
 		default:
-			p(`            d["%s"] = %s`, jsonFieldName(v.Field), encodeScalarExpr(v.Field, src))
+			p(`            d["%s"] = %s`, key(v.Field), encodeScalarExpr(v.Field, src))
 		}
 	}
 }
 
-func writeFromDict(p printer, msg *protogen.Message, className string) {
+func writeFromDict(p printer, msg *protogen.Message, className string, key fieldKey) {
 	p("    @classmethod")
 	p("    def from_dict(cls, data: Any) -> \"%s\":", className)
 	p(`        """Deserialize from a JSON-decoded dict (or value, for root-unwrapped messages)."""`)
@@ -317,11 +341,11 @@ func writeFromDict(p printer, msg *protogen.Message, className string) {
 		if isOneofVariant(f, discriminator) {
 			continue
 		}
-		writeFieldFromDict(p, f)
+		writeFieldFromDict(p, f, key)
 	}
 
 	if discriminator != nil {
-		writeDiscriminatedOneofFromDict(p, discriminator)
+		writeDiscriminatedOneofFromDict(p, discriminator, key)
 	}
 
 	p("        return cls(**kwargs)")
@@ -354,9 +378,9 @@ func writeRootUnwrapFromDict(p printer, msg *protogen.Message, _ string) {
 	}
 }
 
-func writeFieldFromDict(p printer, f *protogen.Field) {
+func writeFieldFromDict(p printer, f *protogen.Field, key fieldKey) {
 	name := pythonFieldName(f)
-	jsonName := jsonFieldName(f)
+	jsonName := key(f)
 
 	if annotations.IsFlattenField(f) {
 		writeFlattenFromDict(p, f, name)
@@ -439,7 +463,7 @@ func writeFlattenFromDict(p printer, f *protogen.Field, name string) {
 	p(`            kwargs["%s"] = %s(**_sub_%s_kwargs)`, name, nestedType, name)
 }
 
-func writeDiscriminatedOneofFromDict(p printer, info *annotations.OneofDiscriminatorInfo) {
+func writeDiscriminatedOneofFromDict(p printer, info *annotations.OneofDiscriminatorInfo, key fieldKey) {
 	p(`        _disc = data.get("%s")`, info.Discriminator)
 	for _, v := range info.Variants {
 		varName := pythonFieldName(v.Field)
@@ -448,13 +472,13 @@ func writeDiscriminatedOneofFromDict(p printer, info *annotations.OneofDiscrimin
 		case info.Flatten && v.Field.Message != nil:
 			p(`            kwargs["%s"] = %s.from_dict(data)`, varName, pythonTypeName(v.Field.Message))
 		case v.Field.Message != nil:
-			p(`            if "%s" in data:`, jsonFieldName(v.Field))
+			p(`            if "%s" in data:`, key(v.Field))
 			p(`                kwargs["%s"] = %s.from_dict(data["%s"])`,
-				varName, pythonTypeName(v.Field.Message), jsonFieldName(v.Field))
+				varName, pythonTypeName(v.Field.Message), key(v.Field))
 		default:
-			p(`            if "%s" in data:`, jsonFieldName(v.Field))
+			p(`            if "%s" in data:`, key(v.Field))
 			p(`                kwargs["%s"] = %s`, varName,
-				decodeScalarExpr(v.Field, fmt.Sprintf(`data["%s"]`, jsonFieldName(v.Field))))
+				decodeScalarExpr(v.Field, fmt.Sprintf(`data["%s"]`, key(v.Field))))
 		}
 	}
 }

@@ -835,7 +835,10 @@ var (
 	// optional bool nullable = 50013;
 	E_Nullable = &file_sebuf_http_annotations_proto_extTypes[8]
 	// Controls how empty message fields serialize to JSON.
-	// Only valid on singular message fields (not repeated, not map).
+	// Only valid on singular message fields (not repeated, not map), with one exception: the
+	// Python client accepts EMPTY_BEHAVIOR_PRESERVE on a repeated field and then writes an empty
+	// list as [] instead of omitting the member (the TypeScript client already writes []).
+	// The Go generators reject the annotation on repeated fields.
 	// "Empty" = all fields at proto default (proto.Size() == 0).
 	//
 	// optional sebuf.http.EmptyBehavior empty_behavior = 50014;

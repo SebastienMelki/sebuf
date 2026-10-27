@@ -160,13 +160,19 @@ class User:
         """Serialize to a JSON-ready dict respecting sebuf JSON mapping annotations."""
         d: dict[str, Any] = {}
         d["id"] = self.id
-        if self.middle_name is not None:
+        if self.middle_name is None:
+            d["middleName"] = None
+        else:
             d["middleName"] = self.middle_name
         if self.nickname is not None:
             d["nickname"] = self.nickname
-        if self.age is not None:
+        if self.age is None:
+            d["age"] = None
+        else:
             d["age"] = self.age
-        if self.is_verified is not None:
+        if self.is_verified is None:
+            d["isVerified"] = None
+        else:
             d["isVerified"] = self.is_verified
         return d
 

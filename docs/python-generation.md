@@ -33,6 +33,20 @@ plugins:
 
 For each `.proto` source the plugin emits a single `<file>_client.py` containing every message dataclass, enum, error class, transport, and one client class per service in that file.
 
+#### Plugin options
+
+| Option | Values | Default | Effect |
+|---|---|---|---|
+| `field_names` | `json`, `proto` | `json` | The JSON object keys `to_dict` / `from_dict` (and the error-class markers) use. `json` is each field's `json_name`, lowerCamelCase unless the proto overrides it (what `protojson` writes). `proto` is the proto field name as written (`worker_type`), for services whose JSON keeps snake_case names. Without it a client for such a service reads none of a response's multi-word fields (`from_dict` returns defaults) and sends keys the server does not read. Python attribute names are the proto names in both modes. |
+
+```yaml
+  - local: protoc-gen-py-client
+    out: client/generated
+    opt:
+      - paths=source_relative
+      - field_names=proto
+```
+
 ### Basic Usage
 
 ```python
@@ -348,6 +362,8 @@ The same shape covers missing required headers — the violation's `field` is th
 Every `(sebuf.http.*)` JSON-mapping annotation is honored by the Python generator. The wire format matches the Go and TypeScript generators byte-for-byte. Full reference: [JSON / Protobuf Compatibility](./json-protobuf-compatibility.md).
 
 Supported annotations: `int64_encoding`, `enum_encoding` + `enum_value`, `nullable`, `empty_behavior`, `timestamp_format`, `bytes_encoding`, `oneof_config` + `oneof_value`, `flatten` + `flatten_prefix`, `unwrap` (map-value and root).
+
+An empty repeated field is omitted from `to_dict()` (protobuf cannot tell it from an unset one), unlike the TypeScript client, which writes `[]`. A contract that always sends the member marks the field with `(sebuf.http.empty_behavior) = EMPTY_BEHAVIOR_PRESERVE`, and `to_dict()` then writes `[]`. `from_dict()` is unchanged (`[]` and an absent member both read as an empty list). Only the Python client accepts the annotation on a repeated field; the Go generators reject it.
 
 ### Timestamps
 

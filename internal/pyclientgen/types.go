@@ -140,11 +140,21 @@ func pythonFieldName(field *protogen.Field) string {
 	return escapePyKeyword(string(field.Desc.Name()))
 }
 
-// jsonFieldName returns the JSON wire name for a field. We default to the
-// proto-declared json_name (which protoc populates with lowerCamelCase unless
-// the user overrides). This matches protojson on the server side.
+// fieldKey names the JSON object key of a field.
+type fieldKey func(*protogen.Field) string
+
+// jsonFieldName returns the JSON wire name for a field: the proto-declared
+// json_name (which protoc populates with lowerCamelCase unless the user
+// overrides). This matches protojson on the server side, and is the default.
 func jsonFieldName(field *protogen.Field) string {
 	return field.Desc.JSONName()
+}
+
+// protoFieldName returns the proto field name as the JSON key
+// (field_names=proto), for services whose JSON keeps snake_case names, which a
+// Python client must then read and write too.
+func protoFieldName(field *protogen.Field) string {
+	return string(field.Desc.Name())
 }
 
 // fieldIsMessage reports whether a singular field is a non-WKT message field

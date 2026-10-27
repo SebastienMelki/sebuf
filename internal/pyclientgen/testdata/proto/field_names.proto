@@ -1,0 +1,56 @@
+// Test proto for the field_names option: multi-word fields of every shape
+// whose JSON key differs between json_name (lowerCamelCase) and the proto name.
+syntax = "proto3";
+
+package test.pyclientgen.fieldnames;
+
+option go_package = "github.com/SebastienMelki/sebuf/internal/pyclientgen/testdata/fieldnames;fieldnames";
+
+import "sebuf/http/annotations.proto";
+
+service WorkerService {
+  option (sebuf.http.service_config) = {
+    base_path: "/api"
+  };
+
+  rpc Register(RegisterRequest) returns (RegisterResponse) {
+    option (sebuf.http.config) = {
+      path: "/workers/{worker_id}/register"
+      method: HTTP_METHOD_POST
+    };
+  }
+}
+
+enum WorkerKind {
+  WORKER_KIND_UNSPECIFIED = 0;
+  WORKER_KIND_ML = 1;
+}
+
+message Probe {
+  string probe_detail = 1;
+  int32 retry_count = 2;
+}
+
+message RegisterRequest {
+  string worker_id = 1 [(sebuf.http.query) = { name: "worker_id" }];
+  string worker_name = 2;
+  int32 protocol_version = 3;
+  bool is_draining = 4;
+  WorkerKind worker_kind = 5;
+  Probe nested_probe = 6;
+  repeated Probe recent_probes = 7;
+  map<string, string> extra_labels = 8;
+  repeated string capability_set = 9;
+}
+
+message RegisterResponse {
+  string next_cursor = 1;
+  repeated Probe known_probes = 2;
+  Probe last_probe = 3;
+}
+
+// Marker keys of an error class follow the same naming.
+message RegisterError {
+  string error_code = 1;
+  string retry_after = 2;
+}

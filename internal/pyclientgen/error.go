@@ -13,12 +13,12 @@ import (
 //     to_dict / from_dict, plus an ApiError __init__ bridge)
 //   - _ERROR_CLASSES registry consumed by the client's _raise_for_status to map
 //     non-2xx bodies to the most specific exception by required field shape.
-func writeErrors(p printer, collected *collectedTypes) {
+func writeErrors(p printer, collected *collectedTypes, key fieldKey) {
 	writeErrorFoundation(p)
 	for _, msg := range collected.OrderedErrors() {
-		writeErrorClass(p, msg)
+		writeErrorClass(p, msg, key)
 	}
-	writeErrorRegistry(p, collected)
+	writeErrorRegistry(p, collected, key)
 }
 
 func writeErrorFoundation(p printer) {
@@ -65,7 +65,7 @@ func writeErrorFoundation(p printer) {
 //   - a populate(data) classmethod that constructs a partially-populated instance
 //     from a parsed JSON dict
 //   - a to_dict() returning the JSON wire form (for re-serialization)
-func writeErrorClass(p printer, msg *protogen.Message) {
+func writeErrorClass(p printer, msg *protogen.Message, key fieldKey) {
 	className := pythonTypeName(msg)
 	fields := visibleFields(msg)
 
@@ -111,8 +111,8 @@ func writeErrorClass(p printer, msg *protogen.Message) {
 	}
 	p("")
 
-	writeErrorToDict(p, msg, fields)
-	writeErrorPopulate(p, msg, className, fields)
+	writeErrorToDict(p, msg, fields, key)
+	writeErrorPopulate(p, msg, className, fields, key)
 	writeErrorFromDict(p, className)
 	p("")
 }
@@ -134,21 +134,21 @@ func writeErrorFromDict(p printer, className string) {
 	p("")
 }
 
-func writeErrorToDict(p printer, _ *protogen.Message, fields []*protogen.Field) {
+func writeErrorToDict(p printer, _ *protogen.Message, fields []*protogen.Field, key fieldKey) {
 	p("    def to_dict(self) -> dict[str, Any]:")
 	p(`        """Serialize to the JSON wire form."""`)
 	p("        d: dict[str, Any] = {}")
 	for _, f := range fields {
 		name := pythonFieldName(f)
 		src := "self." + name
-		writeFieldToDict(p, f) // reuses message.go logic; field names align ("self.<name>")
+		writeFieldToDict(p, f, key) // reuses message.go logic; field names align ("self.<name>")
 		_ = src
 	}
 	p("        return d")
 	p("")
 }
 
-func writeErrorPopulate(p printer, _ *protogen.Message, className string, fields []*protogen.Field) {
+func writeErrorPopulate(p printer, _ *protogen.Message, className string, fields []*protogen.Field, key fieldKey) {
 	p("    @classmethod")
 	p(
 		`    def populate(cls, status: int, body: bytes, ` +
@@ -158,7 +158,7 @@ func writeErrorPopulate(p printer, _ *protogen.Message, className string, fields
 	p(`        """Build an instance from a parsed JSON dict — only used by the client error path."""`)
 	p("        kwargs: dict[str, Any] = {}")
 	for _, f := range fields {
-		writeFieldFromDict(p, f)
+		writeFieldFromDict(p, f, key)
 	}
 	p("        return cls(status=status, body=body, headers=headers, **kwargs)")
 	p("")
@@ -168,11 +168,11 @@ func writeErrorPopulate(p printer, _ *protogen.Message, className string, fields
 // _raise_for_status. The registry stores each error class with the JSON field
 // names that uniquely identify it. The client picks the first registry entry
 // whose required keys are all present in the response body.
-func writeErrorRegistry(p printer, collected *collectedTypes) {
+func writeErrorRegistry(p printer, collected *collectedTypes, key fieldKey) {
 	p("_ERROR_CLASSES: list[tuple[type[ApiError], set[str]]] = [")
 	for _, msg := range collected.OrderedErrors() {
 		className := pythonTypeName(msg)
-		keys := errorMarkerKeys(msg)
+		keys := errorMarkerKeys(msg, key)
 		p("    (%s, %s),", className, formatPyStringSet(keys))
 	}
 	p("]")
@@ -183,10 +183,10 @@ func writeErrorRegistry(p printer, collected *collectedTypes) {
 // errorMarkerKeys returns the JSON field names the client should look for to
 // match a response to this error class. We use every declared field as a key;
 // a more sophisticated implementation could weight rarer fields higher.
-func errorMarkerKeys(msg *protogen.Message) []string {
+func errorMarkerKeys(msg *protogen.Message, key fieldKey) []string {
 	out := make([]string, 0, len(msg.Fields))
 	for _, f := range msg.Fields {
-		out = append(out, jsonFieldName(f))
+		out = append(out, key(f))
 	}
 	return out
 }

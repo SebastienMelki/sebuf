@@ -137,6 +137,13 @@ func TestPyClientGenGoldenFiles(t *testing.T) {
 				"errors_client.py",
 			},
 		},
+		{
+			name:      "multi-word fields (default json_name keys)",
+			protoFile: "field_names.proto",
+			expectedFiles: []string{
+				"field_names_client.py",
+			},
+		},
 	}
 
 	baseDir, err := os.Getwd()
