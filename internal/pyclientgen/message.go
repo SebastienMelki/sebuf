@@ -205,6 +205,14 @@ func writeMapToDict(p printer, f *protogen.Field, _, jsonName, src string) {
 
 func writeListToDict(p printer, f *protogen.Field, _, jsonName, src string) {
 	itemExpr := encodeListItemExpr(f, "v")
+	// A list that must reach the wire even when it is empty: protobuf cannot tell an empty repeated
+	// field from an unset one, so the default is to omit it, and a contract that always sends the
+	// member (a response such as "regions": []) marks the field with
+	// (sebuf.http.empty_behavior) = EMPTY_BEHAVIOR_PRESERVE.
+	if annotations.GetEmptyBehavior(f) == sebufhttp.EmptyBehavior_EMPTY_BEHAVIOR_PRESERVE {
+		p(`        d["%s"] = [%s for v in %s]`, jsonName, itemExpr, src)
+		return
+	}
 	p("        if %s:", src)
 	p(`            d["%s"] = [%s for v in %s]`, jsonName, itemExpr, src)
 }

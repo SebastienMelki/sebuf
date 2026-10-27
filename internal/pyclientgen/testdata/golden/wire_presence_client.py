@@ -272,6 +272,36 @@ class PresenceRequest:
         return cls(**kwargs)
 
 @dataclass
+class PreserveProbe:
+    """Generated from proto message testdata.wirepresence.PreserveProbe."""
+    kept: list[str] = field(default_factory=list)
+    plain: list[str] = field(default_factory=list)
+    kept_places: list[PresenceInner] = field(default_factory=list)
+
+    def to_dict(self) -> Any:
+        """Serialize to a JSON-ready dict respecting sebuf JSON mapping annotations."""
+        d: dict[str, Any] = {}
+        d["kept"] = [v for v in self.kept]
+        if self.plain:
+            d["plain"] = [v for v in self.plain]
+        d["kept_places"] = [v.to_dict() for v in self.kept_places]
+        return d
+
+    @classmethod
+    def from_dict(cls, data: Any) -> "PreserveProbe":
+        """Deserialize from a JSON-decoded dict (or value, for root-unwrapped messages)."""
+        if data is None:
+            return cls()
+        kwargs: dict[str, Any] = {}
+        if "kept" in data and data["kept"] is not None:
+            kwargs["kept"] = [str(v) for v in data["kept"]]
+        if "plain" in data and data["plain"] is not None:
+            kwargs["plain"] = [str(v) for v in data["plain"]]
+        if "kept_places" in data and data["kept_places"] is not None:
+            kwargs["kept_places"] = [PresenceInner.from_dict(v) for v in data["kept_places"]]
+        return cls(**kwargs)
+
+@dataclass
 class PresenceServiceClientOptions:
     """Construct-time options for PresenceServiceClient."""
     transport: Optional[HttpTransport] = None

@@ -125,5 +125,15 @@ assert absent.kind == m.FileKind.FILE_KIND_UNSPECIFIED
 assert m.PresenceProbe.from_dict(None) == m.PresenceProbe()
 # Unknown members are ignored.
 assert m.PresenceProbe.from_dict({'name': 'a', 'surprise': 1}).name == 'a'
+
+# empty_behavior=PRESERVE on a repeated field: the member is written as [] when empty (the plain
+# repeated field beside it is still omitted), for strings and for messages, and a non-empty list
+# is written as before.
+assert dumps(m.PreserveProbe().to_dict()) == '{"kept":[],"kept_places":[]}', dumps(m.PreserveProbe().to_dict())
+kept = m.PreserveProbe(kept=['a'], plain=['b'], kept_places=[m.PresenceInner(city='x')])
+assert dumps(kept.to_dict()) == '{"kept":["a"],"kept_places":[{"city":"x"}],"plain":["b"]}', dumps(kept.to_dict())
+# Reading is unchanged: [] and absent are the same empty list, so the member round-trips as written.
+assert m.PreserveProbe.from_dict({'kept': [], 'kept_places': []}) == m.PreserveProbe()
+assert dumps(m.PreserveProbe.from_dict(json.loads('{"kept":[],"kept_places":[]}')).to_dict()) == '{"kept":[],"kept_places":[]}'
 print('ok')
 `

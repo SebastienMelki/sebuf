@@ -363,6 +363,8 @@ Every `(sebuf.http.*)` JSON-mapping annotation is honored by the Python generato
 
 Supported annotations: `int64_encoding`, `enum_encoding` + `enum_value`, `nullable`, `empty_behavior`, `timestamp_format`, `bytes_encoding`, `oneof_config` + `oneof_value`, `flatten` + `flatten_prefix`, `unwrap` (map-value and root).
 
+An empty repeated field is omitted from `to_dict()` (protobuf cannot tell it from an unset one), unlike the TypeScript client, which writes `[]`. A contract that always sends the member marks the field with `(sebuf.http.empty_behavior) = EMPTY_BEHAVIOR_PRESERVE`, and `to_dict()` then writes `[]`. `from_dict()` is unchanged (`[]` and an absent member both read as an empty list). Only the Python client accepts the annotation on a repeated field; the Go generators reject it.
+
 ### Timestamps
 
 `google.protobuf.Timestamp` always types as `datetime`. `timestamp_format` affects the wire encoding only:

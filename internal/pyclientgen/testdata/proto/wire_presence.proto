@@ -45,6 +45,15 @@ message PresenceProbe {
   PresenceInner null_when_empty = 15 [(sebuf.http.empty_behavior) = EMPTY_BEHAVIOR_NULL];
 }
 
+// PreserveProbe covers (sebuf.http.empty_behavior) = EMPTY_BEHAVIOR_PRESERVE on
+// a repeated field: the member is always on the wire, as [] when empty. The
+// Python client otherwise omits an empty repeated field.
+message PreserveProbe {
+  repeated string kept = 1 [(sebuf.http.empty_behavior) = EMPTY_BEHAVIOR_PRESERVE];
+  repeated string plain = 2;
+  repeated PresenceInner kept_places = 3 [(sebuf.http.empty_behavior) = EMPTY_BEHAVIOR_PRESERVE];
+}
+
 message PresenceRequest {
   string id = 1;
 }
