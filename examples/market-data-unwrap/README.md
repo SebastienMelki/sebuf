@@ -208,7 +208,7 @@ go run main.go
 go run client_example.go
 ```
 
-The generated client handles all the unwrap serialization automatically:
+Because this example generates `protoc-gen-go-http` alongside `protoc-gen-go-client`, the generated client uses the go-http-owned unwrap marshalers automatically:
 
 ```go
 package main
@@ -282,8 +282,8 @@ docker run -p 8081:8080 -v $(pwd)/docs:/app swaggerapi/swagger-ui
 ### How Unwrap Works
 
 1. **Proto definition**: Mark one repeated field in a message with `[(sebuf.http.unwrap) = true]`
-2. **Code generation**: sebuf generates custom `MarshalJSON()` and `UnmarshalJSON()` methods
-3. **Runtime**: When the message is a map value, JSON serialization collapses the wrapper
+2. **Code generation**: `protoc-gen-go-http` generates custom `MarshalJSON()` and `UnmarshalJSON()` methods
+3. **Runtime**: When the message is a map value, JSON serialization collapses the wrapper; the generated Go client uses those methods when go-http is generated into the same package
 
 ### Constraints
 
@@ -295,8 +295,8 @@ docker run -p 8081:8080 -v $(pwd)/docs:/app swaggerapi/swagger-ui
 
 | File | Description |
 |------|-------------|
-| `*_unwrap.pb.go` | Custom JSON marshaling for messages with unwrap fields |
-| `*_client.pb.go` | HTTP client that uses the custom marshalers |
+| `*_unwrap.pb.go` | go-http-owned custom JSON marshaling for messages with unwrap fields |
+| `*_client.pb.go` | HTTP client that uses the custom marshalers when present |
 | `*.openapi.yaml` | OpenAPI spec with correct array schemas |
 
 ## Troubleshooting
@@ -306,7 +306,7 @@ docker run -p 8081:8080 -v $(pwd)/docs:/app swaggerapi/swagger-ui
 - Run `make clean && make generate` to regenerate code
 
 **Client not handling unwrap correctly?**
-- The client uses custom marshalers automatically
+- Generate `protoc-gen-go-http` alongside `protoc-gen-go-client`; go-http owns the custom marshalers
 - Check that you're using the generated client, not manual HTTP calls
 
 **OpenAPI shows object instead of array for map values?**

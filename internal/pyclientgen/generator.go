@@ -18,6 +18,8 @@ import (
 	"fmt"
 
 	"google.golang.org/protobuf/compiler/protogen"
+
+	"github.com/SebastienMelki/sebuf/internal/annotations"
 )
 
 // Generator produces Python HTTP client code for protobuf services.
@@ -44,6 +46,12 @@ func (g *Generator) Generate() error {
 }
 
 func (g *Generator) generateFile(file *protogen.File) error {
+	// Reject path/query params whose types cannot be represented in a URL.
+	// See internal/annotations/url_params.go.
+	if err := annotations.ValidateFileURLParams(file); err != nil {
+		return err
+	}
+
 	if len(file.Services) == 0 && !hasGeneratableTypes(file) {
 		return nil
 	}

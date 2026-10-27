@@ -1,0 +1,31 @@
+syntax = "proto3";
+package invalid_message_path_param;
+option go_package = "github.com/SebastienMelki/sebuf/internal/urlparamtest/testdata/generated;generated";
+
+import "sebuf/http/annotations.proto";
+
+message UserClientID {
+  string value = 1;
+}
+
+// The same wrapper bound to a path variable instead of a query parameter. httpgen
+// already rejected this, but only when protoc-gen-go-http was in the pipeline; the
+// other five plugins accepted it silently. All six now reject it identically.
+message GetClientRequest {
+  UserClientID client_id = 1;
+}
+
+message Client {
+  string name = 1;
+}
+
+service ClientService {
+  option (sebuf.http.service_config) = {base_path: "/api/v1"};
+
+  rpc GetClient(GetClientRequest) returns (Client) {
+    option (sebuf.http.config) = {
+      path: "/clients/{client_id}"
+      method: HTTP_METHOD_GET
+    };
+  }
+}

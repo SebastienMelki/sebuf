@@ -8,21 +8,6 @@ import (
 	"testing"
 )
 
-// TestGoGeneratorsProduceIdenticalTimestampFormat verifies go-http and go-client
-// produce identical timestamp_format MarshalJSON code.
-func TestGoGeneratorsProduceIdenticalTimestampFormat(t *testing.T) {
-	baseDir, baseErr := os.Getwd()
-	if baseErr != nil {
-		t.Fatalf("Failed to get working directory: %v", baseErr)
-	}
-
-	compareEncodingFiles(t,
-		filepath.Join(baseDir, "testdata", "golden", "timestamp_format_timestamp_format.pb.go"),
-		filepath.Join(baseDir, "..", "clientgen", "testdata", "golden", "timestamp_format_timestamp_format.pb.go"),
-		"timestamp_format",
-	)
-}
-
 // TestTimestampFormatTypeScriptTypes verifies TypeScript types match Go serialization
 // for timestamp format fields.
 func TestTimestampFormatTypeScriptTypes(t *testing.T) {
@@ -196,7 +181,6 @@ func TestTimestampFormatCrossGeneratorAgreement(t *testing.T) {
 	// Verify all golden files exist for cross-generator coverage
 	goldenFiles := []string{
 		filepath.Join(baseDir, "testdata", "golden", "timestamp_format_timestamp_format.pb.go"),
-		filepath.Join(baseDir, "..", "clientgen", "testdata", "golden", "timestamp_format_timestamp_format.pb.go"),
 		filepath.Join(baseDir, "..", "tsclientgen", "testdata", "golden", "timestamp_format_client.ts"),
 		filepath.Join(
 			baseDir, "..", "openapiv3", "testdata", "golden", "yaml", "TimestampFormatService.openapi.yaml",
@@ -209,5 +193,5 @@ func TestTimestampFormatCrossGeneratorAgreement(t *testing.T) {
 		}
 	}
 
-	t.Log("All 4 generators agree on timestamp format types and formats")
+	t.Log("Go, TypeScript, and OpenAPI agree on timestamp format types and formats")
 }

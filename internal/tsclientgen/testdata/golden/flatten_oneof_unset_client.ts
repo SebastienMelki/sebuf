@@ -26,7 +26,7 @@ export class FlattenUnsetServiceClient {
   }
 
   async testFlattenUnset(req: FlattenUnset, options?: FlattenUnsetServiceCallOptions): Promise<FlattenUnset> {
-    let path = "/api/v1/flatten-unset";
+    const path = "/api/v1/flatten-unset";
     const url = this.baseURL + path;
 
     const headers: Record<string, string> = {

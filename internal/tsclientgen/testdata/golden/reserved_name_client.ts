@@ -26,7 +26,7 @@ export class ThingServiceClient {
   }
 
   async getThing(req: GetThingRequest, options?: ThingServiceCallOptions): Promise<ValidationError_1> {
-    let path = "/things";
+    const path = "/things";
     const url = this.baseURL + path;
 
     const headers: Record<string, string> = {
@@ -50,7 +50,7 @@ export class ThingServiceClient {
   }
 
   async listErrorCodes(req: GetThingRequest, options?: ThingServiceCallOptions): Promise<ApiError_1[]> {
-    let path = "/things/codes";
+    const path = "/things/codes";
     const url = this.baseURL + path;
 
     const headers: Record<string, string> = {
@@ -74,7 +74,7 @@ export class ThingServiceClient {
   }
 
   async getWrapper(req: GetThingRequest, options?: ThingServiceCallOptions): Promise<Wrapper> {
-    let path = "/wrapper";
+    const path = "/wrapper";
     const url = this.baseURL + path;
 
     const headers: Record<string, string> = {

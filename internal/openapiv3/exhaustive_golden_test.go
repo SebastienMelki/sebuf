@@ -595,6 +595,36 @@ func TestExhaustiveGoldenFiles(t *testing.T) {
 			goldenFile:  "testdata/golden/json/EmptyRequestBodyService.openapi.json",
 			format:      "json",
 		},
+		// wrapper_types.proto -> WrapperTypeService
+		{
+			name:        "wrapper_type_service_yaml",
+			protoFile:   "testdata/proto/wrapper_types.proto",
+			serviceName: "WrapperTypeService",
+			goldenFile:  "testdata/golden/yaml/WrapperTypeService.openapi.yaml",
+			format:      "yaml",
+		},
+		{
+			name:        "wrapper_type_service_json",
+			protoFile:   "testdata/proto/wrapper_types.proto",
+			serviceName: "WrapperTypeService",
+			goldenFile:  "testdata/golden/json/WrapperTypeService.openapi.json",
+			format:      "json",
+		},
+		// wrapper_types.proto -> WrapperSSEService
+		{
+			name:        "wrapper_sse_service_yaml",
+			protoFile:   "testdata/proto/wrapper_types.proto",
+			serviceName: "WrapperSSEService",
+			goldenFile:  "testdata/golden/yaml/WrapperSSEService.openapi.yaml",
+			format:      "yaml",
+		},
+		{
+			name:        "wrapper_sse_service_json",
+			protoFile:   "testdata/proto/wrapper_types.proto",
+			serviceName: "WrapperSSEService",
+			goldenFile:  "testdata/golden/json/WrapperSSEService.openapi.json",
+			format:      "json",
+		},
 	}
 
 	for _, tc := range testCases {
@@ -701,6 +731,7 @@ func TestExhaustiveRegression(t *testing.T) {
 		"testdata/proto/flatten.proto":                  {"FlattenService"},
 		"testdata/proto/oneof_discriminator.proto":      {"OneofDiscriminatorService"},
 		"testdata/proto/sse.proto":                      {"SSEService"},
+		"testdata/proto/wrapper_types.proto":            {"WrapperTypeService", "WrapperSSEService"},
 	}
 
 	formats := []string{"yaml", "json"}

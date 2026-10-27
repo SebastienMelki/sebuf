@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/SebastienMelki/sebuf/internal/tscommon"
 	"github.com/SebastienMelki/sebuf/internal/tscommon/plugintest"
 )
 
@@ -21,7 +22,7 @@ func TestGenerateEmitsEveryDeclarationFromMessageOnlyCrossFile(t *testing.T) {
 	protoDir, projectRoot := tsClientTestDirs(t)
 	plugin := buildInProcessPlugin(t, protoDir, projectRoot, allMessageFixture())
 
-	if err := New(plugin).Generate(); err != nil {
+	if err := New(plugin, tscommon.MessageRuntimeHandRolled, tscommon.ErrorHandlingThrow).Generate(); err != nil {
 		t.Fatalf("Generate() failed: %v", err)
 	}
 
@@ -43,7 +44,9 @@ func TestFieldNamesProtoCoversTypesPathAndQueryAccess(t *testing.T) {
 	protoDir, projectRoot := tsClientTestDirs(t)
 	plugin := buildInProcessPlugin(t, protoDir, projectRoot, allMessageFixture())
 
-	gen := NewWithOptions(plugin, Options{FieldNames: protoFieldNames})
+	gen := NewWithOptions(
+		plugin, tscommon.MessageRuntimeHandRolled, tscommon.ErrorHandlingThrow, Options{FieldNames: protoFieldNames},
+	)
 	if err := gen.Generate(); err != nil {
 		t.Fatalf("Generate() failed: %v", err)
 	}
@@ -73,11 +76,25 @@ func TestFieldNamesProtoCoversTypesPathAndQueryAccess(t *testing.T) {
 	}
 }
 
+func TestFieldNamesProtoRejectedWithProtobufESRuntime(t *testing.T) {
+	protoDir, projectRoot := tsClientTestDirs(t)
+	plugin := buildInProcessPlugin(t, protoDir, projectRoot, allMessageFixture())
+
+	err := NewWithOptions(
+		plugin, tscommon.MessageRuntimeES, tscommon.ErrorHandlingThrow, Options{FieldNames: protoFieldNames},
+	).Generate()
+	if err == nil || !strings.Contains(err.Error(), "field_names=proto is not supported") {
+		t.Fatalf("expected field_names=proto to be rejected with protobuf-es, got %v", err)
+	}
+}
+
 func TestFieldNamesRejectsUnknownValue(t *testing.T) {
 	protoDir, projectRoot := tsClientTestDirs(t)
 	plugin := buildInProcessPlugin(t, protoDir, projectRoot, allMessageFixture())
 
-	err := NewWithOptions(plugin, Options{FieldNames: "invalid"}).Generate()
+	err := NewWithOptions(
+		plugin, tscommon.MessageRuntimeHandRolled, tscommon.ErrorHandlingThrow, Options{FieldNames: "invalid"},
+	).Generate()
 	if err == nil || !strings.Contains(err.Error(), "field_names must be json or proto") {
 		t.Fatalf("Generate() error = %v, want field_names validation error", err)
 	}

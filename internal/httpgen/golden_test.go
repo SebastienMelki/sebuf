@@ -215,6 +215,28 @@ func TestHTTPGenGoldenFiles(t *testing.T) {
 			},
 		},
 		{
+			name:            "cross-file nested int64 encoding (issue #217)",
+			protoFile:       "int64_cross_file_response.proto",
+			extraProtoFiles: []string{"int64_cross_file_reading.proto"},
+			expectedFiles: []string{
+				"int64_cross_file_response_http.pb.go",
+				"int64_cross_file_response_http_binding.pb.go",
+				"int64_cross_file_response_http_config.pb.go",
+				"int64_cross_file_response_encoding.pb.go",
+				"int64_cross_file_reading_encoding.pb.go",
+			},
+		},
+		{
+			name:      "deep nested int64 encoding (issue #217 depth > 1)",
+			protoFile: "int64_deep_nested_encoding.proto",
+			expectedFiles: []string{
+				"int64_deep_nested_encoding_http.pb.go",
+				"int64_deep_nested_encoding_http_binding.pb.go",
+				"int64_deep_nested_encoding_http_config.pb.go",
+				"int64_deep_nested_encoding_encoding.pb.go",
+			},
+		},
+		{
 			name:      "SSE streaming",
 			protoFile: "sse.proto",
 			expectedFiles: []string{

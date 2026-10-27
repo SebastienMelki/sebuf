@@ -1,0 +1,31 @@
+syntax = "proto3";
+package invalid_repeated_scalar_path_param;
+option go_package = "github.com/SebastienMelki/sebuf/internal/urlparamtest/testdata/generated;generated";
+
+import "sebuf/http/annotations.proto";
+
+// A repeated scalar is a valid QUERY parameter (?ids=a&ids=b) but never a valid path
+// variable: a path variable matches exactly one URL segment. The kind check alone does
+// not catch this, because the kind is `string`.
+//
+// Accepting it makes the generated Go server panic at request time — bindPathParams
+// does reflectMsg.Set(field, scalarValue), and protoreflect rejects that on a list
+// field with "type mismatch: cannot convert string to list".
+message GetItemsRequest {
+  repeated string ids = 1;
+}
+
+message Items {
+  repeated string names = 1;
+}
+
+service ItemsService {
+  option (sebuf.http.service_config) = {base_path: "/api/v1"};
+
+  rpc GetItems(GetItemsRequest) returns (Items) {
+    option (sebuf.http.config) = {
+      path: "/items/{ids}"
+      method: HTTP_METHOD_GET
+    };
+  }
+}

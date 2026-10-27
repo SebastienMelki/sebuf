@@ -1,0 +1,27 @@
+syntax = "proto3";
+package invalid_map_query_param;
+option go_package = "github.com/SebastienMelki/sebuf/internal/urlparamtest/testdata/generated;generated";
+
+import "sebuf/http/annotations.proto";
+
+// Map fields report MessageKind (the synthetic map-entry type), so they are rejected
+// by the same predicate. The error names the type as "map" rather than leaking the
+// generated FooEntry message name.
+message SearchRequest {
+  map<string, string> filters = 1 [(sebuf.http.query) = {name: "filters"}];
+}
+
+message SearchResponse {
+  repeated string results = 1;
+}
+
+service SearchService {
+  option (sebuf.http.service_config) = {base_path: "/api/v1"};
+
+  rpc Search(SearchRequest) returns (SearchResponse) {
+    option (sebuf.http.config) = {
+      path: "/search"
+      method: HTTP_METHOD_GET
+    };
+  }
+}

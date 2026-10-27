@@ -5,6 +5,8 @@ import (
 	"testing"
 
 	"google.golang.org/protobuf/reflect/protoreflect"
+
+	"github.com/SebastienMelki/sebuf/internal/annotations"
 )
 
 func TestValidationError_Struct(t *testing.T) {
@@ -26,11 +28,10 @@ func TestValidationError_Struct(t *testing.T) {
 	}
 }
 
-// TestIsPathParamCompatibleByKind tests the isPathParamCompatible function using the kind directly.
-// Since we can't easily mock protogen.Field, we test the underlying logic by examining the switch statement.
+// TestIsPathParamCompatibleByKind tests the shared URL-parameter kind predicate that
+// path-variable validation delegates to. It calls annotations.IsURLParamKindCompatible
+// directly rather than mirroring its switch, so the test cannot drift from the code.
 func TestIsPathParamCompatibleByKind(t *testing.T) {
-	// This tests the type compatibility logic. The actual function requires a *protogen.Field,
-	// but we can verify the logic by checking what kinds should be compatible.
 	compatibleKinds := []protoreflect.Kind{
 		protoreflect.StringKind,
 		protoreflect.Int32Kind,
@@ -57,38 +58,17 @@ func TestIsPathParamCompatibleByKind(t *testing.T) {
 
 	// Test compatible kinds
 	for _, kind := range compatibleKinds {
-		expected := isKindPathParamCompatible(kind)
-		if !expected {
+		if !annotations.IsURLParamKindCompatible(kind) {
 			t.Errorf("Kind %v should be path param compatible", kind)
 		}
 	}
 
 	// Test incompatible kinds
 	for _, kind := range incompatibleKinds {
-		expected := isKindPathParamCompatible(kind)
-		if expected {
+		if annotations.IsURLParamKindCompatible(kind) {
 			t.Errorf("Kind %v should NOT be path param compatible", kind)
 		}
 	}
-}
-
-// isKindPathParamCompatible is a helper that mirrors the logic in isPathParamCompatible
-// but works directly with protoreflect.Kind for testability.
-func isKindPathParamCompatible(kind protoreflect.Kind) bool {
-	switch kind {
-	case protoreflect.StringKind,
-		protoreflect.Int32Kind, protoreflect.Sint32Kind, protoreflect.Sfixed32Kind,
-		protoreflect.Int64Kind, protoreflect.Sint64Kind, protoreflect.Sfixed64Kind,
-		protoreflect.Uint32Kind, protoreflect.Fixed32Kind,
-		protoreflect.Uint64Kind, protoreflect.Fixed64Kind,
-		protoreflect.BoolKind,
-		protoreflect.FloatKind, protoreflect.DoubleKind,
-		protoreflect.EnumKind:
-		return true
-	case protoreflect.BytesKind, protoreflect.MessageKind, protoreflect.GroupKind:
-		return false
-	}
-	return false
 }
 
 func TestGetBodyFields_Logic(t *testing.T) {
@@ -300,6 +280,6 @@ func BenchmarkIsKindPathParamCompatible(b *testing.B) {
 		protoreflect.BoolKind,
 	}
 	for i := range b.N {
-		isKindPathParamCompatible(kinds[i%len(kinds)])
+		annotations.IsURLParamKindCompatible(kinds[i%len(kinds)])
 	}
 }

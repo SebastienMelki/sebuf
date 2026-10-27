@@ -1,0 +1,31 @@
+syntax = "proto3";
+package invalid_repeated_message_query_param;
+option go_package = "github.com/SebastienMelki/sebuf/internal/urlparamtest/testdata/generated;generated";
+
+import "sebuf/http/annotations.proto";
+
+message UserClientID {
+  string value = 1;
+}
+
+// Repeated message query params are rejected too. The repeated-scalar support added
+// in #186 iterates and fmt.Sprint()s each element, which would emit a Go struct dump
+// per value; Kind() is still MessageKind, so the same check catches it.
+message BatchLookupRequest {
+  repeated UserClientID client_ids = 1 [(sebuf.http.query) = {name: "clientIds"}];
+}
+
+message BatchLookupResponse {
+  repeated string names = 1;
+}
+
+service LookupService {
+  option (sebuf.http.service_config) = {base_path: "/api/v1"};
+
+  rpc BatchLookup(BatchLookupRequest) returns (BatchLookupResponse) {
+    option (sebuf.http.config) = {
+      path: "/lookup"
+      method: HTTP_METHOD_GET
+    };
+  }
+}

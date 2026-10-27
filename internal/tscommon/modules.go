@@ -96,24 +96,35 @@ func validatePathMode(plugin *protogen.Plugin) error {
 // ValidationError, FieldViolation) is fine: the type module declares it
 // normally, and service modules import it under a deterministic alias because
 // ImportTracker pre-reserves the helper names.
-func EmitSharedModules(plugin *protogen.Plugin) ([]string, error) {
-	return EmitSharedModulesWithOptions(plugin, GenerateOptions{})
+//
+// In protobuf-es mode the message/enum modules are owned by protoc-gen-es
+// (<proto>_pb.ts); sebuf must not emit its hand-rolled type modules or they
+// would clash. The shared errors module is still sebuf's to emit — the
+// generated client imports ApiError/ValidationError from it.
+func EmitSharedModules(plugin *protogen.Plugin, runtime MessageRuntime) ([]string, error) {
+	return EmitSharedModulesWithOptions(plugin, runtime, GenerateOptions{})
 }
 
 // EmitSharedModulesWithOptions is EmitSharedModules with configurable
 // TypeScript declaration naming.
-func EmitSharedModulesWithOptions(plugin *protogen.Plugin, opts GenerateOptions) ([]string, error) {
+func EmitSharedModulesWithOptions(
+	plugin *protogen.Plugin,
+	runtime MessageRuntime,
+	opts GenerateOptions,
+) ([]string, error) {
 	if err := validatePathMode(plugin); err != nil {
 		return nil, err
 	}
 	global := CollectAllServiceMessages(plugin)
 
-	msgsBySrc := global.MessagesBySourceFile()
-	enumsBySrc := global.EnumsBySourceFile()
 	var emitted []string
-	for _, src := range sortedSourceFiles(msgsBySrc, enumsBySrc) {
-		if name := emitTypeModule(plugin, src, msgsBySrc[src], enumsBySrc[src], opts); name != "" {
-			emitted = append(emitted, name)
+	if runtime != MessageRuntimeES {
+		msgsBySrc := global.MessagesBySourceFile()
+		enumsBySrc := global.EnumsBySourceFile()
+		for _, src := range sortedSourceFiles(msgsBySrc, enumsBySrc) {
+			if name := emitTypeModule(plugin, src, msgsBySrc[src], enumsBySrc[src], runtime, opts); name != "" {
+				emitted = append(emitted, name)
+			}
 		}
 	}
 	emitErrorsModule(plugin)
@@ -187,6 +198,7 @@ func emitTypeModule(
 	srcPath string,
 	msgs []*protogen.Message,
 	enums []*protogen.Enum,
+	runtime MessageRuntime,
 	opts GenerateOptions,
 ) string {
 	if len(msgs) == 0 && len(enums) == 0 {
@@ -198,6 +210,7 @@ func emitTypeModule(
 	ctx := &EmitContext{
 		SelfModule:         module,
 		Imports:            tracker,
+		MessageRuntime:     runtime,
 		UseProtoFieldNames: opts.UseProtoFieldNames,
 	}
 

@@ -1,0 +1,67 @@
+syntax = "proto3";
+package valid_scalar_url_params;
+option go_package = "github.com/SebastienMelki/sebuf/internal/urlparamtest/testdata/generated;generated";
+
+import "sebuf/http/annotations.proto";
+
+// Positive control for the URL-parameter kind check: every kind that IS allowed,
+// including the documented workaround for the typed-ID pattern (a plain string
+// field that keeps its uuid constraint). If the rejection ever over-matches, this
+// fixture starts failing across all six generators.
+enum Region {
+  REGION_UNSPECIFIED = 0;
+  REGION_US = 1;
+  REGION_EU = 2;
+}
+
+message ListRestrictionsRequest {
+  // The issue #216 workaround for the typed-ID pattern: a plain scalar field. In
+  // real protos this also carries (buf.validate.field).string.uuid = true, which is
+  // orthogonal to URL-parameter binding and omitted here so the fixture needs no
+  // protovalidate import.
+  string client_id = 1 [(sebuf.http.query) = {
+    name: "clientId"
+    required: true
+  }];
+
+  string tenant = 2 [(sebuf.http.query) = {name: "tenant"}];
+  int32 page_size = 3 [(sebuf.http.query) = {name: "pageSize"}];
+  int64 cursor = 4 [(sebuf.http.query) = {name: "cursor"}];
+  uint64 revision = 5 [(sebuf.http.query) = {name: "revision"}];
+  bool include_archived = 6 [(sebuf.http.query) = {name: "includeArchived"}];
+  double threshold = 7 [(sebuf.http.query) = {name: "threshold"}];
+  Region region = 8 [(sebuf.http.query) = {name: "region"}];
+  repeated string tags = 9 [(sebuf.http.query) = {name: "tags"}];
+  repeated Region regions = 10 [(sebuf.http.query) = {name: "regions"}];
+}
+
+message ListRestrictionsResponse {
+  repeated string restrictions = 1;
+}
+
+message GetRestrictionRequest {
+  // Scalar path variable stays valid.
+  string restriction_id = 1;
+}
+
+message Restriction {
+  string id = 1;
+}
+
+service RestrictionService {
+  option (sebuf.http.service_config) = {base_path: "/api/v1"};
+
+  rpc ListRestrictions(ListRestrictionsRequest) returns (ListRestrictionsResponse) {
+    option (sebuf.http.config) = {
+      path: "/restrictions"
+      method: HTTP_METHOD_GET
+    };
+  }
+
+  rpc GetRestriction(GetRestrictionRequest) returns (Restriction) {
+    option (sebuf.http.config) = {
+      path: "/restrictions/{restriction_id}"
+      method: HTTP_METHOD_GET
+    };
+  }
+}

@@ -1,0 +1,75 @@
+// Test proto for issue #217: nesting deeper than one level, within a single file.
+// Before the fix, wrapper messages were never fed back into the qualifying set, so given
+// Outer -> Middle -> Leaf(int64 NUMBER) only Middle got a transitive marshaler and Outer
+// silently bypassed it.
+syntax = "proto3";
+
+package testdata.int64deepnested;
+
+option go_package = "github.com/SebastienMelki/sebuf/internal/httpgen/testdata/int64deepnested;int64deepnested";
+
+import "sebuf/http/annotations.proto";
+
+// Depth 3: the only NUMBER-encoded field in the chain.
+message Leaf {
+  int64 value = 1 [(sebuf.http.int64_encoding) = INT64_ENCODING_NUMBER];
+}
+
+// Depth 2: reaches Leaf directly.
+message Middle {
+  Leaf leaf = 1;
+  string label = 2;
+}
+
+// Depth 1: reaches Leaf only through Middle.
+message Outer {
+  Middle middle = 1;
+}
+
+// Repeated variant at depth 1, to cover the list branch of the emitter.
+message OuterList {
+  repeated Middle middles = 1;
+}
+
+// Self-referential message: exercises the visited-set cycle guard in
+// messageTransitivelyHasInt64Number. Without it, generation would recurse forever.
+message Node {
+  Node child = 1;
+  int64 id = 2 [(sebuf.http.int64_encoding) = INT64_ENCODING_NUMBER];
+}
+
+// Reaches Node (and therefore an int64 NUMBER field) through a cyclic type.
+message NodeHolder {
+  Node root = 1;
+}
+
+message DeepRequest {
+  string id = 1;
+}
+
+service DeepNestedService {
+  option (sebuf.http.service_config) = {
+    base_path: "/api/v1"
+  };
+
+  rpc GetOuter(DeepRequest) returns (Outer) {
+    option (sebuf.http.config) = {
+      path: "/outer"
+      method: HTTP_METHOD_POST
+    };
+  }
+
+  rpc GetOuterList(DeepRequest) returns (OuterList) {
+    option (sebuf.http.config) = {
+      path: "/outer-list"
+      method: HTTP_METHOD_POST
+    };
+  }
+
+  rpc GetNode(DeepRequest) returns (NodeHolder) {
+    option (sebuf.http.config) = {
+      path: "/node"
+      method: HTTP_METHOD_POST
+    };
+  }
+}

@@ -8,29 +8,6 @@ import (
 	"testing"
 )
 
-// encodingFileSpec maps a golden encoding file to the messages it should contain.
-type encodingFileSpec struct {
-	file     string
-	msgNames []string
-}
-
-// allEncodingFiles returns the spec for all annotated message encoding golden files.
-func allEncodingFiles() []encodingFileSpec {
-	return []encodingFileSpec{
-		{"int64_encoding_encoding.pb.go", []string{"Int64EncodingTest"}},
-		{
-			"int64_nested_encoding_encoding.pb.go",
-			[]string{"SensorReading", "GetSensorReadingResponse", "GetMultiSensorResponse"},
-		},
-		{"nullable_nullable.pb.go", []string{"User"}},
-		{"timestamp_format_timestamp_format.pb.go", []string{"TimestampFormatTest"}},
-		{"bytes_encoding_bytes_encoding.pb.go", []string{"BytesEncodingTest"}},
-		{"empty_behavior_empty_behavior.pb.go", []string{"Response"}},
-		{"flatten_flatten.pb.go", []string{"SimpleFlatten", "DualFlatten", "MixedFlatten"}},
-		{"oneof_discriminator_oneof_discriminator.pb.go", []string{"FlattenedEvent", "NestedEvent"}},
-	}
-}
-
 func readGolden(t *testing.T, name string) string {
 	t.Helper()
 	content, err := os.ReadFile(filepath.Join("testdata", "golden", name))
@@ -38,42 +15,6 @@ func readGolden(t *testing.T, name string) string {
 		t.Fatalf("Failed to read %s: %v", name, err)
 	}
 	return string(content)
-}
-
-// TestK36_AnnotatedMessagesHaveUnmarshalJSONSebuf verifies every annotated message
-// gets the UnmarshalJSONSebuf method.
-func TestK36_AnnotatedMessagesHaveUnmarshalJSONSebuf(t *testing.T) {
-	for _, ef := range allEncodingFiles() {
-		s := readGolden(t, ef.file)
-		for _, msg := range ef.msgNames {
-			pattern := "func (x *" + msg +
-				") UnmarshalJSONSebuf(data []byte, opts protojson.UnmarshalOptions) error {"
-			if !strings.Contains(s, pattern) {
-				t.Errorf("%s: missing UnmarshalJSONSebuf for %s", ef.file, msg)
-			}
-		}
-	}
-}
-
-// TestK37_UnmarshalJSONDelegatesToSebuf verifies every annotated message's UnmarshalJSON
-// is a thin wrapper that delegates to UnmarshalJSONSebuf.
-func TestK37_UnmarshalJSONDelegatesToSebuf(t *testing.T) {
-	for _, ef := range allEncodingFiles() {
-		s := readGolden(t, ef.file)
-		for _, msg := range ef.msgNames {
-			pattern := "return x.UnmarshalJSONSebuf(data, protojson.UnmarshalOptions{})"
-			wrapperSig := "func (x *" + msg + ") UnmarshalJSON(data []byte) error {"
-			if !strings.Contains(s, wrapperSig) {
-				t.Errorf("%s: missing UnmarshalJSON wrapper for %s", ef.file, msg)
-			}
-			if !strings.Contains(s, pattern) {
-				t.Errorf(
-					"%s: UnmarshalJSON doesn't delegate to UnmarshalJSONSebuf for %s",
-					ef.file, msg,
-				)
-			}
-		}
-	}
 }
 
 // TestSebufUnmarshalerInterfaceDefined verifies the interface is present in all client files.
@@ -236,52 +177,6 @@ func TestSSEEventStreamDiscardSupport(t *testing.T) {
 	}
 }
 
-// TestOptsForwardingToChildren verifies wrapper, flatten, and oneof generators
-// forward opts to nested children.
-func TestOptsForwardingToChildren(t *testing.T) {
-	files := []struct {
-		file string
-		name string
-	}{
-		{"int64_nested_encoding_encoding.pb.go", "wrapper"},
-		{"flatten_flatten.pb.go", "flatten"},
-		{"oneof_discriminator_oneof_discriminator.pb.go", "oneof_discriminator"},
-	}
-
-	for _, f := range files {
-		s := readGolden(t, f.file)
-		pattern := "UnmarshalJSONSebuf([]byte, protojson.UnmarshalOptions) error"
-		if !strings.Contains(s, pattern) {
-			t.Errorf("%s not checking child for UnmarshalJSONSebuf", f.name)
-		}
-	}
-}
-
-// TestI32_UnmarshalJSONStillPresent verifies backward compat with json.Unmarshaler.
-func TestI32_UnmarshalJSONStillPresent(t *testing.T) {
-	encodingFiles := []encodingFileSpec{
-		{"int64_encoding_encoding.pb.go", []string{"Int64EncodingTest"}},
-		{"nullable_nullable.pb.go", []string{"User"}},
-		{"timestamp_format_timestamp_format.pb.go", []string{"TimestampFormatTest"}},
-		{"bytes_encoding_bytes_encoding.pb.go", []string{"BytesEncodingTest"}},
-		{"flatten_flatten.pb.go", []string{"SimpleFlatten", "DualFlatten", "MixedFlatten"}},
-		{"oneof_discriminator_oneof_discriminator.pb.go", []string{"FlattenedEvent", "NestedEvent"}},
-	}
-
-	for _, ef := range encodingFiles {
-		s := readGolden(t, ef.file)
-		for _, msg := range ef.msgNames {
-			wrapperSig := "func (x *" + msg + ") UnmarshalJSON(data []byte) error {"
-			if !strings.Contains(s, wrapperSig) {
-				t.Errorf(
-					"%s: %s missing UnmarshalJSON (json.Unmarshaler compat)",
-					ef.file, msg,
-				)
-			}
-		}
-	}
-}
-
 // TestRepeatedQueryParamsUseAddNotSet verifies that repeated fields (including
 // repeated enums) use for-range + queryParams.Add() instead of scalar zero-value
 // checks + queryParams.Set(). Regression test for #186.
@@ -337,18 +232,6 @@ func TestRepeatedQueryParamsUseAddNotSet(t *testing.T) {
 		if !strings.Contains(s, sc.zeroCheck) {
 			t.Errorf("scalar field %s: missing zero-value check %q", sc.fieldName, sc.zeroCheck)
 		}
-	}
-}
-
-// TestEnumTypesNoUnmarshalJSONSebuf verifies enums don't get the new interface.
-func TestEnumTypesNoUnmarshalJSONSebuf(t *testing.T) {
-	s := readGolden(t, "enum_encoding_enum_encoding.pb.go")
-
-	if strings.Contains(s, "UnmarshalJSONSebuf") {
-		t.Error("enum encoding should NOT have UnmarshalJSONSebuf")
-	}
-	if !strings.Contains(s, "func (x *Status) UnmarshalJSON(data []byte) error {") {
-		t.Error("enum encoding missing UnmarshalJSON")
 	}
 }
 
