@@ -82,7 +82,11 @@ func TestWirePresenceContract(t *testing.T) {
 		t.Fatalf("copy generated file: %v", copyErr)
 	}
 	writeRuntimeProject(t, runDir, "newtonsoft")
-	if writeErr := os.WriteFile(filepath.Join(runDir, "Program.cs"), []byte(wirePresenceProgram), 0o644); writeErr != nil {
+	if writeErr := os.WriteFile(
+		filepath.Join(runDir, "Program.cs"),
+		[]byte(wirePresenceProgram),
+		0o644,
+	); writeErr != nil {
 		t.Fatalf("write C# program: %v", writeErr)
 	}
 
