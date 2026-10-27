@@ -26,7 +26,7 @@ export class SSEServiceClient {
   }
 
   async getStatus(_req: GetStatusRequest, options?: SSEServiceCallOptions): Promise<StatusResponse> {
-    let path = "/api/v1/status";
+    const path = "/api/v1/status";
     const url = this.baseURL + path;
 
     const headers: Record<string, string> = {
@@ -49,7 +49,7 @@ export class SSEServiceClient {
   }
 
   async *streamEvents(_req: StreamEventsRequest, options?: SSEServiceCallOptions): AsyncGenerator<Event> {
-    let path = "/api/v1/events";
+    const path = "/api/v1/events";
     const url = this.baseURL + path;
 
     const headers: Record<string, string> = {
@@ -136,7 +136,7 @@ export class SSEServiceClient {
   }
 
   async *streamFilteredEvents(req: StreamFilteredEventsRequest, options?: SSEServiceCallOptions): AsyncGenerator<Event> {
-    let path = "/api/v1/events/filtered";
+    const path = "/api/v1/events/filtered";
     const params = new URLSearchParams();
     if (req.eventType != null && req.eventType !== "") params.set("type", String(req.eventType));
     if (req.limit != null && req.limit !== 0) params.set("limit", String(req.limit));

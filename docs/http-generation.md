@@ -357,7 +357,62 @@ Query and path parameters support the following scalar types:
 | `float`, `double` | `?min_score=3.5` | |
 | `enum` | `?region=REGION_AMERICAS` or `?region=1` | Accepts proto enum name (case-sensitive) or numeric value |
 
-Repeated fields are supported for query parameters (`?tags=a&tags=b`).
+Repeated fields are supported for **query parameters only** (`?tags=a&tags=b`). A path
+variable matches exactly one URL segment, so a `repeated` field bound to one is rejected
+at generation time:
+
+```protobuf
+// ❌ Rejected: a path variable cannot be repeated
+message GetItemsRequest {
+  repeated string ids = 1;   // bound to "/items/{ids}"
+}
+
+// ✅ Use a query parameter instead
+message GetItemsRequest {
+  repeated string ids = 1 [(sebuf.http.query) = {name: "ids"}];   // ?ids=a&ids=b
+}
+```
+
+### Unsupported Parameter Types
+
+`message`, `group`, `bytes`, and `map` fields **cannot** be bound to a query or path
+parameter — there is no canonical URL encoding for them. (Path parameters additionally
+reject `repeated` fields, as above.) All six generators reject these at generation time
+with an error naming the field and its type:
+
+```
+AuthorizationService.ListClientRestrictions: field 'client_id' on message
+'ListClientRestrictionsRequest' is annotated with (sebuf.http.query) as parameter
+'clientId', but has unsupported type 'message (core.v1.UserClientID)'. Query
+parameters must be scalar types (...) or repeated scalars. Replace it with a scalar
+field, or move it into the request body by using POST/PUT/PATCH.
+```
+
+This most often shows up with the **typed-ID pattern** — a wrapper message whose only
+field is a scalar:
+
+```protobuf
+// ❌ Rejected: UserClientID is a message
+message ListClientRestrictionsRequest {
+  core.v1.UserClientID client_id = 1 [(sebuf.http.query) = {name: "clientId"}];
+}
+```
+
+Use a scalar field instead. Validation is preserved, and the wrapper type can still be
+used everywhere else in your schema:
+
+```protobuf
+// ✅ Accepted
+message ListClientRestrictionsRequest {
+  string client_id = 1 [
+    (buf.validate.field).string.uuid = true,
+    (sebuf.http.query) = {name: "clientId", required: true}
+  ];
+}
+```
+
+If the field genuinely needs to be a message, move it into the request body by
+switching the method to `POST`/`PUT`/`PATCH`.
 
 ### Enum Parameters
 
@@ -368,6 +423,13 @@ Enum fields work as both query and path parameters. They accept:
 - **Empty string**: treated as unset (field keeps its zero value)
 
 Invalid enum names return a 400 validation error mentioning the enum type.
+
+> **Known limitation ([#219](https://github.com/SebastienMelki/sebuf/issues/219))**: the
+> `(sebuf.http.enum_value)` custom string is applied to JSON bodies but **not** to query or
+> path parameters. The Go client and server use the proto enum name (`REGION_AMERICAS`)
+> there, while the TypeScript client sends the custom string (`americas`) — which the Go
+> server currently rejects. Until that is resolved, avoid `enum_value` on enums used as
+> URL parameters if you need cross-language clients, or send the numeric value.
 
 ```protobuf
 enum Region {

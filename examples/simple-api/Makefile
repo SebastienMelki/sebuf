@@ -36,6 +36,7 @@ run: generate
 
 # Clean generated files
 clean:
+	@rm -rf api docs
 	@rm -f *.pb.go
 	@rm -f *_helpers.pb.go
 	@rm -f *_http*.pb.go

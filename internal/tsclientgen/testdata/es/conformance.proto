@@ -1,0 +1,86 @@
+// Dedicated wire-conformance fixture for the protobuf-es TS client.
+//
+// This message deliberately mixes scalar, bool, int64, repeated and map fields
+// so the conformance check can OMIT every zero-valued field from the canonical
+// JSON (mimicking the Go server's default protojson output) and then prove
+// that protobuf-es MATERIALIZES those defaults after fromJson:
+//   - scalars  -> "" / 0
+//   - bool     -> false
+//   - int64    -> 0n (bigint)
+//   - lists    -> []
+//   - maps     -> {}
+//
+// It also pins the three cases where es-mode's representation diverges most
+// from hand-rolled mode, so a protobuf-es upgrade cannot silently change them:
+//   - 64-bit ints cross the wire as JSON STRINGS and decode to bigint, so
+//     int64/uint64 max survive exactly (a number would not);
+//   - a present-but-partially-populated nested message materializes its own
+//     omitted fields;
+//   - populated maps round-trip (including message-valued maps).
+//
+// It is intentionally standalone: no service, no sebuf/http imports, so
+// protoc-gen-es emits a clean _pb module that only depends on
+// @bufbuild/protobuf. Generate the JS the conformance test imports with:
+//
+//   protoc \
+//     --plugin=protoc-gen-es=.scratch/es-spike/node_modules/.bin/protoc-gen-es \
+//     --es_out=internal/tsclientgen/testdata/es \
+//     --es_opt=target=js,import_extension=js \
+//     --proto_path=internal/tsclientgen/testdata/es \
+//     conformance.proto
+syntax = "proto3";
+
+package test.conformance;
+
+message Tag {
+  string name = 1;
+}
+
+// Detail exercises a nested message whose fields are MIXED in the canonical
+// fixture: `label` carries a value while `note` and `weight` sit at their zero
+// values and are therefore omitted. A nested message that is present but only
+// partially populated is the common real-world server shape, and it must
+// materialize its own omitted fields just like the top-level message does.
+message Detail {
+  string label = 1;
+  string note = 2;
+  int32 weight = 3;
+}
+
+// ConformanceResponse mirrors a typical Go server response. Fields 1-8 are left
+// at their zero value in the canonical fixture and therefore OMITTED by
+// protojson, except `id` which carries a real value to prove normal fields
+// round-trip. Fields 9-13 extend the proof past the zero-value case into the
+// three areas where es-mode's representation differs most from hand-rolled:
+// 64-bit precision, partially-populated nested messages, and maps.
+message ConformanceResponse {
+  string id = 1;
+  string name = 2;
+  int32 count = 3;
+  bool active = 4;
+  double ratio = 5;
+  int64 total = 6;
+  repeated string labels = 7;
+  repeated Tag tags = 8;
+
+  // 64-bit precision boundary. protojson encodes 64-bit integers as JSON
+  // STRINGS and protobuf-es decodes them into bigint, so values beyond the
+  // 2^53 double-precision limit survive EXACTLY. These carry int64/uint64 max,
+  // which cannot round-trip through a JavaScript number — this is the whole
+  // reason es-mode types 64-bit fields as bigint instead of number.
+  int64 big_total = 9;
+  uint64 big_unsigned = 10;
+
+  // Present-but-partially-populated nested message (see Detail).
+  Detail detail = 11;
+
+  // Maps. protojson omits an empty map entirely and emits a populated one as a
+  // JSON object; protobuf-es must materialize the omitted case as {} and
+  // round-trip the populated case, including a message-valued map.
+  map<string, string> attributes = 12;
+  map<string, Tag> tag_by_key = 13;
+
+  // Empty maps, to prove the omitted-map case materializes as {} rather than
+  // undefined — the map analogue of the empty-list assertion on `labels`.
+  map<string, string> empty_attributes = 14;
+}

@@ -8,21 +8,6 @@ import (
 	"testing"
 )
 
-// TestGoGeneratorsProduceIdenticalBytesEncoding verifies go-http and go-client
-// produce identical bytes_encoding MarshalJSON code.
-func TestGoGeneratorsProduceIdenticalBytesEncoding(t *testing.T) {
-	baseDir, baseErr := os.Getwd()
-	if baseErr != nil {
-		t.Fatalf("Failed to get working directory: %v", baseErr)
-	}
-
-	compareEncodingFiles(t,
-		filepath.Join(baseDir, "testdata", "golden", "bytes_encoding_bytes_encoding.pb.go"),
-		filepath.Join(baseDir, "..", "clientgen", "testdata", "golden", "bytes_encoding_bytes_encoding.pb.go"),
-		"bytes_encoding",
-	)
-}
-
 // TestBytesEncodingTypeScriptTypes verifies all bytes encoding variants produce
 // string type in TypeScript (bytes are always strings regardless of encoding).
 func TestBytesEncodingTypeScriptTypes(t *testing.T) {
@@ -243,7 +228,6 @@ func TestBytesEncodingCrossGeneratorAgreement(t *testing.T) {
 	// Verify all golden files exist for cross-generator coverage
 	goldenFiles := []string{
 		filepath.Join(baseDir, "testdata", "golden", "bytes_encoding_bytes_encoding.pb.go"),
-		filepath.Join(baseDir, "..", "clientgen", "testdata", "golden", "bytes_encoding_bytes_encoding.pb.go"),
 		filepath.Join(baseDir, "..", "tsclientgen", "testdata", "golden", "bytes_encoding_client.ts"),
 		filepath.Join(
 			baseDir, "..", "openapiv3", "testdata", "golden", "yaml", "BytesEncodingService.openapi.yaml",
@@ -256,5 +240,5 @@ func TestBytesEncodingCrossGeneratorAgreement(t *testing.T) {
 		}
 	}
 
-	t.Log("All 4 generators agree on bytes encoding types and formats")
+	t.Log("Go, TypeScript, and OpenAPI agree on bytes encoding types and formats")
 }

@@ -71,7 +71,7 @@ func main() {
 | Plugin | Primary Function | Output | Dependencies |
 |--------|-----------------|---------|--------------|
 | `protoc-gen-go-http` | Generate HTTP handlers, routing & validation | `*_http*.pb.go` | `protoc-gen-go`, sebuf annotations |
-| `protoc-gen-go-client` | Generate type-safe Go HTTP clients | `*_client.pb.go` | `protoc-gen-go`, sebuf annotations |
+| `protoc-gen-go-client` | Generate type-safe Go HTTP clients | `*_client.pb.go` | `protoc-gen-go`, sebuf annotations; uses `go-http`-owned JSON mapping methods when generated alongside server code |
 | `protoc-gen-ts-client` | Generate type-safe TypeScript HTTP clients | `*_client.ts` | sebuf annotations |
 | `protoc-gen-ts-server` | Generate framework-agnostic TypeScript HTTP servers | `*_server.ts` | sebuf annotations |
 | `protoc-gen-openapiv3` | Generate OpenAPI specifications | `*.yaml`, `*.json` | None (standalone) |

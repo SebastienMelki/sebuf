@@ -17,6 +17,7 @@ install:
 	@go install github.com/bufbuild/buf/cmd/buf@latest
 	@go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
 	@GOPROXY=direct go install github.com/SebastienMelki/sebuf/cmd/protoc-gen-go-http@latest
+	@GOPROXY=direct go install github.com/SebastienMelki/sebuf/cmd/protoc-gen-go-client@latest
 	@GOPROXY=direct go install github.com/SebastienMelki/sebuf/cmd/protoc-gen-openapiv3@latest
 	@echo "Tools installed"
 

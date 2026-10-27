@@ -109,6 +109,14 @@ func createPlugin(req *pluginpb.CodeGeneratorRequest) *protogen.Plugin {
 }
 
 func generateOpenAPIFiles(plugin *protogen.Plugin, format openapiv3.OutputFormat, bundle bundleConfig) {
+	// Reject path/query params whose types cannot be represented in a URL before
+	// emitting anything, so an invalid proto fails cleanly instead of documenting a
+	// contract no generator implements.
+	if err := openapiv3.ValidateFiles(plugin); err != nil {
+		plugin.Error(err)
+		return
+	}
+
 	// Per-service output (default behaviour; suppressed when bundle_only=true).
 	if !bundle.enabled || !bundle.onlyBundle {
 		for _, file := range plugin.Files {

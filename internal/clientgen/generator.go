@@ -38,63 +38,28 @@ func (g *Generator) Generate() error {
 }
 
 func (g *Generator) generateFile(file *protogen.File) error {
+	// Reject path/query params whose types cannot be represented in a URL.
+	// See internal/annotations/url_params.go.
+	if err := annotations.ValidateFileURLParams(file); err != nil {
+		return err
+	}
+
 	// Validate enum annotations first - fail fast if conflicting annotations exist
 	if err := g.validateEnumAnnotationsInFile(file); err != nil {
 		return fmt.Errorf("enum annotation validation failed: %w", err)
 	}
 
-	// Generate nullable encoding file if there are messages with nullable fields
-	if err := g.generateNullableEncodingFile(file); err != nil {
-		return err
-	}
-
-	// Generate empty_behavior encoding file if there are messages with empty_behavior fields
-	if err := g.generateEmptyBehaviorEncodingFile(file); err != nil {
-		return err
-	}
-
-	// Generate timestamp_format encoding file if there are messages with timestamp format annotations
-	if err := g.generateTimestampFormatEncodingFile(file); err != nil {
-		return err
-	}
-
-	// Generate bytes_encoding file if there are messages with non-default bytes encoding
-	if err := g.generateBytesEncodingFile(file); err != nil {
-		return err
-	}
-
-	// Generate flatten file if there are messages with flatten annotations
-	if err := g.generateFlattenFile(file); err != nil {
-		return err
-	}
-
-	// Generate oneof_discriminator file if there are messages with oneof_config annotations
-	if err := g.generateOneofDiscriminatorFile(file); err != nil {
-		return err
-	}
-
+	// Package-level JSON mapping methods are owned by protoc-gen-go-http.
+	// protoc-gen-go-client intentionally does not emit them: when both Go plugins target
+	// the same package, duplicate MarshalJSON/UnmarshalJSON methods and duplicate files
+	// break generation/compilation. The generated client still uses those methods when
+	// they are present from go-http, and otherwise falls back to protojson.
 	if len(file.Services) == 0 {
 		return nil
 	}
 
 	// Generate client file
 	if err := g.generateClientFile(file); err != nil {
-		return err
-	}
-
-	// Generate encoding file if there are messages with int64_encoding=NUMBER annotations
-	if err := g.generateInt64EncodingFile(file); err != nil {
-		return err
-	}
-
-	// Generate enum encoding file if there are enums with custom enum_value annotations
-	if err := g.generateEnumEncodingFile(file); err != nil {
-		return err
-	}
-
-	// Generate enum-field encoding file so the client sends/receives custom enum_value strings
-	// (protojson emits raw proto value names). Depends on the lookup maps emitted above.
-	if err := g.generateEnumFieldEncodingFile(file); err != nil {
 		return err
 	}
 

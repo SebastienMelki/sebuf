@@ -3,6 +3,7 @@ package tsservergen
 import (
 	"google.golang.org/protobuf/compiler/protogen"
 
+	"github.com/SebastienMelki/sebuf/internal/annotations"
 	"github.com/SebastienMelki/sebuf/internal/tscommon"
 )
 
@@ -11,7 +12,19 @@ import (
 // its request/response types and the error helpers, then a per-package barrel
 // (index.ts) re-exporting each package directory's modules.
 func (g *Generator) generateModules() error {
-	moduleFiles, err := tscommon.EmitSharedModules(g.plugin)
+	// Reject path/query params whose types cannot be represented in a URL before
+	// emitting anything, so an invalid proto fails cleanly instead of writing
+	// partial output. See internal/annotations/url_params.go.
+	for _, file := range g.plugin.Files {
+		if !file.Generate {
+			continue
+		}
+		if err := annotations.ValidateFileURLParams(file); err != nil {
+			return err
+		}
+	}
+
+	moduleFiles, err := tscommon.EmitSharedModules(g.plugin, g.runtime)
 	if err != nil {
 		return err
 	}
@@ -37,7 +50,7 @@ func (g *Generator) emitServerModule(file *protogen.File) (string, error) {
 	module := file.GeneratedFilenamePrefix + "_server"
 	gf := g.plugin.NewGeneratedFile(module+".ts", "")
 	tracker := tscommon.NewImportTracker()
-	g.ctx = &tscommon.EmitContext{SelfModule: module, Imports: tracker}
+	g.ctx = &tscommon.EmitContext{SelfModule: module, Imports: tracker, MessageRuntime: g.runtime}
 	defer func() { g.ctx = nil }()
 
 	var body []string
@@ -52,7 +65,9 @@ func (g *Generator) emitServerModule(file *protogen.File) (string, error) {
 			return "", err
 		}
 	}
-	// Import only the error helpers actually referenced in the body.
+	// Import only the error helpers actually referenced in the body. The
+	// protobuf-es runtime symbols need no scan: es-mode emission sites record
+	// them via NeedProtobufES as they print.
 	g.ctx.NeedErrors(tscommon.UsedErrorSymbols(body)...)
 
 	dp := tscommon.DirectPrinter(gf)

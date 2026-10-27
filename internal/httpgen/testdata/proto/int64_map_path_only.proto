@@ -1,0 +1,35 @@
+// Regression fixture for the map-reachability review finding on issue #217.
+//
+// Child reaches an int64 NUMBER field ONLY through a map value. The emitters cannot
+// re-serialize a map field, so Child never gets a marshaler -- which means Parent must not be
+// marked an int64 wrapper either: its wrapper could only fall back to protojson, and the useless
+// marshaler would collide with the flatten annotation Parent legitimately carries.
+//
+// Generation must succeed and emit no wrapper for Parent or Child.
+syntax = "proto3";
+
+package testdata.int64mappathonly;
+
+option go_package = "github.com/SebastienMelki/sebuf/internal/httpgen/testdata/int64mappathonly;int64mappathonly";
+
+import "sebuf/http/annotations.proto";
+
+message Leaf {
+  int64 value = 1 [(sebuf.http.int64_encoding) = INT64_ENCODING_NUMBER];
+}
+
+message Address {
+  string street = 1;
+}
+
+// Reaches Leaf only via a map value.
+message Child {
+  map<string, Leaf> leaves = 1;
+}
+
+// Reaches Leaf only through Child's map. Also carries flatten, which owns MarshalJSON --
+// marking Parent as an int64 wrapper would be both useless and a false conflict.
+message Parent {
+  Child child = 1;
+  Address address = 2 [(sebuf.http.flatten) = true];
+}

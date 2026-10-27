@@ -1,0 +1,35 @@
+syntax = "proto3";
+package invalid_message_query_param;
+option go_package = "github.com/SebastienMelki/sebuf/internal/urlparamtest/testdata/generated;generated";
+
+import "sebuf/http/annotations.proto";
+
+// UserClientID is the "typed ID" wrapper pattern from issue #216: a message whose
+// only field is a scalar. It has no canonical URL representation, so binding it to
+// a query parameter must be rejected at generation time rather than producing
+// non-compiling Go, a corrupted Python/TypeScript value, or a runtime 400.
+message UserClientID {
+  string value = 1;
+}
+
+message ListClientRestrictionsRequest {
+  UserClientID client_id = 1 [(sebuf.http.query) = {
+    name: "clientId"
+    required: true
+  }];
+}
+
+message ListClientRestrictionsResponse {
+  repeated string restrictions = 1;
+}
+
+service AuthorizationService {
+  option (sebuf.http.service_config) = {base_path: "/api/v1"};
+
+  rpc ListClientRestrictions(ListClientRestrictionsRequest) returns (ListClientRestrictionsResponse) {
+    option (sebuf.http.config) = {
+      path: "/clients/restrictions"
+      method: HTTP_METHOD_GET
+    };
+  }
+}

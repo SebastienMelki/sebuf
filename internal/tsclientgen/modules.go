@@ -3,6 +3,7 @@ package tsclientgen
 import (
 	"google.golang.org/protobuf/compiler/protogen"
 
+	"github.com/SebastienMelki/sebuf/internal/annotations"
 	"github.com/SebastienMelki/sebuf/internal/tscommon"
 )
 
@@ -11,15 +12,42 @@ import (
 // its request/response types and the error helpers, then a per-package barrel
 // (index.ts) re-exporting each package directory's modules.
 func (g *Generator) generateModules() error {
-	moduleFiles, err := tscommon.EmitSharedModules(g.plugin)
+	// Reject path/query params whose types cannot be represented in a URL before
+	// emitting anything, so an invalid proto fails cleanly instead of writing
+	// partial output. See internal/annotations/url_params.go.
+	for _, file := range g.plugin.Files {
+		if !file.Generate {
+			continue
+		}
+		if err := annotations.ValidateFileURLParams(file); err != nil {
+			return err
+		}
+	}
+
+	moduleFiles, err := tscommon.EmitSharedModules(g.plugin, g.runtime)
 	if err != nil {
 		return err
+	}
+	// In protobuf-es mode the standalone RPC functions share a base RequestOptions
+	// interface; emit the shared client.ts once.
+	if g.runtime == tscommon.MessageRuntimeES {
+		tscommon.EmitClientModule(g.plugin)
+	}
+	// In protobuf-es + Result mode the client returns a typed Result union and
+	// never throws; emit the shared result.ts (Result type, ClientError union,
+	// decodeError) that the client modules import.
+	if g.runtime == tscommon.MessageRuntimeES && g.errorHandling == tscommon.ErrorHandlingResult {
+		tscommon.EmitResultModule(g.plugin)
 	}
 	for _, file := range g.plugin.Files {
 		if !file.Generate || len(file.Services) == 0 {
 			continue
 		}
-		moduleFiles = append(moduleFiles, g.emitClientModule(file))
+		name, emitErr := g.emitClientModule(file)
+		if emitErr != nil {
+			return emitErr
+		}
+		moduleFiles = append(moduleFiles, name)
 	}
 	tscommon.EmitPackageBarrels(g.plugin, moduleFiles)
 	return nil
@@ -29,19 +57,28 @@ func (g *Generator) generateModules() error {
 // request/response types from their canonical modules and the shared error
 // helpers. It returns the output-relative filename it emitted (ending in
 // ".ts"), so the caller can fold it into the per-package barrel.
-func (g *Generator) emitClientModule(file *protogen.File) string {
+func (g *Generator) emitClientModule(file *protogen.File) (string, error) {
 	module := file.GeneratedFilenamePrefix + "_client"
 	gf := g.plugin.NewGeneratedFile(module+".ts", "")
 	tracker := tscommon.NewImportTracker()
-	g.ctx = &tscommon.EmitContext{SelfModule: module, Imports: tracker}
+	g.ctx = &tscommon.EmitContext{
+		SelfModule:     module,
+		Imports:        tracker,
+		MessageRuntime: g.runtime,
+		ErrorHandling:  g.errorHandling,
+	}
 	defer func() { g.ctx = nil }()
 
 	var body []string
 	bp := printer(tscommon.BufferedPrinter(&body))
 	for _, service := range file.Services {
-		_ = g.generateServiceClient(bp, service)
+		if err := g.generateServiceClient(bp, service); err != nil {
+			return "", err
+		}
 	}
-	// Import only the error helpers actually referenced in the body.
+	// Import only the error helpers actually referenced in the body. The
+	// protobuf-es runtime symbols need no scan: es-mode emission sites record
+	// them via NeedProtobufES as they print.
 	g.ctx.NeedErrors(tscommon.UsedErrorSymbols(body)...)
 
 	dp := tscommon.DirectPrinter(gf)
@@ -52,5 +89,5 @@ func (g *Generator) emitClientModule(file *protogen.File) string {
 	for _, line := range body {
 		gf.P(line)
 	}
-	return module + ".ts"
+	return module + ".ts", nil
 }

@@ -1,0 +1,44 @@
+// Test proto for issue #217: responses whose nested message type is imported from another
+// file. Both the singular and the repeated case are reported in the issue.
+syntax = "proto3";
+
+package testdata.int64crossfile;
+
+option go_package = "github.com/SebastienMelki/sebuf/internal/httpgen/testdata/int64crossfile;int64crossfile";
+
+import "sebuf/http/annotations.proto";
+import "int64_cross_file_reading.proto";
+
+// Singular nested field whose type is declared in int64_cross_file_reading.proto.
+message GetSensorReadingResponse {
+  SensorReading reading = 1;
+}
+
+// Repeated nested field whose type is declared in int64_cross_file_reading.proto.
+message GetSensorReadingsResponse {
+  repeated SensorReading readings = 1;
+}
+
+message GetSensorRequest {
+  string sensor_id = 1;
+}
+
+service CrossFileSensorService {
+  option (sebuf.http.service_config) = {
+    base_path: "/api/v1"
+  };
+
+  rpc GetSensorReading(GetSensorRequest) returns (GetSensorReadingResponse) {
+    option (sebuf.http.config) = {
+      path: "/sensors/{sensor_id}"
+      method: HTTP_METHOD_GET
+    };
+  }
+
+  rpc GetSensorReadings(GetSensorRequest) returns (GetSensorReadingsResponse) {
+    option (sebuf.http.config) = {
+      path: "/sensors/{sensor_id}/readings"
+      method: HTTP_METHOD_GET
+    };
+  }
+}

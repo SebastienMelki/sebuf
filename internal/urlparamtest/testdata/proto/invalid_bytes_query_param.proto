@@ -1,0 +1,30 @@
+syntax = "proto3";
+package invalid_bytes_query_param;
+option go_package = "github.com/SebastienMelki/sebuf/internal/urlparamtest/testdata/generated;generated";
+
+import "sebuf/http/annotations.proto";
+
+// bytes has no canonical URL encoding either: the Go server's
+// convertStringToFieldValue hits the same "unsupported field type" default branch as
+// message kinds, and the Go client would fmt.Sprint a []byte into "[1 2 3]".
+message GetDocumentRequest {
+  bytes checksum = 1 [(sebuf.http.query) = {
+    name: "checksum"
+    required: true
+  }];
+}
+
+message Document {
+  string id = 1;
+}
+
+service DocumentService {
+  option (sebuf.http.service_config) = {base_path: "/api/v1"};
+
+  rpc GetDocument(GetDocumentRequest) returns (Document) {
+    option (sebuf.http.config) = {
+      path: "/documents"
+      method: HTTP_METHOD_GET
+    };
+  }
+}
