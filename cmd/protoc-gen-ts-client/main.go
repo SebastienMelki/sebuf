@@ -11,6 +11,7 @@ import (
 )
 
 func main() {
+	var fieldNames string
 	options := protogen.Options{}
 	// protogen.Options.New errors on any parameter it doesn't recognize unless a
 	// ParamFunc is registered. paths/module are handled internally and never
@@ -26,6 +27,10 @@ func main() {
 			if value != "throw" && value != "result" {
 				return fmt.Errorf("invalid ts_error_handling %q (want throw or result)", value)
 			}
+		case "field_names":
+			// Validated by the generator ("json" or "proto"), so the error message is
+			// the same whether the generator is driven by the plugin or in-process.
+			fieldNames = value
 		default:
 			return fmt.Errorf("unknown parameter %q", name)
 		}
@@ -40,7 +45,7 @@ func main() {
 		if err := tscommon.ValidateRuntimeOptions(runtime, errorHandling); err != nil {
 			return err
 		}
-		gen := tsclientgen.New(plugin, runtime, errorHandling)
+		gen := tsclientgen.NewWithOptions(plugin, runtime, errorHandling, tsclientgen.Options{FieldNames: fieldNames})
 		return gen.Generate()
 	})
 }

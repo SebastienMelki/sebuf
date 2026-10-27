@@ -1,0 +1,70 @@
+syntax = "proto3";
+
+package testdata.wirepresence;
+
+option go_package = "github.com/SebastienMelki/sebuf/internal/testdata/wirepresence;wirepresence";
+
+import "sebuf/http/annotations.proto";
+
+// An enum whose JSON is a bare name (not the proto value name): FILE_KIND_JPEG
+// is "JPEG" on the wire.
+enum FileKind {
+  FILE_KIND_UNSPECIFIED = 0;
+  FILE_KIND_JPEG = 1 [(sebuf.http.enum_value) = "JPEG"];
+  FILE_KIND_PNG = 2 [(sebuf.http.enum_value) = "PNG"];
+  FILE_KIND_MP4 = 3 [(sebuf.http.enum_value) = "MP4"];
+}
+
+message PresenceInner {
+  string city = 1;
+  optional string state = 2;
+}
+
+// PresenceProbe covers the four presence shapes of a hand-built wire contract:
+// an unset message field, an unset optional scalar, an explicit JSON null and
+// an empty repeated field, plus an enum with enum_value as a field, a repeated
+// field and an optional field.
+message PresenceProbe {
+  string name = 1;
+  optional string note = 2;
+  optional int32 quality = 3;
+  optional double ratio = 4;
+  optional bool flag = 5;
+  PresenceInner location = 6;
+  optional PresenceInner extra = 7;
+  repeated string tags = 8;
+  repeated PresenceInner places = 9;
+  FileKind kind = 10;
+  repeated FileKind kinds = 11;
+  optional FileKind optional_kind = 12;
+  // An explicit JSON null when unset (sebuf.http.nullable), against the plain
+  // optional fields above, which are absent when unset.
+  optional string nullable_note = 13 [(sebuf.http.nullable) = true];
+  optional int32 nullable_quality = 14 [(sebuf.http.nullable) = true];
+  // An empty message serialized as null (empty_behavior).
+  PresenceInner null_when_empty = 15 [(sebuf.http.empty_behavior) = EMPTY_BEHAVIOR_NULL];
+}
+
+message PresenceRequest {
+  string id = 1;
+}
+
+service PresenceService {
+  option (sebuf.http.service_config) = {
+    base_path: "/api/v1"
+  };
+
+  rpc GetProbe(PresenceRequest) returns (PresenceProbe) {
+    option (sebuf.http.config) = {
+      path: "/probe/{id}"
+      method: HTTP_METHOD_GET
+    };
+  }
+
+  rpc PutProbe(PresenceProbe) returns (PresenceProbe) {
+    option (sebuf.http.config) = {
+      path: "/probe"
+      method: HTTP_METHOD_POST
+    };
+  }
+}

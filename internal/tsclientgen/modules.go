@@ -24,7 +24,9 @@ func (g *Generator) generateModules() error {
 		}
 	}
 
-	moduleFiles, err := tscommon.EmitSharedModules(g.plugin, g.runtime)
+	moduleFiles, err := tscommon.EmitSharedModulesWithOptions(g.plugin, g.runtime, tscommon.GenerateOptions{
+		UseProtoFieldNames: g.useProtoFieldNames(),
+	})
 	if err != nil {
 		return err
 	}
@@ -62,10 +64,11 @@ func (g *Generator) emitClientModule(file *protogen.File) (string, error) {
 	gf := g.plugin.NewGeneratedFile(module+".ts", "")
 	tracker := tscommon.NewImportTracker()
 	g.ctx = &tscommon.EmitContext{
-		SelfModule:     module,
-		Imports:        tracker,
-		MessageRuntime: g.runtime,
-		ErrorHandling:  g.errorHandling,
+		SelfModule:         module,
+		Imports:            tracker,
+		MessageRuntime:     g.runtime,
+		ErrorHandling:      g.errorHandling,
+		UseProtoFieldNames: g.useProtoFieldNames(),
 	}
 	defer func() { g.ctx = nil }()
 

@@ -297,6 +297,9 @@ type EmitContext struct {
 	// ErrorHandling selects how client methods surface failures. The zero value
 	// (ErrorHandlingThrow) preserves the historical throwing behavior.
 	ErrorHandling ErrorHandling
+	// UseProtoFieldNames writes each field under its proto field name instead of
+	// its lowerCamelCase json_name.
+	UseProtoFieldNames bool
 }
 
 func (c *EmitContext) modules() bool {

@@ -1,0 +1,30 @@
+syntax = "proto3";
+
+package allmessages.v1;
+
+option go_package = "github.com/SebastienMelki/sebuf/internal/tsclientgen/testdata/allmessages/v1;allmessagesv1";
+
+message Item {
+  string display_name = 1;
+}
+
+// This message is intentionally not reachable from a service method.
+message UnusedState {
+  string owner_id = 1;
+  Details details = 2;
+
+  // This nested declaration is intentionally not referenced by a field.
+  message Orphan {
+    string status_text = 1;
+  }
+
+  message Details {
+    string summary_text = 1;
+  }
+}
+
+// This enum is intentionally not reachable from a service method or field.
+enum UnusedKind {
+  UNUSED_KIND_UNSPECIFIED = 0;
+  UNUSED_KIND_ACTIVE = 1;
+}
