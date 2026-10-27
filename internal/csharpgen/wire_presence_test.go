@@ -86,7 +86,15 @@ func TestWirePresenceContract(t *testing.T) {
 		t.Fatalf("write C# program: %v", writeErr)
 	}
 
-	build := exec.Command("dotnet", "build", "Runtime.csproj", "--nologo", "--verbosity", "minimal", "--ignore-failed-sources")
+	build := exec.Command(
+		"dotnet",
+		"build",
+		"Runtime.csproj",
+		"--nologo",
+		"--verbosity",
+		"minimal",
+		"--ignore-failed-sources",
+	)
 	build.Dir = runDir
 	if output, buildErr := build.CombinedOutput(); buildErr != nil {
 		t.Fatalf("generated wire presence project does not compile: %v\n%s", buildErr, output)
